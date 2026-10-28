@@ -41,6 +41,29 @@ unchanged; an updated pin does not establish a replay of the old environment.
 
 Dependency updates are normal reviewed PRs. Pinning an action does not make it trusted for secrets; this workflow intentionally has none. Repository-level permissions and required checks must be configured by the repository owner before depending on CI for enforcement.
 
+### Shared PII privacy check
+
+The separate `PII privacy check` workflow reuses
+[`lost-in-the/.github`'s scanner](https://github.com/lost-in-the/.github/pull/9)
+at its reviewed immutable revision. The typed registry distinguishes this
+reusable workflow from JavaScript actions and records its transitive checkout
+pin. Existing action full-SHA/Node 24 assertions remain unchanged.
+
+Only this metadata scanner receives `PII_PATTERNS`; product builds, installed
+workers and release-candidate preparation receive none of that configuration.
+The shared shell reads Git changes/messages/paths as data and executes no
+submitted product code. It prints redacted findings and refuses missing, empty
+or invalid patterns. There is no `secrets: inherit` or privileged target event.
+The caller follows the organization's ordinary pull-request/push contract;
+fork and Dependabot secret restrictions can make it fail closed. Do not bypass
+that result or treat it as an independent protected qualification verdict.
+
+The original repository-specific pattern value must be supplied through private
+configuration, never source history. A local generic PII/secret audit does not
+establish that this separate configured check passed. Public visibility still
+requires the owner's alpha notice and the authorized content/access scope;
+source availability does not grant a product license or qualify a release.
+
 ## Independent required check
 
 The authoritative controller and policy belong outside the candidate's writable checkout. The proposed `thistle-eval` workspace provides an executable starting point, but sibling directories are not a security boundary. In protected infrastructure, the controller:
