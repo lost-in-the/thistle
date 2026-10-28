@@ -5,7 +5,7 @@ require_relative "native"
 module Thistle
   class Store
     def initialize(path)
-      @path = File.expand_path(path.to_s)
+      @path = Native.path(path)
     end
 
     def publish(capture)

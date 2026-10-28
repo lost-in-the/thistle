@@ -8,6 +8,20 @@ pub const MAX_SOURCE: usize = 4 * 1024 * 1024;
 pub const MAX_FACTS_BYTES: usize = 64 * 1024 * 1024;
 pub const MAX_MANIFEST: usize = 8 * 1024 * 1024;
 pub const MAX_REQUEST: usize = 128 * 1024 * 1024;
+pub const MAX_DEPTH: usize = 64;
+
+pub fn depth(value: &Value) -> Result<()> {
+    let mut pending = vec![(value, 0usize)];
+    while let Some((value, level)) = pending.pop() {
+        if level > MAX_DEPTH { return Err(CoreError::limit("JSON structure exceeds 64 nested levels")); }
+        match value {
+            Value::Array(values) => pending.extend(values.iter().map(|v| (v, level + 1))),
+            Value::Object(values) => pending.extend(values.values().map(|v| (v, level + 1))),
+            _ => {},
+        }
+    }
+    Ok(())
+}
 
 pub fn digest(bytes: &[u8]) -> String { format!("{:x}", Sha256::digest(bytes)) }
 pub fn canonical(value: &Value) -> Result<Vec<u8>> { Ok(serde_json::to_vec(value)?) }
@@ -119,6 +133,7 @@ pub fn coverage(value: &Value) -> Result<()> {
 }
 
 pub fn capture(value: &Value) -> Result<()> {
+    depth(value)?;
     hash(string(value, "root_id")?)?;
     if !value["producer"].is_object() { return Err(CoreError::input("producer must be an object")); }
     files(array(value, "files")?, true)?;

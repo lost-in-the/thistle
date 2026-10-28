@@ -119,6 +119,10 @@ impl Reader {
         let directory = root.child("generations", false)?.child(&generation, false)?;
         let manifest_bytes = directory.read("manifest.json", schema::MAX_MANIFEST)?;
         let mut manifest: Value = serde_json::from_slice(&manifest_bytes).map_err(|_| CoreError::snapshot("Invalid manifest JSON"))?;
+        schema::depth(&manifest)?;
+        if !manifest["producer"].is_object() || !manifest["diagnostics"].is_array() {
+            return Err(CoreError::snapshot("Manifest producer or diagnostics has an invalid shape"));
+        }
         if manifest["schema_version"].as_u64() != Some(schema::VERSION) {
             return Err(CoreError::snapshot("Unsupported snapshot schema"));
         }
@@ -135,6 +139,7 @@ impl Reader {
             return Err(CoreError::snapshot("Fact content verification failed"));
         }
         let facts: Vec<Value> = serde_json::from_slice(&facts_bytes).map_err(|_| CoreError::snapshot("Invalid facts JSON"))?;
+        for fact in &facts { schema::depth(fact)?; }
         schema::facts(&facts, files)?;
         if manifest["facts"]["count"].as_u64() != Some(facts.len() as u64) { return Err(CoreError::snapshot("Fact count mismatch")); }
         let by_id = facts.iter().enumerate().map(|(index, value)| (value["id"].as_str().unwrap().to_string(), index)).collect();

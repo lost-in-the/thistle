@@ -23,6 +23,12 @@ fn reader(request: &Value) -> Result<Arc<store::Reader>> {
 }
 
 pub fn dispatch(request: &Value) -> Result<Value> {
+    for field in ["root", "path"] {
+        if let Some(value) = request.get(field) {
+            let value = value.as_str().ok_or_else(|| CoreError::input("Filesystem path must be a string"))?;
+            if value.is_empty() || value.contains('\0') { return Err(CoreError::input("Filesystem path must be nonempty and contain no NUL")); }
+        }
+    }
     let current_pid = std::process::id();
     let initialized = PROCESS.compare_exchange(0, current_pid, Ordering::SeqCst, Ordering::SeqCst).unwrap_or_else(|value| value);
     if initialized != 0 && initialized != current_pid {
@@ -76,6 +82,7 @@ fn envelope(bytes: &[u8]) -> Value {
     let outcome = std::panic::catch_unwind(|| -> Result<Value> {
         if bytes.len() > schema::MAX_REQUEST { return Err(CoreError::limit("Native request exceeds 128 MiB")); }
         let request: Value = serde_json::from_slice(bytes)?;
+        schema::depth(&request)?;
         dispatch(&request)
     });
     match outcome {

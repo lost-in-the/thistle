@@ -55,6 +55,15 @@ class ThistleCoreTest < Minitest::Test
     assert_raises(Thistle::NotFound) { reader(generation: "f" * 64) }
   end
 
+  def test_missing_paths_do_not_default_to_the_working_directory
+    assert_raises(Thistle::InvalidInput) { Thistle.capture(root: @root, output: "") }
+    assert_raises(Thistle::InvalidInput) { Thistle.capture(root: nil, output: @store) }
+    assert_raises(Thistle::InvalidInput) { Thistle::Store.new(nil) }
+    assert_raises(Thistle::InvalidInput) { Thistle::Reader.new("") }
+    assert_raises(Thistle::InvalidInput) { Thistle::Native.call("op" => "publish", "path" => "", "capture" => {}) }
+    refute File.exist?(@store)
+  end
+
   def test_failed_capture_does_not_publish_and_stale_is_not_claimed_current
     first = publish
     assert_raises(Thistle::LimitExceeded) { Thistle.capture(root: @root, output: @store, limits: { max_file_bytes: 1 }) }

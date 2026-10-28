@@ -10,11 +10,12 @@ module Thistle
   autoload :Capture, File.expand_path("thistle/capture", __dir__)
 
   def self.capture(root:, output:, rails: nil, limits: {})
+    root = Native.path(root)
+    output = Native.path(output)
     if rails
       Store.new(output).publish(Capture.new(root: root, rails: rails, limits: limits).call)
     else
-      Native.call("op" => "capture_publish", "root" => File.expand_path(root.to_s),
-                  "path" => File.expand_path(output.to_s), "limits" => limits)
+      Native.call("op" => "capture_publish", "root" => root, "path" => output, "limits" => limits)
     end
   end
 end
