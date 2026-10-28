@@ -383,7 +383,7 @@ mod tests {
         let weight = Reader::open(temp.path(), None).unwrap().weight;
         assert_eq!(publish_with_reader_budget(temp.path(), &data, weight).unwrap(), first);
         let mut next = data;
-        next["facts"][0]["name"] = json!("İTEM");
+        next["facts"][0]["name"] = json!("İTEX");
         assert_eq!(publish_with_reader_budget(temp.path(), &next, weight - 1).unwrap_err().code, "limit_exceeded");
         assert_eq!(Reader::open(temp.path(), None).unwrap().generation, first["generation"].as_str().unwrap());
     }
