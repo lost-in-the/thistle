@@ -59,6 +59,16 @@ thistle links FACT_ID --store ./my-app/.thistle
 thistle check --store ./my-app/.thistle
 ```
 
+For larger source trees, opt in to a higher traversal budget with
+`thistle capture ./my-app --output ./my-app/.thistle --max-nodes 3000000` or
+`Thistle.capture(root: path, output: store, limits: { max_nodes: 3_000_000 })`.
+The default is 1,000,000 visited nodes and the provisional ceiling is 5,000,000;
+other limits retain their defaults and ceilings. This counts nodes visited by
+extraction after Prism parses each file, not all parser nodes. It is not a parser
+stack or process-memory limit. A limit refusal publishes no new generation.
+New captures record effective limits and visited nodes in their producer metadata;
+older captures do not acquire this metadata retroactively.
+
 Commands return JSON. Errors return structured JSON on stderr and a nonzero exit.
 `thistle help` describes the stable literal action names. Every query identifies
 its generation; pass `--generation ID` to revisit the same captured evidence.

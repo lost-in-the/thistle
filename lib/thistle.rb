@@ -15,7 +15,7 @@ module Thistle
     if rails
       Store.new(output).publish(Capture.new(root: root, rails: rails, limits: limits).call)
     else
-      Native.call("op" => "capture_publish", "root" => root, "path" => output, "limits" => limits)
+      Native.call("op" => "capture_publish", "root" => root, "path" => output, "limits" => Capture.copy_limits(limits))
     end
   end
 end

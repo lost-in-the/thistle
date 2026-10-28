@@ -48,7 +48,7 @@ pub fn dispatch(request: &Value) -> Result<Value> {
                 Some(value) => Some(value.as_str().ok_or_else(|| CoreError::input("Generation must be a string"))?) };
             let reader = Arc::new(store::Reader::open(Path::new(schema::string(request, "path")?), requested)?);
             let mut registry = registry().lock().map_err(|_| CoreError::new("internal_error", "Reader registry is unavailable"))?;
-            if registry.readers.len() >= 32 || registry.bytes.saturating_add(reader.weight) > 128 * 1024 * 1024 {
+            if registry.readers.len() >= 32 || registry.bytes.saturating_add(reader.weight) > store::READER_BUDGET {
                 return Err(CoreError::limit("Open readers exceed the handle or encoded-data budget; close unused readers"));
             }
             let handle = registry.next;
