@@ -17,8 +17,11 @@ CORE_FILES = (
     "rust-toolchain.toml", ".cargo/config.toml", "Gemfile", "Rakefile",
 )
 MAP_FILES = ("map/thistle-map.gemspec", "map/lib/thistle/map.rb")
-PACKAGE_FILES = ("README.md", "LICENSE", "THIRD_PARTY.md")
+PACKAGE_FILES = ("README.md", "LICENSE", "THIRD_PARTY.md", "CHANGELOG.md")
+MAP_PACKAGE_FILES = ("map/README.md", "map/CHANGELOG.md", "map/LICENSE.txt", "map/LICENSE.woods-map.txt")
 CORE_ROOTS = ("engine/", "lib/", "ext/", "exe/", "test/", ".cargo/")
+POLICY_PATH = ".github/ci-policy.json"
+PATCH_VERSION = re.compile(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)")
 
 
 def git(root, *args):
@@ -64,13 +67,77 @@ def doc_only(path):
     # A script or fixture under docs is still executable/input work.
     return suffix in (".md", ".rst", ".txt") and (
         "/" not in path or path.startswith(("docs/", "map/docs/"))
+        or path in MAP_PACKAGE_FILES
+        or (PurePosixPath(path).parent in (PurePosixPath("changelog"), PurePosixPath("map/changelog")) and suffix == ".md")
     )
 
 
 def planning_only(path):
-    return path in (".github/PULL_REQUEST_TEMPLATE.md", ".github/pull_request_template.md") or (
+    return path in (
+        ".github/PULL_REQUEST_TEMPLATE.md", ".github/pull_request_template.md",
+        "towncrier.toml", ".github/requirements-notes.txt",
+        ".github/scripts/check-notes.py", "tests/automation/test_notes.py",
+    ) or (
         path.startswith(".github/ISSUE_TEMPLATE/") and PurePosixPath(path).suffix in (".yml", ".yaml")
     )
+
+
+def load_policy(path):
+    policy = json.loads(path.read_text())
+    if (not isinstance(policy, dict) or set(policy) != {"schema", "primary", "minimum"}
+            or type(policy["schema"]) is not int or policy["schema"] != 1):
+        raise ValueError("Unsupported CI cohort policy")
+    for name in ("primary", "minimum"):
+        row = policy[name]
+        if not isinstance(row, dict) or set(row) != {"ruby", "rails"}:
+            raise ValueError("Each CI cohort must declare exactly Ruby and Rails")
+        if not isinstance(row["ruby"], str) or not PATCH_VERSION.fullmatch(row["ruby"]):
+            raise ValueError("CI Ruby must be an exact stable patch version")
+        if (not isinstance(row["rails"], str) or not row["rails"].startswith("= ")
+                or not PATCH_VERSION.fullmatch(row["rails"][2:])):
+            raise ValueError("CI Rails must be an exact stable patch requirement")
+    if tuple(map(int, policy["minimum"]["ruby"].split("."))) >= tuple(map(int, policy["primary"]["ruby"].split("."))):
+        raise ValueError("CI minimum Ruby must be below the primary Ruby")
+    return policy
+
+
+def needs_minimum(paths):
+    for path in paths:
+        if doc_only(path) or planning_only(path):
+            continue
+        # Ordinary engine internals are Ruby-independent. lib.rs owns the C ABI;
+        # bridge, dependency, workflow, policy and unknown paths exercise the floor.
+        if path.startswith("engine/src/") and path.endswith(".rs") and path != "engine/src/lib.rs":
+            continue
+        return True
+    return False
+
+
+def cohort_matrix(policy, roles, package_primary=False):
+    return {"include": [
+        {"cohort": name, **policy[name], "package": package_primary and name == "primary"}
+        for name in roles
+    ]}
+
+
+def selected_cohorts(paths, event_name, lane):
+    if lane == "compatibility":
+        return ["minimum"] if event_name == "push" else ["primary", "minimum"]
+    if event_name == "push":
+        return ["primary"]  # Main gets its floor check from Compatibility.
+    if event_name in ("workflow_dispatch", "schedule") or needs_minimum(paths):
+        return ["primary", "minimum"]
+    return ["primary"]
+
+
+def emit_outputs(result, names):
+    if os.environ.get("GITHUB_OUTPUT"):
+        with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+            for name in names:
+                value = result[name]
+                if isinstance(value, (dict, list, bool)):
+                    value = json.dumps(value, separators=(",", ":"))
+                output.write(f"{name}={value}\n")
 
 
 def classify(paths, present, base_present=False, force=False, base_map_present=False):
@@ -91,8 +158,10 @@ def classify(paths, present, base_present=False, force=False, base_map_present=F
         raise ValueError("Map deletion cannot turn its product lane into a skipped check")
     if have_core and not set(PACKAGE_FILES) <= present:
         raise ValueError("Required source-gem package metadata is missing")
+    if have_map and not set(MAP_PACKAGE_FILES) <= present:
+        raise ValueError("Required Map package metadata is missing")
     product_paths = tuple(CORE_ROOTS) + ("map/", "Gemfile", "Rakefile", "thistle.gemspec", "rust-toolchain.toml")
-    if not have_core and any(p.startswith(product_paths) for p in paths):
+    if not have_core and any(p.startswith(product_paths) and not doc_only(p) and not planning_only(p) for p in paths):
         raise ValueError("Product paths changed but the source tree is absent")
     core = have_core and force
     map_check = have_map and force
@@ -147,6 +216,7 @@ def write_json(path, value):
 
 def plan(args):
     root = args.source.resolve()
+    policy = load_policy(root / POLICY_PATH)
     event = json.loads(args.event.read_text())
     event_name = os.environ.get("GITHUB_EVENT_NAME", args.event_name or "")
     base = event_base(root, event_name, event)
@@ -157,19 +227,30 @@ def plan(args):
         paths = parse_changed_paths(git(root, "diff", "--name-status", "-z", "--find-renames", base, head))
     else:
         paths = git(root, "ls-files", "-z").decode("utf-8", "surrogateescape").rstrip("\0").split("\0")
-    present = {name for name in CORE_FILES + MAP_FILES + PACKAGE_FILES if (root / name).is_file()}
+    present = {name for name in CORE_FILES + MAP_FILES + PACKAGE_FILES + MAP_PACKAGE_FILES if (root / name).is_file()}
     # Checking ALL markers in the base catches complete source-tree removal.
     base_present = bool(base and any(exists_at(root, base, name) for name in CORE_FILES))
     base_map_present = bool(base and any(exists_at(root, base, name) for name in MAP_FILES))
     full = args.full or event_name in ("workflow_dispatch", "schedule", "merge_group", "push")
     result = classify(paths, present, base_present, force=full, base_map_present=base_map_present)
-    result.update({"source_sha": head, "base_sha": base, "event": event_name})
+    roles = selected_cohorts(paths, event_name, args.lane)
+    result.update({
+        "source_sha": head, "base_sha": base, "event": event_name,
+        "cohort_policy_sha256": sha256(root / POLICY_PATH),
+        "primary": policy["primary"],
+        "matrix": cohort_matrix(policy, roles, package_primary=args.lane == "ci"),
+        "minimum_required": "minimum" in roles,
+    })
     write_json(args.output, result)
-    if os.environ.get("GITHUB_OUTPUT"):
-        with open(os.environ["GITHUB_OUTPUT"], "a") as output:
-            for name in ("mode", "source_sha", "core", "map", "product"):
-                value = result[name]
-                output.write(f"{name}={str(value).lower() if isinstance(value, bool) else value}\n")
+    emit_outputs(result, ("mode", "source_sha", "core", "map", "product", "matrix", "minimum_required"))
+    print(json.dumps(result, indent=2))
+
+
+def release_policy(args):
+    # Read from the workflow driver checkout, never from the candidate artifact.
+    policy = load_policy(args.source.resolve() / POLICY_PATH)
+    result = {"primary": policy["primary"], "matrix": cohort_matrix(policy, ["primary", "minimum"])}
+    emit_outputs(result, ("primary", "matrix"))
     print(json.dumps(result, indent=2))
 
 
@@ -183,6 +264,16 @@ def required_results(needs):
     mode = outputs.get("mode")
     if selected not in ("true", "false") or mode not in ("bootstrap", "source"):
         errors.append("Planner outputs missing or invalid")
+    try:
+        rows = json.loads(outputs.get("matrix", ""))["include"]
+        minimum = outputs.get("minimum_required")
+        expected = ["primary", "minimum"] if minimum == "true" else ["primary"]
+        if minimum not in ("true", "false") or [row["cohort"] for row in rows] != expected:
+            raise ValueError("Invalid selected cohorts")
+        if any(row["package"] is not (row["cohort"] == "primary") for row in rows):
+            raise ValueError("Only primary may build candidate packages")
+    except (ValueError, KeyError, TypeError):
+        errors.append("Planner cohort matrix missing or invalid")
     if selected == "true" and needs.get("product", {}).get("result") != "success":
         errors.append("Selected product lane must succeed; skipped/cancelled is not a pass")
     if selected == "false" and needs.get("product", {}).get("result") not in ("skipped", "success"):
@@ -199,6 +290,7 @@ def required(args):
     product = needs.get("plan", {}).get("outputs", {}).get("product", "unknown")
     summary = (
         f"## CI result\n\nMode: **{mode}**. Product lane selected: **{product}**.\n\n"
+        "Every selected product cohort must succeed. Matrix failures, skips and cancellation are not a pass.\n\n"
         "This check reports candidate-owned development feedback. "
         "Bootstrap/metadata success is not native-product, installed-artifact, "
         "independent-evaluator, benchmark, or release qualification.\n"
@@ -355,8 +447,12 @@ def main():
     p.add_argument("--event", type=Path, default=Path(os.environ.get("GITHUB_EVENT_PATH", "event.json")))
     p.add_argument("--event-name")
     p.add_argument("--full", action="store_true")
+    p.add_argument("--lane", choices=("ci", "compatibility"), default="ci")
     p.add_argument("--output", type=Path, default=Path("ci-plan.json"))
     p.set_defaults(function=plan)
+    p = commands.add_parser("release-policy")
+    p.add_argument("--source", type=Path, default=Path("."))
+    p.set_defaults(function=release_policy)
     p = commands.add_parser("required")
     p.set_defaults(function=required)
     p = commands.add_parser("manifest")

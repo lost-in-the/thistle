@@ -19,11 +19,35 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  policy:
+    name: Select reviewed support cohorts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      primary: ${{ steps.policy.outputs.primary }}
+      matrix: ${{ steps.policy.outputs.matrix }}
+    steps:
+      - name: Require an exact source identity
+        env:
+          EXPECTED_SHA: ${{ inputs.candidate_sha }}
+        run: '[[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]'
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+      - id: policy
+        # The workflow driver's reviewed policy selects required install cohorts.
+        # A candidate package or source checkout cannot omit the minimum cohort.
+        run: python3 .github/scripts/pipeline.py release-policy
+
   prepare:
     name: Prepare exact candidate
+    needs: policy
     uses: ./.github/workflows/product-checks.yml
     with:
       candidate_sha: ${{ inputs.candidate_sha }}
+      ruby: ${{ fromJSON(needs.policy.outputs.primary).ruby }}
+      rails: ${{ fromJSON(needs.policy.outputs.primary).rails }}
       run_core: true
       run_map: true
       package: true
@@ -32,19 +56,12 @@ jobs:
 
   installed:
     name: Installed candidate Ruby ${{ matrix.ruby }}
-    needs: prepare
+    needs: [policy, prepare]
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - ruby: '3.0'
-            rails: '~> 6.1.7'
-          - ruby: '3.3.13'
-            rails: '= 7.2.4'
-          - ruby: '3.4'
-            rails: '~> 8.0.0'
+      matrix: ${{ fromJSON(needs.policy.outputs.matrix) }}
     env:
       EXPECTED_SHA: ${{ inputs.candidate_sha }}
       THISTLE_RAILS_VERSION: ${{ matrix.rails }}
@@ -53,14 +70,14 @@ jobs:
       SOURCE_DIR: ${{ github.workspace }}/source
     steps:
       - name: Check out this workflow's driver
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.workflow_sha }}
           path: automation
           sparse-checkout: .github/scripts
           persist-credentials: false
       - name: Check out the exact source and historical evaluator bundle
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ inputs.candidate_sha }}
           path: source
@@ -91,7 +108,7 @@ jobs:
         run: bash automation/.github/scripts/installed-check.sh
       - name: Preserve installed evidence, including failed verification
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: installed-evidence-ruby-${{ matrix.ruby }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |

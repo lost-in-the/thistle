@@ -18,7 +18,8 @@ SPEC = importlib.util.spec_from_file_location("pipeline", ROOT / ".github/script
 pipeline = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(pipeline)
 SOURCE_FILES = set(pipeline.CORE_FILES + pipeline.PACKAGE_FILES)
-ALL_FILES = SOURCE_FILES | set(pipeline.MAP_FILES)
+ALL_FILES = SOURCE_FILES | set(pipeline.MAP_FILES + pipeline.MAP_PACKAGE_FILES)
+POLICY = pipeline.load_policy(ROOT / pipeline.POLICY_PATH)
 
 
 class RoutingTests(unittest.TestCase):
@@ -40,15 +41,21 @@ class RoutingTests(unittest.TestCase):
         self.assertTrue(result["map"])
 
     def test_docs_only_skips_product_but_executable_docs_do_not(self):
-        self.assertFalse(pipeline.classify(["docs/guide.md", "README.md"], ALL_FILES)["product"])
+        self.assertFalse(pipeline.classify(["docs/guide.md", "README.md", "changelog/26.fixed.md"], ALL_FILES)["product"])
         self.assertTrue(pipeline.classify(["docs/probe.py"], ALL_FILES)["product"])
+        self.assertTrue(pipeline.classify(["changelog/check.py"], ALL_FILES)["product"])
 
     def test_main_full_mode_runs_all_checks_even_for_docs(self):
         result = pipeline.classify(["docs/guide.md"], ALL_FILES, force=True)
         self.assertTrue(result["core"] and result["map"])
 
     def test_planning_forms_skip_product_but_workflow_and_unknown_controls_do_not(self):
-        for path in [".github/ISSUE_TEMPLATE/01-work.yml", ".github/PULL_REQUEST_TEMPLATE.md"]:
+        for path in [
+            ".github/ISSUE_TEMPLATE/01-work.yml", ".github/PULL_REQUEST_TEMPLATE.md",
+            "towncrier.toml", ".github/requirements-notes.txt",
+            ".github/scripts/check-notes.py", "tests/automation/test_notes.py",
+            "map/changelog/26.fixed.md", "map/CHANGELOG.md",
+        ]:
             with self.subTest(path=path):
                 self.assertFalse(pipeline.classify([path], ALL_FILES)["product"])
         for path in [".github/workflows/ci.yml", ".github/ISSUE_TEMPLATE/new-code.py"]:
@@ -68,9 +75,14 @@ class RoutingTests(unittest.TestCase):
                     pipeline.classify(["README.md"], present, **keywords)
 
     def test_required_package_document_deletion_fails_closed(self):
-        for name in pipeline.PACKAGE_FILES:
+        for name in pipeline.PACKAGE_FILES + pipeline.MAP_PACKAGE_FILES:
             with self.subTest(name=name), self.assertRaises(ValueError):
                 pipeline.classify([name], ALL_FILES - {name})
+
+    def test_map_notes_do_not_turn_a_bootstrap_checkout_into_partial_map(self):
+        result = pipeline.classify(["map/CHANGELOG.md", "map/changelog/26.added.md"], {"map/CHANGELOG.md"})
+        self.assertEqual(result["mode"], "bootstrap")
+        self.assertFalse(result["product"])
 
     def test_rename_parser_preserves_old_and_new_paths(self):
         parsed = pipeline.parse_changed_paths(b"R100\0engine/src/store.rs\0docs/store.md\0M\0README.md\0")
@@ -92,6 +104,7 @@ class GitFixture(unittest.TestCase):
         self.git("init", "-q")
         self.git("config", "user.name", "Automation test")
         self.git("config", "user.email", "automation@example.invalid")
+        self.write(pipeline.POLICY_PATH, json.dumps(POLICY))
 
     def git(self, *args):
         return subprocess.check_output(["git", "-C", str(self.root), *args], stderr=subprocess.PIPE).decode().strip()
@@ -112,17 +125,56 @@ class GitFixture(unittest.TestCase):
         self.write("engine/src/store.rs", "independent rename fixture\n" * 5)
         return self.commit()
 
-    def route(self, base, event_name="pull_request"):
+    def route(self, base, event_name="pull_request", lane="ci"):
         event = Path(self.temp.name) / "event.json"
         event.write_text(json.dumps({"pull_request": {"base": {"sha": base}}, "before": base}))
         output = Path(self.temp.name) / "plan.json"
-        args = argparse.Namespace(source=self.root, event=event, event_name=event_name, full=False, output=output)
+        args = argparse.Namespace(source=self.root, event=event, event_name=event_name, full=False, output=output, lane=lane)
         with patch.dict(os.environ, {"GITHUB_EVENT_NAME": event_name}, clear=True), contextlib.redirect_stdout(io.StringIO()):
             pipeline.plan(args)
         return json.loads(output.read_text())
 
 
 class GitPlanTests(GitFixture):
+    def test_pure_rust_pr_uses_primary_and_manual_runs_both(self):
+        base = self.source_commit()
+        self.write("engine/src/store.rs", "changed\n")
+        self.commit()
+        self.assertEqual(self.route(base)["matrix"], pipeline.cohort_matrix(POLICY, ["primary"], True))
+        manual = self.route(base, "workflow_dispatch")
+        self.assertTrue(manual["minimum_required"])
+        self.assertEqual(manual["matrix"], pipeline.cohort_matrix(POLICY, ["primary", "minimum"], True))
+
+    def test_native_boundary_rename_in_either_direction_selects_minimum(self):
+        base = self.source_commit()
+        self.git("mv", "engine/src/store.rs", "engine/src/lib.rs")
+        middle = self.commit()
+        self.assertTrue(self.route(base)["minimum_required"])
+        self.git("mv", "engine/src/lib.rs", "engine/src/store.rs")
+        self.commit()
+        self.assertTrue(self.route(middle)["minimum_required"])
+
+    def test_main_and_compatibility_partition_cohorts_without_repeating_primary(self):
+        base = self.source_commit()
+        self.write("Gemfile", "dependency change\n")
+        self.commit()
+        primary = self.route(base, "push")
+        minimum = self.route(base, "push", "compatibility")
+        self.assertEqual([r["cohort"] for r in primary["matrix"]["include"]], ["primary"])
+        self.assertEqual([r["cohort"] for r in minimum["matrix"]["include"]], ["minimum"])
+        self.assertFalse(minimum["matrix"]["include"][0]["package"])
+        for event in ("schedule", "workflow_dispatch"):
+            result = self.route(base, event, "compatibility")
+            self.assertEqual(result["matrix"], pipeline.cohort_matrix(POLICY, ["primary", "minimum"]))
+
+    def test_missing_policy_fails_even_for_a_docs_only_change(self):
+        base = self.source_commit()
+        (self.root / pipeline.POLICY_PATH).unlink()
+        self.write("README.md", "changed\n")
+        self.commit()
+        with self.assertRaises(FileNotFoundError):
+            self.route(base)
+
     def test_actual_rename_out_of_engine_still_routes_core(self):
         base = self.source_commit()
         (self.root / "docs").mkdir()
@@ -165,18 +217,35 @@ class GitPlanTests(GitFixture):
 
 
 class RequiredTests(unittest.TestCase):
-    def needs(self, result="success", selected="true", mode="source"):
+    def needs(self, result="success", selected="true", mode="source", minimum=True):
         return {
-            "plan": {"result": "success", "outputs": {"mode": mode, "product": selected}},
+            "plan": {"result": "success", "outputs": {
+                "mode": mode, "product": selected, "minimum_required": str(minimum).lower(),
+                "matrix": json.dumps(pipeline.cohort_matrix(POLICY, ["primary", "minimum"] if minimum else ["primary"], True)),
+            }},
             "metadata": {"result": "success"},
             "product": {"result": result},
         }
 
     def test_selected_product_requires_success(self):
         self.assertEqual(pipeline.required_results(self.needs()), [])
+        self.assertEqual(pipeline.required_results(self.needs(minimum=False)), [])
         for result in ["skipped", "cancelled", "failure", None]:
             with self.subTest(result=result):
                 self.assertTrue(pipeline.required_results(self.needs(result=result)))
+
+    def test_missing_or_duplicate_minimum_and_extra_package_builds_fail(self):
+        for roles in (["primary"], ["primary", "primary"], ["minimum", "primary"], []):
+            needs = self.needs()
+            needs["plan"]["outputs"]["matrix"] = json.dumps(pipeline.cohort_matrix(POLICY, roles, True))
+            self.assertTrue(pipeline.required_results(needs))
+        needs = self.needs()
+        rows = pipeline.cohort_matrix(POLICY, ["primary", "minimum"], True)
+        rows["include"][1]["package"] = True
+        needs["plan"]["outputs"]["matrix"] = json.dumps(rows)
+        self.assertTrue(pipeline.required_results(needs))
+        del needs["plan"]["outputs"]["matrix"]
+        self.assertTrue(pipeline.required_results(needs))
 
     def test_missing_or_skipped_planner_metadata_fails(self):
         for name in ["plan", "metadata"]:
@@ -192,6 +261,45 @@ class RequiredTests(unittest.TestCase):
         self.assertTrue(pipeline.required_results(self.needs(selected="maybe")))
         self.assertTrue(pipeline.required_results(self.needs(mode="unknown")))
         self.assertTrue(pipeline.required_results(self.needs("failure", "false")))
+
+
+class CohortPolicyTests(unittest.TestCase):
+    def test_boundary_dependencies_and_controls_select_minimum(self):
+        for path in [
+            pipeline.POLICY_PATH, "Gemfile", "Gemfile.lock", "thistle.gemspec", "map/thistle-map.gemspec",
+            "engine/Cargo.lock", "engine/build.rs", "engine/src/lib.rs", ".cargo/config.toml",
+            "rust-toolchain.toml", "ext/thistle_native/thistle_native.c", "lib/thistle.rb",
+            "map/lib/thistle/map.rb", ".github/scripts/pipeline.py", ".github/workflows/ci.yml",
+            "tests/automation/test_pipeline.py", "new-boundary.json",
+        ]:
+            with self.subTest(path=path):
+                self.assertTrue(pipeline.needs_minimum([path]))
+        self.assertFalse(pipeline.needs_minimum(["engine/src/store.rs", "changelog/26.build.md", "README.md"]))
+
+    def test_policy_refuses_floating_versions_invalid_shape_and_inverted_floor(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "policy.json"
+            cases = [[], {**POLICY, "extra": True}, {**POLICY, "schema": True}]
+            for field, value in [("ruby", "4.0"), ("ruby", "4.1.0-preview1"), ("ruby", 4.0), ("rails", "~> 8.1"), ("rails", "= 8.1.4\nmalicious")]:
+                changed = copy.deepcopy(POLICY)
+                changed["primary"][field] = value
+                cases.append(changed)
+            changed = copy.deepcopy(POLICY)
+            changed["minimum"]["ruby"] = POLICY["primary"]["ruby"]
+            cases.append(changed)
+            for value in cases:
+                path.write_text(json.dumps(value))
+                with self.subTest(value=value), self.assertRaises(ValueError):
+                    pipeline.load_policy(path)
+
+    def test_release_policy_emits_both_cohorts_without_package_rebuild_rows(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "output"
+            with patch.dict(os.environ, {"GITHUB_OUTPUT": str(output)}, clear=True), contextlib.redirect_stdout(io.StringIO()):
+                pipeline.release_policy(argparse.Namespace(source=ROOT))
+            values = dict(line.split("=", 1) for line in output.read_text().splitlines())
+            self.assertEqual(json.loads(values["primary"]), POLICY["primary"])
+            self.assertEqual(json.loads(values["matrix"]), pipeline.cohort_matrix(POLICY, ["primary", "minimum"]))
 
 
 class ManifestTests(GitFixture):
@@ -292,8 +400,8 @@ class ManifestTests(GitFixture):
 class WorkflowBoundaryTests(unittest.TestCase):
     def test_external_actions_have_reviewed_full_sha_pins(self):
         pins = json.loads((ROOT / ".github/scripts/action-pins.json").read_text())["actions"]
-        for name in ["ci.yml", "product-checks.yml", "compatibility.yml", "release-candidate.yml"]:
-            workflow = (ROOT / ".github/workflows" / name).read_text()
+        for path in (ROOT / ".github/workflows").glob("*.yml"):
+            name, workflow = path.name, path.read_text()
             for use in re.findall(r"^\s*(?:-\s*)?uses:\s*(\S+)", workflow, re.M):
                 if use.startswith("./"):
                     continue
@@ -302,6 +410,8 @@ class WorkflowBoundaryTests(unittest.TestCase):
                     self.assertEqual(separator, "@")
                     self.assertRegex(revision, r"^[0-9a-f]{40}$")
                     self.assertEqual(pins[action]["sha"], revision)
+                    self.assertEqual(pins[action]["runtime"], "node24")
+                    self.assertEqual(pins[action]["metadata"], f"https://github.com/{action}/blob/{revision}/action.yml")
             self.assertNotIn("pull_request_target:", workflow)
             self.assertNotIn("secrets: inherit", workflow)
             self.assertNotRegex(workflow, r"(?m)^\s*(?:contents|actions|id-token|pull-requests):\s*write")
@@ -313,7 +423,11 @@ class WorkflowBoundaryTests(unittest.TestCase):
         self.assertIn("name: CI / required", required_job)
         self.assertIn("if: always()", required_job)
         self.assertIn("needs: [plan, metadata, product]", required_job)
-        self.assertNotIn("continue-on-error", required_job)
+        self.assertNotRegex(required_job, r"(?m)^\s*continue-on-error:")
+        product_job = workflow.split("  product:\n", 1)[1].split("  required:\n", 1)[0]
+        self.assertIn("fail-fast: false", product_job)
+        self.assertIn("matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}", product_job)
+        self.assertNotRegex(workflow, r"(?m)^\s*continue-on-error:")
 
     def test_installed_verification_uses_artifact_id_without_rebuilding(self):
         workflow = (ROOT / ".github/workflows/release-candidate.yml").read_text()

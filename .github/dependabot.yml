@@ -1,0 +1,20 @@
+# Bot proposals require review, including action runtime/source verification and
+# a matching action-pins.json update. This config grants no auto-merge authority.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 2
+    groups:
+      action-maintenance:
+        patterns: ['*']
+  - package-ecosystem: pip
+    directory: /.github
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 2
+    groups:
+      release-notes-tooling:
+        patterns: ['*']

@@ -28,15 +28,17 @@ jobs:
       core: ${{ steps.plan.outputs.core }}
       map: ${{ steps.plan.outputs.map }}
       product: ${{ steps.plan.outputs.product }}
+      matrix: ${{ steps.plan.outputs.matrix }}
+      minimum_required: ${{ steps.plan.outputs.minimum_required }}
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
           persist-credentials: false
       - id: plan
         name: Route from both sides of changes
         run: python3 .github/scripts/pipeline.py plan --output ci-plan.json
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: ci-plan-${{ github.run_id }}-${{ github.run_attempt }}
           path: ci-plan.json
@@ -48,22 +50,38 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
+      - name: Install the hash-locked release-note tools
+        run: |
+          python3 -m venv "$RUNNER_TEMP/notes-env"
+          "$RUNNER_TEMP/notes-env/bin/python" -m pip install --disable-pip-version-check --require-hashes -r .github/requirements-notes.txt
+          echo "$RUNNER_TEMP/notes-env/bin" >> "$GITHUB_PATH"
       - name: Routing, aggregation and artifact security regressions
         run: python3 -m unittest discover -s tests/automation -v
+      - name: Validate and preview independent package release notes
+        run: |
+          python3 .github/scripts/check-notes.py
+          python3 -m towncrier build --draft --version 0.0.0 --date 1970-01-01 --config towncrier.toml --dir .
+          python3 -m towncrier build --draft --version 0.0.0 --date 1970-01-01 --config towncrier.toml --dir map
 
   product:
-    name: Primary product
+    name: ${{ matrix.cohort }} product
     needs: plan
     if: needs.plan.outputs.product == 'true'
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
     uses: ./.github/workflows/product-checks.yml
     with:
       candidate_sha: ${{ needs.plan.outputs.source_sha }}
+      ruby: ${{ matrix.ruby }}
+      rails: ${{ matrix.rails }}
       run_core: ${{ needs.plan.outputs.core == 'true' }}
       run_map: ${{ needs.plan.outputs.map == 'true' }}
-      package: true
+      run_rust: ${{ matrix.cohort == 'primary' }}
+      package: ${{ matrix.package }}
       artifact_label: pr-candidate
 
   required:
@@ -73,10 +91,12 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
       - name: Require every selected lane to succeed
+        # With fail-fast:false and no continue-on-error, product succeeds only
+        # when every selected matrix row succeeds; no row may waive the floor.
         env:
           THISTLE_NEEDS: ${{ toJSON(needs) }}
         run: python3 .github/scripts/pipeline.py required

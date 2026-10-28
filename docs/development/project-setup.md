@@ -137,6 +137,23 @@ optional cosmetic step; required product and artifact checks remain intact.
 The failed attempt is retained. Check the current PR revision and its subsequent
 hosted run before acceptance; neither historical run certifies a later revision.
 
+## Current cohort and changelog revision
+
+The historical runs above retain their original Ruby 3.3.13 / Rails 7.2.4 scope.
+The later [run 40713254497](https://github.com/lost-in-the/thistle/actions/runs/40713254497)
+passed on head `eafc73bb89781851d630c3b3d83fddab6385934e`, but carried Node 20
+action-deprecation annotations. A green conclusion did not establish maintenance
+readiness, and reusing the accepted baseline did not justify a new project's
+routine cohort.
+
+The [decision record](decisions.md) now defines a deliberate Ruby 4.0.9 primary,
+Ruby 3.4.12 minimum, and Rails 8.1.4 policy, with Ruby >=3.4 in both gems and
+Node 24 action revisions. The [changelog guide](changelog.md) adopts Woods'
+conflict-free authoring model through Towncrier with independent Core and Map
+notes. These changes require their own hosted evidence; consult PR #26 and
+#22's current handoff for the exact revised head, run and observed annotations.
+Existing baseline/Experiment 001 identities remain unchanged.
+
 ## Recover or maintain the setup
 
 1. Open the existing project and canonical issues before creating replacements.

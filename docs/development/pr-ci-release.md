@@ -117,12 +117,25 @@ results before advertising a speed improvement.
 | Broad compatibility, fuzzing, or controlled performance campaign | Use its declared manual/scheduled lane and retain its full scope and attempt history. It cannot qualify unrelated future artifacts. |
 
 `Thistle CI` replaces `.github/workflows/ci.yml` as the single PR feedback
-workflow. Planning and automation-metadata validation always run. Product changes
-in the restored layout use one required Ruby 3.3.13 / Rails 7.2.4 lane. The stable
-aggregate job/check is **`CI / required`**. A separate **`Compatibility`** workflow
-runs the additional Ruby/Rails 3.0/6.1 and 3.4/8.0 cohorts on main; the primary
-3.3.13/7.2.4 lane already runs in `Thistle CI`. Weekly/manual compatibility runs
-include all three cohorts. Stale PR feedback runs cancel when superseded.
+workflow. Planning, automation validation and release-note checks always run.
+The current policy in `.github/ci-policy.json` selects Ruby 4.0.9 / Rails 8.1.4
+as primary and Ruby 3.4.12 / Rails 8.1.4 as the additional minimum cohort.
+Ordinary product PRs use the primary. Changes to policy, workflows, dependencies
+or Ruby/native integration boundaries exercise both; a failure in either selected
+row fails **`CI / required`**. Notes-only changes avoid native builds.
+
+Main runs primary in `Thistle CI` and minimum in **`Compatibility`**, without
+duplicating primary. Weekly/manual compatibility and manually dispatched full CI
+exercise both. Only primary runs the Ruby-independent Rust unit suite; every
+selected Ruby cohort compiles its native bridge and runs applicable Ruby/Map
+checks. Release preparation builds one package pair on primary and installs those
+same bytes on both cohorts. Stale PR feedback runs cancel when superseded.
+
+The [decision record](decisions.md) explains the modern cohort choice and checked
+upstream maintenance status. Ruby 3.3.13 / Rails 7.2.4 belongs to the historical
+baseline and Experiment 001 evidence. Newly built Ruby >=3.4 packages cannot be
+substituted into that older environment or presented as a replay. The historical
+baseline workflow refuses current-policy source before expensive build work.
 
 Draft PRs receive the same required checks on opening and code changes. Marking
 an unchanged draft ready does not repeat native builds. A readiness transition
@@ -133,9 +146,10 @@ when that evidence is needed. Verify the tested head/base before acceptance.
 **`Release candidate`** is manually dispatched with `candidate_sha`, a full
 40-character lowercase commit SHA. It prepares one candidate package pair with native/build
 metadata and a manifest, then runs installed verification against those same
-downloaded package bytes across all three cohorts. It does not publish a gem.
-The dedicated existing `experiment-001.yml` remains responsible for its
-frozen campaign; normal PR CI does not start a new benchmark campaign.
+downloaded package bytes across both declared cohorts. It does not publish a gem.
+The existing `experiment-001.yml` on the separate Experiment 001 PR branch
+remains responsible for its frozen campaign; it is not installed by this setup
+PR. Normal PR CI does not start a new benchmark campaign.
 
 The required aggregate check must run even when upstream jobs fail or are
 cancelled. It must verify the route and every required lane, distinguish an
@@ -172,7 +186,9 @@ run have been verified by the authorized administrator.
 
 ### Running and inspecting the flow
 
-Run the automation regressions locally when changing workflows or routing:
+Install the isolated notes tool environment from the
+[changelog guide](changelog.md#install-and-check), then run the automation
+regressions when changing workflows, routing, or release-note tooling:
 
 ```sh
 python3 -m unittest discover -s tests/automation -v
@@ -189,8 +205,8 @@ checks a candidate; it does not grant publishing permission.
 | Artifact name pattern | Contents and use |
 |---|---|
 | `ci-plan-<run_id>-<attempt>` | Selected route, changed paths, tested source/base, and honest bootstrap/source scope. |
-| `pr-candidate-ruby-3.3.13-<run_id>-<attempt>` | Primary PR/main/manual candidate packages and manifest. The name does not imply installed qualification. |
-| `release-candidate-ruby-3.3.13-<run_id>-<attempt>` | The single package set used by every release-candidate installed cohort. |
+| `pr-candidate-ruby-<ruby>-<run_id>-<attempt>` | Primary PR/main/manual candidate packages and manifest. The name does not imply installed qualification. |
+| `release-candidate-ruby-<ruby>-<run_id>-<attempt>` | The single primary package set used by every release-candidate installed cohort. |
 | `installed-evidence-ruby-<ruby>-<run_id>-<attempt>` | Per-cohort resolved lock and installed verification reports, including the actual loaded-native identity. |
 | `diagnostics-ruby-<ruby>-<run_id>-<attempt>` | Source-check logs, including available failure diagnostics. |
 
@@ -284,8 +300,15 @@ workflow run with an accepted speed improvement. Consult the recorded decision.
 Keep preparation and publication separate so candidate iteration is fast and
 publication has a clear, auditable boundary.
 
-1. Select a reviewed source commit and the intended gem/Map versions and support
-   scope. Open or update the release-check issue with the applicable L01–L17 rows.
+1. Choose the intended gem/Map versions and support scope. Follow the
+   [changelog preparation guide](changelog.md#prepare-one-packages-release-notes)
+   in a single-owner release-preparation branch: validate both pending note sets,
+   consolidate the selected package's fragments with Towncrier, and review its
+   version metadata and dated changelog. At the reviewed candidate SHA, verify
+   that package has no pending fragments and has its matching version/date
+   heading. The other package may retain valid pending notes. Open or update the
+   release-check issue with the applicable L01–L17 rows and select the exact
+   prepared source commit.
 2. Produce a candidate package set and manifest through the non-publishing
    candidate flow. Record exact package, source, dependency, and build identities.
 3. Qualify those packages with the independently controlled evaluator and all

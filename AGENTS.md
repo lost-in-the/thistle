@@ -83,6 +83,27 @@ broader main-branch checks, and thorough release qualification. Prefer a focused
 regression at the lowest meaningful boundary; avoid duplicated assertions, noisy
 timing gates, and broad reruns without a concrete risk or required gate.
 
+## Choose tools and versions deliberately
+
+Evaluate maintained existing tools before writing a replacement. Reuse needs a
+current fit assessment, not just precedent; custom code needs a concrete benefit
+that outweighs its ongoing maintenance and test cost. Record the alternatives,
+decision, operating cost, limitations and conditions for reconsideration in
+[the development decisions](docs/development/decisions.md). Greenfield choices
+must reflect the intended product and current upstream support.
+
+Use `.github/ci-policy.json` for routine Ruby/Rails cohorts. Historical accepted
+packages and frozen experiments keep their recorded environment; their versions
+do not become the development default automatically. Inspect deprecation and
+security annotations as well as pass/fail results. Verify action release,
+declared runtime and runner compatibility before updating full-SHA pins; a
+known repository and a green check alone are insufficient maintenance evidence.
+
+Add a unique [changelog fragment](docs/development/changelog.md) for each
+noteworthy change in the affected package. Ordinary parallel PRs do not edit
+shared `CHANGELOG.md` files. One release-preparation owner consolidates notes
+with the pinned Towncrier tool; note preparation does not authorize publication.
+
 ## Checks and experiments
 
 Candidate CI is development feedback. A separately versioned evaluator is useful,

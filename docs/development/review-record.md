@@ -245,3 +245,148 @@ Both older identities remain historical evidence.
 does not yet exist in this review record and is not covered by the successful
 `1792d6499e9806b32f62659bc343f1e894d4b6a3` result. The integration owner will commit
 the correction and verify its required CI before reporting the new head green.
+
+## Follow-up on 2026-10-28: current cohorts and independent release notes
+
+The owner challenged the inherited Ruby/Rails default and requested deliberate
+tool selection and conflict-free release notes. This review covers that expanded
+delivery change before its next commit. Earlier run, artifact, and payload
+identities above remain historical evidence; none is reassigned to the new
+cohorts. The integration owner reports PR #26 still open and unmerged at
+`eafc73bb89781851d630c3b3d83fddab6385934e` against restored main
+`1b65f82ae8b8b693a8d7e8adb052b939b23bd5a9` while preparing this revision.
+
+### Scope and findings
+
+The reviewer inspected the complete proposed delivery payload, including the
+shared CI policy, five workflows, routing/aggregation and installed-artifact
+scripts, action inventory, dependency maintenance configuration, Towncrier
+configuration/lock/guard/tests, both gemspecs, development Gemfile, changelogs,
+Map test import, README files, agent/contributor guidance, PR template, and
+development decision/release/setup documents.
+
+The integration owner will also remove the duplicate lowercase
+`.github/pull_request_template.md`. The reviewer fetched that file at the
+pre-update PR head (Git blob `d05711cee0438e1ce6fb9118209083c1b30b8060`)
+and compared it with the canonical uppercase template. The recovery/rollback,
+evaluator-policy ownership, evidence identity, scope and review prompts remain
+represented in the uppercase version. This is a deliberate deletion in addition
+to the regular-file payload below; it is not an accidental case-only rename.
+
+| Finding or design risk | Reviewed disposition |
+|---|---|
+| An accepted historical tuple had become a new project's default without a current support rationale. | The decision record cites current upstream maintenance. One validated JSON policy selects Ruby 4.0.9 / Rails 8.1.4 as primary and Ruby 3.4.12 / Rails 8.1.4 as minimum; both gemspecs now require Ruby >=3.4. The Gemfile reads the policy's primary Rails requirement and retains an explicit cohort override. Linux remains the actual platform restriction. |
+| A second selected cohort could be omitted, cancelled, or fail while an aggregate appeared green. | The planner constructs explicit primary/minimum rows; its schema and exact patch inputs are validated before routing. Negative tests reject missing/duplicate minimum rows, extra package builds, failed/skipped/cancelled product work, and missing planning/metadata results. The product matrix uses `fail-fast: false`, no `continue-on-error`, and an always-present aggregate that requires matrix success. |
+| A broad matrix could repeat expensive work without testing a distinct boundary. | Ordinary Rust-internal PR changes use primary; Ruby/native, dependency, policy, workflow and unknown control changes select both. Both names of a rename are retained. Main runs primary in CI and minimum in Compatibility; weekly/manual broad checks run both. Rust-only unit tests run once on primary, while every selected Ruby row still compiles its own bridge and runs applicable Ruby/Map checks. |
+| Release cohort selection or package rebuilds could weaken exact-byte verification. | The release workflow reads cohort policy from its workflow-driver checkout, prepares one source-gem pair, and supplies that immutable artifact ID to both installed rows. Per-install native identity remains separate from the checkout build observation. Candidate orchestration still establishes no protected qualification or publication authority. |
+| Old action runtime declarations had survived full-SHA pinning and green CI. | Updated checkout/upload pins and the pin inventory declare Node 24; the integration owner independently fetched all four exact action definitions. Dependency automation proposes reviewed updates without auto-merge. Immutable downloads, digest rejection, read-only permissions and nonpersistent credentials remain. |
+| Towncrier's native reader follows paths and replaces invalid UTF-8. | A small precheck rejects linked/non-regular/nested inputs, checks ancestor directories and output files, and requires nonempty strict UTF-8. It keeps the reviewed flat input/output/template configuration. Native Towncrier remains responsible for filename/category parsing, duplicate detection, ordering, rendering and consumption. |
+| Parallel notes or a one-package release could collide or consume another package's pending work. | One shared native configuration supplies ten categories; core and Map have separate directories and consolidated histories. Native numeric counters distinguish parallel same-issue/category notes. Real CLI tests prove nonmutating drafts and package-specific consumption in a temporary Git repository. |
+| A release-note fragment claimed a production Map query-link change that was not implemented. | Corrected to the actual test-only `require 'cgi/escape'` change for `CGI.unescapeHTML`. No production Map behavior is claimed to change. |
+| A failed preparation precheck could be followed by a successful diff command and mask the pasted block's exit status. | The guide now keeps `git diff --cached` inside the successful `set -eu` subshell. Both package prechecks precede any fold. The guide explicitly distinguishes prevalidation from crash-atomic writes and requires one branch/index owner. |
+
+Both gemspecs include their own `CHANGELOG.md`; the planner rejects removal of
+required core or Map changelog files. Note/config/guard-only PRs stay in metadata
+checks. A script or unknown product/control path does not gain that exemption.
+The notes tool and its three dependencies stay outside the runtime gem contents.
+
+The historical baseline lane refuses current-policy source before tool setup.
+Experiment 001's separate branch, selected packages, environment and evaluator
+policy remain unchanged. A new Ruby >=3.4 gem cannot be substituted into its
+Ruby 3.3 environment and labelled a replay. The explicit parser-language policy
+is a documented product follow-up; this change does not alter Prism semantics.
+
+### Independent validation of this revision
+
+After both authors froze their code, the reviewer ran the complete suite once
+from the delivery payload directory:
+
+| Command | Tool/version and observed result |
+|---|---|
+| `/tmp/thistle-notes-venv/bin/python -B -m unittest discover -s tests/automation -v` | CPython 3.12.14; all **46 tests passed** (37 pipeline and 9 notes tests), 4.075 seconds reported by unittest; 4.149 seconds tool wall time. |
+| `/tmp/thistle-actionlint/actionlint .github/workflows/ci.yml .github/workflows/product-checks.yml .github/workflows/compatibility.yml .github/workflows/release-candidate.yml .github/workflows/hardened-baseline.yml` | actionlint 1.7.12; passed with no diagnostics. |
+
+The reviewer inspected the installed tool versions: Towncrier 26.9.0, Click
+8.5.0, Jinja2 3.1.6 and MarkupSafe 3.0.4. The notes author separately verified
+their fresh wheel-only `pip install --require-hashes` from the committed lock;
+this review reused that environment rather than downloading the same packages
+again. The notes tests execute the actual Towncrier CLI, including all ten
+categories, deterministic drafts, duplicate/category rejection, UTF-8 and
+filesystem failures, package-specific real folds, preservation of the other
+package, and unchanged files/index when prechecks fail.
+
+These are local automation and configuration results. **Hosted Ruby 4.0.9 and
+3.4.12 product runs, modern installed release-candidate verification, and hosted
+latency/resource measurements are not established by this review.** No native
+product build or frozen performance campaign was rerun locally. The first new
+hosted run must retain its exact candidate, resolved dependencies, annotations,
+job results, artifact identities and cost. No comparative speed claim is made.
+
+### Frozen payload identity and review conclusion
+
+Using the fingerprint algorithm defined above, the original eight-file
+automation subset now hashes to
+`4dadec7a41b223913d19cf5e6846affa4e23b133f42d354ddbe5a9e77f5bac27`.
+The expanded **41-file** reviewed payload hashes to
+`5cccb3fb004bd7304810dfc8808629c74ddcd78b7fd9b86a870c21736b79b791`.
+Its exact membership is:
+
+```text
+.github/ISSUE_TEMPLATE/01-work.yml
+.github/ISSUE_TEMPLATE/02-bug.yml
+.github/ISSUE_TEMPLATE/03-experiment.yml
+.github/ISSUE_TEMPLATE/04-check.yml
+.github/ISSUE_TEMPLATE/config.yml
+.github/PULL_REQUEST_TEMPLATE.md
+.github/ci-policy.json
+.github/dependabot.yml
+.github/requirements-notes.txt
+.github/scripts/action-pins.json
+.github/scripts/check-notes.py
+.github/scripts/installed-check.sh
+.github/scripts/pipeline.py
+.github/workflows/ci.yml
+.github/workflows/compatibility.yml
+.github/workflows/hardened-baseline.yml
+.github/workflows/product-checks.yml
+.github/workflows/release-candidate.yml
+AGENTS.md
+CHANGELOG.md
+CONTRIBUTING.md
+Gemfile
+README.md
+changelog/26.build.md
+changelog/26.changed.md
+changelog/README.md
+docs/development/agent-workflow.md
+docs/development/changelog.md
+docs/development/decisions.md
+docs/development/pr-ci-release.md
+docs/development/project-setup.md
+map/CHANGELOG.md
+map/README.md
+map/changelog/26.changed.md
+map/changelog/README.md
+map/test/highlighter_test.rb
+map/thistle-map.gemspec
+tests/automation/test_notes.py
+tests/automation/test_pipeline.py
+thistle.gemspec
+towncrier.toml
+```
+
+This record itself is excluded to avoid self-reference. Python caches and the
+four obsolete root handoff copies in the local staging directory are excluded;
+the restored `docs/handoff/` paths remain canonical and those copies must not be
+reintroduced by this delivery update. The fingerprint identifies reviewed file
+bytes, not a Git commit or a hosted result. It covers the 41 present files; the
+separate lowercase-template deletion is identified by path and original blob
+above and does not contribute nonexistent file bytes to this hash.
+
+**Review conclusion:** the CI author, notes author and independent reviewer have
+converged on the bounded approach, with the concrete findings above resolved.
+No blocking implementation finding remains for committing and verifying this PR
+update. This is shared-session agent consensus, not maintainer approval, merge
+authorization, protected independent qualification, or production acceptance.
+Modern hosted product evidence and the separately authorized release/qualification
+controls remain outstanding; previously green historical runs do not cover them.

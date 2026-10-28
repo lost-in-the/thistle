@@ -33,6 +33,21 @@ is coherent. Keep the PR focused on one acceptance outcome, include attributable
 check results, and identify the responsible reviewer. Update the issue after
 review and verification rather than treating PR creation as completion.
 
+Use the current Ruby/Rails pairs from `.github/ci-policy.json`; the development
+Gemfile reads the primary Rails requirement there. Both gems require Ruby 3.4 or
+later. [Development decisions](docs/development/decisions.md) records why each
+tool/version was selected and when to reconsider it. Existing precedent is
+evidence to evaluate, not an automatic reason to preserve a choice.
+
+## Conflict-free release notes
+
+Follow the [changelog guide](docs/development/changelog.md): add one unique
+fragment per noteworthy change under `changelog/` for core or `map/changelog/`
+for Map. Parallel PRs leave the consolidated changelogs to the release owner.
+Towncrier validates and combines the fragments; the small input guard preserves
+Woods' filesystem and UTF-8 checks. Explain in the PR when no note is warranted.
+Keep release-note tooling in development dependencies, outside the shipped gems.
+
 Thistle requires a Rust core distributed as a Ruby gem. Woods engine code and a
 console are outside scope; authorized Map reuse preserves its license and
 provenance. Public release is a separate qualified and authorized operation.

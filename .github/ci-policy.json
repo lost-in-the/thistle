@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "primary": {
+    "ruby": "4.0.9",
+    "rails": "= 8.1.4"
+  },
+  "minimum": {
+    "ruby": "3.4.12",
+    "rails": "= 8.1.4"
+  }
+}

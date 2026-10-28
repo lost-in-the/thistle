@@ -6,7 +6,7 @@ The Source view reuses Woods Map's lossless syntax-highlighting component and to
 
 ## Use
 
-Build and install the sibling `thistle` gem and this gem from local artifacts. Registry names are working names; nothing has been published.
+Both gems require Ruby 3.4 or later; the current native Thistle build targets Linux. Build and install the sibling `thistle` gem and this gem from local artifacts. Registry names are working names; nothing has been published. Prepared release notes live in [CHANGELOG.md](CHANGELOG.md).
 
 ```ruby
 require 'thistle/map'
@@ -45,9 +45,10 @@ Source, labels and query text are escaped. A strict self-only script/style polic
 From the core project root after installing development dependencies:
 
 ```sh
-ruby -Ilib -Imap/lib -e 'Dir["map/test/*_test.rb"].sort.each { |f| require_relative f }'
+bundle exec ruby -Ilib -Imap/lib -e 'Dir["map/test/*_test.rb"].sort.each { |f| require File.expand_path(f) }'
 ```
 
 Tests exercise the actual reader integration, source bytes, generation pinning, malformed queries, source escaping, default and explicit authorization, DNS-rebinding-style Host mismatches, forwarded-header spoofing, read-only methods, bounded source and paged links.
 
 The local browser checks and exact executed version tuple are recorded in `docs/VALIDATION.md` when run. Unit/request checks do not establish accessibility or intended-user usability. Full Map job coverage, the richer investigation workbench, assistive-technology testing, performance qualification and launch parity remain open.
+

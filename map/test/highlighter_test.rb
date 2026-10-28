@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require_relative 'test_helper'
-require 'cgi'
+require 'cgi/escape'
 
 class MapHighlighterTest < Minitest::Test
   def test_highlighting_preserves_unicode_crlf_source_and_escapes_markup
@@ -18,3 +18,4 @@ class MapHighlighterTest < Minitest::Test
     assert_equal ['&lt;script&gt;'], Thistle::Map::Highlighter.lines('<script>', language: 'text')
   end
 end
+
