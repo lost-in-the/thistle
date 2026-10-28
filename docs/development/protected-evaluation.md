@@ -3,8 +3,9 @@
 This is the bounded design proposal for [issue #23](https://github.com/lost-in-the/thistle/issues/23).
 It prepares a deployment decision and a proof procedure. No controller, repository,
 App, credential, rule, purchase or enforcement proof has been created by this PR.
-The repository owner can accept the proposal; the independent qualification owner
-and role have **not** been approved. Root owns integration and independent review.
+The owner selected Leah as custodian/final policy approver, with CodeRabbit as an
+advisory reviewer. Independent authority has not been activated or proven; shared
+authoring credentials still disqualify it. Root owns integration and peer review.
 Issue #23's external authority and proof remain **Check / Evidence Needed**.
 All 17 [launch capabilities](../capability-ledger.md) remain unqualified.
 
@@ -49,7 +50,7 @@ design review. The route and custodian preferences do not authorize setup. Sugge
 | Candidate authoring | Use a restricted authoring identity such as existing `lost-in-the-agent` with Thistle write only; remove owner credentials from candidate-authoring sessions before claiming independence. | Owner-approved credential separation and verification; no account switch or permission change in this task |
 | Evaluator home | Proposed public `lost-in-the/thistle-eval` on Free, with repository rules for policy changes and a distinct App. No candidate authors or authoring connectors may write there. Standard public hosted minutes are free. Private Free custody remains a fallback with weaker review enforcement. | The owner selected this route, but repository creation/disclosure, actual ID, writer/access list and restricted evidence destination still need authorization; inherited organization access must be checked |
 | Enforcement route | Current Free: distinct proposed `Thistle Qualification` App, only Thistle installation, Checks write, Metadata read, Pull requests read and Contents read for head/base/tree verification; all other permissions off. | App name availability, numeric App ID, client ID, installation ID and custodian approval |
-| Key custody | App key in custodian-controlled vault and only the private controller repository's publisher secret; no organization-wide secret, candidate secret, developer checkout or worker copy. | Actual approved vault/access list and publisher secret configuration; no key material belongs in this document |
+| Key custody | App key in custodian-controlled vault and only the controller repository's publisher secret; no organization-wide secret, candidate secret, developer checkout or worker copy. | Actual approved vault/access list and publisher secret configuration; no key material belongs in this document |
 | Native alternative | If eligible plan is chosen, public evaluator workflow source in the organization, pinned repository ID/path/SHA; same independent writers and worker boundary. | Plan purchase/entitlement, public disclosure approval and actual workflow identity |
 | Repository rules | Basic main PR/CI protection is separate from qualification. Qualification source-identity proof uses a disposable target, with no ordinary-main manual qualification requirement. | Separate authorization for each concrete rule; actual IDs/readback and non-bypass proofs |
 | Initial scope | Same Core/Map source-gem bytes installed on both modern Linux cohorts, with installed contracts, parser-worker, reader-boundary and Map checks. | Independent approval of adapter, fixtures, policy, observer coverage and measured limits |
@@ -170,7 +171,8 @@ final publication:
    to establish or verify the blocking state prevents dispatch and policy
    activation; requesting a retry alone does not invalidate an existing success.
    If an earlier result must be withdrawn but cannot be invalidated, the custodian
-   must freeze integration through the approved recovery control before proceeding.
+   must freeze that qualification/promotion decision through the approved recovery
+   control before proceeding; ordinary main PRs retain their separate CI gate.
 2. A trusted preparation job resolves approved tool/dependency/image digests,
    source and tested-merge identity using bounded downloads. It emits an immutable
    input manifest. No candidate build, gemspec or install hook runs in this job.
@@ -477,13 +479,20 @@ may index the disposition only after the independent acceptance owner records it
 ## Cost, rollback and recovery
 
 [Standard public hosted Actions minutes are free](https://docs.github.com/en/actions/concepts/billing-and-usage).
-That does not make a proposed private controller free: its plan quota, storage,
-artifact retention and overage settings need an account-specific assessment.
-Private controller jobs accrue there; reusable workflow billing follows the caller.
+The selected public controller still needs an account-specific storage, retention
+and overage assessment. The private fallback would also consume its plan's private
+runner quota; reusable workflow billing follows the caller.
 Do not invent available quota, prices, total storage or a paid-plan entitlement.
 Measure VM minutes, peak storage, trace/archive bytes, queue delay and custodian
 maintenance time on the proof before accepting an operating budget. An unavailable
 quota or unapproved cost leaves qualification blocked.
+
+Public controller source does not authorize public application captures. Keep
+private/external source, snapshots and identifying evidence in an approved
+restricted destination; do not upload them as public-controller Actions artifacts.
+Publish only reviewed nonsecret result summaries and digests. Storage access and
+the transfer/retention mechanism must be approved before such inputs are admitted.
+The initial rule-identity proof uses nonsecret fixtures, not application captures.
 
 Record approved action/runtime/image versions and security/deprecation review,
 key rotation owner, retention expiry dates and a recovery drill schedule. Before
@@ -491,8 +500,9 @@ expiry, copy evidence to the approved durable destination and rehash actual file
 No new storage service or purchase is authorized here. Lost actual native or
 package bytes require a new attributable attempt; rebuilding creates new evidence.
 
-If the controller or publisher fails, keep the required check active and block
-merges. Restore the last reviewed controller/policy/image by exact digest, revoke
+If the qualification controller or publisher fails, block the selected acceptance
+or promotion, not ordinary main PRs. Keep its expected-source requirement active.
+Restore the last reviewed controller/policy/image by exact digest, revoke
 a suspect installation token/key through the custodian, rotate outside authoring
 sessions, and invalidate affected success records. Save incident and old attempts.
 A replacement App needs an explicit rule-source update and repeated identity proof;
@@ -502,8 +512,10 @@ Keep the pre-change rule export and a separately approved recovery runbook. Rout
 rollback restores a last known enforced configuration, not an empty rule set.
 Disabling the first rule would remove protection and requires a new explicit owner
 decision with the qualification gap recorded. During a suspected compromised
-success, the administrator must freeze integration through an independently
-controlled restriction before repair; no bypass merge is part of this design.
+qualification success, the administrator must freeze the affected acceptance or
+promotion through an independently controlled restriction before repair. Basic
+main-CI protection has its own recovery scope; qualification outage does not make
+the ordinary PR path depend on that controller. No bypass merge is proposed.
 Re-run negative and positive controls on the restored identities. Backup custodian,
 recovery access and storage must be named before activation.
 
