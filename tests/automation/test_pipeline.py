@@ -398,6 +398,16 @@ class ManifestTests(GitFixture):
 
 
 class WorkflowBoundaryTests(unittest.TestCase):
+    def test_completed_experiment_has_no_active_execution_path(self):
+        # Retention and current-package checks must not start the completed
+        # campaign, even under a renamed workflow or the alternate YAML suffix.
+        workflows = ROOT / ".github/workflows"
+        self.assertFalse((workflows / "experiment-001.yml").exists())
+        for path in sorted(workflows.iterdir()):
+            if path.suffix in (".yml", ".yaml"):
+                with self.subTest(workflow=path.name):
+                    self.assertNotIn("run_experiment.py", path.read_text())
+
     def test_external_actions_have_reviewed_full_sha_pins(self):
         pins = json.loads((ROOT / ".github/scripts/action-pins.json").read_text())["actions"]
         for path in (ROOT / ".github/workflows").glob("*.yml"):

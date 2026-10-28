@@ -147,9 +147,11 @@ when that evidence is needed. Verify the tested head/base before acceptance.
 40-character lowercase commit SHA. It prepares one candidate package pair with native/build
 metadata and a manifest, then runs installed verification against those same
 downloaded package bytes across both declared cohorts. It does not publish a gem.
-The existing `experiment-001.yml` on the separate Experiment 001 PR branch
-remains responsible for its frozen campaign; it is not installed by this setup
-PR. Normal PR CI does not start a new benchmark campaign.
+Experiment 001 completed before PR #2 merged. Its one-off workflow is
+[retired outside active Actions](retired-workflows/README.md), preserving source
+and run provenance. Normal PR CI does not start a new benchmark campaign. A new
+campaign requires a separately reviewed source/environment and policy decision;
+modern candidate checks do not replay or broaden the historical performance result.
 
 The required aggregate check must run even when upstream jobs fail or are
 cancelled. It must verify the route and every required lane, distinguish an
@@ -169,20 +171,19 @@ matrix remains development evidence. Passing it does not prove every supported
 ABI, precompiled install, database/provider route, accessibility journey, or
 hostile-parser case.
 
-### Integrate the restored workflow once
+### Integrated workflow authority
 
-Baseline restoration PR #1 has merged, and main owns its existing
-`.github/workflows/ci.yml`. Integrate the optimized routing/aggregate workflow
-deliberately: compare both versions,
-retain the stronger regression and packaging checks, and keep one canonical PR
-feedback path. Do not accidentally run the old full matrix and a replacement
-full matrix on every push. Preserve the dedicated frozen experiment workflow and
-its selected artifact; its benchmark campaign is not a normal per-PR smoke test.
+PR #26 integrated the routing/aggregate flow into `.github/workflows/ci.yml`;
+it is the canonical PR feedback path. PR #2 subsequently integrated the completed
+experiment. Keep one canonical feedback path and preserve the experiment's exact
+selected artifacts rather than running its campaign as a per-PR smoke test.
 
-The integration PR must state which workflow file is authoritative, which checks
-remain required, and the exact check names that branch rules should require. A
-renamed job cannot silently replace a required check until the rules and a real
-run have been verified by the authorized administrator.
+The aggregate remains `CI / required`. Candidate CI does not establish protected
+required-check authority; #23 owns that unfinished enforcement. A renamed job
+cannot silently replace a required check until the rules and a real run have
+been verified by the authorized administrator. #28 requires new integrated-main
+and Compatibility results after authorized integration; #20 still owns modern
+installed-candidate verification and the primary dependency-lock decision.
 
 ### Running and inspecting the flow
 
