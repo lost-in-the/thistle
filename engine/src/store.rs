@@ -3,6 +3,7 @@ use serde_json::{json, Value};
 use std::{collections::HashMap, path::Path, sync::atomic::{AtomicU64, Ordering}};
 
 static TEMP_SEQUENCE: AtomicU64 = AtomicU64::new(0);
+pub(crate) const READER_BUDGET: usize = 128 * 1024 * 1024;
 
 fn temporary(prefix: &str) -> String {
     let instant = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_nanos();
@@ -16,6 +17,10 @@ fn after_commit(generation: &str, result: Result<()>) -> Result<()> {
 }
 
 pub fn publish(path: &Path, capture: &Value) -> Result<Value> {
+    publish_with_reader_budget(path, capture, READER_BUDGET)
+}
+
+fn publish_with_reader_budget(path: &Path, capture: &Value, reader_budget: usize) -> Result<Value> {
     schema::capture(capture)?;
     let mut facts = schema::array(capture, "facts")?.clone();
     facts.sort_by(|a, b| a["id"].as_str().cmp(&b["id"].as_str()));
@@ -38,6 +43,10 @@ pub fn publish(path: &Path, capture: &Value) -> Result<Value> {
     manifest["generation"] = Value::String(generation.clone());
     let manifest_bytes = schema::canonical(&manifest)?;
     if manifest_bytes.len() > schema::MAX_MANIFEST { return Err(CoreError::limit("Manifest exceeds snapshot size limit")); }
+    // Use the same retained-capacity accounting as an empty reader registry.
+    // Drop the temporary search cache before staging any files.
+    let (_, weight) = search_cache(schema::array(capture, "facts")?, facts_bytes.len(), manifest_bytes.len())?;
+    if weight > reader_budget { return Err(CoreError::limit("Snapshot exceeds the reader admission budget")); }
 
     let root = Dir::open(path, true)?;
     let _lock = root.lock()?;
@@ -100,6 +109,23 @@ struct SearchRecord {
     text: String,
 }
 
+fn search_cache(facts: &[Value], facts_bytes: usize, manifest_bytes: usize) -> Result<(Vec<SearchRecord>, usize)> {
+    let mut search = Vec::with_capacity(facts.len());
+    let mut weight = facts_bytes.checked_add(manifest_bytes).ok_or_else(|| CoreError::limit("Search cache accounting overflow"))?;
+    for fact in facts {
+        let name = fact["name"].as_str().unwrap().to_lowercase();
+        let text = format!("{} {} {}", name, fact["kind"].as_str().unwrap(), fact["path"].as_str().unwrap_or("").to_lowercase());
+        weight = weight.checked_add(name.capacity()).and_then(|n| n.checked_add(text.capacity()))
+            .ok_or_else(|| CoreError::limit("Search cache accounting overflow"))?;
+        search.push(SearchRecord { name, text });
+    }
+    let slots = search.capacity().checked_mul(std::mem::size_of::<SearchRecord>())
+        .and_then(|n| n.checked_add(std::mem::size_of::<Vec<SearchRecord>>()))
+        .ok_or_else(|| CoreError::limit("Search cache accounting overflow"))?;
+    weight = weight.checked_add(slots).ok_or_else(|| CoreError::limit("Search cache accounting overflow"))?;
+    Ok((search, weight))
+}
+
 pub struct Reader {
     pub manifest: Value,
     pub generation: String,
@@ -155,22 +181,7 @@ impl Reader {
             if let Some(path) = fact["path"].as_str() { by_file.entry(path.to_string()).or_default().push(index); }
         }
         let blobs = root.child("blobs", false)?;
-        let mut search = Vec::with_capacity(facts.len());
-        let mut weight = facts_bytes.len() + manifest_bytes.len();
-        for fact in &facts {
-            let name = fact["name"].as_str().unwrap().to_lowercase();
-            let text = format!("{} {} {}", name, fact["kind"].as_str().unwrap(), fact["path"].as_str().unwrap_or("").to_lowercase());
-            weight = weight.checked_add(name.capacity()).and_then(|n| n.checked_add(text.capacity()))
-                .ok_or_else(|| CoreError::limit("Search cache accounting overflow"))?;
-            search.push(SearchRecord { name, text });
-        }
-        // Charge retained allocation capacities, including vector storage and its
-        // header, in addition to the existing encoded-data admission estimate.
-        // This remains an estimate, not a physical process-memory limit.
-        let slots = search.capacity().checked_mul(std::mem::size_of::<SearchRecord>())
-            .and_then(|n| n.checked_add(std::mem::size_of::<Vec<SearchRecord>>()))
-            .ok_or_else(|| CoreError::limit("Search cache accounting overflow"))?;
-        weight = weight.checked_add(slots).ok_or_else(|| CoreError::limit("Search cache accounting overflow"))?;
+        let (search, weight) = search_cache(&facts, facts_bytes.len(), manifest_bytes.len())?;
         Ok(Self { manifest, generation, facts, weight, by_id, by_path, by_file, search, blobs })
     }
 
@@ -362,5 +373,18 @@ mod tests {
             + reader.search.iter().map(|r| r.name.capacity() + r.text.capacity()).sum::<usize>();
         assert!(cache > 0);
         assert_eq!(reader.weight, encoded + cache);
+    }
+
+    #[test]
+    fn publication_preflight_matches_reader_weight_and_preserves_current() {
+        let temp = tempfile::tempdir().unwrap();
+        let data = fixture("İTEM");
+        let first = publish(temp.path(), &data).unwrap();
+        let weight = Reader::open(temp.path(), None).unwrap().weight;
+        assert_eq!(publish_with_reader_budget(temp.path(), &data, weight).unwrap(), first);
+        let mut next = data;
+        next["facts"][0]["name"] = json!("İTEX");
+        assert_eq!(publish_with_reader_budget(temp.path(), &next, weight - 1).unwrap_err().code, "limit_exceeded");
+        assert_eq!(Reader::open(temp.path(), None).unwrap().generation, first["generation"].as_str().unwrap());
     }
 }

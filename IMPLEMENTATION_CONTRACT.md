@@ -20,6 +20,8 @@ Each fact contains `id` (SHA-256 stable identity), `kind`, `name`, `path` (relat
 
 Native Ruby capture records Prism version, guarded Ruby 4.1 compatibility mode and parser policy in the producer, Ruby declaration coverage, and syntax diagnostics. The producer is part of generation identity. Missing grammar metadata in older manifests means unknown; generic captures need not supply it. This mode does not claim complete Ruby 4.1 language or host support.
 
+New native captures record effective limits and post-parse visited extraction nodes in producer metadata. The `max_nodes` default is 1,000,000; explicit values up to the provisional 5,000,000 operational ceiling are accepted. Other ceilings remain their existing defaults. This budget does not bound parsing, stack usage or RSS; legacy manifests are not backfilled.
+
 Coverage entries: `family`, `status` (`complete`, `partial`, `unavailable`), `scope`, `reason` (null permitted). Every capture records unsupported dynamic resolution and no execution trace. Diagnostics: `code`, `message`, optional `path`. Limits must produce explicit incompleteness or refusal, never silent truncation. Source paths/symlinks cannot escape root. Ignore .git, .thistle, vendor, node_modules and tmp by default; describe scope.
 
 ## Public core contract
@@ -29,7 +31,7 @@ Coverage entries: `family`, `status` (`complete`, `partial`, `unavailable`), `sc
 - Reader: `manifest`, `facts`, `find(query, limit: 50)` returns matching facts, `fact(id)` returns fact or raises, `source(id)` returns `{generation, fact, content, sha256}`; `links(id)` returns labelled unresolved/resolved links, `check` returns explicit coverage/identity status.
 - `generation` is a digest of canonical semantic payload. Manifest includes schema version, root identity, facts/source hashes, generation, producer and coverage. Unknown schema/digest corruption/path escapes fail closed.
 - Map can depend on core Ruby API above; it cannot depend on Woods, run arbitrary commands or expose an execution interface. Visible actions: Find, Source, Links, Check; human-readable labels, optional focus-scoped keys, no shortcut activation in inputs.
-- CLI: `thistle capture ROOT --output STORE`, `thistle find QUERY --store STORE [--generation ID] [--limit N]`, `source ID`, `links ID`, `check`, `version`. JSON on stdout; diagnostics/errors on stderr; nonzero errors. CLI does not boot Rails implicitly.
+- CLI: `thistle capture ROOT --output STORE [--max-nodes INTEGER]`, `thistle find QUERY --store STORE [--generation ID] [--limit N]`, `source ID`, `links ID`, `check`, `version`. JSON on stdout; diagnostics/errors on stderr; nonzero errors. CLI does not boot Rails implicitly.
 
 ## Verification
 

@@ -42,9 +42,15 @@
     "missing_checks": "CI / required absent before and after atomic reopened-PR merge refusal; target unchanged",
     "unresolved_threads": "all exact required checks green, up-to-date non-draft PR refused with an unresolved conversation; target unchanged",
     "green_eligibility": "all exact required checks green, resolved conversation, current base, clean/mergeable; no merge attempted",
-    "direct_push": "FAILED: GitHub accepted exact up-to-date green PR head via ref update; target advanced from241823b to20871a6"
+    "direct_push": "FAILED: GitHub accepted exact up-to-date green PR head via ref update; target advanced from241823b to20871a6",
+    "pre_test_rule_readback": {
+      "result": "observed before enforcement controls; active rule26083802, scoped disposable target, no bypass, four effective rule types",
+      "rule_receipt_sha256": "508acbdaeb4141599061d2bde0cba08422ae5353c6c912e6f9695600625b30d2",
+      "effective_receipt_sha256": "9be4389269de84bbd0ce4670ef6d0cc90018dd697940c75fc606248daa734b1c"
+    }
   },
   "unrun_controls": [
+    "unassociated-direct-update refusal (the attempted direct update used an associated eligible PR head)",
     "genuine stale-base refusal",
     "recovery/restoration enforcement proof"
   ],

@@ -34,6 +34,7 @@ completed proof before main activation.
 
 | Control | Observed result |
 | --- | --- |
+| Pre-test rule/effective-rule readback | Observed before controls: active rule `26083802`, only the disposable target, no bypass, four effective rule types; retained receipt digests are in `outcome.json` |
 | Force push | HTTP 422: explicit force-push prohibition; target unchanged |
 | Branch deletion | HTTP 422: explicit deletion prohibition; target unchanged |
 | Required CI failed | HTTP 405 naming failing `CI / required`; up-to-date head; target unchanged |
@@ -41,6 +42,7 @@ completed proof before main activation.
 | Unresolved conversation | HTTP 405 naming the conversation, with both required checks green; target unchanged |
 | Green eligibility | `clean`, mergeable, non-draft, exact head/base; no merge attempt for this positive control |
 | Direct update of that eligible PR head | **Unexpected HTTP 200**; disposable target advanced and PR became indirectly merged |
+| Direct update of an unassociated unique head | Unrun; the attempted update used the already associated eligible PR head |
 | Genuine stale-base refusal | Unrun after stop; not a pass |
 | Recovery/restoration enforcement | Unrun after stop; cleanup is not a substitute |
 

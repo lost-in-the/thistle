@@ -410,9 +410,12 @@ did **not** pass its original blanket-direct-update criterion. GitHub accepted a
 fast-forward to an already eligible opened PR's exact head, indirectly marking
 the disposable PR merged. The target was disposable; main never changed and
 its rule was not activated. The temporary rule/refs were removed after retaining
-the result. GitHub's PR rule requires association with an opened PR, not an
-exclusive merge endpoint. The revised native-scope expectation needs an owner
-decision and completed proof before activation; it is not retroactive approval of
+the result. Pre-test rule and effective-rule readbacks were retained; an
+unassociated-head direct-update refusal was not attempted. These are separately
+accounted for in the linked report and structured receipt. GitHub's PR rule
+requires association with an opened PR, not an
+exclusive merge endpoint. The owner subsequently accepted that native scope;
+a completed fresh proof is still required before activation. This is not retroactive approval of
 that negative-control result. No broader mechanism is added to ordinary PRs.
 
 ## Qualification source-identity proof
