@@ -64,6 +64,16 @@ establish that this separate configured check passed. Public visibility still
 requires the owner's alpha notice and the authorized content/access scope;
 source availability does not grant a product license or qualify a release.
 
+`.pii-allow` contains two fully anchored, escaped literal rules for four repeated
+synthetic network-display test lines in vendored `log` 0.4.34. Independent review
+verified the file against the official crate archive (SHA-256
+`f9f8bd3e56ce4dfc153cf470fffbfa98c7620958b312ca5c3a4b8d5181fd13c6`),
+Cargo's package checksum and
+[the exact upstream source](https://github.com/rust-lang/log/blob/8034743dd9d7f7583bd9a670271483d176130911/src/kv/value.rs#L1289).
+These are public fixture literals, not private application data. Prefix, suffix
+and changed-line negative controls refuse the exception. No broad vendor/path
+ignore, vendored edit or privacy-pattern change is permitted by these rules.
+
 ## Independent required check
 
 The authoritative controller and policy belong outside the candidate's writable checkout. The proposed `thistle-eval` workspace provides an executable starting point, but sibling directories are not a security boundary. In protected infrastructure, the controller:
