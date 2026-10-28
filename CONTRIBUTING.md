@@ -18,8 +18,9 @@ landed through PR #1; the restored source and `docs/handoff/` now live on main.
 Experiment 001 landed through PR #2; its completed workflow is retired with
 provenance and historical evidence preserved. Before importing a
 bundle or recreating a task, inspect current issues, branches, and PR status. An
-old snapshot is historical evidence; newer accepted evidence must retain its own
-identity and scope.
+old snapshot, including the [initial project setup record](docs/development/project-setup.md),
+is historical evidence; newer accepted evidence must retain its own identity and
+scope.
 
 Follow the restored README for the pinned Rust
 toolchain, Ruby development headers, C compiler, libclang, and locked vendored
