@@ -390,3 +390,53 @@ update. This is shared-session agent consensus, not maintainer approval, merge
 authorization, protected independent qualification, or production acceptance.
 Modern hosted product evidence and the separately authorized release/qualification
 controls remain outstanding; previously green historical runs do not cover them.
+
+## Follow-up on 2026-10-28: modern hosted result and Map homepage metadata
+
+The reviewer read the completed run and job records for
+[run 40718920736](https://github.com/lost-in-the/thistle/actions/runs/40718920736).
+It succeeded for PR head `e5887c6c1b74f6adbf2991faab85c0455d2d412e` against
+base `1b65f82ae8b8b693a8d7e8adb052b939b23bd5a9`. The primary build's manifest
+log identifies the actual tested merge checkout as
+`fd7122f385caf87c9d7875d265296d92a1ade72e`; the PR head is not substituted for
+that source identity.
+
+Planning, automation, primary Ruby 4.0.9, minimum Ruby 3.4.12, and
+`CI / required` all succeeded. The reviewer read the automation log confirming
+all 46 tests passed in 2.509 seconds. Both product jobs compiled their native
+bridge and passed Ruby/Map checks; primary additionally ran Rust invariants and
+prepared the candidate packages. The integration owner separately reported zero
+check annotations. These are successful modern development-cohort results for
+that revision, not installed release-candidate or protected qualification.
+
+The primary log nevertheless contained `WARNING:  no homepage specified` during
+the Map gem build. The reviewer confirmed the warning's Map-build context and
+compared the two local edits with the files fetched at the exact PR head above:
+
+- `map/thistle-map.gemspec` adds only
+  `spec.homepage = 'https://github.com/lost-in-the/thistle'`.
+- `map/changelog/26.changed.md` adds one sentence describing that metadata field.
+
+The URL is the canonical repository already used by this project. The change
+adds no runtime behavior or permissions, and the note matches the implementation.
+No new local test suite, gem build, or workflow lint run was performed for these
+two plain metadata/text additions; the actual review checks were source
+comparison, hosted-record/log reads, and fingerprint calculation.
+
+| Updated file | SHA-256 |
+|---|---|
+| `map/thistle-map.gemspec` | `da3ab30af5431e19fd7ba555a4fd5ad18631941291c58d5245d1c1dae90a8431` |
+| `map/changelog/26.changed.md` | `8b363b15e7a2be819657a4645cdf726336d716ab1221ea2f6f917ae3a656b2c4` |
+
+The same 41-file payload now hashes to
+`9b78c384bc59259b1122b27db6412cb030c7d09b7ee5c30d8f07932b9330c87f`.
+Removing only those two added lines reproduces the preceding
+`5cccb3fb004bd7304810dfc8808629c74ddcd78b7fd9b86a870c21736b79b791`
+fingerprint. The eight-file automation subset is unchanged. The exclusions,
+separate lowercase-template deletion, and non-authorization limits above remain.
+
+**Disposition:** no blocking finding in this metadata correction. The successful
+`e5887c6c1b74f6adbf2991faab85c0455d2d412e` run is retained as evidence for its
+own bytes. The homepage changes package metadata and therefore creates a new
+candidate; its commit and required hosted check are still pending at this review.
+The integration owner will record that new head and result separately.

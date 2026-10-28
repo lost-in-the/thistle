@@ -8,6 +8,7 @@ Gem::Specification.new do |spec|
   spec.authors = ['Leah Armstrong']
   spec.summary = 'Read-only investigation views for captured Thistle evidence'
   spec.description = 'Private implementation preview: generation-pinned source, search, links and coverage views.'
+  spec.homepage = 'https://github.com/lost-in-the/thistle'
   spec.required_ruby_version = '>= 3.4'
   spec.files = Dir.chdir(__dir__) { Dir['lib/**/*.rb', 'assets/*', 'docs/*.md', 'docs/*.json', 'examples/*.ru', 'README.md', 'CHANGELOG.md', 'LICENSE*'] }.sort
   spec.require_paths = ['lib']
