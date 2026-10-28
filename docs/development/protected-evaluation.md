@@ -531,8 +531,19 @@ quota or unapproved cost leaves qualification blocked.
 Public controller source does not authorize public application captures. Keep
 private/external source, snapshots and identifying evidence in an approved
 restricted destination; do not upload them as public-controller Actions artifacts.
-Publish only reviewed nonsecret result summaries and digests. Storage access and
-the transfer/retention mechanism must be approved before such inputs are admitted.
+Public Actions logs are also a disclosure surface. Before admitting restricted
+inputs, prove that candidate and dependency stdout/stderr, paths, exception text,
+shell tracing and raw observer/collector diagnostics cannot reach public runner
+logs, annotations, summaries, artifacts or check details. Capture bounded raw
+output directly in the approved restricted destination, including failed and
+interrupted attempts; never tee it into the public job log. An output byte cap
+does not make source-bearing output safe to publish. Public control-plane output
+must use fixed nonsecret messages and reviewed, allowlisted summaries and digests.
+Exercise a nonsecret disclosure canary across success, failure and cleanup paths;
+verify public surfaces and restricted recovery before private inputs are allowed.
+If isolated output routing or restricted retention is unavailable, refuse those
+inputs before transfer or execution. Storage access, output routing and the
+transfer/retention mechanism must be approved before such inputs are admitted.
 The initial rule-identity proof uses nonsecret fixtures, not application captures.
 
 Record approved action/runtime/image versions and security/deprecation review,

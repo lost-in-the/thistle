@@ -53,7 +53,11 @@ The coordinator's command batch did not abort on the unexpected-success command'
 nonzero process result and ran one subsequent setup force-update of the disposable
 source to `80721a2266a73a66bffea412dacfcc377e21d72a`. That was an orchestration
 error. It changed only the disposable source; no next control or production rule
-activation ran. Both command/results are retained. The stopped proof's helper now
+activation ran. The unexpected-success API receipt and the subsequent source
+state are retained. The source-update command/result appeared in the coordinator
+transcript, but a standalone raw API receipt for that followup was not located in
+the retained packet; the observed final source state does not reconstruct it.
+The stopped proof's helper now
 rejects further administrative mutations; a continuation needs a fresh proof and
 explicit failure fencing between dependent operations.
 
