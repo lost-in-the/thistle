@@ -16,6 +16,11 @@ It does not execute the inspected Ruby files. The Ruby bridge exchanges bounded
 JSON batches, releases the GVL during Rust work, and always frees native response
 buffers. There is no Ruby engine fallback.
 
+Capture uses vendored Prism 1.9.0 in its guarded CRuby 4.1 compatibility
+mode, independent of the host Ruby. Capture metadata records this mode and
+parser policy; older manifests without those fields have an unknown grammar.
+This mode does not establish complete Ruby 4.1 language or host support.
+
 ## Build the alpha source gem
 
 Development targets Linux with Ruby 3.4 or 4.0 and Rails 8.1 integration. The

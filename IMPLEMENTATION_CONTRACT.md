@@ -18,6 +18,8 @@ This is the first private implementation milestone of the approved [product plan
 
 Each fact contains `id` (SHA-256 stable identity), `kind`, `name`, `path` (relative or null), `location` (null or `start_line`, `end_line`, `start_byte`, `end_byte`), `evidence` (`static` or `runtime`), `attributes` (Hash), `links` (Array). A link contains `relation`, `target` (symbolic name), `resolution` (`unresolved` unless actually verified). Facts need source provenance through path/digest; runtime facts with no reliable source are explicitly null. IDs can use `Digest::SHA256.hexdigest(JSON.generate([producer,kind,name,path,start_byte]))`. No global complete call-graph claims.
 
+Native Ruby capture records Prism version, guarded Ruby 4.1 compatibility mode and parser policy in the producer, Ruby declaration coverage, and syntax diagnostics. The producer is part of generation identity. Missing grammar metadata in older manifests means unknown; generic captures need not supply it. This mode does not claim complete Ruby 4.1 language or host support.
+
 Coverage entries: `family`, `status` (`complete`, `partial`, `unavailable`), `scope`, `reason` (null permitted). Every capture records unsupported dynamic resolution and no execution trace. Diagnostics: `code`, `message`, optional `path`. Limits must produce explicit incompleteness or refusal, never silent truncation. Source paths/symlinks cannot escape root. Ignore .git, .thistle, vendor, node_modules and tmp by default; describe scope.
 
 ## Public core contract
