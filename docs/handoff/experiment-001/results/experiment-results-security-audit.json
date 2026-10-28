@@ -1,0 +1,57 @@
+{
+  "audit_status": "pass",
+  "issues": [],
+  "hosted_run": 40702407356,
+  "comparison_report_sha256": "30dcd79b5a8b9a55463d614dd5b10ea5e4b78acce12b4f3e79b3b01f9ff91fbe",
+  "payload_difference_paths": [
+    "engine/src/store.rs"
+  ],
+  "comparison_pair_counts": {
+    "single": 20,
+    "sequence": 20
+  },
+  "calibration_pair_counts": {
+    "single": 4,
+    "sequence": 4
+  },
+  "attempts_verified": 96,
+  "independently_recomputed_paired_medians": {
+    "single": {
+      "process_until_results_seconds": 1.0032596685669128,
+      "initial_peak_rss_kib": 1.007435919384292,
+      "warm_peak_rss_kib": 1.007435919384292,
+      "aa_primary_ratio": 1.0020280246429478
+    },
+    "sequence": {
+      "process_until_results_seconds": 0.7131717962441166,
+      "initial_peak_rss_kib": 1.0059534309402012,
+      "warm_peak_rss_kib": 1.0049372170711064,
+      "aa_primary_ratio": 1.0052832655451103
+    }
+  },
+  "arms": {
+    "baseline": {
+      "source_commit": "39f49d500ad941b01f9a839978f0fca599d812c6",
+      "core_gem_sha256": "fc9fb44db77817dcb65dd9d4d23e601e0661b8116ebd4071c1c94b2d747d527e",
+      "map_gem_sha256": "c19c41173588ea6929a675539cf549e429950442fe36382d49c1fa6edc472bf7",
+      "native_sha256": "2aab962c4a7b33297a82c9552ad1027dbcc353130d97b11c4874929b4c77e151",
+      "quality_report_sha256": "bcb68b624394041d6c2ce57eed9aa60fc54327c086edba2dac12b24e4768b408",
+      "core_file_count": 3408,
+      "map_file_count": 16,
+      "runtime_file_count": 7,
+      "evaluator_file_count": 15
+    },
+    "candidate": {
+      "source_commit": "f424aa661804a013afc41a167f8afde47358f268",
+      "core_gem_sha256": "98b9eac030a744a732ff88a5289bfe5603ca37b73d93e5c1ee13733c3d26c147",
+      "map_gem_sha256": "c19c41173588ea6929a675539cf549e429950442fe36382d49c1fa6edc472bf7",
+      "native_sha256": "f563f7d2a3872b48e6029e05d5ad38cb94c81b393a01f64cc3b343f51c0055cb",
+      "quality_report_sha256": "e9a3908291decad5881f416f23a24856bce907782a395e190e6aa69fdcb65feb",
+      "core_file_count": 3408,
+      "map_file_count": 16,
+      "runtime_file_count": 7,
+      "evaluator_file_count": 15
+    }
+  },
+  "boundary": "audit of retained bytes and reports; no benchmark rerun, no protected-authority claim"
+}

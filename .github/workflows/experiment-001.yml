@@ -1,7 +1,5 @@
 name: Frozen experiment 001 (development)
 on:
-  push:
-    branches: [codex/experiment-001]
   workflow_dispatch:
 permissions:
   contents: read
@@ -109,3 +107,7 @@ jobs:
 # Candidate-owned orchestration is development evidence, not an independent
 # protected check. Both arms use the frozen evaluator history and policy.
 # A valid run can reject the optimization; consult the recorded decision.
+
+# Campaign 001 completed once at f424aa6 in run 40702407356. Keep its raw
+# observations; another candidate/campaign needs a separately reviewed run.
+# Documentation-only follow-ups must not silently repeat confirmation trials.

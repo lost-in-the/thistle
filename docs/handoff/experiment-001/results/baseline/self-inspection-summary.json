@@ -1,0 +1,76 @@
+{
+  "fact": {
+    "attributes": {
+      "bytes": 15972,
+      "language": "rust",
+      "parse_status": "not_parsed",
+      "sha256": "45fb5d5f7c4f7fdc4ae14171537420ea094ca13a985b0cbf6377225d90063c10"
+    },
+    "evidence": "static",
+    "id": "485bacae29f5bbe030add88071d15144dcc7171e7befff39951db98e2cd40bc3",
+    "kind": "file",
+    "links": [],
+    "location": {
+      "end_byte": 15972,
+      "end_line": 287,
+      "start_byte": 0,
+      "start_line": 1
+    },
+    "name": "engine/src/store.rs",
+    "path": "engine/src/store.rs"
+  },
+  "generation": "28ec4966eb2c8d4dc4d350ba4f39e870faef17982a1f3237e780a872377418f6",
+  "sha256": "45fb5d5f7c4f7fdc4ae14171537420ea094ca13a985b0cbf6377225d90063c10",
+  "check": {
+    "coverage": [
+      {
+        "family": "source_inventory",
+        "reason": null,
+        "scope": "Regular UTF-8 *.rb, *.rake, *.gemspec, *.rs, Gemfile and Rakefile; excludes .git, .thistle, vendor, node_modules, tmp, target; no symlinks",
+        "status": "complete"
+      },
+      {
+        "family": "ruby_declarations",
+        "reason": null,
+        "scope": "Explicit Ruby class, module and method syntax in captured valid source; names are lexical labels",
+        "status": "complete"
+      },
+      {
+        "family": "dynamic_resolution",
+        "reason": "Static capture does not evaluate application code; relationship targets are unresolved",
+        "scope": "Ruby constant lookup, metaprogramming, visibility, dispatch and generated methods",
+        "status": "unavailable"
+      },
+      {
+        "family": "execution_trace",
+        "reason": "A syntax relationship is not evidence that a call executed",
+        "scope": "Observed execution",
+        "status": "unavailable"
+      },
+      {
+        "family": "rust_declarations",
+        "reason": "Rust source files are available with exact digests and full source. This milestone does not include a Rust syntax or semantic analyzer",
+        "scope": "Rust symbols, types, macro expansion and call relationships",
+        "status": "unavailable"
+      },
+      {
+        "family": "rails_routes",
+        "reason": "No application supplied. Static capture does not boot Rails",
+        "scope": "live application route set",
+        "status": "unavailable"
+      },
+      {
+        "family": "source_tree_coherence",
+        "reason": "Facts are derived from stored bytes. File reads detect ordinary concurrent writes, but capture does not certify a globally immutable tree or currentness after capture",
+        "scope": "One atomic source-tree revision",
+        "status": "unavailable"
+      }
+    ],
+    "facts": 67,
+    "files": 17,
+    "freshness": "not_checked",
+    "generation": "28ec4966eb2c8d4dc4d350ba4f39e870faef17982a1f3237e780a872377418f6",
+    "integrity": "verified",
+    "note": "Integrity verifies captured bytes, not current application state."
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "candidate_commit": "39f49d500ad941b01f9a839978f0fca599d812c6",
+  "restored_source_commit": "23ca426d8b2cc1da052492115748b60641ee4241",
+  "evaluator_commit": "b81f5adc2c647083b6ce8688234012c6d2da0ee4",
+  "policy_sha256": "14f69505966970cf639fe6b462269f3ba301cf1cc95533b5c81aa544a3dd6dfe",
+  "evaluator_files": {
+    ".gitignore": "6ffb90e0edd53df217a96074fc5ddb14a026848ae9c410cc053e449276b208f9",
+    "README.md": "cb85802ff817811ee9efa18a82614f84787be7d3afd5d7a9f1ebaecb22b1dd16",
+    "benchmark_workload.rb": "a29dbfbfee62a2d439c902bffacb50df03354cba8ea47a680c94ab5c1414a6ed",
+    "compare.py": "366a1350318a1552aad6d1688a0a8f340fe20ef8dc5ed9c99811290db21c567c",
+    "evaluate.py": "21baf119f6bc7d3eebe7b5e4105866cc039c27b533081773dab0fc16bfffffce",
+    "fixtures/ruby/expected.json": "08f9180d180ef1e916623743cff76d7da598d17300503433c93e90957bd39946",
+    "fixtures/ruby/lib/crate.rb": "9065d1ffc0ea389d5770ea439dfa6d197522e8d7ecad64200a4bd3b25effa4de",
+    "fixtures/ruby/lib/orchard.rb": "acad212f2928d30a5abb18829724b87036bb44efded41b083a87fd213e3f8ff7",
+    "fixtures/ruby/vendor/ignored.rb": "cbdb4415d061de0a379adb9c6152d561276f9a4f1dea6e703b2cfcd7fb6649e4",
+    "parser_probe.rb": "004d8361d8403fe2ae83864e453ffcd4bbd534439e7ca3b7eac0b8ce96bbe3de",
+    "policies/experiment-001.json": "14f69505966970cf639fe6b462269f3ba301cf1cc95533b5c81aa544a3dd6dfe",
+    "reader_boundary_probe.rb": "766d99e26cd6f6cb02e6c7e4a8f701d4606f33a87e5a06403956ddabe8f48bc4",
+    "runtime_fixture.rb": "beef495a103d924b0f275eab8aff5b2ead3eea901a6186bd60a58173ed340a05",
+    "test_evaluator.py": "60034dfd6aa27d4d78202793ea2ceb2528f644e11e885019ca3f1888c207feb0",
+    "test_experiment_policy.py": "50eb5cf3b3cf85e44f83e7040f06e6482ef4be14d10800ae8ce95ce7b43f7628"
+  },
+  "core_gem_sha256": "fc9fb44db77817dcb65dd9d4d23e601e0661b8116ebd4071c1c94b2d747d527e",
+  "map_gem_sha256": "c19c41173588ea6929a675539cf549e429950442fe36382d49c1fa6edc472bf7",
+  "cargo_lock_sha256": "79a4189e571a1d766b6565e8abf2819dcfc16cbea79990a4ae1560feaf062674",
+  "vendor_files": 3378,
+  "authority": "frozen separately versioned evaluator on candidate-owned hosted orchestration; not a protected external check",
+  "ruby": "ruby 3.3.13 (2026-10-23 revision af48f08f21) [x86_64-linux]\n",
+  "rustc": "rustc 1.90.0 (1159e78c4 2025-09-14)\nbinary: rustc\ncommit-hash: 1159e78c4747b02ef996e55082b704c09b970588\ncommit-date: 2025-09-14\nhost: x86_64-unknown-linux-gnu\nrelease: 1.90.0\nLLVM version: 20.1.8\n",
+  "cargo": "cargo 1.90.0 (840b83a10 2025-07-30)\n",
+  "cc": "cc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0\nCopyright (C) 2023 Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.  There is NO\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n",
+  "toolchain_binaries": {
+    "/opt/hostedtoolcache/Ruby/3.3.13/x64/bin/ruby": "349406a5862bb07cd9ef882feed06424945cf798ae503da20583e5da3446c6b3",
+    "/home/runner/.rustup/toolchains/1.90.0-x86_64-unknown-linux-gnu/bin/rustc": "e6abf55ab1859e7c990be77fd593f51661ea99fb2fde626ae9f4108aaa34e7fa",
+    "/home/runner/.rustup/toolchains/1.90.0-x86_64-unknown-linux-gnu/bin/cargo": "51de284e8bb0d03dcee595a0fb1cb3a952fe9e7e4b953a8b1467b7f71725b561",
+    "/usr/bin/x86_64-linux-gnu-gcc-13": "1b99826121ae6682a634e5efe09bd3e3df58ce58e0b28f849114ab5b89139c26"
+  },
+  "cargo_manifest": "[package]\nname = \"thistle-core\"\nversion = \"0.1.0\"\nedition = \"2021\"\nrust-version = \"1.90\"\npublish = false\ndescription = \"Thistle's native evidence, snapshot, and query engine\"\n\n[lib]\nname = \"thistle_core\"\ncrate-type = [\"staticlib\", \"rlib\"]\n\n[dependencies]\nserde = { version = \"1.0\", features = [\"derive\"] }\nserde_json = \"1.0\"\nsha2 = \"0.10\"\nlibc = \"0.2\"\nruby-prism = \"=1.9.0\"\n\n[dev-dependencies]\ntempfile = \"3\"\n\n[profile.release]\nlto = \"thin\"\ncodegen-units = 1\ndebug = 1\npanic = \"unwind\"\n",
+  "native_build_command": "cargo build --release --locked --offline; C bridge built by Ruby mkmf"
+}

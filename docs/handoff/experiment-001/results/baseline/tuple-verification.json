@@ -1,0 +1,46 @@
+{
+  "status": "pass",
+  "core_gem_sha256": "fc9fb44db77817dcb65dd9d4d23e601e0661b8116ebd4071c1c94b2d747d527e",
+  "map_gem_sha256": "c19c41173588ea6929a675539cf549e429950442fe36382d49c1fa6edc472bf7",
+  "native": [
+    {
+      "name": "thistle_native.so",
+      "sha256": "2aab962c4a7b33297a82c9552ad1027dbcc353130d97b11c4874929b4c77e151"
+    }
+  ],
+  "runtime_files": [
+    {
+      "path": "gems/thistle-0.1.0.pre.1/lib/thistle.rb",
+      "sha256": "11e0626dfb08f5580945e3875aac6b7db72836967f73c0b1f1fd66bed5b1b241"
+    },
+    {
+      "path": "gems/thistle-0.1.0.pre.1/lib/thistle/errors.rb",
+      "sha256": "7ff9780a7e6e14155c572d08b153826f8c969597235646e49836392f6d720c38"
+    },
+    {
+      "path": "gems/thistle-0.1.0.pre.1/lib/thistle/native.rb",
+      "sha256": "375beca29fc7c9c6247aa236a149f76db69f00ef919a4cfe18058c315cb243f9"
+    },
+    {
+      "path": "gems/thistle-0.1.0.pre.1/lib/thistle/reader.rb",
+      "sha256": "45cc9cc9acc57785aecec570062b7ba1054ee686eb04127309e4e7be70be56e6"
+    },
+    {
+      "path": "gems/thistle-0.1.0.pre.1/lib/thistle/store.rb",
+      "sha256": "7f49b8d13b109ec1b4d03b6cde38af95cebc69bc201be410fda86a961bbcc81e"
+    },
+    {
+      "path": "gems/thistle-0.1.0.pre.1/lib/thistle/thistle_native.so",
+      "sha256": "2aab962c4a7b33297a82c9552ad1027dbcc353130d97b11c4874929b4c77e151"
+    },
+    {
+      "path": "gems/thistle-0.1.0.pre.1/lib/thistle/version.rb",
+      "sha256": "9bf9c79747f04da406895a26836fec1bad6c770743d8491c07838bc10a6a42c5"
+    }
+  ],
+  "core_files_verified": 3408,
+  "map_files_verified": 16,
+  "smoke_sha256": "2749442b8584b79ca5ae97e4f09c26b3f40f6469192061f4b76dbe515fd339ca",
+  "baseline_report_sha256": "bcb68b624394041d6c2ce57eed9aa60fc54327c086edba2dac12b24e4768b408",
+  "self_inspection_sha256": "20b040297481fba48cdf27247d3812fe9d647fa96bfc20bb67862bc68e64d728"
+}
