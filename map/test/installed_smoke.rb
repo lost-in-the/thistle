@@ -45,6 +45,30 @@ result = Dir.mktmpdir('thistle-map-installed-') do |directory|
   raise 'Source generation was not carried through UI links' unless html.include?("generation=#{reader.generation}")
   raise 'CSP absent' unless headers['content-security-policy'].include?("frame-ancestors 'none'")
   raise 'Read-only method gate missing' unless app.call(env.merge('REQUEST_METHOD' => 'POST')).first == 405
+  # Construct runtime-only evidence independently of the Rails observer, then
+  # publish it through the installed native store alongside the static capture.
+  capture = Thistle::Capture.new(root: app_root).call
+  runtime_id = Digest::SHA256.hexdigest('installed-runtime-route')
+  capture.fetch('facts') << {
+    'id' => runtime_id, 'kind' => 'route', 'name' => 'GET /installed-runtime',
+    'path' => nil, 'location' => nil, 'evidence' => 'runtime',
+    'attributes' => { 'source_status' => 'unavailable', 'coherence' => 'unknown' }, 'links' => []
+  }
+  runtime_manifest = Thistle::Store.new(store).publish(capture)
+  runtime_reader = Thistle::Reader.new(store, generation: runtime_manifest.fetch('generation'))
+  begin
+    runtime_reader.source(runtime_id)
+    raise 'Runtime fact unexpectedly has source'
+  rescue Thistle::Error => error
+    raise unless error.code == 'source_unavailable'
+  end
+  runtime_query = URI.encode_www_form('id' => runtime_id, 'generation' => runtime_reader.generation)
+  runtime_status, _, runtime_body = app.call(env.merge('QUERY_STRING' => runtime_query))
+  runtime_html = runtime_body.each.to_a.join
+  raise "Runtime Source returned #{runtime_status}" unless runtime_status == 200
+  raise 'Runtime evidence context missing' unless runtime_html.include?('GET /installed-runtime') && runtime_html.include?('runtime') && runtime_html.include?('No file or line was captured')
+  raise 'Runtime navigation lost generation' unless runtime_html.include?("generation=#{runtime_reader.generation}") && runtime_html.include?('/links?') && runtime_html.include?('/check?')
+  runtime_reader.close
   native = $LOADED_FEATURES.find { |path| path.match?(%r{/thistle/thistle_native\.(so|bundle|dll)\z}) }
   raise 'Installed native engine was not loaded' unless native && File.realpath(native).start_with?(gem_home + File::SEPARATOR)
   raise 'Woods source was loaded' if $LOADED_FEATURES.any? { |path| path.match?(%r{/(woods|woods_map)/}) }

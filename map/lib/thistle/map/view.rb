@@ -67,12 +67,14 @@ module Thistle
           "<div class=\"cvwrap\" role=\"region\" aria-label=\"Source of #{h(fact.fetch('name'))}\" tabindex=\"0\">" \
           "<div class=\"cv codeview\">#{rows}</div></div>"
         layout('Source', body, fact: fact)
-      rescue Thistle::NotFound
+      rescue Thistle::Error => error
+        raise unless error.code == 'source_unavailable'
+
         fact = @reader.fact(@params.fetch('id'))
-        raise unless fact['path'].nil?
+        raise error unless fact['id'] == @params['id'] && fact['path'].nil? && fact['location'].nil?
 
         body = "<h1 class=\"t1\">#{h(fact.fetch('name'))}</h1>" + fact_tiles(fact)
-        body += '<p class="notice ui">No file source was captured for this fact. Links and Check show the evidence that is available.</p>'
+        body += '<p class="notice ui">No file or line was captured for this fact. Links and Check show the evidence that is available.</p>'
         layout('Source', body, fact: fact)
       end
 

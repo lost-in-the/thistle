@@ -168,13 +168,30 @@ class MapAppTest < Minitest::Test
     fact = Reader.new.fact(FACT_ID).merge('kind' => 'route', 'evidence' => 'runtime', 'path' => nil, 'location' => nil)
     reader = Reader.new(facts: [fact])
     def reader.source(_id)
-      raise Thistle::NotFound, 'No captured file'
+      error = Thistle::Error.new('No captured file')
+      error.instance_variable_set(:@native_code, 'source_unavailable')
+      raise error
     end
     status, _, body = request(make_app(reader), '/source', query: "id=#{FACT_ID}")
     assert_equal 200, status
-    assert_includes body, 'No file source was captured'
+    assert_includes body, 'No file or line was captured'
     assert_includes body, '/links?'
     assert_includes body, "generation=#{GENERATION}"
+  end
+
+  def test_unavailable_code_does_not_hide_source_backed_or_other_errors
+    reader = Reader.new
+    def reader.source(_id)
+      error = Thistle::Error.new('source failure')
+      error.instance_variable_set(:@native_code, 'source_unavailable')
+      raise error
+    end
+    assert_equal 422, request(make_app(reader), '/source', query: "id=#{FACT_ID}").first
+    def reader.source(_id)
+      raise Thistle::InvalidSnapshot, 'corrupt source'
+    end
+    assert_equal 422, request(make_app(reader), '/source', query: "id=#{FACT_ID}").first
+    assert_equal 404, request(make_app, '/source', query: "id=#{'c' * 64}").first
   end
 
   def test_links_are_paged_and_unresolved_targets_are_not_promoted_to_hyperlinks
