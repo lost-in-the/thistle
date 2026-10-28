@@ -1,0 +1,31 @@
+{
+  "restoration": {
+    "run": 40699795668,
+    "source": "b116ed35f9c64561364b06a9c16aebe61e5814ed",
+    "result": "push rejected: workflow token lacked workflows permission; archive verification and restoration commit succeeded; connector completed exact ref update"
+  },
+  "development": [
+    {
+      "run": 40700219105,
+      "source": "fad98d58735cb6c5d13b5b806650feeeab9b88ee",
+      "ruby30": "LoadError before Map test load: require_relative cannot infer basepath under ruby -e",
+      "ruby33": "source tests and packaging passed, not installed qualification",
+      "ruby34": "source tests and packaging passed, not installed qualification"
+    },
+    {
+      "run": 40700705305,
+      "source": "39f49d500ad941b01f9a839978f0fca599d812c6",
+      "ruby30": "same harness LoadError; not counted as Map pass"
+    },
+    {
+      "run": 40701540956,
+      "source": "ba8ce8276b0f4496ac0bb654fa4a4e17e0a5e8d1",
+      "result": "all three development cohorts passed after absolute require fix"
+    }
+  ],
+  "local_access_failures": [
+    "GitHub 404 before organization transfer",
+    "Configured proxy refused Git transport; no proxy bypass or credential substitution attempted"
+  ],
+  "historical": "Original pre-hardening artifacts and failed evaluator attempts are preserved separately under evidence/; none were promoted as the hardened baseline"
+}

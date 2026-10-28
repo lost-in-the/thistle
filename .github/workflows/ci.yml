@@ -1,0 +1,73 @@
+name: Development checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: development-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    name: Ruby ${{ matrix.ruby }} / Rails ${{ matrix.rails }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - ruby: '3.0'
+            rails: '~> 6.1.7'
+          - ruby: '3.3'
+            rails: '~> 7.2'
+          - ruby: '3.4'
+            rails: '~> 8.0'
+    env:
+      THISTLE_RAILS_VERSION: ${{ matrix.rails }}
+      CARGO_NET_OFFLINE: 'true'
+    steps:
+      - name: Check out candidate without persisted credentials
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4, verified 2026-10-28
+        with:
+          persist-credentials: false
+      - name: Install Ruby
+        uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1, verified 2026-10-28
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: false
+      - name: Select pinned Rust toolchain
+        run: |
+          rustc --version
+          cargo --version
+      - name: Install development gems
+        run: bundle install --jobs 4
+      - name: Test locked native core without dependency network access
+        run: cargo test --locked --offline --manifest-path engine/Cargo.toml
+      - name: Test Ruby contracts and runtime fixtures
+        run: bundle exec rake test
+      - name: Test optional Map against the native core
+        run: bundle exec ruby -Ilib -Imap/lib -Imap/test -e 'Dir.glob("map/test/*_test.rb").sort.each { |path| require File.expand_path(path) }'
+      - name: Build source gem
+        run: |
+          mkdir -p pkg
+          gem build thistle.gemspec --output pkg/thistle.gem
+      - name: Build optional Map gem
+        working-directory: map
+        run: gem build thistle-map.gemspec --output ../pkg/thistle-map.gem
+      - name: Preserve candidate package
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4, verified 2026-10-28
+        with:
+          name: thistle-source-ruby-${{ matrix.ruby }}
+          path: pkg/*.gem
+          if-no-files-found: error
+          retention-days: 7
+
+# This is candidate-owned development feedback. The independent evaluator and
+# branch/ruleset-required checks must be deployed outside this workflow before
+# treating it as release authority. No privileged PR event or publishing secret.

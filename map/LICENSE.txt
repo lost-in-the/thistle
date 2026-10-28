@@ -1,0 +1,5 @@
+Private, unreleased Thistle implementation. Copyright (c) 2026 Leah Armstrong.
+Public distribution and release licensing have not been selected for new code.
+
+The Woods Map-derived portions retain their original MIT permission and notice
+in LICENSE.woods-map.txt. See docs/REUSE.md for exact files and adaptations.
