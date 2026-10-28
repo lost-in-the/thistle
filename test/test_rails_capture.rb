@@ -79,7 +79,8 @@ class ThistleRailsCaptureTest < Minitest::Test
     routes.draw { get "/baskets/:id", to: "baskets#show" }
     app = Struct.new(:routes).new(routes)
     assert_raises(Thistle::Capture::LimitError) do
-      Thistle::RailsCapture.new(app: app, limits: Thistle::Capture::DEFAULT_LIMITS, evidence_budget: 32).call
+      limits = Thistle::Capture.new(root: @root).call.fetch("producer").fetch("effective_limits").transform_keys(&:to_sym)
+      Thistle::RailsCapture.new(app: app, limits: limits, evidence_budget: 32).call
     end
   end
 end

@@ -72,6 +72,29 @@ class ThistleCoreTest < Minitest::Test
     assert reader.manifest["coverage"].any? { |entry| entry["family"] == "source_tree_coherence" && entry["status"] == "unavailable" }
   end
 
+  def test_node_limits_apply_across_api_split_and_cli
+    limits = { max_nodes: 2_000_000 }
+    split = Thistle::Capture.new(root: @root, limits: limits).call
+    assert_equal 2_000_000, split.dig("producer", "effective_limits", "max_nodes")
+    assert_operator split.dig("producer", "visited_nodes"), :>, 0
+    manifest = Thistle.capture(root: @root, output: @store, limits: limits)
+    assert_equal manifest, Thistle::Store.new(@store).publish(split)
+    out, err = StringIO.new, StringIO.new
+    assert_equal 0, Thistle::CLI.new(out: out, err: err).run(["capture", @root, "--output", @store, "--max-nodes", "2000000"])
+    assert_equal manifest, JSON.parse(out.string)
+    ["0", "5000001", "1.5", "x"].each do |value|
+      assert_equal 2, Thistle::CLI.new(out: StringIO.new, err: StringIO.new).run(["capture", @root, "--output", @store, "--max-nodes", value])
+    end
+    assert_equal 2, Thistle::CLI.new(out: StringIO.new, err: StringIO.new).run(["check", "--store", @store, "--max-nodes", "1"])
+    [0, -1, 1.5, "3", 5_000_001, 2**100].each do |value|
+      assert_raises(Thistle::InvalidInput) { Thistle.capture(root: @root, output: @store, limits: { max_nodes: value }) }
+    end
+    assert_raises(Thistle::InvalidInput) { Thistle.capture(root: @root, output: @store, limits: { unknown: 1 }) }
+    assert_equal 5_000_000, Thistle::Capture.new(root: @root, limits: { max_nodes: 5_000_000 }).call.dig("producer", "effective_limits", "max_nodes")
+    assert_raises(Thistle::LimitExceeded) { Thistle.capture(root: @root, output: @store, limits: { max_nodes: 1 }) }
+    assert_equal manifest["generation"], reader.generation
+  end
+
   def test_publisher_rejects_fabricated_positions_and_source_digest
     publish
     data = Thistle::Capture.new(root: @root).call

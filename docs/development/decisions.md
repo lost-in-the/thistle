@@ -209,3 +209,21 @@ row needs a concrete supported customer pair or distinct failure risk. A custom
 replacement needs measured or contractual benefit that justifies its ownership.
 Do not carry a version forward just because a previous baseline used it, and do
 not rotate a frozen experiment's inputs in place.
+
+## Issue 41: explicit capture traversal budget
+
+Keep the 1,000,000-node default and allow explicit `max_nodes` up to a provisional
+5,000,000 ceiling through Ruby or the capture CLI. Rust validates all limits and
+records effective values and visited nodes. Other ceilings remain unchanged. A
+named large-app profile was considered; a single explicit limit avoids silently
+raising unrelated budgets. The ceiling is an operational policy, not an RSS or
+parser safety bound; Prism parsing precedes traversal. Reconsider it with
+installed complete-workflow measurements and independent security/performance
+review, including cases rejected by downstream budgets. Generated Canopy source
+is an interim validation workload, not private-application confirmation.
+
+Publication preflights the existing reader admission estimate before writing.
+It builds and drops a search cache, so this adds a traversal and temporary
+allocation; the estimate does not cover all retained or transient memory. It
+does not reserve space in the shared reader registry. Occupied registries may
+still refuse an otherwise admissible snapshot.
