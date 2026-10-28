@@ -14,6 +14,9 @@ Gem::Specification.new do |spec|
   spec.metadata = { "allowed_push_host" => "https://unreleased.invalid", "development_status" => "private-milestone" }
   spec.files = Dir.glob("{lib,exe,ext,engine,docs}/**/*", File::FNM_DOTMATCH).select do |path|
     next false unless File.file?(path)
+    # Transfer archives and historical evidence are repository documentation,
+    # not runtime gem contents. Do not alter the vendored dependency byte set.
+    next false if path.start_with?("docs/handoff/")
     # Vendored crate paths are part of Cargo's checksum contract, including
     # legitimate source subdirectories named target and fixture/build files.
     next true if path.start_with?("engine/vendor/")

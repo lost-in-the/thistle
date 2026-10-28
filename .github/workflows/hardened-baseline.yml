@@ -1,0 +1,87 @@
+name: Hardened baseline evidence (development)
+on:
+  push:
+    branches: [codex/restore-hardened-baseline]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  baseline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      THISTLE_RAILS_VERSION: '= 7.2.4'
+      LIBCLANG_PATH: /usr/lib/llvm-18/lib
+      CARGO_NET_OFFLINE: 'true'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f
+        with:
+          ruby-version: '3.3.13'
+          bundler-cache: false
+      - name: Prepare source-build tools and frozen evaluator
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/thistle-results"
+          sudo apt-get update -qq
+          sudo apt-get install -y libclang-18-dev
+          rustup toolchain install 1.90.0 --profile minimal
+          echo "$(dirname "$(rustup which --toolchain 1.90.0 rustc)")" >> "$GITHUB_PATH"
+          git show 317671367949111861a63d0c3635dec94533fc8e:thistle-eval.git.bundle > "$RUNNER_TEMP/evaluator.bundle"
+          printf '%s  %s\n' 7d24cf43a1ca1c57456d2a009e70bec8cfea10895aff5f981c92ab448e6acb2d "$RUNNER_TEMP/evaluator.bundle" | sha256sum -c -
+          git clone "$RUNNER_TEMP/evaluator.bundle" "$RUNNER_TEMP/thistle-eval"
+          test "$(git -C "$RUNNER_TEMP/thistle-eval" rev-parse HEAD)" = b81f5adc2c647083b6ce8688234012c6d2da0ee4
+          python3 -m unittest discover -s "$RUNNER_TEMP/thistle-eval" -p 'test_*.py' -v 2>&1 | tee "$RUNNER_TEMP/thistle-results/evaluator-unit.log"
+      - name: Resolve explicit development and installed-worker dependencies
+        run: |
+          set -euo pipefail
+          bundle config set path "$RUNNER_TEMP/development-gems"
+          bundle install --jobs 4
+          bundle cache
+          cp Gemfile.lock "$RUNNER_TEMP/thistle-results/Gemfile.lock"
+      - name: Test current native and Ruby source
+        run: |
+          set -euo pipefail
+          cargo test --locked --offline --manifest-path engine/Cargo.toml 2>&1 | tee "$RUNNER_TEMP/thistle-results/native-tests.log"
+          bundle exec rake test 2>&1 | tee "$RUNNER_TEMP/thistle-results/ruby-tests.log"
+          bundle exec ruby -Ilib -Imap/lib -Imap/test -e 'Dir.glob("map/test/*_test.rb").sort.each { |path| require_relative path }' 2>&1 | tee "$RUNNER_TEMP/thistle-results/map-tests.log"
+      - name: Build new hardened core and Map artifacts
+        run: |
+          set -euo pipefail
+          mkdir -p pkg/hardened-baseline
+          gem build thistle.gemspec --output pkg/hardened-baseline/thistle.gem
+          cd map
+          gem build thistle-map.gemspec --output ../pkg/hardened-baseline/thistle-map.gem
+      - name: Qualify installed artifacts and inspect accepted packaged source
+        run: |
+          set -euo pipefail
+          python3 tools/qualify_baseline.py --source "$GITHUB_WORKSPACE" --evaluator "$RUNNER_TEMP/thistle-eval" --output "$RUNNER_TEMP/thistle-results" --ruby "$(command -v ruby)" --toolchain "$(dirname "$(rustup which --toolchain 1.90.0 rustc)")" --libclang "$LIBCLANG_PATH" --dependencies "$GITHUB_WORKSPACE/vendor/cache" 2>&1 | tee "$RUNNER_TEMP/thistle-results/qualification.log"
+      - name: Retain exact artifacts and runtime bytes, including failed attempts
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/thistle-results/packages" "$RUNNER_TEMP/thistle-results/native"
+          if test -d pkg/hardened-baseline; then cp pkg/hardened-baseline/*.gem "$RUNNER_TEMP/thistle-results/packages/"; fi
+          find "$RUNNER_TEMP/thistle-results/installed-baseline/gems" -path '*/lib/thistle/thistle_native.so' -exec cp '{}' "$RUNNER_TEMP/thistle-results/native/" \; 2>/dev/null || true
+          git status --porcelain > "$RUNNER_TEMP/thistle-results/build-worktree-status.txt"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: hardened-baseline-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/thistle-results/*.json
+            ${{ runner.temp }}/thistle-results/*.log
+            ${{ runner.temp }}/thistle-results/*.stderr
+            ${{ runner.temp }}/thistle-results/*.txt
+            ${{ runner.temp }}/thistle-results/Gemfile.lock
+            ${{ runner.temp }}/thistle-results/packages/
+            ${{ runner.temp }}/thistle-results/native/
+          if-no-files-found: error
+          retention-days: 30
+
+# This workflow executes a frozen evaluator, but candidate control of this
+# workflow and shared runner authority mean this is NOT a protected external
+# qualification service. There are no release credentials or privileged forks.
