@@ -39,5 +39,17 @@
       "release": "https://github.com/actions/download-artifact/releases/tag/v8.0.2",
       "metadata": "https://github.com/actions/download-artifact/blob/9000827ccba6bdab643e8b6fd33ac0654aef8333/action.yml"
     }
+  },
+  "reusable_workflows": {
+    "lost-in-the/.github/.github/workflows/pii-check.yml": {
+      "kind": "metadata_scan",
+      "sha": "8352c67a10c152e80f276ccc99a4ba598eb7a2e5",
+      "source": "https://github.com/lost-in-the/.github/blob/8352c67a10c152e80f276ccc99a4ba598eb7a2e5/.github/workflows/pii-check.yml",
+      "review": "https://github.com/lost-in-the/.github/pull/9",
+      "runner": "ubuntu-24.04",
+      "transitive_actions": {
+        "actions/checkout": "3d3c42e5aac5ba805825da76410c181273ba90b1"
+      }
+    }
   }
 }
