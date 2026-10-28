@@ -370,11 +370,15 @@ qualification authority. A same-App lookalike is a known limit, not a protected
 qualification pass. Do not claim otherwise.
 
 Before activation, export current rules and use an owner-authorized disposable
-proof target with these settings and a non-bypass writer. Missing/failed checks,
-a direct push and a stale base must be refused; a complete green targeted PR with
-resolved review threads becomes eligible without a positive-control merge. Save
-actual rule/check/source identities and refusals. Reconcile existing rules rather
-than replacing others' work. No rule is created by this proposal.
+proof target with these settings and a non-bypass writer. Read back the effective
+rules before testing. Missing/failed checks, a direct push, a stale base, branch
+deletion, a non-fast-forward push and an unresolved review thread must each be
+refused. A complete green targeted PR with resolved review threads becomes
+eligible without a positive-control merge. Save actual rule/check/source
+identities and each refusal. Verify the approved recovery procedure on the
+disposable target, including restored settings and effective-rule readback.
+Reconcile existing rules rather than replacing others' work. No rule is created
+by this proposal.
 
 ## Qualification source-identity proof
 
