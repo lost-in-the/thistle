@@ -80,6 +80,12 @@ The [protected evaluation proposal](development/protected-evaluation.md) records
 current authority gaps, required owner decisions and the unrun enforcement proof
 for issue #23. It authorizes no deployment or qualification.
 
+Ordinary PRs retain automatic targeted CI and substantive review; main receives
+broader integration checks. Protected qualification is selected for exact-package
+preview/release acceptance and accepted performance work. Its manual dispatch and
+full installed matrix are not requirements for every main PR. Basic main PR/CI
+protection is a separate bounded owner decision.
+
 The authoritative controller and policy belong outside the candidate's writable checkout. The proposed `thistle-eval` workspace provides an executable starting point, but sibling directories are not a security boundary. In protected infrastructure, the controller:
 
 1. Selects a reviewed evaluator revision and required lane set independently of candidate paths/workflow contents.
