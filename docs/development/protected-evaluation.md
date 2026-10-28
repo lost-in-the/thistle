@@ -163,8 +163,9 @@ completion event or artifact name alone authorizes a result.
 Use separate disposable hosted jobs for admission, preparation/execution and
 final publication:
 
-1. A trusted admission job uses the publisher's existing narrowly scoped App
-   authority, without checking out or executing candidate code. Before admitting
+1. Only after separate App creation, permission/custody approval and activation,
+   a trusted admission job uses narrowly scoped App authority, without checking
+   out or executing candidate code. Before admitting
    any required attempt, including a retry or policy change for the same request,
    it establishes and reads back a blocking state for the canonical trusted check.
    It must verify that no earlier success or duplicate check still makes that
