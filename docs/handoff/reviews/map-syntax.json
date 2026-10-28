@@ -1,0 +1,78 @@
+{
+  "runtime": "ruby 3.4.9",
+  "source": "23ca426d8b2cc1da052492115748b60641ee4241",
+  "files": [
+    {
+      "path": "map/lib/thistle/map/app.rb",
+      "exit": 0,
+      "stdout": "Syntax OK",
+      "stderr": ""
+    },
+    {
+      "path": "map/lib/thistle/map/highlighter.rb",
+      "exit": 0,
+      "stdout": "Syntax OK",
+      "stderr": ""
+    },
+    {
+      "path": "map/lib/thistle/map/version.rb",
+      "exit": 0,
+      "stdout": "Syntax OK",
+      "stderr": ""
+    },
+    {
+      "path": "map/lib/thistle/map/view.rb",
+      "exit": 0,
+      "stdout": "Syntax OK",
+      "stderr": ""
+    },
+    {
+      "path": "map/lib/thistle/map.rb",
+      "exit": 0,
+      "stdout": "Syntax OK",
+      "stderr": ""
+    },
+    {
+      "path": "map/test/app_test.rb",
+      "exit": 0,
+      "stdout": "Syntax OK",
+      "stderr": ""
+    },
+    {
+      "path": "map/test/browser_server.rb",
+      "exit": 0,
+      "stdout": "Syntax OK",
+      "stderr": ""
+    },
+    {
+      "path": "map/test/highlighter_test.rb",
+      "exit": 0,
+      "stdout": "Syntax OK",
+      "stderr": ""
+    },
+    {
+      "path": "map/test/installed_smoke.rb",
+      "exit": 0,
+      "stdout": "Syntax OK",
+      "stderr": ""
+    },
+    {
+      "path": "map/test/integration_test.rb",
+      "exit": 0,
+      "stdout": "Syntax OK",
+      "stderr": ""
+    },
+    {
+      "path": "map/test/rack_contract_test.rb",
+      "exit": 0,
+      "stdout": "Syntax OK",
+      "stderr": ""
+    },
+    {
+      "path": "map/test/test_helper.rb",
+      "exit": 0,
+      "stdout": "Syntax OK",
+      "stderr": ""
+    }
+  ]
+}

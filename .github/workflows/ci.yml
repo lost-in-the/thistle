@@ -52,7 +52,7 @@ jobs:
       - name: Test Ruby contracts and runtime fixtures
         run: bundle exec rake test
       - name: Test optional Map against the native core
-        run: bundle exec ruby -Ilib -Imap/lib -Imap/test -e 'Dir.glob("map/test/*_test.rb").sort.each { |path| require_relative path }'
+        run: bundle exec ruby -Ilib -Imap/lib -Imap/test -e 'Dir.glob("map/test/*_test.rb").sort.each { |path| require File.expand_path(path) }'
       - name: Build source gem
         run: |
           mkdir -p pkg

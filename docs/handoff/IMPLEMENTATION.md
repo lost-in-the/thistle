@@ -6,7 +6,7 @@ The current source is committed at `23ca426d8b2cc1da052492115748b60641ee4241`. I
 
 Independent review closed both reproduced ownership blockers. Three permanent regression tests passed with 20 assertions; the preserved pre-fix constructor failed both relevant negative-control tests as intended. The ownership-specific probe used native hash `67a6a685c18d4ab6fe7957f1bb7229dc2624c2cea8a1900c384f80966d20da02` before the final rebuild above. No performance candidate or optimized result exists. The independent evaluator is committed separately at `b81f5adc2c647083b6ce8688234012c6d2da0ee4`.
 
-Thistle now has a Rust evidence engine distributed through a Ruby gem, explicit Rails observations, an optional Map gem using approved Woods Map presentation code, and a separate installed-artifact evaluator. The verified slice captures source, publishes a generation, finds facts, recovers exact captured files, preserves uncertainty and renders the evidence in a browser. Full launch parity and a comparative speed advantage remain unqualified. [Core contract](thistle/IMPLEMENTATION_CONTRACT.md) · [Full launch ledger](thistle/docs/capability-ledger.md)
+Thistle now has a Rust evidence engine distributed through a Ruby gem, explicit Rails observations, an optional Map gem using approved Woods Map presentation code, and a separate installed-artifact evaluator. The verified slice captures source, publishes a generation, finds facts, recovers exact captured files, preserves uncertainty and renders the evidence in a browser. Full launch parity and a comparative speed advantage remain unqualified. [Core contract](../../IMPLEMENTATION_CONTRACT.md) · [Full launch ledger](../../docs/capability-ledger.md)
 
 Paths below are relative to the delivery bundle root: `thistle/`, `thistle-eval/` and `evidence/`. This handoff is outside the gem sources so completing the delivery record does not change a tested gem's bytes.
 
@@ -14,13 +14,13 @@ Paths below are relative to the delivery bundle root: `thistle/`, `thistle-eval/
 
 | Part | Responsibility and boundary | Source |
 |---|---|---|
-| Rust core | Static capture using established Prism bindings; fact/source validation; generation publication; indexed identity lookup and bounded lexical queries. Ruby declarations and unresolved relationships are evidence, not a complete dynamic call graph. Rust files can be captured as exact source without a claim of Rust semantic analysis. | [Engine](thistle/engine/src/lib.rs), [capture](thistle/engine/src/capture.rs), [store](thistle/engine/src/store.rs), [schema](thistle/engine/src/schema.rs) |
-| C bridge | Copies request bytes before releasing Ruby's GVL, calls Rust without touching Ruby objects, and frees response/input buffers through an ensured cleanup path. | [Native bridge](thistle/ext/thistle_native/thistle_native.c) |
-| Ruby facade and CLI | Supplies the gem interface and literal `capture`, `find`, `source`, `links`, `check` and `version` actions. Explicit Rails capture observes an already booted trusted application. The initial runtime family is routes; source/runtime coherence stays unknown. | [Ruby API](thistle/lib/thistle.rb), [CLI](thistle/lib/thistle/cli.rb), [Rails capture](thistle/lib/thistle/rails_capture.rb) |
-| Optional Map gem | Find → Source → Links/Check with generation-preserving links, accessible source scrolling, visible action labels and optional letter shortcuts. It consumes the Thistle reader and reuses the approved Map highlighter, token sheet and presentation structures. | [Map guide](thistle/map/README.md), [reuse provenance](thistle/map/docs/REUSE.md) |
-| Independent evaluator | Installs supplied gem artifacts into a fresh gem home, runs outside the implementation checkout, and compares results with independently written expectations and failure controls. It can become a separate test repository or move into the independently controlled testbed. | [Evaluator guide](thistle-eval/README.md), [controller](thistle-eval/evaluate.py), [expected facts](thistle-eval/fixtures/ruby/expected.json) |
+| Rust core | Static capture using established Prism bindings; fact/source validation; generation publication; indexed identity lookup and bounded lexical queries. Ruby declarations and unresolved relationships are evidence, not a complete dynamic call graph. Rust files can be captured as exact source without a claim of Rust semantic analysis. | [Engine](../../engine/src/lib.rs), [capture](../../engine/src/capture.rs), [store](../../engine/src/store.rs), [schema](../../engine/src/schema.rs) |
+| C bridge | Copies request bytes before releasing Ruby's GVL, calls Rust without touching Ruby objects, and frees response/input buffers through an ensured cleanup path. | [Native bridge](../../ext/thistle_native/thistle_native.c) |
+| Ruby facade and CLI | Supplies the gem interface and literal `capture`, `find`, `source`, `links`, `check` and `version` actions. Explicit Rails capture observes an already booted trusted application. The initial runtime family is routes; source/runtime coherence stays unknown. | [Ruby API](../../lib/thistle.rb), [CLI](../../lib/thistle/cli.rb), [Rails capture](../../lib/thistle/rails_capture.rb) |
+| Optional Map gem | Find → Source → Links/Check with generation-preserving links, accessible source scrolling, visible action labels and optional letter shortcuts. It consumes the Thistle reader and reuses the approved Map highlighter, token sheet and presentation structures. | [Map guide](../../map/README.md), [reuse provenance](../../map/docs/REUSE.md) |
+| Independent evaluator | Installs supplied gem artifacts into a fresh gem home, runs outside the implementation checkout, and compares results with independently written expectations and failure controls. It can become a separate test repository or move into the independently controlled testbed. | [Evaluator guide](EVALUATOR_REFERENCE.md), [controller](EVALUATOR_REFERENCE.md), [expected facts](EVALUATOR_REFERENCE.md) |
 
-Rust owns the core architecture following the owner's implementation clarification. There is no Ruby engine fallback. The current build route is a Linux source gem with locked, vendored Cargo dependencies, Rust 1.90.0, a C compiler, Ruby development headers and libclang. The executed local tuple is Ruby 3.3.13 on Linux x86-64; the runtime lane used Rails 7.2.4. Broader platform support and precompiled installs remain qualification work. [Build requirements](thistle/README.md) · [Installed baseline evidence](evidence/baseline-report.json)
+Rust owns the core architecture following the owner's implementation clarification. There is no Ruby engine fallback. The current build route is a Linux source gem with locked, vendored Cargo dependencies, Rust 1.90.0, a C compiler, Ruby development headers and libclang. The executed local tuple is Ruby 3.3.13 on Linux x86-64; the runtime lane used Rails 7.2.4. Broader platform support and precompiled installs remain qualification work. [Build requirements](../../README.md) · [Installed baseline evidence](evidence/baseline-report.json)
 
 ## Run the implemented slice
 
@@ -34,7 +34,7 @@ gem build thistle.gemspec
 gem install --local ./thistle-0.1.0.pre.1.gem
 ```
 
-Set `LIBCLANG_PATH` if libclang is outside the normal discovery path; `THISTLE_CARGO` can select a particular Cargo executable. The package's private publishing guard remains in place. [Source-build instructions](thistle/README.md)
+Set `LIBCLANG_PATH` if libclang is outside the normal discovery path; `THISTLE_CARGO` can select a particular Cargo executable. The package's private publishing guard remains in place. [Source-build instructions](../../README.md)
 
 Capture and inspect a project:
 
@@ -46,7 +46,7 @@ thistle links FACT_ID --store ./my-app/.thistle --generation GENERATION_ID
 thistle check --store ./my-app/.thistle --generation GENERATION_ID
 ```
 
-Use a returned fact ID and generation ID in the follow-up commands. Results are JSON; errors are structured JSON on stderr with a nonzero exit. `Source` returns the full captured file and its digest. `Check` checks the saved evidence and coverage; it does not establish that a live application or working tree is unchanged. [CLI contract](thistle/lib/thistle/cli.rb)
+Use a returned fact ID and generation ID in the follow-up commands. Results are JSON; errors are structured JSON on stderr with a nonzero exit. `Source` returns the full captured file and its digest. `Check` checks the saved evidence and coverage; it does not establish that a live application or working tree is unchanged. [CLI contract](../../lib/thistle/cli.rb)
 
 Runtime inspection is an explicit Ruby call inside the trusted application's runner:
 
@@ -68,19 +68,19 @@ require "thistle/map"
 Thistle::Map::App.new(store: "/absolute/path/to/store")
 ```
 
-The host chooses the server and authorization. The local default checks both the loopback peer and Host; remote deployment requires an explicit authorization callback and allowed hosts. The app accepts GET/HEAD, escapes source, uses a restrictive CSP and exposes evidence consumption. The [Map README](thistle/map/README.md) includes the mounting example and explains the host's authority boundary.
+The host chooses the server and authorization. The local default checks both the loopback peer and Host; remote deployment requires an explicit authorization callback and allowed hosts. The app accepts GET/HEAD, escapes source, uses a restrictive CSP and exposes evidence consumption. The [Map README](../../map/README.md) includes the mounting example and explains the host's authority boundary.
 
 ## Verified evidence
 
 | Check | Observed result | Record |
 |---|---|---|
 | Independent installed core | Passing baseline verdict: installed package without Woods; independently expected declarations/source/links; repeat identity; edits and retained generations; refused invalid publication/IDs/limits; symlink escape; explicit syntax failure; corrupt source; real Rails route observations | [Baseline report](evidence/baseline-report.json) |
-| Native parser regression | The installed core completed the required 10,000-nested-array case from a Ruby worker thread without process failure; the evaluator used a fresh worker-local Cargo home | [Baseline report](evidence/baseline-report.json), [probe](thistle-eval/parser_probe.rb) |
-| Core-to-Map suite | 21 tests, 165 assertions, no failures/errors/skips, including real native capture, old-generation source, Rack response lint, escaping, access gates and reader cleanup | [Map validation](thistle/map/docs/VALIDATION.md), [Map tests](thistle/map/test/) |
-| Browser checks | Find/Source/Links/Check at 1440, 960, 640 and 390 pixels: 16 combinations, zero reported axe violations; keyboard controls and no-JavaScript navigation passed | [Native browser results](thistle/map/docs/browser-native-results.json) |
-| Installed core + Map | Installed source-to-UI smoke passed outside both checkouts; all loaded Thistle implementation files/native bytes came from the isolated gems, with Woods absent | [Installed Map report](evidence/map-installed-baseline-report.json), [smoke script](thistle/map/test/installed_smoke.rb) |
+| Native parser regression | The installed core completed the required 10,000-nested-array case from a Ruby worker thread without process failure; the evaluator used a fresh worker-local Cargo home | [Baseline report](evidence/baseline-report.json), [probe](EVALUATOR_REFERENCE.md) |
+| Core-to-Map suite | 21 tests, 165 assertions, no failures/errors/skips, including real native capture, old-generation source, Rack response lint, escaping, access gates and reader cleanup | [Map validation](../../map/docs/VALIDATION.md), [Map tests](../../map/test/) |
+| Browser checks | Find/Source/Links/Check at 1440, 960, 640 and 390 pixels: 16 combinations, zero reported axe violations; keyboard controls and no-JavaScript navigation passed | [Native browser results](../../map/docs/browser-native-results.json) |
+| Installed core + Map | Installed source-to-UI smoke passed outside both checkouts; all loaded Thistle implementation files/native bytes came from the isolated gems, with Woods absent | [Installed Map report](evidence/map-installed-baseline-report.json), [smoke script](../../map/test/installed_smoke.rb) |
 
-The browser run used Chrome for Testing 134.0.6998.35 and axe-core 4.10.3. Final source views were visually inspected at desktop and phone widths. Some axe contrast checks were marked incomplete; the record retains that limitation and a targeted colour-pair correction. Automated browser checks do not qualify intended-user accessibility or naming effectiveness. [Detailed validation limits](thistle/map/docs/VALIDATION.md)
+The browser run used Chrome for Testing 134.0.6998.35 and axe-core 4.10.3. Final source views were visually inspected at desktop and phone widths. Some axe contrast checks were marked incomplete; the record retains that limitation and a targeted colour-pair correction. Automated browser checks do not qualify intended-user accessibility or naming effectiveness. [Detailed validation limits](../../map/docs/VALIDATION.md)
 
 The installed baseline's loaded native SHA-256 is `cb3870d86268099cc23dcd8010316f2c130047bff15bc92404bb3fcc786bff11`. Its successful repeated evaluation includes the added parser regression and Cargo isolation. Final delivered package identities belong in the pending selection record below; an earlier passing binary cannot qualify a changed one. [Baseline report](evidence/baseline-report.json)
 
@@ -88,25 +88,25 @@ The installed baseline's loaded native SHA-256 is `cb3870d86268099cc23dcd8010316
 
 | Finding | Resolution and retained check |
 |---|---|
-| Whole-file byte/line coordinates disagreed at a trailing newline | Capture now reports the line at the exclusive byte endpoint. Strict source-coordinate validation stayed in place; native and real Map integration regressions cover the boundary. [Capture tests](thistle/engine/src/capture.rs), [Map integration](thistle/map/test/integration_test.rb) |
-| Source-gem packaging omitted a vendored dependency's legitimate `src/target` files | The packaging exclusion was corrected. A fresh, offline installed-artifact run verifies the packaged source and dependencies rather than relying on the development checkout. [Gem specification](thistle/thistle.gemspec), [baseline report](evidence/baseline-report.json) |
-| Deep parser/AST destruction could fail on a Ruby worker's stack | The native capture boundary was hardened, and the independent evaluator gained a deadline-bound installed worker-thread regression. This remains a specific regression case, not broad hostile-parser qualification. [Parser tests](thistle/test/test_parser_boundary.rb), [evaluator probe](thistle-eval/parser_probe.rb) |
-| Map could retain native reader handles until garbage collection | Requests now close their reader in `ensure`, including failed reads. [App](thistle/map/lib/thistle/map/app.rb), [request tests](thistle/map/test/app_test.rb) |
-| Browser checks exposed a missing landmark, a selected-comment contrast edge and incorrect UI-font specificity | The capture status moved inside the main landmark, selected comments gained adequate contrast for the checked pair, and human guidance uses the intended sans-serif role. Final browser checks passed. [Validation](thistle/map/docs/VALIDATION.md) |
+| Whole-file byte/line coordinates disagreed at a trailing newline | Capture now reports the line at the exclusive byte endpoint. Strict source-coordinate validation stayed in place; native and real Map integration regressions cover the boundary. [Capture tests](../../engine/src/capture.rs), [Map integration](../../map/test/integration_test.rb) |
+| Source-gem packaging omitted a vendored dependency's legitimate `src/target` files | The packaging exclusion was corrected. A fresh, offline installed-artifact run verifies the packaged source and dependencies rather than relying on the development checkout. [Gem specification](../../thistle.gemspec), [baseline report](evidence/baseline-report.json) |
+| Deep parser/AST destruction could fail on a Ruby worker's stack | The native capture boundary was hardened, and the independent evaluator gained a deadline-bound installed worker-thread regression. This remains a specific regression case, not broad hostile-parser qualification. [Parser tests](../../test/test_parser_boundary.rb), [evaluator probe](EVALUATOR_REFERENCE.md) |
+| Map could retain native reader handles until garbage collection | Requests now close their reader in `ensure`, including failed reads. [App](../../map/lib/thistle/map/app.rb), [request tests](../../map/test/app_test.rb) |
+| Browser checks exposed a missing landmark, a selected-comment contrast edge and incorrect UI-font specificity | The capture status moved inside the main landmark, selected comments gained adequate contrast for the checked pair, and human guidance uses the intended sans-serif role. Final browser checks passed. [Validation](../../map/docs/VALIDATION.md) |
 
-Failed and inconclusive setup attempts are retained with the evaluator evidence. A harness invocation issue and navigation/stylesheet synchronization issues were corrected in the tests; they were not counted as product passes. [Evaluator records](evidence/) · [Map validation](thistle/map/docs/VALIDATION.md)
+Failed and inconclusive setup attempts are retained with the evaluator evidence. A harness invocation issue and navigation/stylesheet synchronization issues were corrected in the tests; they were not counted as product passes. [Evaluator records](evidence/) · [Map validation](../../map/docs/VALIDATION.md)
 
 ## Operational and security limits
 
-Publication validates content before changing the current-generation pointer. Failures before that change preserve the earlier generation; a directory-sync failure after it reports `commit_uncertain`, because the new generation may already be current. Readers pin a generation and check expanded source bytes. Store access uses descriptor-anchored paths and rejects symlinks/non-regular files. Digests provide integrity checks, not authorization or signatures. [Store](thistle/engine/src/store.rs) · [Filesystem boundary](thistle/engine/src/fs.rs) · [Operational guide](thistle/README.md)
+Publication validates content before changing the current-generation pointer. Failures before that change preserve the earlier generation; a directory-sync failure after it reports `commit_uncertain`, because the new generation may already be current. Readers pin a generation and check expanded source bytes. Store access uses descriptor-anchored paths and rejects symlinks/non-regular files. Digests provide integrity checks, not authorization or signatures. [Store](../../engine/src/store.rs) · [Filesystem boundary](../../engine/src/fs.rs) · [Operational guide](../../README.md)
 
-The current milestone retains generations and blobs until the store is removed; automatic retention, storage quotas and power-loss recovery are not qualified. Native registry limits count encoded data and handles, not measured process RSS. Inherited native state after `fork` is refused; general fork support remains open. Explicit Rails capture inherits application authority and does not certify an immutable boot epoch. [Operational guide](thistle/README.md)
+The current milestone retains generations and blobs until the store is removed; automatic retention, storage quotas and power-loss recovery are not qualified. Native registry limits count encoded data and handles, not measured process RSS. Inherited native state after `fork` is refused; general fork support remains open. Explicit Rails capture inherits application authority and does not certify an immutable boot epoch. [Operational guide](../../README.md)
 
-The evaluator's sibling directory and clean gem environment provide reproducibility, not OS isolation. Protected CI still needs an independently controlled policy/verdict service and disposable constrained workers for build, install and execution. The checked-in CI workflow is development feedback: pinned actions, read-only permissions, no path filters and no publishing step. Hosted runs, required external checks, branch protection and release identities have not been configured by this milestone. [CI/security record](thistle/docs/ci-and-security.md)
+The evaluator's sibling directory and clean gem environment provide reproducibility, not OS isolation. Protected CI still needs an independently controlled policy/verdict service and disposable constrained workers for build, install and execution. The checked-in CI workflow is development feedback: pinned actions, read-only permissions, no path filters and no publishing step. Hosted runs, required external checks, branch protection and release identities have not been configured by this milestone. [CI/security record](../../docs/ci-and-security.md)
 
 ## The launch bar is preserved
 
-Every row remains **UNQUALIFIED for launch**. The complete baseline references, expansion inventory, acceptance-owner roles and required closure fields stay in the [launch capability ledger](thistle/docs/capability-ledger.md).
+Every row remains **UNQUALIFIED for launch**. The complete baseline references, expansion inventory, acceptance-owner roles and required closure fields stay in the [launch capability ledger](../../docs/capability-ledger.md).
 
 | Row | Required outcome still to qualify |
 |---|---|
@@ -128,7 +128,7 @@ Every row remains **UNQUALIFIED for launch**. The complete baseline references, 
 | L16 | Optional contextual help with real declared providers, limits and provenance |
 | L17 | Readiness, recovery, adoption/switching and secure documented operation |
 
-A launch decision also needs independent correctness, task quality, total cost, full-workflow resource/performance evidence, recognition-focused interaction, security/privacy and exact final-artifact qualification. A narrow passing slice or one successful optimization cannot close these gates. Old interfaces need not be preserved; useful customer outcomes remain the comparison bar. [Ledger and cross-cutting gates](thistle/docs/capability-ledger.md)
+A launch decision also needs independent correctness, task quality, total cost, full-workflow resource/performance evidence, recognition-focused interaction, security/privacy and exact final-artifact qualification. A narrow passing slice or one successful optimization cannot close these gates. Old interfaces need not be preserved; useful customer outcomes remain the comparison bar. [Ledger and cross-cutting gates](../../docs/capability-ledger.md)
 
 ## Next bounded implementation work
 
@@ -151,7 +151,7 @@ Broader families, semantic retrieval, deployment/provider cohorts, history/impac
 
 **No final optimized artifact has been selected. These are explicit next tasks, not missing results that should be inferred.**
 
-Experiment 001 registers a source-informed hypothesis: prepare immutable normalized search records once when a reader opens, then reuse them across queries. The accepted baseline is to inspect its own packaged source and preserve source/generation/native/build identities. The independent policy charges complete process-until-results time, single and repeated sessions, memory, semantic equality and A/A calibration. Its synthetic workload and acceptance thresholds are frozen before candidate results. [Experiment hypothesis](thistle/docs/experiment-001.md) · [Independent policy](thistle-eval/policies/experiment-001.json) · [Comparison controller](thistle-eval/compare.py)
+Experiment 001 registers a source-informed hypothesis: prepare immutable normalized search records once when a reader opens, then reuse them across queries. The accepted baseline is to inspect its own packaged source and preserve source/generation/native/build identities. The independent policy charges complete process-until-results time, single and repeated sessions, memory, semantic equality and A/A calibration. Its synthetic workload and acceptance thresholds are frozen before candidate results. [Experiment hypothesis](../../docs/experiment-001.md) · [Independent policy](EVALUATOR_REFERENCE.md) · [Comparison controller](EVALUATOR_REFERENCE.md)
 
 | Final field | Status |
 |---|---|

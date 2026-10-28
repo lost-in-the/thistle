@@ -1,5 +1,8 @@
 # Thistle
 
+This is the historical bootstrap handoff. Source is now restored in the normal
+repository layout; see [restoration and current validation](RESTORATION.md).
+
 Private development handoff for a new Rust evidence engine distributed as a Ruby gem, with an optional Map and independent evaluator.
 
 **Start with [CODEX_HANDOFF.md](CODEX_HANDOFF.md).** This repository currently holds the complete source history as Git bundles and the reviewed continuation plan. The next Codex task should import the source on a review branch, rebuild and independently qualify the hardened baseline, then run the predeclared introspective optimization experiment. No launch parity or performance advantage is claimed.

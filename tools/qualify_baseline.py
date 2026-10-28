@@ -19,6 +19,12 @@ def run(command, **kwargs):
     return subprocess.run([str(x) for x in command], check=True, **kwargs)
 
 
+def run_logged(command, stdout_path, stderr_path, **kwargs):
+    # Write directly to retained files, including on failure or timeout.
+    with stdout_path.open('w') as stdout, stderr_path.open('w') as stderr:
+        run(command, stdout=stdout, stderr=stderr, timeout=60, **kwargs)
+
+
 def package_files(package):
     with tarfile.open(package) as outer:
         payload = outer.extractfile('data.tar.gz').read()
@@ -44,10 +50,14 @@ def main():
     assert sha(policy) == '14f69505966970cf639fe6b462269f3ba301cf1cc95533b5c81aa544a3dd6dfe'
     revision = subprocess.check_output(['git', '-C', str(evaluator), 'rev-parse', 'HEAD'], text=True).strip()
     assert revision == 'b81f5adc2c647083b6ce8688234012c6d2da0ee4'
+    run(['git', '-C', evaluator, 'diff', '--exit-code', 'HEAD', '--'])
+    evaluator_paths = subprocess.check_output(['git', '-C', str(evaluator), 'ls-files', '-z']).decode().split('\0')
+    evaluator_files = {path: sha(evaluator / path) for path in evaluator_paths if path}
     record = {
         'candidate_commit': subprocess.check_output(['git', '-C', str(src), 'rev-parse', 'HEAD'], text=True).strip(),
         'restored_source_commit': '23ca426d8b2cc1da052492115748b60641ee4241',
         'evaluator_commit': revision, 'policy_sha256': sha(policy),
+        'evaluator_files': evaluator_files,
         'core_gem_sha256': sha(baseline), 'map_gem_sha256': sha(map_gem),
         'cargo_lock_sha256': sha(src / 'engine/Cargo.lock'),
         'vendor_files': len(vendored), 'packaged_files': core_files,
@@ -56,6 +66,10 @@ def main():
     for name, command in [('ruby', [args.ruby, '--version']), ('rustc', [args.toolchain / 'rustc', '-vV']),
                           ('cargo', [args.toolchain / 'cargo', '--version']), ('cc', ['cc', '--version'])]:
         record[name] = subprocess.check_output([str(x) for x in command], text=True)
+    record['toolchain_binaries'] = {str(p.resolve()): sha(p.resolve()) for p in
+                                    [args.ruby, args.toolchain / 'rustc', args.toolchain / 'cargo', Path(shutil.which('cc'))]}
+    record['cargo_manifest'] = (src / 'engine/Cargo.toml').read_text()
+    record['native_build_command'] = 'cargo build --release --locked --offline; C bridge built by Ruby mkmf'
     (out / 'build-identity.json').write_text(json.dumps(record, indent=2) + '\n')
     work = out / 'installed-baseline'
     command = ['python3', evaluator / 'evaluate.py', '--ruby', args.ruby,
@@ -67,6 +81,7 @@ def main():
     run(command, cwd=out)
     report = json.loads((out / 'baseline-report.json').read_text())
     assert report['verdict'] == 'pass', report
+    assert report['artifacts'][-1]['sha256'] == record['core_gem_sha256']
     env = {'PATH': str(args.ruby.parent) + ':/usr/bin:/bin', 'LANG': 'C.UTF-8',
            'GEM_HOME': str(work / 'gems'), 'GEM_PATH': str(work / 'gems')}
 
@@ -78,10 +93,9 @@ def main():
     run([args.ruby, '-S', 'gem', 'install', '--norc', '--local', '--no-document', map_gem], env=env, cwd=work / 'consumer')
     smoke = out / 'installed_smoke.rb'
     shutil.copyfile(src / 'map/test/installed_smoke.rb', smoke)
-    result = run([args.ruby, smoke], cwd=work / 'consumer', env=env, capture_output=True, text=True)
-    (out / 'map-installed-smoke.json').write_text(result.stdout)
-    (out / 'map-installed-smoke.stderr').write_text(result.stderr)
-    smoke_report = json.loads(result.stdout)
+    run_logged([args.ruby, smoke], out / 'map-installed-smoke.json', out / 'map-installed-smoke.stderr',
+               cwd=work / 'consumer', env=env)
+    smoke_report = json.loads((out / 'map-installed-smoke.json').read_text())
     assert smoke_report['native_sha256'] in [item['sha256'] for item in report['loaded_native']]
     verify_core()
     installed = {}
@@ -107,11 +121,14 @@ ensure
   reader.close
 end
 '''
-    result = run([args.ruby, '-e', inspect_code, out / 'self-inspection-store', out / 'build-identity.json'],
-                 cwd=work / 'consumer', env=env, capture_output=True, text=True)
-    (out / 'baseline-self-inspection.json').write_text(result.stdout)
-    (out / 'baseline-self-inspection.stderr').write_text(result.stderr)
+    run_logged([args.ruby, '-e', inspect_code, out / 'self-inspection-store', out / 'build-identity.json'],
+               out / 'baseline-self-inspection.json', out / 'baseline-self-inspection.stderr',
+               cwd=work / 'consumer', env=env)
     verify_core()
+    assert sha(baseline) == record['core_gem_sha256'], 'core package changed after qualification'
+    assert sha(map_gem) == record['map_gem_sha256'], 'Map package changed during smoke/self-inspection'
+    run(['git', '-C', evaluator, 'diff', '--exit-code', 'HEAD', '--'])
+    assert evaluator_files == {path: sha(evaluator / path) for path in evaluator_files}, 'evaluator bytes changed'
     (out / 'tuple-verification.json').write_text(json.dumps({
         'status': 'pass', 'core_gem_sha256': sha(baseline), 'map_gem_sha256': sha(map_gem),
         'native': report['loaded_native'], 'runtime_files': report['runtime_files'],

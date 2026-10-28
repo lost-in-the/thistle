@@ -1,6 +1,6 @@
 # Thistle agent guidance
 
-Read docs/handoff/CODEX_HANDOFF.md, docs/handoff/IMPLEMENTATION.md, docs/handoff/EVALUATOR_HANDOFF.md and docs/handoff/ARCHITECTURE_PLAN.md before changes. This is a private bootstrap handoff, not the final installed source layout. Restore the exact core source on a review branch from thistle.git.bundle; keep the independent evaluator separate in authority and history.
+Read docs/handoff/CODEX_HANDOFF.md, docs/handoff/IMPLEMENTATION.md, docs/handoff/EVALUATOR_HANDOFF.md and docs/handoff/ARCHITECTURE_PLAN.md before changes. The exact Rust source has been restored into the normal root layout on a review branch. Original bundles and evidence remain under docs/handoff; see docs/handoff/RESTORATION.md for current work and failed attempts. Keep the independent evaluator separate in authority and history.
 
 The owner requires a Rust core distributed through a Ruby gem, a thin Ruby/Rails boundary, no Woods engine-code reuse and no console. Woods Map and branding reuse is authorized with provenance and license attribution. Legacy interfaces need not be preserved, but useful customer outcomes must at least match for launch.
 
