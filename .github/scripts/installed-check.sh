@@ -27,7 +27,7 @@ printf '%s  %s\n' "$bundle_sha" "$EVIDENCE_DIR/evaluator.git.bundle" | sha256sum
 git clone --quiet "$EVIDENCE_DIR/evaluator.git.bundle" "$EVIDENCE_DIR/evaluator"
 [[ "$(git -C "$EVIDENCE_DIR/evaluator" rev-parse HEAD)" == "$evaluator_sha" ]]
 
-(cd "$SOURCE_DIR" && bundle cache --all)
+(cd "$SOURCE_DIR" && BUNDLE_CACHE_ALL=true bundle cache)
 cp "$SOURCE_DIR/Gemfile.lock" "$EVIDENCE_DIR/cohort-Gemfile.lock"
 python3 "$SOURCE_DIR/tools/qualify_baseline.py" \
   --source "$SOURCE_DIR" \

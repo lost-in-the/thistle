@@ -43,6 +43,40 @@ historical evidence remains scoped to its original versions. The full launch
 support and platform requirements still need accepted installed evidence; merely
 changing the matrix or gemspec does not satisfy them.
 
+### Dependency locks: library compatibility feedback and exact tested resolutions
+
+Keep the development `Gemfile.lock` uncommitted and retain exact primary and
+installed-cohort locks with each candidate's evidence. RubyGems' current
+[library guidance](https://guides.rubygems.org/faqs/#using-gemfiles-inside-gems)
+explains that downstream applications resolve a gem's dependency requirements
+independently of its developer lock. Fresh development resolution exposes
+compatible-range dependency changes instead of silently narrowing feedback to
+one old graph. The operating cost is dependency-change triage and preservation
+of each tested resolution, not deterministic dependency resolution.
+
+A committed root lock would stabilize developer resolution, but setup-ruby's
+deployment behavior would freeze both CI cohorts and require explicit updates
+plus a separate fresh-resolution lane. Separate committed primary/minimum locks
+add selection machinery without a demonstrated need while both use Rails 8.1.4.
+Retain the current per-run approach for this bounded library milestone. Do not
+adopt the guide's literal `lockfile false`: Thistle needs ephemeral locks for
+cache keys, manifests and evidence. Neither gem packages the development lock.
+
+Record actual Bundler versions, lock digests and dependency gem hashes with
+each primary/install tuple. Modern Bundler locks support
+[checksums](https://guides.rubygems.org/security/#lockfile-checksums); these detect
+byte substitution after locking, not safe authorship or reproducible archives.
+Listed lock platforms are resolution variants, not tested platform support.
+Separate cohort resolutions must not be presented as one universal installed
+lock. Exact dependency/toolchain bytes are needed for a later replay attempt;
+locks alone do not establish reproducible resolution, environments or packages.
+Historical locks and frozen experiments remain untouched.
+
+The installed driver uses the supported `BUNDLE_CACHE_ALL=true bundle cache`
+configuration rather than the removed Bundler 4 `--all` option. This retains
+path/git dependency caching for the installed worker without persisting another
+configuration file or changing dependency versions.
+
 ### Why the original pair changed
 
 The original source matrix used Ruby 3.3 / Rails ~>7.2. The hardened-baseline
