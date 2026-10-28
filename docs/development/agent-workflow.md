@@ -132,6 +132,13 @@ Keep at most **two implementation issues** in Doing by default. Independent
 reviews and clearly separated evaluator or Map work can proceed in parallel.
 Only one benchmark campaign should use a shared performance host at a time.
 
+Parallelize independent reads and code work; assign one writer to shared mutable
+resources, including browser sessions/project configuration, shared files or
+worktrees, native interfaces, and benchmark hosts. Separate browser tabs are not
+isolated automation sessions. Explicitly coordinate and release UI ownership
+before another agent acts, and prefer a capable API for atomic changes when
+available.
+
 Choose an integration owner for any parent outcome with concurrent children.
 That owner records interface decisions, shared-file ownership, and integration
 order. Other agents may review shared code read-only. Changes to contracts,

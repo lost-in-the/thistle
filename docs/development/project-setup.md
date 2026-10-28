@@ -2,7 +2,8 @@
 
 This snapshot records verified setup on **2026-10-28**. It is an operational
 record; current issue claims, review decisions, and run identities remain the
-authoritative work/evidence records. Pending work below is not asserted complete.
+authoritative work/evidence records. This snapshot distinguishes completed board
+setup from pending workflow adoption and product qualification.
 
 ## Project and controls
 
@@ -16,11 +17,12 @@ is linked to `lost-in-the/thistle`, which is also its default repository.
 | Automatic issue closing | Off |
 | PR-linked transition to Doing | Off; a PR link does not prove an agent is active |
 | Priority | Existing organization field reused |
+| Doing capacity | Saved column limit of two in Now; a visible coordination limit, not a security gate |
 | Required-check rules, protected evaluator, release identity | Not established by this setup PR; separate authorized configuration and verification remain necessary |
 
-Field definitions are configured. **Per-item field population is still in
-progress** in this snapshot; a field's existence does not prove every issue has
-been assigned its intended values.
+Field definitions and all 23 issues' Status, Priority, Area and Target values are
+saved. All 17 capability parents have Evidence = Needed. Coordination-only tasks
+may leave Evidence blank; a blank value never means Pass.
 
 | Field | Values |
 |---|---|
@@ -32,12 +34,16 @@ been assigned its intended values.
 
 ## Views
 
-| View | Verified availability and remaining work |
+| View | Saved configuration |
 |---|---|
-| [Now](https://github.com/orgs/lost-in-the/projects/2/views/1) | Saved board, grouped by Status; filter `is:issue -label:capability -status:Done`. |
-| [Review](https://github.com/orgs/lost-in-the/projects/2/views/2) | Saved view; verify its final filters/visible fields with the completed board snapshot. |
-| [Launch](https://github.com/orgs/lost-in-the/projects/2/views/3) | View exists; launch field population/configuration is in progress. |
-| Plan | Planned; not created or verified in this snapshot. Add roadmap dates only for credible commitments. |
+| [Now](https://github.com/orgs/lost-in-the/projects/2/views/1) | Board grouped by Status; `is:issue -label:capability -status:Done`; six work issues; Doing limit two. |
+| [Review](https://github.com/orgs/lost-in-the/projects/2/views/2) | Flat table; `is:pr is:open`; Title, Assignees, Status, Labels, Reviewers. Existing PR #2 and workflow PR #26 are both in Review. |
+| [Launch](https://github.com/orgs/lost-in-the/projects/2/views/3) | Flat table; `label:capability`; 17 parents, each Backlog / Medium / Launch / Needed, with its appropriate Area. Columns: Title, Status, Priority, Area, Target, Evidence, Sub-issues progress. |
+| [Plan](https://github.com/orgs/lost-in-the/projects/2/views/4) | Flat table; `is:issue`; grouped by Target, with the same columns as Launch. Baseline 2, Trusted checks 2, First experiment 1, Preview 1, Launch 17. Dates remain unset until commitments are credible. |
+
+Filters and fields were inspected after saving and switching views; Launch was
+also independently checked after a full reload. Adding existing PR #2 by its
+canonical URL repaired missing membership without creating a duplicate.
 
 ## Canonical records
 
@@ -48,17 +54,29 @@ criteria and evolving evidence in those issues rather than another backlog file.
 | Record | Issue / existing PR |
 |---|---|
 | Launch requirements L01–L17 | Issues #3–#19 in order: L01 is [#3](https://github.com/lost-in-the/thistle/issues/3), L17 is [#19](https://github.com/lost-in-the/thistle/issues/19). All 17 remain unqualified. |
-| Hardened baseline integration | [#20](https://github.com/lost-in-the/thistle/issues/20), Check / Needed after merged [PR #1](https://github.com/lost-in-the/thistle/pull/1); reconciliation and the new primary product lane remain to be verified. |
+| Hardened baseline integration | [#20](https://github.com/lost-in-the/thistle/issues/20), Check / Needed after merged [PR #1](https://github.com/lost-in-the/thistle/pull/1); workflow adoption and post-merge verification remain. The primary product lane passed on the workflow candidate. |
 | Experiment 001 result review | [#21](https://github.com/lost-in-the/thistle/issues/21), open [PR #2](https://github.com/lost-in-the/thistle/pull/2), now targeting main. The recorded bounded `retain_candidate` result awaits its separate review/integration decision. |
 | Agent/PR/CI/release workflow | [#22](https://github.com/lost-in-the/thistle/issues/22), now Review with [PR #26](https://github.com/lost-in-the/thistle/pull/26). |
 | Protected qualification authority | [#23](https://github.com/lost-in-the/thistle/issues/23). |
 | Durable baseline evidence | [#24](https://github.com/lost-in-the/thistle/issues/24). |
 | Exact scoped preview candidate | [#25](https://github.com/lost-in-the/thistle/issues/25). |
 
-Native parent/sub-issue and blocking relationships are **not yet verified as
-complete**. The seed's intended relationships and links do not establish that
-GitHub saved them. Verify the actual issue metadata before treating a dependency
-as satisfied or a card as ready for an agent.
+Native relationships were saved and independently read back from GitHub:
+
+| Relationship | Verified issue metadata |
+|---|---|
+| L01 parent #3 | Children #20, #24, #25 |
+| L05 parent #7 | Child #21 |
+| L17 parent #19 | Child #23 |
+| Preview #25 | Blocked by #20, #22, #23, #24 |
+| Development links | #21 → PR #2; #22 → PR #26 |
+
+The six work rows are #20 Check, #21 Review, #22 Review, #23 Backlog, #24 Ready,
+and #25 Backlog. They are High priority except the Medium-priority preview. Their
+Targets are Baseline (#20/#24), Trusted checks (#22/#23), First experiment (#21),
+and Preview (#25). Their Areas are Eval (#21/#23) and Delivery (the rest).
+No card is asserted to have a running implementation agent at handoff. Parent
+closure, dependency satisfaction and qualification still require actual evidence.
 
 ## PR and review record
 
@@ -71,10 +89,12 @@ advance the head; verify the current commit and its checks before integration.
 At **14:38:06 UTC**, PR #1 merged and main advanced to
 `1b65f82ae8b8b693a8d7e8adb052b939b23bd5a9` (tree
 `b403a0706730c946ee0eb25bb222cf705159eef4`). This restored the runtime source and
-moved the original handoffs under `docs/handoff/`. PR #26 now needs main integrated
-and its `AGENTS.md` / `ci.yml` overlap resolved while preserving that runtime.
-**This integration and its product checks are pending in this snapshot.** Keep
-#20 open for the post-merge verification record; source merge is not qualification.
+moved the original handoffs under `docs/handoff/`. PR #26 integrated that main in
+`1737e1b6b81eced268dee510f0d4fe284a05983e`, preserving the runtime and resolving
+the `AGENTS.md` / `ci.yml` overlap. The first primary product lane passed; the
+historical aggregate failed on a cosmetic automation error described below.
+Keep #20 open for workflow adoption and its post-merge verification record;
+source merge is not launch qualification.
 
 See the [independent review record](review-record.md) for scoped findings,
 dispositions, and validation limits. Every code review must follow the
@@ -102,19 +122,34 @@ This is an observed first-run result, not a general latency guarantee. Product,
 broader compatibility, installed release-candidate, and independently protected
 qualification lanes remain **unverified by this run**. No gem was published.
 
-## Complete or recover the setup
+## First source run and correction
+
+[Run 40709002260](https://github.com/lost-in-the/thistle/actions/runs/40709002260)
+tested the integrated source revision above. The primary Ruby 3.3.13 / Rails
+7.2.4 job passed Rust, Ruby and Map tests, native compilation, package creation,
+manifest verification, and upload in **133 seconds**. Its candidate archive is
+artifact `12825785699`; the review record retains the archive digest and scope.
+
+The 28 automation tests passed, but `git show --check HEAD` on a shallow checkout
+incorrectly scanned inherited source, vendored code and historical evidence.
+The required aggregate correctly failed. The correction removes only that
+optional cosmetic step; required product and artifact checks remain intact.
+The failed attempt is retained. Check the current PR revision and its subsequent
+hosted run before acceptance; neither historical run certifies a later revision.
+
+## Recover or maintain the setup
 
 1. Open the existing project and canonical issues before creating replacements.
    Restore missing membership by adding the existing issue/PR; do not duplicate it.
-2. Verify field definitions and finish per-item values, starting with the launch
-   Evidence state and current bounded work. Do not infer Doing from a branch/PR,
+2. Preserve field definitions and per-item values, especially launch Evidence
+   and current bounded work. Do not infer Doing from a branch/PR,
    or Pass from an issue closure. Update #22's actual task/branch claim at handoff.
-3. Finish and inspect Launch, create Plan, and verify saved filters and visible
-   fields. Save actual parent/blocking relationships and inspect them after saving.
+3. Preserve the four saved views and native parent/blocking relationships. Verify
+   actual saved metadata when repairing it; written intentions are not a receipt.
 4. Preserve the project and issue URLs when recovering configuration. Auto-add
    handles matching new items; explicitly check pre-existing items and PRs.
-5. Update this snapshot with the verified final board state, current PR head,
-   and applicable run links. After authorized source/workflow adoption, collect
+5. Record new current PR heads and applicable run links in the issue/PR handoff.
+   After authorized source/workflow adoption, collect
    real product/main/release-candidate evidence and observed cost separately.
 
 Restoring metadata or workflow files does not recreate protected branch rules,

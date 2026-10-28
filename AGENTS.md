@@ -46,6 +46,11 @@ happened.
   does not prove a task is running.
 - Use a dedicated worktree. Start from the agreed base and avoid unrelated edits.
   Coordinate shared files before writing; one agent integrates overlapping work.
+- Parallelize independent reads and code work, with one explicit writer for each
+  shared mutable resource: browser sessions/project settings, files/worktrees,
+  native interfaces, and benchmark hosts. Separate browser tabs share automation
+  state. Coordinate and release UI ownership before another agent acts; prefer
+  a capable API for atomic changes when available.
 - Keep at most two implementation issues active by default. Parallelize bounded
   work and independent reviews; serialize noisy benchmarks on shared hardware.
 - Open a draft PR when a coherent change is reviewable. Run the smallest checks

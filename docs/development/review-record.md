@@ -112,9 +112,9 @@ it did not simulate or perform a merge. An integration owner should:
 No existing PR, source branch, evaluator policy, or selected experiment artifact
 was modified by this reviewer.
 
-## Remaining evidence and bounded follow-ups
+## Remaining evidence and bounded follow-ups at the original review
 
-- **Hosted behavior is unrun for this change.** Local validation does not prove
+- **At the initial review, hosted behavior had not yet run; see the follow-up below.** Local validation does not prove
   the new PR/main/compatibility workflows or installed release-candidate cohorts
   have succeeded on GitHub. Verify the committed setup PR, then the integrated
   restored-source product lanes and authorized manual candidate path. A bootstrap
@@ -137,3 +137,61 @@ The review converged on a small targeted PR lane, broader integrated checks, and
 thorough reuse of exact release-candidate bytes. No known blocker was left open
 within the proposed delivery-infrastructure scope; the limits above prevent that
 conclusion from being used as product or release acceptance.
+
+## Follow-up: hosted source integration and whitespace scope
+
+After the initial review, the owner merged restoration. Delivery
+[PR #26](https://github.com/lost-in-the/thistle/pull/26) then incorporated restored
+main `1b65f82ae8b8b693a8d7e8adb052b939b23bd5a9` through integration commit
+`1737e1b6b81eced268dee510f0d4fe284a05983e`. The original integration notes above
+remain historical; this follow-up does not claim the reviewer performed or
+authorized that merge.
+
+The reviewer inspected the jobs and metadata log for
+[hosted run 40709002260](https://github.com/lost-in-the/thistle/actions/runs/40709002260).
+Planning passed. All 28 automation regressions passed in 0.527 seconds, but the
+subsequent `Changed-line whitespace` step failed. Its
+`git show --format= --check HEAD` command ran against a shallow checkout and
+treated inherited source, vendored files, and archived evidence as the commit's
+new content. The logs show whitespace findings in preserved handoff evidence and
+vendor/source files. This was an incorrectly scoped cosmetic check, not a
+failure of the routing regressions.
+
+**Disposition:** remove only that optional two-line step from `ci.yml`. Do not
+rewrite vendored source or evidence archives to satisfy it. The planning,
+automation, product, and required-result checks remain in place. This fixes a
+concrete false failure without adding checkout/history cost to every metadata
+job. The initial run remains a failed attempt; it must not be relabelled a pass.
+
+The reviewer re-read the correction and reran the four-workflow actionlint
+command recorded above with version 1.7.12: it passed without diagnostics. Hash
+comparison confirms that only `.github/workflows/ci.yml` changed among the eight
+reviewed automation files; script and regression-suite bytes were unchanged.
+The revised `ci.yml` SHA-256 is
+`ce2ea49c98f9a68f31e2298327d03c30a5cfd02ac44131b9a57fe055a03b46c1`.
+Using the same combined-fingerprint algorithm, the corrected automation payload
+is `bb864dcc83aa1f15ff8497bb2c18527877dbff08d9374a65300b5ec1f4f3d24f`.
+It supersedes the original fingerprint for this correction; the original value
+is retained as the identity of the first reviewed payload.
+
+The reviewer subsequently confirmed the completed hosted job records. Primary
+product job `122888952720` succeeded, including Rust tests, native compilation,
+Ruby and Map checks, package creation, manifest verification, and artifact upload.
+The resulting artifact was `12825785699`, named
+`pr-candidate-ruby-3.3.13-40709002260-1`, with 15,086,581 bytes and GitHub artifact
+digest `sha256:7c39a31ee21830995dc67223b43a4c91929f2c89f34c65da6c36a3242a4f3624`.
+This artifact digest identifies the uploaded archive, not either individual gem
+or an installed native binary.
+
+The overall run and `CI / required` still failed because metadata failed. That
+correct aggregate behavior is preserved; the successful product job does not
+override it. The corrected commit still requires its hosted rerun. Record the
+final commit, run, and result in the PR and [setup record](project-setup.md); the
+new installed release-candidate and broad compatibility paths remain separate
+evidence. A single hosted product result does not establish a general CI speedup.
+
+The follow-up guidance also assigns one writer to each shared mutable UI resource.
+This addresses the observed cross-tab automation collision: separate tabs are
+not treated as isolated sessions. The reviewer inspected the added agent and
+workflow guidance; it preserves parallel independent code/read work while making
+UI ownership and handoff explicit.

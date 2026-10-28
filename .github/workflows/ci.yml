@@ -53,8 +53,6 @@ jobs:
           persist-credentials: false
       - name: Routing, aggregation and artifact security regressions
         run: python3 -m unittest discover -s tests/automation -v
-      - name: Changed-line whitespace
-        run: git show --format= --check HEAD
 
   product:
     name: Primary product
