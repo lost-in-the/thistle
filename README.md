@@ -1,7 +1,12 @@
 # Thistle
 
+> **Very early alpha — not recommended for use.** Thistle is an experimental
+> development project, not ready for production or general use. Its interfaces,
+> storage formats and behavior may change. Results and supported environments
+> are still being verified; do not rely on it for important decisions.
+
 Thistle is a Rust evidence engine packaged as a Ruby gem, with a thin Ruby layer
-for explicit Rails introspection. This is a private first implementation
+for explicit Rails introspection. This is an early implementation
 milestone of the [reviewed product plan](https://chatgpt.com/space/page_83d1d4a1a4ec81918d7310c21061c4e4).
 It is not yet a launch replacement for Woods and makes no comparative speed claim.
 
@@ -11,7 +16,7 @@ It does not execute the inspected Ruby files. The Ruby bridge exchanges bounded
 JSON batches, releases the GVL during Rust work, and always frees native response
 buffers. There is no Ruby engine fallback.
 
-## Build the private source gem
+## Build the alpha source gem
 
 Development targets Linux with Ruby 3.4 or 4.0 and Rails 8.1 integration. The
 primary and minimum CI pairs, including exact patches, live in
@@ -37,7 +42,7 @@ gem install --local thistle-0.1.0.pre.1.gem
 If libclang is installed in a nonstandard directory, set `LIBCLANG_PATH` to its
 directory. `THISTLE_CARGO` may identify a specific Cargo executable. Source builds
 must use the locked vendored dependencies; a build that cannot find them fails.
-The private package deliberately refuses public RubyGems publishing.
+This development package deliberately refuses public RubyGems publishing.
 
 ## Inspect source
 
