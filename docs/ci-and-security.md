@@ -12,15 +12,32 @@ Review the smallest complete user/evidence slice: a parser-only patch cannot cla
 
 The checked-in workflow is development feedback: Ruby/runtime tests, locked native tests, Map's Ruby tests against the native core, both package builds and artifact retention. It runs on pull requests without path filters, grants only `contents: read`, disables checkout credential persistence and uses pinned actions. It has no release step, secret-bearing privileged event or automatic merge. Run native code and gem install hooks as untrusted code. PR workers are disposable; caches must not be promoted into privileged release contexts. Browser and independent installed-artifact checks remain separate required lanes; these source-checkout unit jobs cannot substitute for them.
 
-The initial matrix is a small compatibility probe, not the launch support matrix: Ruby 3.0/Rails 6.1, Ruby 3.3/Rails 7.2 and Ruby 3.4/Rails 8.0 on a current Ubuntu runner. Actual runs still need to occur in GitHub. Source builds require the checked-in exact Rust toolchain, a C compiler, libclang and locked vendored dependencies. Precompiled gems, supported operating systems/CPU/libc/ABI routes, Ruby 4 and other promised/current cohorts are separately unqualified until tested.
+Routine development uses the primary and minimum pairs in
+[`.github/ci-policy.json`](../.github/ci-policy.json): Ruby 4.0.9 and 3.4.12,
+both with Rails 8.1.4, on Ubuntu 24.04. See the
+[CI flow](development/pr-ci-release.md) for routing, exact-package installed
+checks and remaining #20 integration evidence. Source builds require the
+checked-in exact Rust toolchain, a C compiler, libclang and locked vendored
+dependencies. Passing source checks does not qualify installed support,
+precompiled gems, or other operating systems/CPU/libc/ABI routes. The older
+Ruby/Rails matrix belongs to dated historical evidence. Experiment 001 completed
+on Ruby 3.3.13 / Rails 7.2.4; its one-off workflow is
+[retired](development/retired-workflows/README.md), and its result does not
+transfer to modern packages.
 
 Third-party action pins are verified from official repositories on October 28, 2026:
 
 | Action | Immutable commit | Source |
 |---|---|---|
-| Checkout v4 | `11d5960a326750d5838078e36cf38b85af677262` | [Official commit](https://github.com/actions/checkout/commit/11d5960a326750d5838078e36cf38b85af677262) |
+| Checkout v7.0.1 | `3d3c42e5aac5ba805825da76410c181273ba90b1` | [Official commit](https://github.com/actions/checkout/commit/3d3c42e5aac5ba805825da76410c181273ba90b1) |
 | Ruby setup v1 | `7f797815d8adceb1c412e7abefdd1ab4abc47a5f` | [Official commit](https://github.com/ruby/setup-ruby/commit/7f797815d8adceb1c412e7abefdd1ab4abc47a5f) |
-| Artifact upload v4 | `ea165f8d65b6e75b540449e92b4886f43607fa02` | [Official commit](https://github.com/actions/upload-artifact/commit/ea165f8d65b6e75b540449e92b4886f43607fa02) |
+| Artifact upload v7.0.2 | `cf430e030ddbb5b0abf93d22962f4752f3646cd9` | [Official commit](https://github.com/actions/upload-artifact/commit/cf430e030ddbb5b0abf93d22962f4752f3646cd9) |
+| Artifact download v8.0.2 | `9000827ccba6bdab643e8b6fd33ac0654aef8333` | [Official commit](https://github.com/actions/download-artifact/commit/9000827ccba6bdab643e8b6fd33ac0654aef8333) |
+
+The maintained [pin registry](../.github/scripts/action-pins.json) records
+release, Node 24 runtime and runner requirements. The all-workflow regression
+enforces it for active workflows. Historical source and run identities remain
+unchanged; an updated pin does not establish a replay of the old environment.
 
 Dependency updates are normal reviewed PRs. Pinning an action does not make it trusted for secrets; this workflow intentionally has none. Repository-level permissions and required checks must be configured by the repository owner before depending on CI for enforcement.
 

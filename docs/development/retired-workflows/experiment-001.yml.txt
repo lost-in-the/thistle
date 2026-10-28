@@ -13,7 +13,7 @@ jobs:
       LIBCLANG_PATH: /usr/lib/llvm-18/lib
       CARGO_NET_OFFLINE: 'true'
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -71,7 +71,7 @@ jobs:
             mkdir -p "$RUNNER_TEMP/experiment/$arm/native"
             find "$RUNNER_TEMP/experiment/$arm/installed-baseline/gems" -path '*/lib/thistle/thistle_native.so' -exec cp '{}' "$RUNNER_TEMP/experiment/$arm/native/" \; 2>/dev/null || true
           done
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
           name: experiment-001-${{ github.run_id }}-${{ github.run_attempt }}
@@ -81,7 +81,7 @@ jobs:
             ${{ runner.temp }}/thistle-results/
           if-no-files-found: error
           retention-days: 30
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
           name: experiment-001-baseline-${{ github.run_id }}-${{ github.run_attempt }}
@@ -92,7 +92,7 @@ jobs:
             ${{ runner.temp }}/experiment/baseline/native/
           if-no-files-found: warn
           retention-days: 30
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
           name: experiment-001-candidate-${{ github.run_id }}-${{ github.run_attempt }}

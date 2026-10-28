@@ -1,7 +1,16 @@
 # Experiment 001 — Reuse normalized search text
 
-Status: hypothesis registered before the candidate comparison. The initial
-correctness baseline must pass independent installed-artifact evaluation first.
+Status: completed; the frozen controller returned `retain_candidate` in
+[run 40702407356](https://github.com/lost-in-the/thistle/actions/runs/40702407356)
+for source `f424aa661804a013afc41a167f8afde47358f268`. PR #2 integrated the
+optimization. The [historical result](handoff/experiment-001/RESULTS.md) binds
+the exact package/native identities, Ruby 3.3.13 / Rails 7.2.4 environment,
+raw attempts and limits. It does not establish modern-cohort performance or
+protected independent qualification. The completed one-off workflow is
+[retired from active Actions](development/retired-workflows/README.md).
+
+The hypothesis and predeclared rules below are preserved as the experiment's
+design record, not instructions to replay or rebuild its selected artifacts.
 
 ## Evidence and hypothesis
 

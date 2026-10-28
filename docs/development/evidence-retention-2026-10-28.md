@@ -4,6 +4,35 @@ Issue [#24](https://github.com/lost-in-the/thistle/issues/24). This records byte
 availability and recovery, not installed qualification, experiment replay,
 reproducibility, publication, or completion of a launch capability.
 
+## Later public-source transition
+
+The transfer and initial recovery below occurred while the repository was
+private. The owner subsequently authorized public source after the alpha warning
+and explicitly allowed historical captures of Thistle's own source. The warning
+landed on main `15fc939a48a718c2ca4ba13985957471af56f4ec`; the source repository
+is now public. The evidence release remains **unpublished and draft**.
+
+After the transition, an anonymous repository request returned 200 while the
+draft's metadata/HTML and all ten original assets' supported API and browser
+download representations returned 404. The draft was absent from public release
+listings. An initial probe incorrectly expected an octet-stream representation
+for release metadata; that unsupported representation returned 415. The corrected
+33-probe receipt uses valid release JSON and both supported asset representations,
+preserving that diagnostic rather than claiming the first probe completed.
+
+The receipt was uploaded, retrieved again and hash-checked; its own anonymous
+metadata/download probes also returned 404. There are now eleven draft assets:
+
+| Additional receipt | Asset ID | Bytes | SHA-256 |
+| --- | --- | ---: | --- |
+| `public-transition-access-receipt.json` | `685962144` | 4,845 | `4fe6750267f3337ca0c1638956912d5c3832351ffa5cdd923fb42adc0f05530d` |
+
+Public source visibility does not authorize publishing this draft. Its retained
+bare evaluator clone contains a local-origin path that must remain restricted.
+Future recovery must verify draft/asset access directly; the repository's former
+private state no longer supplies that boundary. Original source/campaign records
+and all selected bytes remain unchanged.
+
 ## Destination and authority
 
 Reused the existing **private** `lost-in-the/thistle` repository and existing
@@ -104,8 +133,11 @@ Both receipts were also retrieved by asset ID and their actual hashes verified:
 
 ## Recovery procedure and monitoring
 
-1. Authenticate with existing owner repository access. Check the repository is
-   private and release `426968373` has `draft=true`, `published_at=null`.
+1. Authenticate with existing owner repository access. Check the recorded
+   owner-authorized repository visibility and that release `426968373` has
+   `draft=true`, `published_at=null`. The repository is now public: verify an
+   anonymous repository request succeeds while the exact draft and every asset
+   metadata/download URL deny anonymous access, and public listings omit it.
    Never publish this evidence to obtain a stable-looking public URL.
 2. List the release's assets and download the exact recorded IDs using
    `gh api repos/lost-in-the/thistle/releases/assets/ASSET_ID -H 'Accept: application/octet-stream'`
@@ -127,7 +159,7 @@ Both receipts were also retrieved by asset ID and their actual hashes verified:
    policy bytes; bind raw comparison to both quality/native tuples, its 96 attempts,
    frozen policy and compressed historical copy. Preserve any failed recovery.
 6. Record a dated receipt with release/asset IDs, all actual hashes and gaps.
-   Recheck draft/private state and ownership. Retain the private local copy as
+   Recheck draft/asset access and ownership. Retain the private local copy as
    an additional recovery source; it is not asserted to be an off-host backup.
 
 Repository owner is responsible for the next retrieval before **2026-11-20**

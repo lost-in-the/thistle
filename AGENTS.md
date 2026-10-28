@@ -18,9 +18,11 @@ precedence over dated handoff snapshots.
    Only an older bootstrap checkout keeps those four handoff files at the root;
    use the paths present in the actual checkout rather than restoring old copies.
 
-Baseline restoration landed in main through PR #1. Review its integrated source
-and current issue #20 checks before claiming more restoration work. Experiment
-PR #2 remains separately reviewable against main. Check current PR/branch state;
+Baseline restoration and Experiment 001 landed through PRs #1 and #2; the current
+CI flow landed through PR #26. Review integrated source and issue #20 checks
+before claiming more restoration work. The completed experiment workflow is
+retired from active Actions; its provenance is in
+`docs/development/retired-workflows/README.md`. Check current PR/branch state;
 do not start another import or benchmark because an old handoff says it has not
 happened.
 
