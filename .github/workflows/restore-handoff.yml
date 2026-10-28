@@ -1,0 +1,59 @@
+name: Restore verified handoff (one time)
+on:
+  push:
+    branches: [codex/restore-hardened-baseline]
+permissions:
+  contents: write
+jobs:
+  restore:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - name: Verify archives and restore history without executing candidate code
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s\n' '20c228ab0d450523d4f4d4c13635dd582be238423814cb5f1c888e0fb6fdabcf  thistle.git.bundle' '7d24cf43a1ca1c57456d2a009e70bec8cfea10895aff5f981c92ab448e6acb2d  thistle-eval.git.bundle' '9423fc3942ed6e116c71869bb95b7568167a9e89f25ff35f44ebe2ab1cc225d4  HANDOFF_EVIDENCE.zip' | sha256sum -c -
+          git bundle verify thistle.git.bundle
+          git bundle verify thistle-eval.git.bundle
+          git fetch ./thistle.git.bundle refs/heads/main:refs/remotes/handoff/core
+          test "$(git rev-parse refs/remotes/handoff/core)" = 23ca426d8b2cc1da052492115748b60641ee4241
+          mkdir -p "$RUNNER_TEMP/thistle-transfer"
+          cp *.md *.bundle HANDOFF_EVIDENCE.zip "$RUNNER_TEMP/thistle-transfer/"
+          cp .github/workflows/restore-handoff.yml "$RUNNER_TEMP/thistle-transfer/restore-bootstrap.yml"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git merge --allow-unrelated-histories --strategy=ours --no-commit refs/remotes/handoff/core
+          git read-tree --reset -u refs/remotes/handoff/core
+          mkdir -p docs/handoff
+          cp "$RUNNER_TEMP/thistle-transfer/"* docs/handoff/
+          cp docs/handoff/AGENTS.md AGENTS.md
+          python3 - <<'PY'
+          from pathlib import Path
+          import zipfile
+          p = Path("AGENTS.md")
+          text = p.read_text()
+          for name in ("CODEX_HANDOFF.md", "IMPLEMENTATION.md", "EVALUATOR_HANDOFF.md", "ARCHITECTURE_PLAN.md"):
+              text = text.replace(name, "docs/handoff/" + name)
+          p.write_text(text)
+          root = Path("docs/handoff").resolve()
+          with zipfile.ZipFile(root / "HANDOFF_EVIDENCE.zip") as z:
+              for f in z.infolist():
+                  (root / f.filename).resolve().relative_to(root)
+              z.extractall(root)
+          PY
+          git add -A
+          git commit -m "Restore exact Rust core history and preserve bootstrap handoff"
+          git log -1 --format=fuller
+          git rev-parse HEAD^{tree}
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: original-verified-handoff
+          path: ${{ runner.temp }}/thistle-transfer
+          retention-days: 30
+          if-no-files-found: error
+      - name: Push review branch only
+        run: git push origin HEAD:refs/heads/codex/restore-hardened-baseline
