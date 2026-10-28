@@ -68,11 +68,9 @@ result = Dir.mktmpdir('thistle-map-installed-') do |directory|
   raise "Runtime Source returned #{runtime_status}" unless runtime_status == 200
   raise 'Runtime evidence context missing' unless runtime_html.include?('GET /installed-runtime') && runtime_html.include?('runtime') && runtime_html.include?('No file or line was captured')
   raise 'Runtime navigation lost generation' unless runtime_html.include?("generation=#{runtime_reader.generation}") && runtime_html.include?('/links?') && runtime_html.include?('/check?')
-  runtime_reader.close
   native = $LOADED_FEATURES.find { |path| path.match?(%r{/thistle/thistle_native\.(so|bundle|dll)\z}) }
   raise 'Installed native engine was not loaded' unless native && File.realpath(native).start_with?(gem_home + File::SEPARATOR)
   raise 'Woods source was loaded' if $LOADED_FEATURES.any? { |path| path.match?(%r{/(woods|woods_map)/}) }
-  reader.close
   {
     'status' => 'passed', 'ruby' => RUBY_DESCRIPTION,
     'core_version' => Thistle::VERSION, 'map_version' => Thistle::Map::VERSION,
@@ -82,5 +80,8 @@ result = Dir.mktmpdir('thistle-map-installed-') do |directory|
     'native_sha256' => Digest::SHA256.file(native).hexdigest,
     'woods_installed' => false, 'source_checkout_load_path' => false
   }
+ensure
+  runtime_reader&.close
+  reader&.close
 end
 puts JSON.pretty_generate(result)

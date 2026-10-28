@@ -179,19 +179,31 @@ class MapAppTest < Minitest::Test
     assert_includes body, "generation=#{GENERATION}"
   end
 
-  def test_unavailable_code_does_not_hide_source_backed_or_other_errors
-    reader = Reader.new
-    def reader.source(_id)
-      error = Thistle::Error.new('source failure')
-      error.instance_variable_set(:@native_code, 'source_unavailable')
-      raise error
+  def test_unavailable_source_requires_matching_identity_and_both_source_fields_absent
+    original = Reader.new.fact(FACT_ID)
+    [original, original.merge('path' => nil), original.merge('location' => nil),
+     original.merge('id' => 'c' * 64, 'path' => nil, 'location' => nil)].each do |fact|
+      reader = Reader.new
+      reader.define_singleton_method(:fact) { |_id| fact }
+      def reader.source(_id)
+        error = Thistle::Error.new('source failure')
+        error.instance_variable_set(:@native_code, 'source_unavailable')
+        raise error
+      end
+      assert_equal 422, request(make_app(reader), '/source', query: "id=#{FACT_ID}").first
     end
-    assert_equal 422, request(make_app(reader), '/source', query: "id=#{FACT_ID}").first
+  end
+
+  def test_other_errors_do_not_attempt_source_less_fallback
+    fact = Reader.new.fact(FACT_ID).merge('path' => nil, 'location' => nil)
+    reader = Reader.new(facts: [fact])
+    lookups = []
+    reader.define_singleton_method(:fact) { |id| lookups << id; fact }
     def reader.source(_id)
       raise Thistle::InvalidSnapshot, 'corrupt source'
     end
     assert_equal 422, request(make_app(reader), '/source', query: "id=#{FACT_ID}").first
-    assert_equal 404, request(make_app, '/source', query: "id=#{'c' * 64}").first
+    assert_empty lookups
   end
 
   def test_links_are_paged_and_unresolved_targets_are_not_promoted_to_hyperlinks

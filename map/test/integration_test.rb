@@ -48,8 +48,9 @@ class MapIntegrationTest < Minitest::Test
       assert_equal 200, current_page.first
       assert_includes current_page.last, 'baskets#update'
       refute_includes current_page.last, 'baskets#show'
-      old.close
-      newer.close
+    ensure
+      old&.close
+      newer&.close
     end
   end
 
