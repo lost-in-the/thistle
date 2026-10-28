@@ -13,8 +13,9 @@ All 17 [launch capabilities](../capability-ledger.md) remain unqualified.
 On the current public Free organization, propose an independently controlled
 controller with a distinct GitHub App publishing `Thistle qualification / required`.
 Use GitHub Actions for orchestration and maintained token/runtime tooling. No
-custom webhook service is needed: begin with an authorized evaluator operator's
-manual dispatch, using immutable request identities. Lack of a dispatch blocks
+custom webhook service is needed: begin with the named custodian's manual
+dispatch, using immutable request identities. Dispatch requires controller
+repository write access and is not granted to candidate authors. Lack of a dispatch blocks
 qualification. Automatic request discovery can be separately reviewed later.
 
 Prefer native source-bound organization required workflows if the owner explicitly
@@ -29,13 +30,14 @@ review. Suggested names and settings are proposals, not allocated identities.
 | --- | --- | --- |
 | Independent authority | Name a qualification custodian and a separate policy reviewer; candidate authors have no controller/policy write or publisher-key access. Owner administration remains human-controlled, outside agent sessions. | Named people, their accounts, backup custodian and authority boundary |
 | Candidate authoring | Use a restricted authoring identity such as existing `lost-in-the-agent` with Thistle write only; remove owner credentials from candidate-authoring sessions before claiming independence. | Owner-approved credential separation and verification; no account switch or permission change in this task |
-| Evaluator home | Proposed `lost-in-the/thistle-eval`, private for the Free/App route, selected-repository access only; no candidate agents or authoring connectors installed there. | Name availability, creation, visibility, actual repository ID and access list; organization inherited/base access must also be checked |
+| Evaluator home | Proposed `lost-in-the/thistle-eval`, private for the Free/App route, selected-repository access only; no candidate agents or authoring connectors installed there. Public Free plus the same distinct App is also an option: repository rules can enforce policy review without buying Team, and standard public hosted minutes are free. | Name availability, creation, visibility, actual repository ID and access list; public source/fixture disclosure and a restricted evidence destination need approval; organization inherited/base access must also be checked |
 | Enforcement route | Current Free: distinct proposed `Thistle Qualification` App, only Thistle installation, Checks write, Metadata read, Pull requests read and Contents read for head/base/tree verification; all other permissions off. | App name availability, numeric App ID, client ID, installation ID and custodian approval |
 | Key custody | App key in custodian-controlled vault and only the private controller repository's publisher secret; no organization-wide secret, candidate secret, developer checkout or worker copy. | Actual approved vault/access list and publisher secret configuration; no key material belongs in this document |
 | Native alternative | If eligible plan is chosen, public evaluator workflow source in the organization, pinned repository ID/path/SHA; same independent writers and worker boundary. | Plan purchase/entitlement, public disclosure approval and actual workflow identity |
 | Repository rules | Active rule on exact `refs/heads/main`, no bypass actors, PR and current-base testing required, exact trusted source mandatory; details below. | Separate owner authorization and actual rule ID/readback |
 | Initial scope | Same Core/Map source-gem bytes installed on both modern Linux cohorts, with installed contracts, parser-worker, reader-boundary and Map checks. | Independent approval of adapter, fixtures, policy, observer coverage and measured limits |
 | Operating budget | One request at a time, two sequential cohorts, no paid overage or larger runner until separately approved; retain proof/qualification records before artifact expiry. | Account billing/quota, storage/retention location and cap, operational time budget |
+| Observer feasibility | Propose at most one engineer-day and two maintained-runtime prototypes before a new decision; define the exact load-observation claim and negative controls first. | Approved time/cost cap, collector/archive totals and durable capacity; stop with readiness Needed if coverage cannot be demonstrated within the cap |
 
 If the same owner credentials remain available to authoring agents, no second
 repository, reviewer agent or job makes this independent. The custodian must
@@ -136,26 +138,40 @@ all effective writers; candidate-authoring credentials must reach none of them.
 Only reviewed controller code is dispatched. No candidate workflow
 completion event or artifact name alone authorizes a result.
 
-Use separate disposable hosted jobs for preparation/execution and publication:
+Use separate disposable hosted jobs for admission, preparation/execution and
+final publication:
 
-1. A trusted preparation job resolves approved tool/dependency/image digests,
+1. A trusted admission job uses the publisher's existing narrowly scoped App
+   authority, without checking out or executing candidate code. Before admitting
+   any required attempt, including a retry or policy change on the same head/base,
+   it establishes and reads back a blocking state for the canonical trusted check.
+   It must verify that no earlier success or duplicate check still makes that
+   request eligible. Revoke this short-lived token before worker dispatch. Failure
+   to establish or verify the blocking state prevents dispatch and policy
+   activation; requesting a retry alone does not invalidate an existing success.
+   If an earlier result must be withdrawn but cannot be invalidated, the custodian
+   must freeze integration through the approved recovery control before proceeding.
+2. A trusted preparation job resolves approved tool/dependency/image digests,
    source and tested-merge identity using bounded downloads. It emits an immutable
    input manifest. No candidate build, gemspec or install hook runs in this job.
-2. A fresh execution VM launches the unprivileged candidate runtime. Build one
+3. A fresh execution VM launches the unprivileged candidate runtime. Build one
    Core/Map package pair from the selected tested source in isolation, collect it
    as untrusted bytes, and install those exact bytes on both cohorts. A controller
    supervisor outside the runtime owns expected facts, deadlines and verdicts.
    The frozen evaluator must use the protected adapter for **every** subprocess;
    importing its old host-execution helper unchanged is not safe.
-3. The supervisor validates bounded observations against independently held
+4. The supervisor validates bounded observations against independently held
    expectations and records all attempts. Candidate test scripts, exit-zero,
    `pass` text and self-reported hashes are evidence inputs, never the verdict.
-4. A different fresh publisher VM reads only the controller-owned result envelope
+5. A different fresh publisher VM reads only the controller-owned result envelope
    from the exact approved run/workflow/attempt. It verifies the artifact ID and
    digest, schema and complete required cohort set, then re-reads current head,
    base and merge identity. It never checks out or executes candidate code,
    loads a candidate plugin, evaluates a template or sources a report as shell.
-   Only now may it obtain the narrowly scoped App token and publish a check.
+   Only after these validations may it obtain a separate narrowly scoped App token
+   for final success publication. The earlier admission token is not reused.
+   Interrupted or failed final publication leaves the verified admission state
+   blocking; a complete final result is required to replace it with success.
 
 Neither the controller's owner/policy credentials nor the publisher key/token is
 present on the execution VM. Candidate processes receive no GitHub, owner, SSH,
@@ -234,6 +250,13 @@ review must explicitly resolve native-page modification, anonymous execution and
 in-process assertion spoofing. Until then, rule-identity proof may pass while
 **full qualification worker readiness remains Needed**. There is no synthetic
 “all loads verified” result in this proposal.
+
+Before this feasibility work starts, approve its finite time/cost cap and precise
+coverage claim, collector/archive totals and durable storage capacity. The proposed
+one-day/two-prototype limit is not authorization. If a required negative control
+cannot be observed and rejected within the cap, stop with readiness Needed and
+return the evidence and alternatives for an owner decision. Do not expand into an
+unbounded custom tracer or silently weaken the qualification claim.
 
 ## Isolation and measured limits
 
@@ -342,7 +365,8 @@ Require the branch to contain the current base and test that exact merged tree;
 a base advance blocks under the strict rule until the author updates and a new
 head is evaluated. Do not post an old artifact's success onto a new head. The
 proof must exercise base movement both during a run and after a success; any
-remaining freshness race blocks adoption. Use one canonical trusted check lifecycle per head/base/policy request: invalidate
+remaining freshness race blocks adoption. Use one canonical trusted check lifecycle
+per head/base/policy request: the separate admission phase must invalidate
 an earlier success before starting a new required attempt, and never let an older
 successful attempt mask a later failure. Policy or source-identity changes require
 explicit invalidation of affected outstanding successes and new proof, even if
@@ -355,7 +379,9 @@ GitHub can accept `neutral` or `skipped` as ordinary required-check outcomes
 The trusted publisher therefore emits `success` **only** for a complete exact
 pass. Failed, cancelled, timed-out, missing, malformed or inconclusive required
 evidence becomes `failure` or `action_required`; it never emits qualification
-`neutral` or `skipped`. Publisher loss leaves a missing/pending result that blocks.
+`neutral` or `skipped`. After verified admission, final-publisher loss leaves the
+established non-success state blocking. Before admission, do not claim that a
+missing publisher or a newly requested attempt withdrew a previous success.
 An always-run trusted finalizer checks every required lane and observer status;
 workflow/job success by itself cannot supply that completeness decision.
 
@@ -370,6 +396,9 @@ creates a disposable PR and uses a non-bypass writer for the negative controls.
 Use a disposable proof target with identical proposed rules first; record its
 exact ref/rule IDs. Keep production main unchanged until the positive control and
 owner review are complete, then read back and verify main's exact configured rule.
+Milestone A fixture checks stay on the disposable proof target; they are never
+published as production package qualification. Production qualification activation
+also requires milestone B readiness and its explicit owner acceptance.
 Never attempt a positive-control merge. A negative merge attempt may run only
 while the expected blocking condition is present; if any negative unexpectedly
 merges, stop and record failed enforcement instead of continuing the campaign.
@@ -379,6 +408,7 @@ merges, stop and record failed enforcement instead of continuing the campaign.
 | A | Missing trusted check; candidate same-name green GitHub Actions check; same-name PAT commit status | All block the non-bypass writer. Save check/status JSON including actual App IDs, rule JSON, head/base and API refusal status/body. No new PAT is authorized by this proposal; use an explicitly approved existing restricted proof identity or leave that case unrun. |
 | A | Complete trusted fixture result from actual distinct App, or actual source-bound native workflow | With independent review requirements satisfied, only this positive control makes the disposable PR eligible. Do not merge. Label the fixture result as rule-identity proof, never package qualification. |
 | A | Advance head or base during evaluation and after a success; replay old result; candidate imitation of source workflow | Stale/replayed/lookalike evidence cannot make the updated PR eligible. Save old/new trees, check bindings and refusal. |
+| A | Prior success on the same head/base, verified admission invalidation, replacement attempt, then final-publisher interruption | The old success no longer permits integration throughout the admitted retry. Missing admission credentials or failed invalidation prevents dispatch; retain the observed blocking state, check IDs and token-revocation evidence. Test policy changes and duplicate-check ordering too. |
 | A/B | Failure, cancellation, timeout, missing cohort/lane, observer loss, malformed or incomplete envelope | All block; none becomes neutral/skipped qualification. Test finalizer and publisher interruption as well as worker failure. |
 | B | Swap Core/Map/archive/native/dependency/evaluator/policy/fixture bytes; spoof hash/pass text; wrong run/attempt | Trusted byte/schema/identity verification rejects every mismatch, including validly formatted self-reports. |
 | B | Oversized/truncated outputs, deep JSON, duplicate fields, path/symlink escape, archive expansion and forged result paths | Bounded parser/collector rejects; no host extraction escape, uncontrolled allocation or publication. |
