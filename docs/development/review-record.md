@@ -195,3 +195,53 @@ This addresses the observed cross-tab automation collision: separate tabs are
 not treated as isolated sessions. The reviewer inspected the added agent and
 workflow guidance; it preserves parallel independent code/read work while making
 UI ownership and handoff explicit.
+
+## Follow-up on 2026-10-28: avoid a duplicate run on review readiness
+
+The reviewer independently confirmed that
+[run 40711863879](https://github.com/lost-in-the/thistle/actions/runs/40711863879)
+completed successfully for PR head
+`1792d6499e9806b32f62659bc343f1e894d4b6a3`: planning, automation, primary product,
+and `CI / required` all passed. This resolves the preceding pending rerun for
+that head only. The integration owner recorded 174 seconds overall elapsed;
+that is one observed workflow duration, not a comparative performance result.
+
+Marking the PR ready then started
+[run 40712558262](https://github.com/lost-in-the/thistle/actions/runs/40712558262)
+on the same PR head. The reviewer confirmed both runs are associated with that
+commit and that the second had already restarted native product work. Its final
+outcome was not established by this review. The readiness event changed review
+metadata without introducing a new source revision, so repeating the full
+product lane added avoidable feedback and runner cost.
+
+**Disposition:** remove only `ready_for_review` from `pull_request.types`.
+`opened`, `synchronize`, and `reopened` remain, as do main pushes, merge groups,
+and manual dispatch. There is no draft guard in the PR or reusable product
+workflow: draft creation and source updates already receive the applicable
+checks. All jobs, routing, permissions, concurrency, and required aggregation
+remain unchanged. Comparing the local file with the committed file at the
+successful head confirmed this exact one-event change.
+
+Review readiness is consequently not a retry or fresh validation signal.
+Missing, cancelled, or failed checks require an explicit rerun or applicable
+update; a moved base still needs the appropriate integration validation. The
+change cannot turn missing evidence into a pass.
+
+Independent focused validation ran
+`/tmp/thistle-actionlint/actionlint .github/workflows/ci.yml` with actionlint
+1.7.12 and passed without diagnostics. The regression and product implementation
+bytes did not change, so no new test suite or repeated local product campaign was
+added for this event-only correction.
+
+The updated `ci.yml` SHA-256 is
+`1745d7206cd8768e39d49a073d0e711b6d2c0f5490e6b40a7a4d18da2357d74f`.
+The eight-file automation fingerprint, using the same algorithm above, is
+`3a69297adf0cd6a6c5188f932b43facb12ceeaa16ebe7abd194c1c222dbb7a1b`.
+Reinserting only the removed event reproduces the preceding
+`bb864dcc83aa1f15ff8497bb2c18527877dbff08d9374a65300b5ec1f4f3d24f` fingerprint.
+Both older identities remain historical evidence.
+
+**Review disposition:** no blocker in this bounded event change. Its new commit
+does not yet exist in this review record and is not covered by the successful
+`1792d6499e9806b32f62659bc343f1e894d4b6a3` result. The integration owner will commit
+the correction and verify its required CI before reporting the new head green.

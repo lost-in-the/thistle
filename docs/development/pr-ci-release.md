@@ -124,6 +124,12 @@ runs the additional Ruby/Rails 3.0/6.1 and 3.4/8.0 cohorts on main; the primary
 3.3.13/7.2.4 lane already runs in `Thistle CI`. Weekly/manual compatibility runs
 include all three cohorts. Stale PR feedback runs cancel when superseded.
 
+Draft PRs receive the same required checks on opening and code changes. Marking
+an unchanged draft ready does not repeat native builds. A readiness transition
+does not retry failed/missing checks or validate a changed base: explicitly rerun
+the applicable checks, update the branch, or use the configured integration path
+when that evidence is needed. Verify the tested head/base before acceptance.
+
 **`Release candidate`** is manually dispatched with `candidate_sha`, a full
 40-character lowercase commit SHA. It prepares one candidate package pair with native/build
 metadata and a manifest, then runs installed verification against those same
