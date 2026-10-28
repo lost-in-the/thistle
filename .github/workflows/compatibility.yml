@@ -1,0 +1,54 @@
+name: Compatibility
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: '23 8 * * 1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: compatibility-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    name: Plan broader checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      product: ${{ steps.plan.outputs.product }}
+      source_sha: ${{ steps.plan.outputs.source_sha }}
+      map: ${{ steps.plan.outputs.map }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: plan
+        run: python3 .github/scripts/pipeline.py plan --full --output ci-plan.json
+      - name: Describe bootstrap honestly
+        if: steps.plan.outputs.mode == 'bootstrap'
+        run: echo 'Bootstrap metadata only. Product support cohorts are not exercised or qualified.' >> "$GITHUB_STEP_SUMMARY"
+
+  compatibility:
+    name: Broader cohort
+    needs: plan
+    if: needs.plan.outputs.product == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        # Main already runs the primary cohort in Thistle CI; do not repeat it.
+        ruby: ${{ fromJSON(github.event_name == 'push' && '["3.0","3.4"]' || '["3.0","3.3.13","3.4"]') }}
+    uses: ./.github/workflows/product-checks.yml
+    with:
+      candidate_sha: ${{ needs.plan.outputs.source_sha }}
+      ruby: ${{ matrix.ruby }}
+      rails: ${{ matrix.ruby == '3.0' && '~> 6.1.7' || matrix.ruby == '3.4' && '~> 8.0.0' || '= 7.2.4' }}
+      run_core: true
+      run_map: ${{ needs.plan.outputs.map == 'true' }}
+      package: false
+      artifact_label: compatibility

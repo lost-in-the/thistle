@@ -1,0 +1,158 @@
+name: Product checks
+
+on:
+  workflow_call:
+    inputs:
+      candidate_sha:
+        type: string
+        default: ''
+      ruby:
+        type: string
+        default: '3.3.13'
+      rails:
+        type: string
+        default: '= 7.2.4'
+      run_core:
+        type: boolean
+        default: true
+      run_map:
+        type: boolean
+        default: true
+      package:
+        type: boolean
+        default: false
+      artifact_label:
+        type: string
+        default: development
+      retention_days:
+        type: number
+        default: 14
+    outputs:
+      artifact_id:
+        description: Immutable candidate artifact ID
+        value: ${{ jobs.product.outputs.artifact_id }}
+      artifact_digest:
+        description: GitHub artifact digest
+        value: ${{ jobs.product.outputs.artifact_digest }}
+
+permissions:
+  contents: read
+
+jobs:
+  product:
+    name: Ruby ${{ inputs.ruby }} product
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    outputs:
+      artifact_id: ${{ steps.upload.outputs.artifact-id }}
+      artifact_digest: ${{ steps.upload.outputs.artifact-digest }}
+    env:
+      THISTLE_RAILS_VERSION: ${{ inputs.rails }}
+      LIBCLANG_PATH: /usr/lib/llvm-18/lib
+      CARGO_NET_OFFLINE: 'true'
+      THISTLE_WORKFLOW_SHA: ${{ github.workflow_sha }}
+    steps:
+      - name: Require an exact source identity
+        env:
+          EXPECTED_SHA: ${{ inputs.candidate_sha || github.sha }}
+        run: |
+          [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "A full lowercase source SHA is required"; exit 1; }
+      - name: Check out this workflow's driver
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: automation
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+      - name: Check out the tested source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ inputs.candidate_sha || github.sha }}
+          path: source
+          persist-credentials: false
+      - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f
+        with:
+          ruby-version: ${{ inputs.ruby }}
+          working-directory: source
+          bundler-cache: true
+      - name: Prepare native toolchain
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends libclang-18-dev
+          rustup toolchain install 1.90.0 --profile minimal
+          echo "$HOME/.rustup/toolchains/1.90.0-x86_64-unknown-linux-gnu/bin" >> "$GITHUB_PATH"
+          mkdir -p "$RUNNER_TEMP/results"
+      - name: Rust invariants
+        if: inputs.run_core
+        working-directory: source
+        run: |
+          set -o pipefail
+          cargo test --locked --offline --manifest-path engine/Cargo.toml 2>&1 | tee "$RUNNER_TEMP/results/rust.log"
+      - name: Compile the native bridge once
+        working-directory: source
+        run: |
+          set -o pipefail
+          bundle exec rake compile 2>&1 | tee "$RUNNER_TEMP/results/compile.log"
+      - name: Ruby core tests
+        if: inputs.run_core
+        working-directory: source
+        run: |
+          set -o pipefail
+          ruby -e 'abort "Core tests absent" if Dir.glob("test/test_*.rb").empty?'
+          bundle exec rake unit 2>&1 | tee "$RUNNER_TEMP/results/core.log"
+      - name: Map integration and security regressions
+        if: inputs.run_map
+        working-directory: source
+        run: |
+          set -o pipefail
+          bundle exec ruby -Ilib -Imap/lib -Imap/test -e 'paths = Dir.glob("map/test/*_test.rb").sort; abort "Map tests absent" if paths.empty?; paths.each { |path| require File.expand_path(path) }' 2>&1 | tee "$RUNNER_TEMP/results/map.log"
+      - name: Build and account for exact candidate packages
+        if: inputs.package
+        working-directory: source
+        env:
+          EXPECTED_SHA: ${{ inputs.candidate_sha || github.sha }}
+        run: |
+          [[ "$(git rev-parse HEAD)" == "$EXPECTED_SHA" ]]
+          mkdir -p "$RUNNER_TEMP/thistle-candidate/build-observation"
+          gem build thistle.gemspec --output "$RUNNER_TEMP/thistle-candidate/thistle.gem"
+          if [[ -f map/thistle-map.gemspec ]]; then
+            (cd map && gem build thistle-map.gemspec --output "$RUNNER_TEMP/thistle-candidate/thistle-map.gem")
+          fi
+          cp Gemfile.lock "$RUNNER_TEMP/thistle-candidate/Gemfile.lock"
+          cp lib/thistle/thistle_native.so "$RUNNER_TEMP/thistle-candidate/build-observation/thistle_native.so"
+          python3 ../automation/.github/scripts/pipeline.py manifest --source . --artifacts "$RUNNER_TEMP/thistle-candidate" --expected-sha "$EXPECTED_SHA"
+          python3 ../automation/.github/scripts/pipeline.py verify --artifacts "$RUNNER_TEMP/thistle-candidate" --expected-sha "$EXPECTED_SHA"
+      - id: upload
+        name: Preserve candidate bytes
+        if: inputs.package
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ${{ inputs.artifact_label }}-ruby-${{ inputs.ruby }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/thistle-candidate/
+          if-no-files-found: error
+          retention-days: ${{ inputs.retention_days }}
+      - name: Record artifact locator
+        if: inputs.package
+        env:
+          ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}
+          ARTIFACT_DIGEST: ${{ steps.upload.outputs.artifact-digest }}
+          ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
+        run: |
+          {
+            echo "## Candidate artifact"
+            echo
+            echo "ID: $ARTIFACT_ID"
+            echo "Digest: $ARTIFACT_DIGEST"
+            echo "URL: $ARTIFACT_URL"
+            echo
+            echo "Native hash is a checkout build observation. Source-gem installation compiles another binary; installed verification records that identity separately."
+            echo "Candidate-owned checks do not authorize publication or establish protected external qualification."
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Preserve diagnostics, including failed tests
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: diagnostics-ruby-${{ inputs.ruby }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/results/
+          if-no-files-found: warn
+          retention-days: 14

@@ -1,0 +1,45 @@
+name: Experiment
+description: Register a bounded hypothesis and decision before measuring a candidate.
+labels: [experiment, performance]
+projects: [lost-in-the/2]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Inspect existing experiment work before creating a new campaign. A valid result may keep the baseline.
+        Freeze the policy and attempt budget before viewing candidate measurements; retain unsuccessful attempts.
+  - type: textarea
+    id: hypothesis
+    attributes:
+      label: Hypothesis and source evidence
+      description: What improvement is expected, why, and what exact captured/self-inspected source informed it?
+    validations:
+      required: true
+  - type: textarea
+    id: baseline
+    attributes:
+      label: Accepted baseline and prerequisites
+      description: Selected artifact/report identities, support scope, and qualification work that must finish first.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Bounded change
+      description: What may change? Which semantics, ranking, source, limits, coverage, and correctness fixes remain identical?
+    validations:
+      required: true
+  - type: textarea
+    id: policy
+    attributes:
+      label: Frozen policy and attempt budget
+      description: Link the independently owned policy and its identity. State primary metric, guardrails, calibration, workload, trial count, stopping rule, and justified rerun policy.
+    validations:
+      required: true
+  - type: textarea
+    id: decision
+    attributes:
+      label: Decision and evidence record
+      description: Define Keep, Reject, and Unclear outcomes, preservation of the baseline, required report identities, and the responsible acceptance owner.
+    validations:
+      required: true

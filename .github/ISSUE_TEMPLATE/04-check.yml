@@ -1,0 +1,47 @@
+name: Check
+description: Qualify a bounded artifact, capability, or release-candidate outcome.
+projects: [lost-in-the/2]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        State exactly what this check can establish. During triage, choose the appropriate capability or
+        release-check role and Project Evidence value. A merged PR or successful workflow is not by itself qualification.
+  - type: dropdown
+    id: role
+    attributes:
+      label: Check scope
+      options:
+        - Bounded artifact or integration check
+        - Launch capability
+        - Release candidate
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Outcome and supported scope
+      description: Customer job, ledger ID where applicable, exact support/environment tuple, and excluded claims.
+    validations:
+      required: true
+  - type: textarea
+    id: inputs
+    attributes:
+      label: Candidate, baseline, and policy
+      description: Source/artifact identities, evaluator/policy/fixture identities, and prerequisite evidence.
+    validations:
+      required: true
+  - type: textarea
+    id: procedure
+    attributes:
+      label: Required checks
+      description: Positive, failure, mutation, installation, or human-journey evidence and the rule for missing, failed, or inconclusive results.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance and retained record
+      description: Acceptance owner, evidence location/retention, independence boundary, and criteria for Pass, Fail, Unclear, or Stale.
+    validations:
+      required: true

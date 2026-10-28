@@ -1,0 +1,84 @@
+# This replaces the restoration branch's Development checks workflow at this path.
+# Candidate-owned feedback is not independent qualification or release authority.
+name: Thistle CI
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+  merge_group:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  plan:
+    name: Plan checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      mode: ${{ steps.plan.outputs.mode }}
+      source_sha: ${{ steps.plan.outputs.source_sha }}
+      core: ${{ steps.plan.outputs.core }}
+      map: ${{ steps.plan.outputs.map }}
+      product: ${{ steps.plan.outputs.product }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: plan
+        name: Route from both sides of changes
+        run: python3 .github/scripts/pipeline.py plan --output ci-plan.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ci-plan-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ci-plan.json
+          if-no-files-found: error
+          retention-days: 14
+
+  metadata:
+    name: Automation contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Routing, aggregation and artifact security regressions
+        run: python3 -m unittest discover -s tests/automation -v
+      - name: Changed-line whitespace
+        run: git show --format= --check HEAD
+
+  product:
+    name: Primary product
+    needs: plan
+    if: needs.plan.outputs.product == 'true'
+    uses: ./.github/workflows/product-checks.yml
+    with:
+      candidate_sha: ${{ needs.plan.outputs.source_sha }}
+      run_core: ${{ needs.plan.outputs.core == 'true' }}
+      run_map: ${{ needs.plan.outputs.map == 'true' }}
+      package: true
+      artifact_label: pr-candidate
+
+  required:
+    name: CI / required
+    if: always()
+    needs: [plan, metadata, product]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Require every selected lane to succeed
+        env:
+          THISTLE_NEEDS: ${{ toJSON(needs) }}
+        run: python3 .github/scripts/pipeline.py required

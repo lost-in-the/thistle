@@ -1,0 +1,47 @@
+name: Work
+description: Define one bounded implementation or investigation outcome.
+projects: [lost-in-the/2]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use a literal outcome in the title. Check existing issues, claims, and PRs first.
+        During triage, set Project Area, Target, Priority, and Status; form text does not set those fields.
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Outcome
+      description: What observable behavior or result should this work produce?
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: Included work, boundaries to preserve, and relevant contracts or capability IDs.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance
+      description: Specific conditions that finish this issue, including relevant performance/resource budgets and lasting design constraints. Identify the acceptance owner when known.
+      placeholder: |
+        - [ ] Observable behavior
+        - [ ] Meaningful regression or integration evidence
+    validations:
+      required: true
+  - type: textarea
+    id: checks
+    attributes:
+      label: Checks
+      description: Smallest meaningful checks, required artifact/environment scope, report location, and any measurement needed for a performance claim. Keep PR checks focused and efficient.
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies and delivery
+      description: Blocking issues, current branches/PRs, owner, and expected PR or report. Add native blocking relationships during triage.
+    validations:
+      required: false

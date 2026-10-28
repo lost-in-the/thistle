@@ -1,0 +1,119 @@
+# This workflow never publishes, tags, deploys, or receives release credentials.
+# Future protected promotion must consume these exact bytes after independent
+# installed-artifact qualification and explicit release approval, without rebuilding.
+name: Release candidate
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_sha:
+        description: Full 40-character source commit to prepare and verify
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-candidate-${{ inputs.candidate_sha }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Prepare exact candidate
+    uses: ./.github/workflows/product-checks.yml
+    with:
+      candidate_sha: ${{ inputs.candidate_sha }}
+      run_core: true
+      run_map: true
+      package: true
+      artifact_label: release-candidate
+      retention_days: 90
+
+  installed:
+    name: Installed candidate Ruby ${{ matrix.ruby }}
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - ruby: '3.0'
+            rails: '~> 6.1.7'
+          - ruby: '3.3.13'
+            rails: '= 7.2.4'
+          - ruby: '3.4'
+            rails: '~> 8.0.0'
+    env:
+      EXPECTED_SHA: ${{ inputs.candidate_sha }}
+      THISTLE_RAILS_VERSION: ${{ matrix.rails }}
+      LIBCLANG_PATH: /usr/lib/llvm-18/lib
+      CARGO_NET_OFFLINE: 'true'
+      SOURCE_DIR: ${{ github.workspace }}/source
+    steps:
+      - name: Check out this workflow's driver
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: automation
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+      - name: Check out the exact source and historical evaluator bundle
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ inputs.candidate_sha }}
+          path: source
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Retrieve the prepared artifact by immutable ID
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          artifact-ids: ${{ needs.prepare.outputs.artifact_id }}
+          path: ${{ runner.temp }}/candidate
+          merge-multiple: true
+          digest-mismatch: error
+      - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          working-directory: source
+          bundler-cache: true
+      - name: Prepare native toolchain
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends libclang-18-dev
+          rustup toolchain install 1.90.0 --profile minimal
+          echo "$HOME/.rustup/toolchains/1.90.0-x86_64-unknown-linux-gnu/bin" >> "$GITHUB_PATH"
+      - name: Verify installed packages with the existing frozen evaluator
+        env:
+          ARTIFACT_DIR: ${{ runner.temp }}/candidate
+          EVIDENCE_DIR: ${{ runner.temp }}/evidence
+        run: bash automation/.github/scripts/installed-check.sh
+      - name: Preserve installed evidence, including failed verification
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: installed-evidence-ruby-${{ matrix.ruby }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/evidence/cohort-Gemfile.lock
+            ${{ runner.temp }}/evidence/installed/*.json
+            ${{ runner.temp }}/evidence/installed/*.stderr
+          if-no-files-found: warn
+          retention-days: 90
+      - name: Report the authority boundary
+        if: always()
+        env:
+          ARTIFACT_ID: ${{ needs.prepare.outputs.artifact_id }}
+          ARTIFACT_DIGEST: ${{ needs.prepare.outputs.artifact_digest }}
+        run: |
+          {
+            echo "## Installed candidate evidence"
+            echo
+            echo "Prepared artifact ID: $ARTIFACT_ID"
+            echo "Prepared artifact digest: $ARTIFACT_DIGEST"
+            echo "Source: $EXPECTED_SHA"
+            echo
+            echo "All cohorts install the same source-gem bytes. Installed native hashes are in the evaluator reports."
+            echo "Frozen checks run on candidate-owned orchestration; this is not protected independent qualification."
+            echo "No publication is authorized or performed."
+          } >> "$GITHUB_STEP_SUMMARY"

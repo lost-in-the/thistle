@@ -1,0 +1,23 @@
+{
+  "verified_on": "2026-10-28",
+  "verification": "Exact commit objects retrieved from the authoritative GitHub repositories.",
+  "scope": "New development pipeline; the existing frozen experiment workflow retains its own pins.",
+  "actions": {
+    "actions/checkout": {
+      "sha": "11d5960a326750d5838078e36cf38b85af677262",
+      "source": "https://github.com/actions/checkout/commit/11d5960a326750d5838078e36cf38b85af677262"
+    },
+    "ruby/setup-ruby": {
+      "sha": "7f797815d8adceb1c412e7abefdd1ab4abc47a5f",
+      "source": "https://github.com/ruby/setup-ruby/commit/7f797815d8adceb1c412e7abefdd1ab4abc47a5f"
+    },
+    "actions/upload-artifact": {
+      "sha": "ea165f8d65b6e75b540449e92b4886f43607fa02",
+      "source": "https://github.com/actions/upload-artifact/commit/ea165f8d65b6e75b540449e92b4886f43607fa02"
+    },
+    "actions/download-artifact": {
+      "sha": "9000827ccba6bdab643e8b6fd33ac0654aef8333",
+      "source": "https://github.com/actions/download-artifact/commit/9000827ccba6bdab643e8b6fd33ac0654aef8333"
+    }
+  }
+}
