@@ -95,6 +95,41 @@ class ThistleCoreTest < Minitest::Test
     assert_equal manifest["generation"], reader.generation
   end
 
+  def test_capture_owns_limits_after_the_caller_changes_its_hash
+    limits = { max_nodes: 1 }
+    capture = Thistle::Capture.new(root: @root, limits: limits)
+    limits.clear
+    limits[:max_nodes] = 5_000_000
+    limits["max_nodes"] = 5_000_000
+
+    assert_raises(Thistle::LimitExceeded) { capture.call }
+  end
+
+  def test_capture_entry_points_share_limit_key_validation
+    [nil, [], { 1 => 1 }, { max_nodes: 1, "max_nodes" => 2 }].each do |limits|
+      assert_raises(Thistle::InvalidInput) { Thistle::Capture.new(root: @root, limits: limits) }
+      assert_raises(Thistle::InvalidInput) { Thistle.capture(root: @root, output: @store, limits: limits) }
+      assert_raises(Thistle::InvalidInput) { Thistle.capture(root: @root, output: @store, rails: Object.new, limits: limits) }
+    end
+    refute File.exist?(@store)
+  end
+
+  def test_node_budget_counts_all_files_and_accepts_the_exact_boundary
+    first_nodes = Thistle::Capture.new(root: @root).call.dig("producer", "visited_nodes")
+    second_root = File.join(@directory, "second")
+    FileUtils.mkdir_p(second_root)
+    second_source = "class Second; def run; work; end; end\n"
+    File.write(File.join(second_root, "second.rb"), second_source)
+    second_nodes = Thistle::Capture.new(root: second_root).call.dig("producer", "visited_nodes")
+    File.write(File.join(@root, "second.rb"), second_source)
+    nodes = first_nodes + second_nodes
+    manifest = Thistle.capture(root: @root, output: @store, limits: { max_nodes: nodes })
+
+    assert_equal nodes, manifest.dig("producer", "visited_nodes")
+    assert_raises(Thistle::LimitExceeded) { Thistle.capture(root: @root, output: @store, limits: { max_nodes: nodes - 1 }) }
+    assert_equal manifest["generation"], reader.generation
+  end
+
   def test_publisher_rejects_fabricated_positions_and_source_digest
     publish
     data = Thistle::Capture.new(root: @root).call

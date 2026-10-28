@@ -12,14 +12,24 @@ module Thistle
     UnsupportedPlatform = Thistle::UnsupportedPlatform
     MAX_EVIDENCE_BYTES = 64 * 1024 * 1024
 
+    def self.copy_limits(limits)
+      raise InvalidInput, "Capture limits must be a Hash" unless limits.is_a?(Hash)
+
+      limits.each_with_object({}) do |(key, value), copy|
+        unless key.is_a?(String) || key.is_a?(Symbol)
+          raise InvalidInput, "Capture limit keys must be strings or symbols"
+        end
+        name = key.to_s
+        raise InvalidInput, "Duplicate capture limit keys" if copy.key?(name)
+
+        copy[name] = value
+      end.freeze
+    end
+
     def initialize(root:, rails: nil, limits: {})
       @root = root.to_s
       @rails = rails
-      raise InvalidInput, "Capture limits must be a Hash" unless limits.is_a?(Hash)
-
-      raise InvalidInput, "Capture limit keys must be strings or symbols" unless limits.keys.all? { |key| key.is_a?(String) || key.is_a?(Symbol) }
-      raise InvalidInput, "Duplicate capture limit keys" unless limits.keys.map(&:to_s).uniq.length == limits.length
-      @limits = limits
+      @limits = self.class.copy_limits(limits)
     end
 
     def call
