@@ -8,33 +8,50 @@ and role have **not** been approved. Root owns integration and independent revie
 Issue #23's external authority and proof remain **Check / Evidence Needed**.
 All 17 [launch capabilities](../capability-ledger.md) remain unqualified.
 
+## Three delivery levels
+
+| Level | Trigger and scope | Authority and consequence |
+| --- | --- | --- |
+| Ordinary PR merge | Automatic, targeted routing and tests appropriate to changed files, plus recorded substantive review. Documentation does not select full product or installed matrices. | Basic PR/CI protection prevents accidental unchecked integration. Candidate CI is not independent qualification. No custodian dispatch or full qualification queue on this path. |
+| Integrated main | Automatic broader product, Compatibility and PII checks on the exact integrated SHA. | Detect integration and support drift; preserve failures and exact identities. A main pass does not qualify packages. |
+| Protected qualification | Deliberately selected exact-package preview/release acceptance or an explicitly accepted performance experiment. | Independent policy/controller and exact artifact evidence; custodian dispatch is acceptable here. This is separate from ordinary main-PR eligibility and does not authorize publication. |
+
+The existing [tier policy](pr-ci-release.md) remains the ordinary feedback path.
+Full qualification must not turn every small PR into a manual two-cohort queue.
+If a protected result is later required on every PR, its scope must instead be
+fast, automatically dispatched and routed by trusted policy; that is a separate
+reviewed design, not this manual qualification path. Strict-base PR checks and a
+possible future merge queue must not be confused with exact-package acceptance.
+
 ## Recommendation and decisions
 
-On the current public Free organization, propose an independently controlled
-controller with a distinct GitHub App publishing `Thistle qualification / required`.
+The owner selected a public Free controller plus a distinct App as the proposal
+route. Propose an independently controlled controller publishing
+`Thistle qualification / required` for selected qualification requests, not as a
+requirement on every ordinary PR targeting main.
 Use GitHub Actions for orchestration and maintained token/runtime tooling. No
 custom webhook service is needed: begin with the named custodian's manual
 dispatch, using immutable request identities. Dispatch requires controller
 repository write access and is not granted to candidate authors. Lack of a dispatch blocks
-qualification. Automatic request discovery can be separately reviewed later.
+that selected qualification request; it does not block an ordinary PR merge. Automatic request discovery can be separately reviewed later.
 
 Prefer native source-bound organization required workflows if the owner explicitly
 chooses an eligible Team or Enterprise plan and public workflow source. That avoids
 a custom publisher App/key, but does not solve worker isolation or shared authority.
 A same-name job from the ordinary GitHub Actions App is not source binding.
 
-The owner decisions below are the final authorization step after independent design
-review. Suggested names and settings are proposals, not allocated identities.
+The remaining setup decisions below require explicit authorization after independent
+design review. The route and custodian preferences do not authorize setup. Suggested names and settings are proposals, not allocated identities.
 
 | Decision | Concrete proposal | Missing approval or value |
 | --- | --- | --- |
-| Independent authority | Name a qualification custodian and a separate policy reviewer; candidate authors have no controller/policy write or publisher-key access. Owner administration remains human-controlled, outside agent sessions. | Named people, their accounts, backup custodian and authority boundary |
+| Independent authority | Leah is the custodian and final policy approver. CodeRabbit can supply advisory policy review; it is not the qualification authority. Candidate authors have no controller/policy write or publisher-key access. | Verify human-controlled administration outside authoring sessions, effective access and backup/recovery custody; role selection is not credential or setup authorization |
 | Candidate authoring | Use a restricted authoring identity such as existing `lost-in-the-agent` with Thistle write only; remove owner credentials from candidate-authoring sessions before claiming independence. | Owner-approved credential separation and verification; no account switch or permission change in this task |
-| Evaluator home | Proposed `lost-in-the/thistle-eval`, private for the Free/App route, selected-repository access only; no candidate agents or authoring connectors installed there. Public Free plus the same distinct App is also an option: repository rules can enforce policy review without buying Team, and standard public hosted minutes are free. | Name availability, creation, visibility, actual repository ID and access list; public source/fixture disclosure and a restricted evidence destination need approval; organization inherited/base access must also be checked |
+| Evaluator home | Proposed public `lost-in-the/thistle-eval` on Free, with repository rules for policy changes and a distinct App. No candidate authors or authoring connectors may write there. Standard public hosted minutes are free. Private Free custody remains a fallback with weaker review enforcement. | The owner selected this route, but repository creation/disclosure, actual ID, writer/access list and restricted evidence destination still need authorization; inherited organization access must be checked |
 | Enforcement route | Current Free: distinct proposed `Thistle Qualification` App, only Thistle installation, Checks write, Metadata read, Pull requests read and Contents read for head/base/tree verification; all other permissions off. | App name availability, numeric App ID, client ID, installation ID and custodian approval |
 | Key custody | App key in custodian-controlled vault and only the private controller repository's publisher secret; no organization-wide secret, candidate secret, developer checkout or worker copy. | Actual approved vault/access list and publisher secret configuration; no key material belongs in this document |
 | Native alternative | If eligible plan is chosen, public evaluator workflow source in the organization, pinned repository ID/path/SHA; same independent writers and worker boundary. | Plan purchase/entitlement, public disclosure approval and actual workflow identity |
-| Repository rules | Active rule on exact `refs/heads/main`, no bypass actors, PR and current-base testing required, exact trusted source mandatory; details below. | Separate owner authorization and actual rule ID/readback |
+| Repository rules | Basic main PR/CI protection is separate from qualification. Qualification source-identity proof uses a disposable target, with no ordinary-main manual qualification requirement. | Separate authorization for each concrete rule; actual IDs/readback and non-bypass proofs |
 | Initial scope | Same Core/Map source-gem bytes installed on both modern Linux cohorts, with installed contracts, parser-worker, reader-boundary and Map checks. | Independent approval of adapter, fixtures, policy, observer coverage and measured limits |
 | Operating budget | One request at a time, two sequential cohorts, no paid overage or larger runner until separately approved; retain proof/qualification records before artifact expiry. | Account billing/quota, storage/retention location and cap, operational time budget |
 | Observer feasibility | Propose at most one engineer-day and two maintained-runtime prototypes before a new decision; define the exact load-observation claim and negative controls first. | Approved time/cost cap, collector/archive totals and durable capacity; stop with readiness Needed if coverage cannot be demonstrated within the cap |
@@ -124,13 +141,16 @@ This bounded PR does not edit that shared file or install tooling.
 The controller's protected default branch owns request validation, policy,
 fixtures, expected results and the worker adapter. Candidate paths cannot select
 lanes, evaluator revisions, images, result destinations or shell commands.
-Manual dispatch accepts a PR number and full expected head/base SHAs, not a URL
-or executable input. It reads GitHub's actual PR/head/base and tested merge,
-rejects conflicts/mismatches, and gives the request an immutable attempt ID.
-For the proposed private evaluator on Free, “protected” here means an exclusive
+Manual qualification dispatch accepts exact source and package identities, with
+a PR/head/base tuple only when that selected preview request concerns a PR. It
+accepts no executable input or arbitrary URL. The controller resolves actual
+repository/source/tree and package bytes, verifies any supplied PR/merge tuple,
+rejects conflicts or identity mismatches, and allocates an immutable attempt ID.
+Public Free repository rules can enforce policy review after authorization. For
+the private evaluator fallback on Free, “protected” instead means an exclusive
 custodian write/access boundary, **not** an available private-repository branch
-rule. The reviewer supplies a recorded disposition; the sole human custodian
-promotes the reviewed SHA. GitHub does not technically enforce that two-person
+rule. The advisory reviewer supplies a recorded disposition; Leah supplies final policy
+approval and the human custodian promotes the reviewed SHA. GitHub does not technically enforce that two-person
 review on this proposed private Free setup. If the owner requires enforced policy
 reviews, choose public evaluator visibility with repository rules, or an eligible
 paid plan, before activation. Neither alternative is approved. Record and prove
@@ -154,9 +174,11 @@ final publication:
 2. A trusted preparation job resolves approved tool/dependency/image digests,
    source and tested-merge identity using bounded downloads. It emits an immutable
    input manifest. No candidate build, gemspec or install hook runs in this job.
-3. A fresh execution VM launches the unprivileged candidate runtime. Build one
-   Core/Map package pair from the selected tested source in isolation, collect it
-   as untrusted bytes, and install those exact bytes on both cohorts. A controller
+3. A fresh execution VM launches the unprivileged candidate runtime. For an
+   already selected candidate, retrieve and verify the exact Core/Map bytes; do not
+   rebuild them for qualification. A separately requested new candidate may be
+   prepared once in isolation from pinned source, collected as untrusted bytes,
+   then that same pair is installed on both cohorts. A controller
    supervisor outside the runtime owns expected facts, deadlines and verdicts.
    The frozen evaluator must use the protected adapter for **every** subprocess;
    importing its old host-execution helper unchanged is not safe.
@@ -293,23 +315,18 @@ fails the attempt; the next request gets a fresh VM. Record observer loss, OOM,
 PID/disk limit, timeout and truncation as explicit failures, not partial passes.
 No latency, isolation or cost improvement is claimed without measurements.
 
-## Exact rule proposal
+## Separate basic main protection
 
-Configure nothing until the owner authorizes the chosen route and actual source
-identity exists. The following is an intentionally **non-executable template**
-for a Free repository ruleset, based on the [REST schema](https://docs.github.com/en/rest/repos/rules#create-a-repository-ruleset).
-The unquoted App-ID placeholder prevents accidental submission as valid JSON.
-Do not replace it with null, zero, `-1`, App `15368`, or omission/“any source”.
-Validate the actual numeric App ID against installation and observed check JSON.
-The current UI documentation describes additional status-source selection
-conditions. Prove that the Checks-write-only App can be bound through the rules
-API and read back correctly. If GitHub requires more permission for the chosen
-path, stop for a specific owner decision; do not silently grant Statuses write,
-weaken source binding or claim the proposed minimal permissions are proven.
+This small protection step does not wait for the controller, native-load observer
+or full qualification worker. Configure it only after a separate owner decision.
+Proposed repository ruleset: exact main ref, required PR, strict current-base
+`CI / required` and configured PII checks from the existing GitHub Actions App,
+no deletion/force-push and no bypass actors. The checks are automatically dispatched
+and retain current targeted routing. Neither check is renamed qualification.
 
-```text
+```json
 {
-  "name": "Thistle protected qualification",
+  "name": "Thistle basic main protection",
   "target": "branch",
   "enforcement": "active",
   "bypass_actors": [],
@@ -318,72 +335,102 @@ weaken source binding or claim the proposed minimal permissions are proven.
     {"type": "deletion"},
     {"type": "non_fast_forward"},
     {"type": "pull_request", "parameters": {
-      "required_approving_review_count": 1,
-      "dismiss_stale_reviews_on_push": true,
+      "required_approving_review_count": 0,
+      "dismiss_stale_reviews_on_push": false,
       "require_code_owner_review": false,
-      "require_last_push_approval": true,
+      "require_last_push_approval": false,
       "required_review_thread_resolution": true
     }},
     {"type": "required_status_checks", "parameters": {
       "strict_required_status_checks_policy": true,
       "do_not_enforce_on_create": false,
       "required_status_checks": [
-        {"context": "Thistle qualification / required",
-         "integration_id": <ACTUAL_INDEPENDENT_APP_ID_REQUIRED>}
+        {"context": "CI / required", "integration_id": 15368},
+        {"context": "pii-check / pii-check", "integration_id": 15368}
       ]
     }}
   ]
 }
 ```
 
-This adds a qualification requirement; existing candidate CI remains feedback
-and must not be relabeled. Reconcile any rules added by others at deployment,
-rather than replacing them. All applicable rules must pass. No ordinary bypass
-is proposed, including for owner/admin roles or publisher. Admins able to edit
-rules remain part of the separately controlled administrative trust boundary.
+The initial machine-enforced approval count is explicitly zero: substantive peer
+review and owner-authorized integration remain the recorded workflow, rather than
+inventing an available independent human approver for every owner-authored PR.
+Requiring a particular approving reviewer is a separate concrete owner choice.
+Unresolved review threads still block. PII remains fail-closed when its secret is
+unavailable, including forks; this proposal neither broadens secret access nor
+silently exempts them. Verify exact current check contexts before activation.
 
-If native organization required workflows are chosen instead, scope the rule to
-repository ID `1437113504` and exact `refs/heads/main`, active, with no bypass.
-Require the source tuple below through the organization `workflows` rule, with
-`do_not_enforce_on_create: false`. Retain PR/review/deletion/force-push protections.
-Use the [organization rule schema](https://docs.github.com/en/rest/orgs/rules#create-an-organization-repository-ruleset):
+App `15368` identifies ordinary GitHub Actions, not an independently controlled
+workflow. Candidate authors can edit candidate automation; this basic gate reduces
+accidental unchecked integration but does not establish hostile-candidate or
+qualification authority. A same-App lookalike is a known limit, not a protected
+qualification pass. Do not claim otherwise.
+
+Before activation, export current rules and use an owner-authorized disposable
+proof target with these settings and a non-bypass writer. Missing/failed checks,
+a direct push and a stale base must be refused; a complete green targeted PR with
+resolved review threads becomes eligible without a positive-control merge. Save
+actual rule/check/source identities and refusals. Reconcile existing rules rather
+than replacing others' work. No rule is created by this proposal.
+
+## Qualification source-identity proof
+
+The distinct App's `Thistle qualification / required` result belongs to selected
+preview/release acceptance and deliberately accepted performance work. It is not
+in the basic main ruleset above. Initially keep rule-identity experiments on a
+disposable `proof/thistle-qualification` ref. Activation, real App IDs, key custody
+and a promotion/acceptance surface remain separate owner decisions. No release
+publishing or production promotion rule is authorized here.
+
+For milestone A, a non-executable qualification-rule template uses an active branch
+rule scoped only to that proof ref, no bypass actors, PR/current-base controls and:
 
 ```text
-repository_id: <ACTUAL_PUBLIC_EVALUATOR_REPOSITORY_ID_REQUIRED>
-path: .github/workflows/qualification.yml  # proposed, not yet created
-sha: <REVIEWED_FULL_WORKFLOW_COMMIT_SHA_REQUIRED>
+required_status_checks:
+  strict_required_status_checks_policy: true
+  do_not_enforce_on_create: false
+  required_status_checks:
+    - context: Thistle qualification / required
+      integration_id: <ACTUAL_INDEPENDENT_APP_ID_REQUIRED>
 ```
 
-Do not substitute a mutable default branch or check-name-only rule when the source
-is unavailable. Native source binding and current-base handling must be proven
-on the actual account before adoption; the native alternative must pass the same
-head/base-change controls below. The API's SHA field is not an executed proof.
+Never substitute null, zero, `-1`, App `15368`, omission or any-source matching.
+Validate the real App/installation and check JSON, then prove source binding through
+the [rules API](https://docs.github.com/en/rest/repos/rules#create-a-repository-ruleset).
+If the chosen interface needs more than proposed Checks write/minimal reads, stop
+for a specific decision; do not grant Statuses write or weaken binding silently.
 
-For the App route, publish only for the tested commit and bind head/base/tested
-merge in the result. Re-read the live tuple immediately before publication.
-Require the branch to contain the current base and test that exact merged tree;
-a base advance blocks under the strict rule until the author updates and a new
-head is evaluated. Do not post an old artifact's success onto a new head. The
-proof must exercise base movement both during a run and after a success; any
-remaining freshness race blocks adoption. Use one canonical trusted check lifecycle
-per head/base/policy request: the separate admission phase must invalidate
-an earlier success before starting a new required attempt, and never let an older
-successful attempt mask a later failure. Policy or source-identity changes require
-explicit invalidation of affected outstanding successes and new proof, even if
-candidate source is unchanged. Test duplicate-check ordering and replay behavior
-against GitHub rather than assuming the latest report wins.
-No merge queue is proposed initially.
+The optional native organization-workflow route also requires an eligible plan,
+a public evaluator workflow for a public target, and exact source repository
+ID/path/full SHA. An API schema is not entitlement or enforcement proof. If later
+used on ordinary PRs, it must select an automated fast merge scope through trusted
+routing, not the manual full-qualification scope. There is no merge queue proposal
+or plan purchase in this PR.
 
-GitHub can accept `neutral` or `skipped` as ordinary required-check outcomes
-([documented semantics](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches)).
-The trusted publisher therefore emits `success` **only** for a complete exact
-pass. Failed, cancelled, timed-out, missing, malformed or inconclusive required
-evidence becomes `failure` or `action_required`; it never emits qualification
-`neutral` or `skipped`. After verified admission, final-publisher loss leaves the
-established non-success state blocking. Before admission, do not claim that a
-missing publisher or a newly requested attempt withdrew a previous success.
-An always-run trusted finalizer checks every required lane and observer status;
-workflow/job success by itself cannot supply that completeness decision.
+Bind every qualification result to its selected package pair, source, policy,
+cohorts, run/attempt and any applicable PR/head/base/tested merge. Re-read that tuple
+before publication. A later main commit does not transfer a pass to new package
+bytes or automatically invalidate accepted evidence for unchanged selected bytes.
+Changed request scope, policy or PR/base freshness requires explicit invalidation
+and new evidence under the approved policy. Do not post an old artifact's success
+onto a new request or head.
+
+For retries of the same request, the separate admission phase must establish and
+verify a blocking canonical check before dispatch; revoke its token and obtain a
+separate final-publication token. Never let an older success or duplicate check mask
+a later failed attempt. Prove ordering and replay behavior against actual GitHub
+semantics. If admission cannot withdraw a result that must be invalidated, stop and
+use the approved operator freeze/recovery control; a retry request alone is not a
+blocking state.
+
+GitHub can accept neutral/skipped required-check conclusions. The trusted publisher
+therefore emits success only for a complete exact qualification pass; failed,
+cancelled, timed-out, missing, malformed or inconclusive evidence becomes failure
+or action_required. After verified admission, publisher interruption leaves the
+non-success state blocking. An always-run trusted finalizer verifies every selected
+lane and observer result; workflow success alone is insufficient. Ordinary PR
+routing may legitimately skip unrelated product jobs under its separate CI policy.
 
 ## Proof after authorization
 
@@ -394,11 +441,13 @@ No proof in either milestone has been performed by this design task.
 After authority separation, an authorized administrator saves current settings,
 creates a disposable PR and uses a non-bypass writer for the negative controls.
 Use a disposable proof target with identical proposed rules first; record its
-exact ref/rule IDs. Keep production main unchanged until the positive control and
-owner review are complete, then read back and verify main's exact configured rule.
+exact ref/rule IDs. Qualification proof does not change production main or make
+full qualification a main-PR requirement. Basic main protection has its own small
+proof and owner decision and does not wait for milestone B.
 Milestone A fixture checks stay on the disposable proof target; they are never
-published as production package qualification. Production qualification activation
-also requires milestone B readiness and its explicit owner acceptance.
+published as production package qualification. Preview/release qualification activation
+requires milestone B readiness and explicit owner acceptance on the selected
+acceptance/promotion surface; ordinary PRs continue through their separate gate.
 Never attempt a positive-control merge. A negative merge attempt may run only
 while the expected blocking condition is present; if any negative unexpectedly
 merges, stop and record failed enforcement instead of continuing the campaign.

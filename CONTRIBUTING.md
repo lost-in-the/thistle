@@ -15,7 +15,8 @@ the work. Set its project Area, Target, Priority, and Status during triage.
 
 The main branch began as a bootstrap handoff with Git bundles. Baseline restoration
 landed through PR #1; the restored source and `docs/handoff/` now live on main.
-Experiment PR #2 remains separately reviewable against main. Before importing a
+Experiment 001 landed through PR #2; its completed workflow is retired with
+provenance and historical evidence preserved. Before importing a
 bundle or recreating a task, inspect current issues, branches, and PR status. An
 old snapshot is historical evidence; newer accepted evidence must retain its own
 identity and scope.
