@@ -1,0 +1,2074 @@
+{
+  "schema_version": 1,
+  "verdict": "valid_development_observations",
+  "scope": "one synthetic development workload on one host",
+  "policy": {
+    "pairs_per_mode": 1,
+    "calibration_pairs_per_mode": 1,
+    "classes": 400,
+    "declared_facts": 2001,
+    "queries": 100,
+    "seed": 20261028,
+    "performance_decision": "descriptive; independently review the predeclared experiment hypothesis"
+  },
+  "calibration": [
+    {
+      "index": 0,
+      "mode": "single",
+      "order": [
+        "candidate",
+        "baseline"
+      ],
+      "candidate": {
+        "mode": "single",
+        "queries": 1,
+        "source_followups": 1,
+        "generation": "c455150f98c5e8a9440d7fd8d792026a9d5d15275eef675fb9d171646c56a37c",
+        "semantic_sha256": "7de0b7d90cf1c37d5addf3f60b80ad0becc9c97c51c40adc64440941886d8ccd",
+        "native": [
+          {
+            "name": "thistle_native.so",
+            "sha256": "cb3870d86268099cc23dcd8010316f2c130047bff15bc92404bb3fcc786bff11"
+          }
+        ],
+        "runtime_files": [
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle.rb",
+            "sha256": "2ee43bde174e35755983a46aecbf68c0b98d54391fff49a73813a325e1c88ab5"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/errors.rb",
+            "sha256": "7ff9780a7e6e14155c572d08b153826f8c969597235646e49836392f6d720c38"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/native.rb",
+            "sha256": "a3f21041649281bad65250f6250ddebceaa664956990150731ec0e00e0129ca7"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/reader.rb",
+            "sha256": "e9c77ce86e589ede11973a341dfc975696e6b1d06e20291a92d60012b46448c0"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/store.rb",
+            "sha256": "e185ea3014f61e9475a721811fec837db8f57b9a70226b4905f9f6d1b92d7bab"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/thistle_native.so",
+            "sha256": "cb3870d86268099cc23dcd8010316f2c130047bff15bc92404bb3fcc786bff11"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/version.rb",
+            "sha256": "9bf9c79747f04da406895a26836fec1bad6c770743d8491c07838bc10a6a42c5"
+          }
+        ],
+        "open_seconds": 0.03128545700019458,
+        "query_sequence_seconds": 0.0021312939970812295,
+        "source_seconds": 0.0008485040016239509,
+        "open_and_sequence_seconds": 0.03426525499889976,
+        "process_until_results_seconds": 0.22213610299877473,
+        "warm_query_seconds": 0.002509628000552766,
+        "initial_peak_rss_kib": 31808,
+        "warm_peak_rss_kib": 31808
+      },
+      "baseline": {
+        "mode": "single",
+        "queries": 1,
+        "source_followups": 1,
+        "generation": "c455150f98c5e8a9440d7fd8d792026a9d5d15275eef675fb9d171646c56a37c",
+        "semantic_sha256": "7de0b7d90cf1c37d5addf3f60b80ad0becc9c97c51c40adc64440941886d8ccd",
+        "native": [
+          {
+            "name": "thistle_native.so",
+            "sha256": "cb3870d86268099cc23dcd8010316f2c130047bff15bc92404bb3fcc786bff11"
+          }
+        ],
+        "runtime_files": [
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle.rb",
+            "sha256": "2ee43bde174e35755983a46aecbf68c0b98d54391fff49a73813a325e1c88ab5"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/errors.rb",
+            "sha256": "7ff9780a7e6e14155c572d08b153826f8c969597235646e49836392f6d720c38"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/native.rb",
+            "sha256": "a3f21041649281bad65250f6250ddebceaa664956990150731ec0e00e0129ca7"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/reader.rb",
+            "sha256": "e9c77ce86e589ede11973a341dfc975696e6b1d06e20291a92d60012b46448c0"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/store.rb",
+            "sha256": "e185ea3014f61e9475a721811fec837db8f57b9a70226b4905f9f6d1b92d7bab"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/thistle_native.so",
+            "sha256": "cb3870d86268099cc23dcd8010316f2c130047bff15bc92404bb3fcc786bff11"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/version.rb",
+            "sha256": "9bf9c79747f04da406895a26836fec1bad6c770743d8491c07838bc10a6a42c5"
+          }
+        ],
+        "open_seconds": 0.04477884600055404,
+        "query_sequence_seconds": 0.0015799819993844721,
+        "source_seconds": 0.0013167620018066373,
+        "open_and_sequence_seconds": 0.04767559000174515,
+        "process_until_results_seconds": 0.16826516200308106,
+        "warm_query_seconds": 0.0015178139983618166,
+        "initial_peak_rss_kib": 31792,
+        "warm_peak_rss_kib": 31792
+      }
+    },
+    {
+      "index": 0,
+      "mode": "sequence",
+      "order": [
+        "candidate",
+        "baseline"
+      ],
+      "candidate": {
+        "mode": "sequence",
+        "queries": 100,
+        "source_followups": 10,
+        "generation": "c455150f98c5e8a9440d7fd8d792026a9d5d15275eef675fb9d171646c56a37c",
+        "semantic_sha256": "52a1e472f12929cfdfe3cbb18d2fdbc51e14415f7bdfc7afaacced4730b0c9f8",
+        "native": [
+          {
+            "name": "thistle_native.so",
+            "sha256": "cb3870d86268099cc23dcd8010316f2c130047bff15bc92404bb3fcc786bff11"
+          }
+        ],
+        "runtime_files": [
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle.rb",
+            "sha256": "2ee43bde174e35755983a46aecbf68c0b98d54391fff49a73813a325e1c88ab5"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/errors.rb",
+            "sha256": "7ff9780a7e6e14155c572d08b153826f8c969597235646e49836392f6d720c38"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/native.rb",
+            "sha256": "a3f21041649281bad65250f6250ddebceaa664956990150731ec0e00e0129ca7"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/reader.rb",
+            "sha256": "e9c77ce86e589ede11973a341dfc975696e6b1d06e20291a92d60012b46448c0"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/store.rb",
+            "sha256": "e185ea3014f61e9475a721811fec837db8f57b9a70226b4905f9f6d1b92d7bab"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/thistle_native.so",
+            "sha256": "cb3870d86268099cc23dcd8010316f2c130047bff15bc92404bb3fcc786bff11"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/version.rb",
+            "sha256": "9bf9c79747f04da406895a26836fec1bad6c770743d8491c07838bc10a6a42c5"
+          }
+        ],
+        "open_seconds": 0.046639967997180065,
+        "query_sequence_seconds": 0.18696545600323589,
+        "source_seconds": 0.007858213997678831,
+        "open_and_sequence_seconds": 0.24146363799809478,
+        "process_until_results_seconds": 0.4381312309997156,
+        "warm_query_seconds": 0.1970198029994208,
+        "initial_peak_rss_kib": 34852,
+        "warm_peak_rss_kib": 36516
+      },
+      "baseline": {
+        "mode": "sequence",
+        "queries": 100,
+        "source_followups": 10,
+        "generation": "c455150f98c5e8a9440d7fd8d792026a9d5d15275eef675fb9d171646c56a37c",
+        "semantic_sha256": "52a1e472f12929cfdfe3cbb18d2fdbc51e14415f7bdfc7afaacced4730b0c9f8",
+        "native": [
+          {
+            "name": "thistle_native.so",
+            "sha256": "cb3870d86268099cc23dcd8010316f2c130047bff15bc92404bb3fcc786bff11"
+          }
+        ],
+        "runtime_files": [
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle.rb",
+            "sha256": "2ee43bde174e35755983a46aecbf68c0b98d54391fff49a73813a325e1c88ab5"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/errors.rb",
+            "sha256": "7ff9780a7e6e14155c572d08b153826f8c969597235646e49836392f6d720c38"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/native.rb",
+            "sha256": "a3f21041649281bad65250f6250ddebceaa664956990150731ec0e00e0129ca7"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/reader.rb",
+            "sha256": "e9c77ce86e589ede11973a341dfc975696e6b1d06e20291a92d60012b46448c0"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/store.rb",
+            "sha256": "e185ea3014f61e9475a721811fec837db8f57b9a70226b4905f9f6d1b92d7bab"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/thistle_native.so",
+            "sha256": "cb3870d86268099cc23dcd8010316f2c130047bff15bc92404bb3fcc786bff11"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/version.rb",
+            "sha256": "9bf9c79747f04da406895a26836fec1bad6c770743d8491c07838bc10a6a42c5"
+          }
+        ],
+        "open_seconds": 0.023450413002137793,
+        "query_sequence_seconds": 0.12903787100003683,
+        "source_seconds": 0.006710498997563263,
+        "open_and_sequence_seconds": 0.1591987829997379,
+        "process_until_results_seconds": 0.24698991899640532,
+        "warm_query_seconds": 0.10437174999970011,
+        "initial_peak_rss_kib": 34824,
+        "warm_peak_rss_kib": 36488
+      }
+    }
+  ],
+  "pairs": [
+    {
+      "index": 0,
+      "mode": "single",
+      "order": [
+        "candidate",
+        "baseline"
+      ],
+      "candidate": {
+        "mode": "single",
+        "queries": 1,
+        "source_followups": 1,
+        "generation": "c455150f98c5e8a9440d7fd8d792026a9d5d15275eef675fb9d171646c56a37c",
+        "semantic_sha256": "7de0b7d90cf1c37d5addf3f60b80ad0becc9c97c51c40adc64440941886d8ccd",
+        "native": [
+          {
+            "name": "thistle_native.so",
+            "sha256": "cb3870d86268099cc23dcd8010316f2c130047bff15bc92404bb3fcc786bff11"
+          }
+        ],
+        "runtime_files": [
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle.rb",
+            "sha256": "2ee43bde174e35755983a46aecbf68c0b98d54391fff49a73813a325e1c88ab5"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/errors.rb",
+            "sha256": "7ff9780a7e6e14155c572d08b153826f8c969597235646e49836392f6d720c38"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/native.rb",
+            "sha256": "a3f21041649281bad65250f6250ddebceaa664956990150731ec0e00e0129ca7"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/reader.rb",
+            "sha256": "e9c77ce86e589ede11973a341dfc975696e6b1d06e20291a92d60012b46448c0"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/store.rb",
+            "sha256": "e185ea3014f61e9475a721811fec837db8f57b9a70226b4905f9f6d1b92d7bab"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/thistle_native.so",
+            "sha256": "cb3870d86268099cc23dcd8010316f2c130047bff15bc92404bb3fcc786bff11"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/version.rb",
+            "sha256": "9bf9c79747f04da406895a26836fec1bad6c770743d8491c07838bc10a6a42c5"
+          }
+        ],
+        "open_seconds": 0.02356433100067079,
+        "query_sequence_seconds": 0.001102182999602519,
+        "source_seconds": 0.0010597130021778867,
+        "open_and_sequence_seconds": 0.025726227002451196,
+        "process_until_results_seconds": 0.14626040700022713,
+        "warm_query_seconds": 0.002996695999172516,
+        "initial_peak_rss_kib": 31800,
+        "warm_peak_rss_kib": 31800
+      },
+      "baseline": {
+        "mode": "single",
+        "queries": 1,
+        "source_followups": 1,
+        "generation": "c455150f98c5e8a9440d7fd8d792026a9d5d15275eef675fb9d171646c56a37c",
+        "semantic_sha256": "7de0b7d90cf1c37d5addf3f60b80ad0becc9c97c51c40adc64440941886d8ccd",
+        "native": [
+          {
+            "name": "thistle_native.so",
+            "sha256": "cb3870d86268099cc23dcd8010316f2c130047bff15bc92404bb3fcc786bff11"
+          }
+        ],
+        "runtime_files": [
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle.rb",
+            "sha256": "2ee43bde174e35755983a46aecbf68c0b98d54391fff49a73813a325e1c88ab5"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/errors.rb",
+            "sha256": "7ff9780a7e6e14155c572d08b153826f8c969597235646e49836392f6d720c38"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/native.rb",
+            "sha256": "a3f21041649281bad65250f6250ddebceaa664956990150731ec0e00e0129ca7"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/reader.rb",
+            "sha256": "e9c77ce86e589ede11973a341dfc975696e6b1d06e20291a92d60012b46448c0"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/store.rb",
+            "sha256": "e185ea3014f61e9475a721811fec837db8f57b9a70226b4905f9f6d1b92d7bab"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/thistle_native.so",
+            "sha256": "cb3870d86268099cc23dcd8010316f2c130047bff15bc92404bb3fcc786bff11"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/version.rb",
+            "sha256": "9bf9c79747f04da406895a26836fec1bad6c770743d8491c07838bc10a6a42c5"
+          }
+        ],
+        "open_seconds": 0.017682966001302702,
+        "query_sequence_seconds": 0.002705609000258846,
+        "source_seconds": 0.0007565669984614942,
+        "open_and_sequence_seconds": 0.021145142000023043,
+        "process_until_results_seconds": 0.09392908299923874,
+        "warm_query_seconds": 0.0022354100001393817,
+        "initial_peak_rss_kib": 31812,
+        "warm_peak_rss_kib": 31812
+      }
+    },
+    {
+      "index": 0,
+      "mode": "sequence",
+      "order": [
+        "baseline",
+        "candidate"
+      ],
+      "baseline": {
+        "mode": "sequence",
+        "queries": 100,
+        "source_followups": 10,
+        "generation": "c455150f98c5e8a9440d7fd8d792026a9d5d15275eef675fb9d171646c56a37c",
+        "semantic_sha256": "52a1e472f12929cfdfe3cbb18d2fdbc51e14415f7bdfc7afaacced4730b0c9f8",
+        "native": [
+          {
+            "name": "thistle_native.so",
+            "sha256": "cb3870d86268099cc23dcd8010316f2c130047bff15bc92404bb3fcc786bff11"
+          }
+        ],
+        "runtime_files": [
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle.rb",
+            "sha256": "2ee43bde174e35755983a46aecbf68c0b98d54391fff49a73813a325e1c88ab5"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/errors.rb",
+            "sha256": "7ff9780a7e6e14155c572d08b153826f8c969597235646e49836392f6d720c38"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/native.rb",
+            "sha256": "a3f21041649281bad65250f6250ddebceaa664956990150731ec0e00e0129ca7"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/reader.rb",
+            "sha256": "e9c77ce86e589ede11973a341dfc975696e6b1d06e20291a92d60012b46448c0"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/store.rb",
+            "sha256": "e185ea3014f61e9475a721811fec837db8f57b9a70226b4905f9f6d1b92d7bab"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/thistle_native.so",
+            "sha256": "cb3870d86268099cc23dcd8010316f2c130047bff15bc92404bb3fcc786bff11"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/version.rb",
+            "sha256": "9bf9c79747f04da406895a26836fec1bad6c770743d8491c07838bc10a6a42c5"
+          }
+        ],
+        "open_seconds": 0.03234200600127224,
+        "query_sequence_seconds": 0.29316508899864857,
+        "source_seconds": 0.007820547001756495,
+        "open_and_sequence_seconds": 0.3333276420016773,
+        "process_until_results_seconds": 0.48493218300063745,
+        "warm_query_seconds": 0.16482573200119077,
+        "initial_peak_rss_kib": 34864,
+        "warm_peak_rss_kib": 36528
+      },
+      "candidate": {
+        "mode": "sequence",
+        "queries": 100,
+        "source_followups": 10,
+        "generation": "c455150f98c5e8a9440d7fd8d792026a9d5d15275eef675fb9d171646c56a37c",
+        "semantic_sha256": "52a1e472f12929cfdfe3cbb18d2fdbc51e14415f7bdfc7afaacced4730b0c9f8",
+        "native": [
+          {
+            "name": "thistle_native.so",
+            "sha256": "cb3870d86268099cc23dcd8010316f2c130047bff15bc92404bb3fcc786bff11"
+          }
+        ],
+        "runtime_files": [
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle.rb",
+            "sha256": "2ee43bde174e35755983a46aecbf68c0b98d54391fff49a73813a325e1c88ab5"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/errors.rb",
+            "sha256": "7ff9780a7e6e14155c572d08b153826f8c969597235646e49836392f6d720c38"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/native.rb",
+            "sha256": "a3f21041649281bad65250f6250ddebceaa664956990150731ec0e00e0129ca7"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/reader.rb",
+            "sha256": "e9c77ce86e589ede11973a341dfc975696e6b1d06e20291a92d60012b46448c0"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/store.rb",
+            "sha256": "e185ea3014f61e9475a721811fec837db8f57b9a70226b4905f9f6d1b92d7bab"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/thistle_native.so",
+            "sha256": "cb3870d86268099cc23dcd8010316f2c130047bff15bc92404bb3fcc786bff11"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/version.rb",
+            "sha256": "9bf9c79747f04da406895a26836fec1bad6c770743d8491c07838bc10a6a42c5"
+          }
+        ],
+        "open_seconds": 0.02074942800027202,
+        "query_sequence_seconds": 0.1325903750002908,
+        "source_seconds": 0.01117882100152201,
+        "open_and_sequence_seconds": 0.16451862400208483,
+        "process_until_results_seconds": 0.26673216999915894,
+        "warm_query_seconds": 0.11830157900112681,
+        "initial_peak_rss_kib": 34972,
+        "warm_peak_rss_kib": 36644
+      }
+    }
+  ],
+  "attempts": [
+    {
+      "phase": "calibration",
+      "mode": "single",
+      "role": "candidate",
+      "installed_artifact": "baseline",
+      "status": "passed",
+      "measurement": {
+        "mode": "single",
+        "queries": 1,
+        "source_followups": 1,
+        "generation": "c455150f98c5e8a9440d7fd8d792026a9d5d15275eef675fb9d171646c56a37c",
+        "semantic_sha256": "7de0b7d90cf1c37d5addf3f60b80ad0becc9c97c51c40adc64440941886d8ccd",
+        "native": [
+          {
+            "name": "thistle_native.so",
+            "sha256": "cb3870d86268099cc23dcd8010316f2c130047bff15bc92404bb3fcc786bff11"
+          }
+        ],
+        "runtime_files": [
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle.rb",
+            "sha256": "2ee43bde174e35755983a46aecbf68c0b98d54391fff49a73813a325e1c88ab5"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/errors.rb",
+            "sha256": "7ff9780a7e6e14155c572d08b153826f8c969597235646e49836392f6d720c38"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/native.rb",
+            "sha256": "a3f21041649281bad65250f6250ddebceaa664956990150731ec0e00e0129ca7"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/reader.rb",
+            "sha256": "e9c77ce86e589ede11973a341dfc975696e6b1d06e20291a92d60012b46448c0"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/store.rb",
+            "sha256": "e185ea3014f61e9475a721811fec837db8f57b9a70226b4905f9f6d1b92d7bab"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/thistle_native.so",
+            "sha256": "cb3870d86268099cc23dcd8010316f2c130047bff15bc92404bb3fcc786bff11"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/version.rb",
+            "sha256": "9bf9c79747f04da406895a26836fec1bad6c770743d8491c07838bc10a6a42c5"
+          }
+        ],
+        "open_seconds": 0.03128545700019458,
+        "query_sequence_seconds": 0.0021312939970812295,
+        "source_seconds": 0.0008485040016239509,
+        "open_and_sequence_seconds": 0.03426525499889976,
+        "process_until_results_seconds": 0.22213610299877473,
+        "warm_query_seconds": 0.002509628000552766,
+        "initial_peak_rss_kib": 31808,
+        "warm_peak_rss_kib": 31808
+      },
+      "total_process_and_validation_seconds": 0.5122371830002521
+    },
+    {
+      "phase": "calibration",
+      "mode": "single",
+      "role": "baseline",
+      "installed_artifact": "baseline",
+      "status": "passed",
+      "measurement": {
+        "mode": "single",
+        "queries": 1,
+        "source_followups": 1,
+        "generation": "c455150f98c5e8a9440d7fd8d792026a9d5d15275eef675fb9d171646c56a37c",
+        "semantic_sha256": "7de0b7d90cf1c37d5addf3f60b80ad0becc9c97c51c40adc64440941886d8ccd",
+        "native": [
+          {
+            "name": "thistle_native.so",
+            "sha256": "cb3870d86268099cc23dcd8010316f2c130047bff15bc92404bb3fcc786bff11"
+          }
+        ],
+        "runtime_files": [
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle.rb",
+            "sha256": "2ee43bde174e35755983a46aecbf68c0b98d54391fff49a73813a325e1c88ab5"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/errors.rb",
+            "sha256": "7ff9780a7e6e14155c572d08b153826f8c969597235646e49836392f6d720c38"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/native.rb",
+            "sha256": "a3f21041649281bad65250f6250ddebceaa664956990150731ec0e00e0129ca7"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/reader.rb",
+            "sha256": "e9c77ce86e589ede11973a341dfc975696e6b1d06e20291a92d60012b46448c0"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/store.rb",
+            "sha256": "e185ea3014f61e9475a721811fec837db8f57b9a70226b4905f9f6d1b92d7bab"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/thistle_native.so",
+            "sha256": "cb3870d86268099cc23dcd8010316f2c130047bff15bc92404bb3fcc786bff11"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/version.rb",
+            "sha256": "9bf9c79747f04da406895a26836fec1bad6c770743d8491c07838bc10a6a42c5"
+          }
+        ],
+        "open_seconds": 0.04477884600055404,
+        "query_sequence_seconds": 0.0015799819993844721,
+        "source_seconds": 0.0013167620018066373,
+        "open_and_sequence_seconds": 0.04767559000174515,
+        "process_until_results_seconds": 0.16826516200308106,
+        "warm_query_seconds": 0.0015178139983618166,
+        "initial_peak_rss_kib": 31792,
+        "warm_peak_rss_kib": 31792
+      },
+      "total_process_and_validation_seconds": 0.5434762410004623
+    },
+    {
+      "phase": "calibration",
+      "mode": "sequence",
+      "role": "candidate",
+      "installed_artifact": "baseline",
+      "status": "passed",
+      "measurement": {
+        "mode": "sequence",
+        "queries": 100,
+        "source_followups": 10,
+        "generation": "c455150f98c5e8a9440d7fd8d792026a9d5d15275eef675fb9d171646c56a37c",
+        "semantic_sha256": "52a1e472f12929cfdfe3cbb18d2fdbc51e14415f7bdfc7afaacced4730b0c9f8",
+        "native": [
+          {
+            "name": "thistle_native.so",
+            "sha256": "cb3870d86268099cc23dcd8010316f2c130047bff15bc92404bb3fcc786bff11"
+          }
+        ],
+        "runtime_files": [
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle.rb",
+            "sha256": "2ee43bde174e35755983a46aecbf68c0b98d54391fff49a73813a325e1c88ab5"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/errors.rb",
+            "sha256": "7ff9780a7e6e14155c572d08b153826f8c969597235646e49836392f6d720c38"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/native.rb",
+            "sha256": "a3f21041649281bad65250f6250ddebceaa664956990150731ec0e00e0129ca7"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/reader.rb",
+            "sha256": "e9c77ce86e589ede11973a341dfc975696e6b1d06e20291a92d60012b46448c0"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/store.rb",
+            "sha256": "e185ea3014f61e9475a721811fec837db8f57b9a70226b4905f9f6d1b92d7bab"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/thistle_native.so",
+            "sha256": "cb3870d86268099cc23dcd8010316f2c130047bff15bc92404bb3fcc786bff11"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/version.rb",
+            "sha256": "9bf9c79747f04da406895a26836fec1bad6c770743d8491c07838bc10a6a42c5"
+          }
+        ],
+        "open_seconds": 0.046639967997180065,
+        "query_sequence_seconds": 0.18696545600323589,
+        "source_seconds": 0.007858213997678831,
+        "open_and_sequence_seconds": 0.24146363799809478,
+        "process_until_results_seconds": 0.4381312309997156,
+        "warm_query_seconds": 0.1970198029994208,
+        "initial_peak_rss_kib": 34852,
+        "warm_peak_rss_kib": 36516
+      },
+      "total_process_and_validation_seconds": 0.8574300159998529
+    },
+    {
+      "phase": "calibration",
+      "mode": "sequence",
+      "role": "baseline",
+      "installed_artifact": "baseline",
+      "status": "passed",
+      "measurement": {
+        "mode": "sequence",
+        "queries": 100,
+        "source_followups": 10,
+        "generation": "c455150f98c5e8a9440d7fd8d792026a9d5d15275eef675fb9d171646c56a37c",
+        "semantic_sha256": "52a1e472f12929cfdfe3cbb18d2fdbc51e14415f7bdfc7afaacced4730b0c9f8",
+        "native": [
+          {
+            "name": "thistle_native.so",
+            "sha256": "cb3870d86268099cc23dcd8010316f2c130047bff15bc92404bb3fcc786bff11"
+          }
+        ],
+        "runtime_files": [
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle.rb",
+            "sha256": "2ee43bde174e35755983a46aecbf68c0b98d54391fff49a73813a325e1c88ab5"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/errors.rb",
+            "sha256": "7ff9780a7e6e14155c572d08b153826f8c969597235646e49836392f6d720c38"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/native.rb",
+            "sha256": "a3f21041649281bad65250f6250ddebceaa664956990150731ec0e00e0129ca7"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/reader.rb",
+            "sha256": "e9c77ce86e589ede11973a341dfc975696e6b1d06e20291a92d60012b46448c0"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/store.rb",
+            "sha256": "e185ea3014f61e9475a721811fec837db8f57b9a70226b4905f9f6d1b92d7bab"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/thistle_native.so",
+            "sha256": "cb3870d86268099cc23dcd8010316f2c130047bff15bc92404bb3fcc786bff11"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/version.rb",
+            "sha256": "9bf9c79747f04da406895a26836fec1bad6c770743d8491c07838bc10a6a42c5"
+          }
+        ],
+        "open_seconds": 0.023450413002137793,
+        "query_sequence_seconds": 0.12903787100003683,
+        "source_seconds": 0.006710498997563263,
+        "open_and_sequence_seconds": 0.1591987829997379,
+        "process_until_results_seconds": 0.24698991899640532,
+        "warm_query_seconds": 0.10437174999970011,
+        "initial_peak_rss_kib": 34824,
+        "warm_peak_rss_kib": 36488
+      },
+      "total_process_and_validation_seconds": 0.5350362059980398
+    },
+    {
+      "phase": "comparison",
+      "mode": "single",
+      "role": "candidate",
+      "installed_artifact": "candidate",
+      "status": "passed",
+      "measurement": {
+        "mode": "single",
+        "queries": 1,
+        "source_followups": 1,
+        "generation": "c455150f98c5e8a9440d7fd8d792026a9d5d15275eef675fb9d171646c56a37c",
+        "semantic_sha256": "7de0b7d90cf1c37d5addf3f60b80ad0becc9c97c51c40adc64440941886d8ccd",
+        "native": [
+          {
+            "name": "thistle_native.so",
+            "sha256": "cb3870d86268099cc23dcd8010316f2c130047bff15bc92404bb3fcc786bff11"
+          }
+        ],
+        "runtime_files": [
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle.rb",
+            "sha256": "2ee43bde174e35755983a46aecbf68c0b98d54391fff49a73813a325e1c88ab5"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/errors.rb",
+            "sha256": "7ff9780a7e6e14155c572d08b153826f8c969597235646e49836392f6d720c38"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/native.rb",
+            "sha256": "a3f21041649281bad65250f6250ddebceaa664956990150731ec0e00e0129ca7"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/reader.rb",
+            "sha256": "e9c77ce86e589ede11973a341dfc975696e6b1d06e20291a92d60012b46448c0"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/store.rb",
+            "sha256": "e185ea3014f61e9475a721811fec837db8f57b9a70226b4905f9f6d1b92d7bab"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/thistle_native.so",
+            "sha256": "cb3870d86268099cc23dcd8010316f2c130047bff15bc92404bb3fcc786bff11"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/version.rb",
+            "sha256": "9bf9c79747f04da406895a26836fec1bad6c770743d8491c07838bc10a6a42c5"
+          }
+        ],
+        "open_seconds": 0.02356433100067079,
+        "query_sequence_seconds": 0.001102182999602519,
+        "source_seconds": 0.0010597130021778867,
+        "open_and_sequence_seconds": 0.025726227002451196,
+        "process_until_results_seconds": 0.14626040700022713,
+        "warm_query_seconds": 0.002996695999172516,
+        "initial_peak_rss_kib": 31800,
+        "warm_peak_rss_kib": 31800
+      },
+      "total_process_and_validation_seconds": 0.34349874400140834
+    },
+    {
+      "phase": "comparison",
+      "mode": "single",
+      "role": "baseline",
+      "installed_artifact": "baseline",
+      "status": "passed",
+      "measurement": {
+        "mode": "single",
+        "queries": 1,
+        "source_followups": 1,
+        "generation": "c455150f98c5e8a9440d7fd8d792026a9d5d15275eef675fb9d171646c56a37c",
+        "semantic_sha256": "7de0b7d90cf1c37d5addf3f60b80ad0becc9c97c51c40adc64440941886d8ccd",
+        "native": [
+          {
+            "name": "thistle_native.so",
+            "sha256": "cb3870d86268099cc23dcd8010316f2c130047bff15bc92404bb3fcc786bff11"
+          }
+        ],
+        "runtime_files": [
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle.rb",
+            "sha256": "2ee43bde174e35755983a46aecbf68c0b98d54391fff49a73813a325e1c88ab5"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/errors.rb",
+            "sha256": "7ff9780a7e6e14155c572d08b153826f8c969597235646e49836392f6d720c38"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/native.rb",
+            "sha256": "a3f21041649281bad65250f6250ddebceaa664956990150731ec0e00e0129ca7"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/reader.rb",
+            "sha256": "e9c77ce86e589ede11973a341dfc975696e6b1d06e20291a92d60012b46448c0"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/store.rb",
+            "sha256": "e185ea3014f61e9475a721811fec837db8f57b9a70226b4905f9f6d1b92d7bab"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/thistle_native.so",
+            "sha256": "cb3870d86268099cc23dcd8010316f2c130047bff15bc92404bb3fcc786bff11"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/version.rb",
+            "sha256": "9bf9c79747f04da406895a26836fec1bad6c770743d8491c07838bc10a6a42c5"
+          }
+        ],
+        "open_seconds": 0.017682966001302702,
+        "query_sequence_seconds": 0.002705609000258846,
+        "source_seconds": 0.0007565669984614942,
+        "open_and_sequence_seconds": 0.021145142000023043,
+        "process_until_results_seconds": 0.09392908299923874,
+        "warm_query_seconds": 0.0022354100001393817,
+        "initial_peak_rss_kib": 31812,
+        "warm_peak_rss_kib": 31812
+      },
+      "total_process_and_validation_seconds": 0.2291829499990854
+    },
+    {
+      "phase": "comparison",
+      "mode": "sequence",
+      "role": "baseline",
+      "installed_artifact": "baseline",
+      "status": "passed",
+      "measurement": {
+        "mode": "sequence",
+        "queries": 100,
+        "source_followups": 10,
+        "generation": "c455150f98c5e8a9440d7fd8d792026a9d5d15275eef675fb9d171646c56a37c",
+        "semantic_sha256": "52a1e472f12929cfdfe3cbb18d2fdbc51e14415f7bdfc7afaacced4730b0c9f8",
+        "native": [
+          {
+            "name": "thistle_native.so",
+            "sha256": "cb3870d86268099cc23dcd8010316f2c130047bff15bc92404bb3fcc786bff11"
+          }
+        ],
+        "runtime_files": [
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle.rb",
+            "sha256": "2ee43bde174e35755983a46aecbf68c0b98d54391fff49a73813a325e1c88ab5"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/errors.rb",
+            "sha256": "7ff9780a7e6e14155c572d08b153826f8c969597235646e49836392f6d720c38"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/native.rb",
+            "sha256": "a3f21041649281bad65250f6250ddebceaa664956990150731ec0e00e0129ca7"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/reader.rb",
+            "sha256": "e9c77ce86e589ede11973a341dfc975696e6b1d06e20291a92d60012b46448c0"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/store.rb",
+            "sha256": "e185ea3014f61e9475a721811fec837db8f57b9a70226b4905f9f6d1b92d7bab"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/thistle_native.so",
+            "sha256": "cb3870d86268099cc23dcd8010316f2c130047bff15bc92404bb3fcc786bff11"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/version.rb",
+            "sha256": "9bf9c79747f04da406895a26836fec1bad6c770743d8491c07838bc10a6a42c5"
+          }
+        ],
+        "open_seconds": 0.03234200600127224,
+        "query_sequence_seconds": 0.29316508899864857,
+        "source_seconds": 0.007820547001756495,
+        "open_and_sequence_seconds": 0.3333276420016773,
+        "process_until_results_seconds": 0.48493218300063745,
+        "warm_query_seconds": 0.16482573200119077,
+        "initial_peak_rss_kib": 34864,
+        "warm_peak_rss_kib": 36528
+      },
+      "total_process_and_validation_seconds": 0.9372152400028426
+    },
+    {
+      "phase": "comparison",
+      "mode": "sequence",
+      "role": "candidate",
+      "installed_artifact": "candidate",
+      "status": "passed",
+      "measurement": {
+        "mode": "sequence",
+        "queries": 100,
+        "source_followups": 10,
+        "generation": "c455150f98c5e8a9440d7fd8d792026a9d5d15275eef675fb9d171646c56a37c",
+        "semantic_sha256": "52a1e472f12929cfdfe3cbb18d2fdbc51e14415f7bdfc7afaacced4730b0c9f8",
+        "native": [
+          {
+            "name": "thistle_native.so",
+            "sha256": "cb3870d86268099cc23dcd8010316f2c130047bff15bc92404bb3fcc786bff11"
+          }
+        ],
+        "runtime_files": [
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle.rb",
+            "sha256": "2ee43bde174e35755983a46aecbf68c0b98d54391fff49a73813a325e1c88ab5"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/errors.rb",
+            "sha256": "7ff9780a7e6e14155c572d08b153826f8c969597235646e49836392f6d720c38"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/native.rb",
+            "sha256": "a3f21041649281bad65250f6250ddebceaa664956990150731ec0e00e0129ca7"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/reader.rb",
+            "sha256": "e9c77ce86e589ede11973a341dfc975696e6b1d06e20291a92d60012b46448c0"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/store.rb",
+            "sha256": "e185ea3014f61e9475a721811fec837db8f57b9a70226b4905f9f6d1b92d7bab"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/thistle_native.so",
+            "sha256": "cb3870d86268099cc23dcd8010316f2c130047bff15bc92404bb3fcc786bff11"
+          },
+          {
+            "path": "gems/thistle-0.1.0.pre.1/lib/thistle/version.rb",
+            "sha256": "9bf9c79747f04da406895a26836fec1bad6c770743d8491c07838bc10a6a42c5"
+          }
+        ],
+        "open_seconds": 0.02074942800027202,
+        "query_sequence_seconds": 0.1325903750002908,
+        "source_seconds": 0.01117882100152201,
+        "open_and_sequence_seconds": 0.16451862400208483,
+        "process_until_results_seconds": 0.26673216999915894,
+        "warm_query_seconds": 0.11830157900112681,
+        "initial_peak_rss_kib": 34972,
+        "warm_peak_rss_kib": 36644
+      },
+      "total_process_and_validation_seconds": 0.572597518999828
+    }
+  ],
+  "faults": [],
+  "limits": [
+    "Both arms use fresh Ruby processes but shared warm OS caches; no OS-cold claim.",
+    "Process-until-results includes startup, native load, open, query sequence and source follow-ups; validation follows outside timing.",
+    "Warm query timing repeats the same queries on the same opened reader, without source follow-ups.",
+    "Peak RSS is this single product process only, excluding kernel cache/controller/install/build costs.",
+    "No providers, services, user-task success, Woods comparison, or launch inference.",
+    "Initial capture is a checked setup operation, not a repeated extraction benchmark.",
+    "Local shared filesystem is not hostile-candidate isolation."
+  ],
+  "runtime": "ruby 3.3.13 (2026-10-23 revision af48f08f21) [x86_64-linux]",
+  "evaluator_sha256": "04a87dbc0b89913e06cf61866e9c8bde378739953f5f640fc712044a892516db",
+  "workload_helper_sha256": "a29dbfbfee62a2d439c902bffacb50df03354cba8ea47a680c94ab5c1414a6ed",
+  "source_sha256": "d480018e1017c43c95a0e76f03de0229cd62f396c8c63f4bb42b9d320702ddc4",
+  "setup": {
+    "baseline": {
+      "generation": "c455150f98c5e8a9440d7fd8d792026a9d5d15275eef675fb9d171646c56a37c",
+      "seconds": 0.30059391199756647
+    },
+    "candidate": {
+      "generation": "c455150f98c5e8a9440d7fd8d792026a9d5d15275eef675fb9d171646c56a37c",
+      "seconds": 0.34364560399990296
+    }
+  },
+  "native_identities": {
+    "baseline": [
+      {
+        "name": "thistle_native.so",
+        "sha256": "cb3870d86268099cc23dcd8010316f2c130047bff15bc92404bb3fcc786bff11"
+      }
+    ],
+    "candidate": [
+      {
+        "name": "thistle_native.so",
+        "sha256": "cb3870d86268099cc23dcd8010316f2c130047bff15bc92404bb3fcc786bff11"
+      }
+    ]
+  },
+  "semantic_sha256": {
+    "single": "7de0b7d90cf1c37d5addf3f60b80ad0becc9c97c51c40adc64440941886d8ccd",
+    "sequence": "52a1e472f12929cfdfe3cbb18d2fdbc51e14415f7bdfc7afaacced4730b0c9f8"
+  },
+  "calibration_summary": {
+    "single": {
+      "process_until_results_seconds": {
+        "baseline": {
+          "n": 1,
+          "median": 0.16826516200308106,
+          "min": 0.16826516200308106,
+          "max": 0.16826516200308106,
+          "p25": 0.16826516200308106,
+          "p75": 0.16826516200308106
+        },
+        "candidate": {
+          "n": 1,
+          "median": 0.22213610299877473,
+          "min": 0.22213610299877473,
+          "max": 0.22213610299877473,
+          "p25": 0.22213610299877473,
+          "p75": 0.22213610299877473
+        },
+        "candidate_over_baseline_ratio": {
+          "n": 1,
+          "median": 1.3201550478684783,
+          "min": 1.3201550478684783,
+          "max": 1.3201550478684783,
+          "p25": 1.3201550478684783,
+          "p75": 1.3201550478684783
+        },
+        "candidate_minus_baseline": {
+          "n": 1,
+          "median": 0.05387094099569367,
+          "min": 0.05387094099569367,
+          "max": 0.05387094099569367,
+          "p25": 0.05387094099569367,
+          "p75": 0.05387094099569367
+        }
+      },
+      "open_seconds": {
+        "baseline": {
+          "n": 1,
+          "median": 0.04477884600055404,
+          "min": 0.04477884600055404,
+          "max": 0.04477884600055404,
+          "p25": 0.04477884600055404,
+          "p75": 0.04477884600055404
+        },
+        "candidate": {
+          "n": 1,
+          "median": 0.03128545700019458,
+          "min": 0.03128545700019458,
+          "max": 0.03128545700019458,
+          "p25": 0.03128545700019458,
+          "p75": 0.03128545700019458
+        },
+        "candidate_over_baseline_ratio": {
+          "n": 1,
+          "median": 0.6986659950952621,
+          "min": 0.6986659950952621,
+          "max": 0.6986659950952621,
+          "p25": 0.6986659950952621,
+          "p75": 0.6986659950952621
+        },
+        "candidate_minus_baseline": {
+          "n": 1,
+          "median": -0.013493389000359457,
+          "min": -0.013493389000359457,
+          "max": -0.013493389000359457,
+          "p25": -0.013493389000359457,
+          "p75": -0.013493389000359457
+        }
+      },
+      "query_sequence_seconds": {
+        "baseline": {
+          "n": 1,
+          "median": 0.0015799819993844721,
+          "min": 0.0015799819993844721,
+          "max": 0.0015799819993844721,
+          "p25": 0.0015799819993844721,
+          "p75": 0.0015799819993844721
+        },
+        "candidate": {
+          "n": 1,
+          "median": 0.0021312939970812295,
+          "min": 0.0021312939970812295,
+          "max": 0.0021312939970812295,
+          "p25": 0.0021312939970812295,
+          "p75": 0.0021312939970812295
+        },
+        "candidate_over_baseline_ratio": {
+          "n": 1,
+          "median": 1.348935619463726,
+          "min": 1.348935619463726,
+          "max": 1.348935619463726,
+          "p25": 1.348935619463726,
+          "p75": 1.348935619463726
+        },
+        "candidate_minus_baseline": {
+          "n": 1,
+          "median": 0.0005513119976967573,
+          "min": 0.0005513119976967573,
+          "max": 0.0005513119976967573,
+          "p25": 0.0005513119976967573,
+          "p75": 0.0005513119976967573
+        }
+      },
+      "source_seconds": {
+        "baseline": {
+          "n": 1,
+          "median": 0.0013167620018066373,
+          "min": 0.0013167620018066373,
+          "max": 0.0013167620018066373,
+          "p25": 0.0013167620018066373,
+          "p75": 0.0013167620018066373
+        },
+        "candidate": {
+          "n": 1,
+          "median": 0.0008485040016239509,
+          "min": 0.0008485040016239509,
+          "max": 0.0008485040016239509,
+          "p25": 0.0008485040016239509,
+          "p75": 0.0008485040016239509
+        },
+        "candidate_over_baseline_ratio": {
+          "n": 1,
+          "median": 0.6443867612064882,
+          "min": 0.6443867612064882,
+          "max": 0.6443867612064882,
+          "p25": 0.6443867612064882,
+          "p75": 0.6443867612064882
+        },
+        "candidate_minus_baseline": {
+          "n": 1,
+          "median": -0.0004682580001826864,
+          "min": -0.0004682580001826864,
+          "max": -0.0004682580001826864,
+          "p25": -0.0004682580001826864,
+          "p75": -0.0004682580001826864
+        }
+      },
+      "open_and_sequence_seconds": {
+        "baseline": {
+          "n": 1,
+          "median": 0.04767559000174515,
+          "min": 0.04767559000174515,
+          "max": 0.04767559000174515,
+          "p25": 0.04767559000174515,
+          "p75": 0.04767559000174515
+        },
+        "candidate": {
+          "n": 1,
+          "median": 0.03426525499889976,
+          "min": 0.03426525499889976,
+          "max": 0.03426525499889976,
+          "p25": 0.03426525499889976,
+          "p75": 0.03426525499889976
+        },
+        "candidate_over_baseline_ratio": {
+          "n": 1,
+          "median": 0.7187169576222443,
+          "min": 0.7187169576222443,
+          "max": 0.7187169576222443,
+          "p25": 0.7187169576222443,
+          "p75": 0.7187169576222443
+        },
+        "candidate_minus_baseline": {
+          "n": 1,
+          "median": -0.013410335002845386,
+          "min": -0.013410335002845386,
+          "max": -0.013410335002845386,
+          "p25": -0.013410335002845386,
+          "p75": -0.013410335002845386
+        }
+      },
+      "warm_query_seconds": {
+        "baseline": {
+          "n": 1,
+          "median": 0.0015178139983618166,
+          "min": 0.0015178139983618166,
+          "max": 0.0015178139983618166,
+          "p25": 0.0015178139983618166,
+          "p75": 0.0015178139983618166
+        },
+        "candidate": {
+          "n": 1,
+          "median": 0.002509628000552766,
+          "min": 0.002509628000552766,
+          "max": 0.002509628000552766,
+          "p25": 0.002509628000552766,
+          "p75": 0.002509628000552766
+        },
+        "candidate_over_baseline_ratio": {
+          "n": 1,
+          "median": 1.653448975474873,
+          "min": 1.653448975474873,
+          "max": 1.653448975474873,
+          "p25": 1.653448975474873,
+          "p75": 1.653448975474873
+        },
+        "candidate_minus_baseline": {
+          "n": 1,
+          "median": 0.0009918140021909494,
+          "min": 0.0009918140021909494,
+          "max": 0.0009918140021909494,
+          "p25": 0.0009918140021909494,
+          "p75": 0.0009918140021909494
+        }
+      },
+      "initial_peak_rss_kib": {
+        "baseline": {
+          "n": 1,
+          "median": 31792,
+          "min": 31792,
+          "max": 31792,
+          "p25": 31792,
+          "p75": 31792
+        },
+        "candidate": {
+          "n": 1,
+          "median": 31808,
+          "min": 31808,
+          "max": 31808,
+          "p25": 31808,
+          "p75": 31808
+        },
+        "candidate_over_baseline_ratio": {
+          "n": 1,
+          "median": 1.000503271263211,
+          "min": 1.000503271263211,
+          "max": 1.000503271263211,
+          "p25": 1.000503271263211,
+          "p75": 1.000503271263211
+        },
+        "candidate_minus_baseline": {
+          "n": 1,
+          "median": 16,
+          "min": 16,
+          "max": 16,
+          "p25": 16,
+          "p75": 16
+        }
+      },
+      "warm_peak_rss_kib": {
+        "baseline": {
+          "n": 1,
+          "median": 31792,
+          "min": 31792,
+          "max": 31792,
+          "p25": 31792,
+          "p75": 31792
+        },
+        "candidate": {
+          "n": 1,
+          "median": 31808,
+          "min": 31808,
+          "max": 31808,
+          "p25": 31808,
+          "p75": 31808
+        },
+        "candidate_over_baseline_ratio": {
+          "n": 1,
+          "median": 1.000503271263211,
+          "min": 1.000503271263211,
+          "max": 1.000503271263211,
+          "p25": 1.000503271263211,
+          "p75": 1.000503271263211
+        },
+        "candidate_minus_baseline": {
+          "n": 1,
+          "median": 16,
+          "min": 16,
+          "max": 16,
+          "p25": 16,
+          "p75": 16
+        }
+      }
+    },
+    "sequence": {
+      "process_until_results_seconds": {
+        "baseline": {
+          "n": 1,
+          "median": 0.24698991899640532,
+          "min": 0.24698991899640532,
+          "max": 0.24698991899640532,
+          "p25": 0.24698991899640532,
+          "p75": 0.24698991899640532
+        },
+        "candidate": {
+          "n": 1,
+          "median": 0.4381312309997156,
+          "min": 0.4381312309997156,
+          "max": 0.4381312309997156,
+          "p25": 0.4381312309997156,
+          "p75": 0.4381312309997156
+        },
+        "candidate_over_baseline_ratio": {
+          "n": 1,
+          "median": 1.7738830506928187,
+          "min": 1.7738830506928187,
+          "max": 1.7738830506928187,
+          "p25": 1.7738830506928187,
+          "p75": 1.7738830506928187
+        },
+        "candidate_minus_baseline": {
+          "n": 1,
+          "median": 0.1911413120033103,
+          "min": 0.1911413120033103,
+          "max": 0.1911413120033103,
+          "p25": 0.1911413120033103,
+          "p75": 0.1911413120033103
+        }
+      },
+      "open_seconds": {
+        "baseline": {
+          "n": 1,
+          "median": 0.023450413002137793,
+          "min": 0.023450413002137793,
+          "max": 0.023450413002137793,
+          "p25": 0.023450413002137793,
+          "p75": 0.023450413002137793
+        },
+        "candidate": {
+          "n": 1,
+          "median": 0.046639967997180065,
+          "min": 0.046639967997180065,
+          "max": 0.046639967997180065,
+          "p25": 0.046639967997180065,
+          "p75": 0.046639967997180065
+        },
+        "candidate_over_baseline_ratio": {
+          "n": 1,
+          "median": 1.9888761870815777,
+          "min": 1.9888761870815777,
+          "max": 1.9888761870815777,
+          "p25": 1.9888761870815777,
+          "p75": 1.9888761870815777
+        },
+        "candidate_minus_baseline": {
+          "n": 1,
+          "median": 0.023189554995042272,
+          "min": 0.023189554995042272,
+          "max": 0.023189554995042272,
+          "p25": 0.023189554995042272,
+          "p75": 0.023189554995042272
+        }
+      },
+      "query_sequence_seconds": {
+        "baseline": {
+          "n": 1,
+          "median": 0.12903787100003683,
+          "min": 0.12903787100003683,
+          "max": 0.12903787100003683,
+          "p25": 0.12903787100003683,
+          "p75": 0.12903787100003683
+        },
+        "candidate": {
+          "n": 1,
+          "median": 0.18696545600323589,
+          "min": 0.18696545600323589,
+          "max": 0.18696545600323589,
+          "p25": 0.18696545600323589,
+          "p75": 0.18696545600323589
+        },
+        "candidate_over_baseline_ratio": {
+          "n": 1,
+          "median": 1.448919255674813,
+          "min": 1.448919255674813,
+          "max": 1.448919255674813,
+          "p25": 1.448919255674813,
+          "p75": 1.448919255674813
+        },
+        "candidate_minus_baseline": {
+          "n": 1,
+          "median": 0.057927585003199056,
+          "min": 0.057927585003199056,
+          "max": 0.057927585003199056,
+          "p25": 0.057927585003199056,
+          "p75": 0.057927585003199056
+        }
+      },
+      "source_seconds": {
+        "baseline": {
+          "n": 1,
+          "median": 0.006710498997563263,
+          "min": 0.006710498997563263,
+          "max": 0.006710498997563263,
+          "p25": 0.006710498997563263,
+          "p75": 0.006710498997563263
+        },
+        "candidate": {
+          "n": 1,
+          "median": 0.007858213997678831,
+          "min": 0.007858213997678831,
+          "max": 0.007858213997678831,
+          "p25": 0.007858213997678831,
+          "p75": 0.007858213997678831
+        },
+        "candidate_over_baseline_ratio": {
+          "n": 1,
+          "median": 1.1710327354988548,
+          "min": 1.1710327354988548,
+          "max": 1.1710327354988548,
+          "p25": 1.1710327354988548,
+          "p75": 1.1710327354988548
+        },
+        "candidate_minus_baseline": {
+          "n": 1,
+          "median": 0.0011477150001155678,
+          "min": 0.0011477150001155678,
+          "max": 0.0011477150001155678,
+          "p25": 0.0011477150001155678,
+          "p75": 0.0011477150001155678
+        }
+      },
+      "open_and_sequence_seconds": {
+        "baseline": {
+          "n": 1,
+          "median": 0.1591987829997379,
+          "min": 0.1591987829997379,
+          "max": 0.1591987829997379,
+          "p25": 0.1591987829997379,
+          "p75": 0.1591987829997379
+        },
+        "candidate": {
+          "n": 1,
+          "median": 0.24146363799809478,
+          "min": 0.24146363799809478,
+          "max": 0.24146363799809478,
+          "p25": 0.24146363799809478,
+          "p75": 0.24146363799809478
+        },
+        "candidate_over_baseline_ratio": {
+          "n": 1,
+          "median": 1.5167429891627522,
+          "min": 1.5167429891627522,
+          "max": 1.5167429891627522,
+          "p25": 1.5167429891627522,
+          "p75": 1.5167429891627522
+        },
+        "candidate_minus_baseline": {
+          "n": 1,
+          "median": 0.0822648549983569,
+          "min": 0.0822648549983569,
+          "max": 0.0822648549983569,
+          "p25": 0.0822648549983569,
+          "p75": 0.0822648549983569
+        }
+      },
+      "warm_query_seconds": {
+        "baseline": {
+          "n": 1,
+          "median": 0.10437174999970011,
+          "min": 0.10437174999970011,
+          "max": 0.10437174999970011,
+          "p25": 0.10437174999970011,
+          "p75": 0.10437174999970011
+        },
+        "candidate": {
+          "n": 1,
+          "median": 0.1970198029994208,
+          "min": 0.1970198029994208,
+          "max": 0.1970198029994208,
+          "p25": 0.1970198029994208,
+          "p75": 0.1970198029994208
+        },
+        "candidate_over_baseline_ratio": {
+          "n": 1,
+          "median": 1.887673656904161,
+          "min": 1.887673656904161,
+          "max": 1.887673656904161,
+          "p25": 1.887673656904161,
+          "p75": 1.887673656904161
+        },
+        "candidate_minus_baseline": {
+          "n": 1,
+          "median": 0.09264805299972068,
+          "min": 0.09264805299972068,
+          "max": 0.09264805299972068,
+          "p25": 0.09264805299972068,
+          "p75": 0.09264805299972068
+        }
+      },
+      "initial_peak_rss_kib": {
+        "baseline": {
+          "n": 1,
+          "median": 34824,
+          "min": 34824,
+          "max": 34824,
+          "p25": 34824,
+          "p75": 34824
+        },
+        "candidate": {
+          "n": 1,
+          "median": 34852,
+          "min": 34852,
+          "max": 34852,
+          "p25": 34852,
+          "p75": 34852
+        },
+        "candidate_over_baseline_ratio": {
+          "n": 1,
+          "median": 1.0008040431886056,
+          "min": 1.0008040431886056,
+          "max": 1.0008040431886056,
+          "p25": 1.0008040431886056,
+          "p75": 1.0008040431886056
+        },
+        "candidate_minus_baseline": {
+          "n": 1,
+          "median": 28,
+          "min": 28,
+          "max": 28,
+          "p25": 28,
+          "p75": 28
+        }
+      },
+      "warm_peak_rss_kib": {
+        "baseline": {
+          "n": 1,
+          "median": 36488,
+          "min": 36488,
+          "max": 36488,
+          "p25": 36488,
+          "p75": 36488
+        },
+        "candidate": {
+          "n": 1,
+          "median": 36516,
+          "min": 36516,
+          "max": 36516,
+          "p25": 36516,
+          "p75": 36516
+        },
+        "candidate_over_baseline_ratio": {
+          "n": 1,
+          "median": 1.0007673755755317,
+          "min": 1.0007673755755317,
+          "max": 1.0007673755755317,
+          "p25": 1.0007673755755317,
+          "p75": 1.0007673755755317
+        },
+        "candidate_minus_baseline": {
+          "n": 1,
+          "median": 28,
+          "min": 28,
+          "max": 28,
+          "p25": 28,
+          "p75": 28
+        }
+      }
+    }
+  },
+  "summary": {
+    "single": {
+      "process_until_results_seconds": {
+        "baseline": {
+          "n": 1,
+          "median": 0.09392908299923874,
+          "min": 0.09392908299923874,
+          "max": 0.09392908299923874,
+          "p25": 0.09392908299923874,
+          "p75": 0.09392908299923874
+        },
+        "candidate": {
+          "n": 1,
+          "median": 0.14626040700022713,
+          "min": 0.14626040700022713,
+          "max": 0.14626040700022713,
+          "p25": 0.14626040700022713,
+          "p75": 0.14626040700022713
+        },
+        "candidate_over_baseline_ratio": {
+          "n": 1,
+          "median": 1.557136536736045,
+          "min": 1.557136536736045,
+          "max": 1.557136536736045,
+          "p25": 1.557136536736045,
+          "p75": 1.557136536736045
+        },
+        "candidate_minus_baseline": {
+          "n": 1,
+          "median": 0.05233132400098839,
+          "min": 0.05233132400098839,
+          "max": 0.05233132400098839,
+          "p25": 0.05233132400098839,
+          "p75": 0.05233132400098839
+        }
+      },
+      "open_seconds": {
+        "baseline": {
+          "n": 1,
+          "median": 0.017682966001302702,
+          "min": 0.017682966001302702,
+          "max": 0.017682966001302702,
+          "p25": 0.017682966001302702,
+          "p75": 0.017682966001302702
+        },
+        "candidate": {
+          "n": 1,
+          "median": 0.02356433100067079,
+          "min": 0.02356433100067079,
+          "max": 0.02356433100067079,
+          "p25": 0.02356433100067079,
+          "p75": 0.02356433100067079
+        },
+        "candidate_over_baseline_ratio": {
+          "n": 1,
+          "median": 1.3326005942065833,
+          "min": 1.3326005942065833,
+          "max": 1.3326005942065833,
+          "p25": 1.3326005942065833,
+          "p75": 1.3326005942065833
+        },
+        "candidate_minus_baseline": {
+          "n": 1,
+          "median": 0.005881364999368088,
+          "min": 0.005881364999368088,
+          "max": 0.005881364999368088,
+          "p25": 0.005881364999368088,
+          "p75": 0.005881364999368088
+        }
+      },
+      "query_sequence_seconds": {
+        "baseline": {
+          "n": 1,
+          "median": 0.002705609000258846,
+          "min": 0.002705609000258846,
+          "max": 0.002705609000258846,
+          "p25": 0.002705609000258846,
+          "p75": 0.002705609000258846
+        },
+        "candidate": {
+          "n": 1,
+          "median": 0.001102182999602519,
+          "min": 0.001102182999602519,
+          "max": 0.001102182999602519,
+          "p25": 0.001102182999602519,
+          "p75": 0.001102182999602519
+        },
+        "candidate_over_baseline_ratio": {
+          "n": 1,
+          "median": 0.40736965300495115,
+          "min": 0.40736965300495115,
+          "max": 0.40736965300495115,
+          "p25": 0.40736965300495115,
+          "p75": 0.40736965300495115
+        },
+        "candidate_minus_baseline": {
+          "n": 1,
+          "median": -0.0016034260006563272,
+          "min": -0.0016034260006563272,
+          "max": -0.0016034260006563272,
+          "p25": -0.0016034260006563272,
+          "p75": -0.0016034260006563272
+        }
+      },
+      "source_seconds": {
+        "baseline": {
+          "n": 1,
+          "median": 0.0007565669984614942,
+          "min": 0.0007565669984614942,
+          "max": 0.0007565669984614942,
+          "p25": 0.0007565669984614942,
+          "p75": 0.0007565669984614942
+        },
+        "candidate": {
+          "n": 1,
+          "median": 0.0010597130021778867,
+          "min": 0.0010597130021778867,
+          "max": 0.0010597130021778867,
+          "p25": 0.0010597130021778867,
+          "p75": 0.0010597130021778867
+        },
+        "candidate_over_baseline_ratio": {
+          "n": 1,
+          "median": 1.400686263520416,
+          "min": 1.400686263520416,
+          "max": 1.400686263520416,
+          "p25": 1.400686263520416,
+          "p75": 1.400686263520416
+        },
+        "candidate_minus_baseline": {
+          "n": 1,
+          "median": 0.00030314600371639244,
+          "min": 0.00030314600371639244,
+          "max": 0.00030314600371639244,
+          "p25": 0.00030314600371639244,
+          "p75": 0.00030314600371639244
+        }
+      },
+      "open_and_sequence_seconds": {
+        "baseline": {
+          "n": 1,
+          "median": 0.021145142000023043,
+          "min": 0.021145142000023043,
+          "max": 0.021145142000023043,
+          "p25": 0.021145142000023043,
+          "p75": 0.021145142000023043
+        },
+        "candidate": {
+          "n": 1,
+          "median": 0.025726227002451196,
+          "min": 0.025726227002451196,
+          "max": 0.025726227002451196,
+          "p25": 0.025726227002451196,
+          "p75": 0.025726227002451196
+        },
+        "candidate_over_baseline_ratio": {
+          "n": 1,
+          "median": 1.216649526516453,
+          "min": 1.216649526516453,
+          "max": 1.216649526516453,
+          "p25": 1.216649526516453,
+          "p75": 1.216649526516453
+        },
+        "candidate_minus_baseline": {
+          "n": 1,
+          "median": 0.0045810850024281535,
+          "min": 0.0045810850024281535,
+          "max": 0.0045810850024281535,
+          "p25": 0.0045810850024281535,
+          "p75": 0.0045810850024281535
+        }
+      },
+      "warm_query_seconds": {
+        "baseline": {
+          "n": 1,
+          "median": 0.0022354100001393817,
+          "min": 0.0022354100001393817,
+          "max": 0.0022354100001393817,
+          "p25": 0.0022354100001393817,
+          "p75": 0.0022354100001393817
+        },
+        "candidate": {
+          "n": 1,
+          "median": 0.002996695999172516,
+          "min": 0.002996695999172516,
+          "max": 0.002996695999172516,
+          "p25": 0.002996695999172516,
+          "p75": 0.002996695999172516
+        },
+        "candidate_over_baseline_ratio": {
+          "n": 1,
+          "median": 1.3405576601096296,
+          "min": 1.3405576601096296,
+          "max": 1.3405576601096296,
+          "p25": 1.3405576601096296,
+          "p75": 1.3405576601096296
+        },
+        "candidate_minus_baseline": {
+          "n": 1,
+          "median": 0.0007612859990331344,
+          "min": 0.0007612859990331344,
+          "max": 0.0007612859990331344,
+          "p25": 0.0007612859990331344,
+          "p75": 0.0007612859990331344
+        }
+      },
+      "initial_peak_rss_kib": {
+        "baseline": {
+          "n": 1,
+          "median": 31812,
+          "min": 31812,
+          "max": 31812,
+          "p25": 31812,
+          "p75": 31812
+        },
+        "candidate": {
+          "n": 1,
+          "median": 31800,
+          "min": 31800,
+          "max": 31800,
+          "p25": 31800,
+          "p75": 31800
+        },
+        "candidate_over_baseline_ratio": {
+          "n": 1,
+          "median": 0.999622783855149,
+          "min": 0.999622783855149,
+          "max": 0.999622783855149,
+          "p25": 0.999622783855149,
+          "p75": 0.999622783855149
+        },
+        "candidate_minus_baseline": {
+          "n": 1,
+          "median": -12,
+          "min": -12,
+          "max": -12,
+          "p25": -12,
+          "p75": -12
+        }
+      },
+      "warm_peak_rss_kib": {
+        "baseline": {
+          "n": 1,
+          "median": 31812,
+          "min": 31812,
+          "max": 31812,
+          "p25": 31812,
+          "p75": 31812
+        },
+        "candidate": {
+          "n": 1,
+          "median": 31800,
+          "min": 31800,
+          "max": 31800,
+          "p25": 31800,
+          "p75": 31800
+        },
+        "candidate_over_baseline_ratio": {
+          "n": 1,
+          "median": 0.999622783855149,
+          "min": 0.999622783855149,
+          "max": 0.999622783855149,
+          "p25": 0.999622783855149,
+          "p75": 0.999622783855149
+        },
+        "candidate_minus_baseline": {
+          "n": 1,
+          "median": -12,
+          "min": -12,
+          "max": -12,
+          "p25": -12,
+          "p75": -12
+        }
+      }
+    },
+    "sequence": {
+      "process_until_results_seconds": {
+        "baseline": {
+          "n": 1,
+          "median": 0.48493218300063745,
+          "min": 0.48493218300063745,
+          "max": 0.48493218300063745,
+          "p25": 0.48493218300063745,
+          "p75": 0.48493218300063745
+        },
+        "candidate": {
+          "n": 1,
+          "median": 0.26673216999915894,
+          "min": 0.26673216999915894,
+          "max": 0.26673216999915894,
+          "p25": 0.26673216999915894,
+          "p75": 0.26673216999915894
+        },
+        "candidate_over_baseline_ratio": {
+          "n": 1,
+          "median": 0.550040148601167,
+          "min": 0.550040148601167,
+          "max": 0.550040148601167,
+          "p25": 0.550040148601167,
+          "p75": 0.550040148601167
+        },
+        "candidate_minus_baseline": {
+          "n": 1,
+          "median": -0.2182000130014785,
+          "min": -0.2182000130014785,
+          "max": -0.2182000130014785,
+          "p25": -0.2182000130014785,
+          "p75": -0.2182000130014785
+        }
+      },
+      "open_seconds": {
+        "baseline": {
+          "n": 1,
+          "median": 0.03234200600127224,
+          "min": 0.03234200600127224,
+          "max": 0.03234200600127224,
+          "p25": 0.03234200600127224,
+          "p75": 0.03234200600127224
+        },
+        "candidate": {
+          "n": 1,
+          "median": 0.02074942800027202,
+          "min": 0.02074942800027202,
+          "max": 0.02074942800027202,
+          "p25": 0.02074942800027202,
+          "p75": 0.02074942800027202
+        },
+        "candidate_over_baseline_ratio": {
+          "n": 1,
+          "median": 0.6415628022410174,
+          "min": 0.6415628022410174,
+          "max": 0.6415628022410174,
+          "p25": 0.6415628022410174,
+          "p75": 0.6415628022410174
+        },
+        "candidate_minus_baseline": {
+          "n": 1,
+          "median": -0.01159257800100022,
+          "min": -0.01159257800100022,
+          "max": -0.01159257800100022,
+          "p25": -0.01159257800100022,
+          "p75": -0.01159257800100022
+        }
+      },
+      "query_sequence_seconds": {
+        "baseline": {
+          "n": 1,
+          "median": 0.29316508899864857,
+          "min": 0.29316508899864857,
+          "max": 0.29316508899864857,
+          "p25": 0.29316508899864857,
+          "p75": 0.29316508899864857
+        },
+        "candidate": {
+          "n": 1,
+          "median": 0.1325903750002908,
+          "min": 0.1325903750002908,
+          "max": 0.1325903750002908,
+          "p25": 0.1325903750002908,
+          "p75": 0.1325903750002908
+        },
+        "candidate_over_baseline_ratio": {
+          "n": 1,
+          "median": 0.452272047306772,
+          "min": 0.452272047306772,
+          "max": 0.452272047306772,
+          "p25": 0.452272047306772,
+          "p75": 0.452272047306772
+        },
+        "candidate_minus_baseline": {
+          "n": 1,
+          "median": -0.16057471399835777,
+          "min": -0.16057471399835777,
+          "max": -0.16057471399835777,
+          "p25": -0.16057471399835777,
+          "p75": -0.16057471399835777
+        }
+      },
+      "source_seconds": {
+        "baseline": {
+          "n": 1,
+          "median": 0.007820547001756495,
+          "min": 0.007820547001756495,
+          "max": 0.007820547001756495,
+          "p25": 0.007820547001756495,
+          "p75": 0.007820547001756495
+        },
+        "candidate": {
+          "n": 1,
+          "median": 0.01117882100152201,
+          "min": 0.01117882100152201,
+          "max": 0.01117882100152201,
+          "p25": 0.01117882100152201,
+          "p75": 0.01117882100152201
+        },
+        "candidate_over_baseline_ratio": {
+          "n": 1,
+          "median": 1.4294167657340653,
+          "min": 1.4294167657340653,
+          "max": 1.4294167657340653,
+          "p25": 1.4294167657340653,
+          "p75": 1.4294167657340653
+        },
+        "candidate_minus_baseline": {
+          "n": 1,
+          "median": 0.0033582739997655153,
+          "min": 0.0033582739997655153,
+          "max": 0.0033582739997655153,
+          "p25": 0.0033582739997655153,
+          "p75": 0.0033582739997655153
+        }
+      },
+      "open_and_sequence_seconds": {
+        "baseline": {
+          "n": 1,
+          "median": 0.3333276420016773,
+          "min": 0.3333276420016773,
+          "max": 0.3333276420016773,
+          "p25": 0.3333276420016773,
+          "p75": 0.3333276420016773
+        },
+        "candidate": {
+          "n": 1,
+          "median": 0.16451862400208483,
+          "min": 0.16451862400208483,
+          "max": 0.16451862400208483,
+          "p25": 0.16451862400208483,
+          "p75": 0.16451862400208483
+        },
+        "candidate_over_baseline_ratio": {
+          "n": 1,
+          "median": 0.4935642991206141,
+          "min": 0.4935642991206141,
+          "max": 0.4935642991206141,
+          "p25": 0.4935642991206141,
+          "p75": 0.4935642991206141
+        },
+        "candidate_minus_baseline": {
+          "n": 1,
+          "median": -0.16880901799959247,
+          "min": -0.16880901799959247,
+          "max": -0.16880901799959247,
+          "p25": -0.16880901799959247,
+          "p75": -0.16880901799959247
+        }
+      },
+      "warm_query_seconds": {
+        "baseline": {
+          "n": 1,
+          "median": 0.16482573200119077,
+          "min": 0.16482573200119077,
+          "max": 0.16482573200119077,
+          "p25": 0.16482573200119077,
+          "p75": 0.16482573200119077
+        },
+        "candidate": {
+          "n": 1,
+          "median": 0.11830157900112681,
+          "min": 0.11830157900112681,
+          "max": 0.11830157900112681,
+          "p25": 0.11830157900112681,
+          "p75": 0.11830157900112681
+        },
+        "candidate_over_baseline_ratio": {
+          "n": 1,
+          "median": 0.7177373190751074,
+          "min": 0.7177373190751074,
+          "max": 0.7177373190751074,
+          "p25": 0.7177373190751074,
+          "p75": 0.7177373190751074
+        },
+        "candidate_minus_baseline": {
+          "n": 1,
+          "median": -0.04652415300006396,
+          "min": -0.04652415300006396,
+          "max": -0.04652415300006396,
+          "p25": -0.04652415300006396,
+          "p75": -0.04652415300006396
+        }
+      },
+      "initial_peak_rss_kib": {
+        "baseline": {
+          "n": 1,
+          "median": 34864,
+          "min": 34864,
+          "max": 34864,
+          "p25": 34864,
+          "p75": 34864
+        },
+        "candidate": {
+          "n": 1,
+          "median": 34972,
+          "min": 34972,
+          "max": 34972,
+          "p25": 34972,
+          "p75": 34972
+        },
+        "candidate_over_baseline_ratio": {
+          "n": 1,
+          "median": 1.0030977512620467,
+          "min": 1.0030977512620467,
+          "max": 1.0030977512620467,
+          "p25": 1.0030977512620467,
+          "p75": 1.0030977512620467
+        },
+        "candidate_minus_baseline": {
+          "n": 1,
+          "median": 108,
+          "min": 108,
+          "max": 108,
+          "p25": 108,
+          "p75": 108
+        }
+      },
+      "warm_peak_rss_kib": {
+        "baseline": {
+          "n": 1,
+          "median": 36528,
+          "min": 36528,
+          "max": 36528,
+          "p25": 36528,
+          "p75": 36528
+        },
+        "candidate": {
+          "n": 1,
+          "median": 36644,
+          "min": 36644,
+          "max": 36644,
+          "p25": 36644,
+          "p75": 36644
+        },
+        "candidate_over_baseline_ratio": {
+          "n": 1,
+          "median": 1.0031756460797197,
+          "min": 1.0031756460797197,
+          "max": 1.0031756460797197,
+          "p25": 1.0031756460797197,
+          "p75": 1.0031756460797197
+        },
+        "candidate_minus_baseline": {
+          "n": 1,
+          "median": 116,
+          "min": 116,
+          "max": 116,
+          "p25": 116,
+          "p75": 116
+        }
+      }
+    }
+  }
+}

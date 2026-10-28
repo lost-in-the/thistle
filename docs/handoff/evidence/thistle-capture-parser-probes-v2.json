@@ -1,0 +1,191 @@
+{
+  "native_sha256": "e8b2225a559993f8b499142cd2e6c7fac48ec28d09003bad16083214a4f22705",
+  "limits": {
+    "cpu_seconds": 10,
+    "address_space_bytes": 2147483648,
+    "wall_seconds": 15,
+    "core_dump_bytes": 0
+  },
+  "results": [
+    {
+      "case": "parens_1000",
+      "mode": "main",
+      "bytes": 2001,
+      "returncode": 0,
+      "elapsed_seconds": 0.0793,
+      "stdout": "{\"status\":\"captured\",\"facts\":1,\"diagnostics\":[],\"coverage\":[{\"family\":\"ruby_declarations\",\"reason\":null,\"scope\":\"Explicit Ruby class, module and method syntax in captured valid source; names are lexical labels\",\"status\":\"complete\"}]}\n",
+      "stderr": ""
+    },
+    {
+      "case": "parens_1000",
+      "mode": "thread",
+      "bytes": 2001,
+      "returncode": 0,
+      "elapsed_seconds": 0.0846,
+      "stdout": "{\"status\":\"captured\",\"facts\":1,\"diagnostics\":[],\"coverage\":[{\"family\":\"ruby_declarations\",\"reason\":null,\"scope\":\"Explicit Ruby class, module and method syntax in captured valid source; names are lexical labels\",\"status\":\"complete\"}]}\n",
+      "stderr": ""
+    },
+    {
+      "case": "parens_10000",
+      "mode": "main",
+      "bytes": 20001,
+      "returncode": 0,
+      "elapsed_seconds": 0.1006,
+      "stdout": "{\"status\":\"captured\",\"facts\":1,\"diagnostics\":[\"syntax_error\"],\"coverage\":[{\"family\":\"ruby_declarations\",\"reason\":\"Some declarations or relationships were unavailable; see diagnostics\",\"scope\":\"Explicit Ruby class, module and method syntax in captured valid source; names are lexical labels\",\"status\":\"partial\"}]}\n",
+      "stderr": ""
+    },
+    {
+      "case": "parens_10000",
+      "mode": "thread",
+      "bytes": 20001,
+      "returncode": 0,
+      "elapsed_seconds": 0.1755,
+      "stdout": "{\"status\":\"captured\",\"facts\":1,\"diagnostics\":[\"syntax_error\"],\"coverage\":[{\"family\":\"ruby_declarations\",\"reason\":\"Some declarations or relationships were unavailable; see diagnostics\",\"scope\":\"Explicit Ruby class, module and method syntax in captured valid source; names are lexical labels\",\"status\":\"partial\"}]}\n",
+      "stderr": ""
+    },
+    {
+      "case": "parens_100000",
+      "mode": "main",
+      "bytes": 200001,
+      "returncode": 0,
+      "elapsed_seconds": 0.5801,
+      "stdout": "{\"status\":\"refused\",\"error\":\"limit_exceeded\"}\n",
+      "stderr": ""
+    },
+    {
+      "case": "parens_100000",
+      "mode": "thread",
+      "bytes": 200001,
+      "returncode": 0,
+      "elapsed_seconds": 0.4218,
+      "stdout": "{\"status\":\"refused\",\"error\":\"limit_exceeded\"}\n",
+      "stderr": ""
+    },
+    {
+      "case": "array_10000",
+      "mode": "main",
+      "bytes": 20001,
+      "returncode": 0,
+      "elapsed_seconds": 0.1396,
+      "stdout": "{\"status\":\"captured\",\"facts\":1,\"diagnostics\":[\"syntax_error\"],\"coverage\":[{\"family\":\"ruby_declarations\",\"reason\":\"Some declarations or relationships were unavailable; see diagnostics\",\"scope\":\"Explicit Ruby class, module and method syntax in captured valid source; names are lexical labels\",\"status\":\"partial\"}]}\n",
+      "stderr": ""
+    },
+    {
+      "case": "array_10000",
+      "mode": "thread",
+      "bytes": 20001,
+      "returncode": 0,
+      "elapsed_seconds": 0.1203,
+      "stdout": "{\"status\":\"captured\",\"facts\":1,\"diagnostics\":[\"syntax_error\"],\"coverage\":[{\"family\":\"ruby_declarations\",\"reason\":\"Some declarations or relationships were unavailable; see diagnostics\",\"scope\":\"Explicit Ruby class, module and method syntax in captured valid source; names are lexical labels\",\"status\":\"partial\"}]}\n",
+      "stderr": ""
+    },
+    {
+      "case": "methods_3000",
+      "mode": "main",
+      "bytes": 30016,
+      "returncode": 0,
+      "elapsed_seconds": 0.2604,
+      "stdout": "{\"status\":\"captured\",\"facts\":3002,\"diagnostics\":[],\"coverage\":[{\"family\":\"ruby_declarations\",\"reason\":null,\"scope\":\"Explicit Ruby class, module and method syntax in captured valid source; names are lexical labels\",\"status\":\"complete\"}]}\n",
+      "stderr": ""
+    },
+    {
+      "case": "methods_3000",
+      "mode": "thread",
+      "bytes": 30016,
+      "returncode": 0,
+      "elapsed_seconds": 0.2833,
+      "stdout": "{\"status\":\"captured\",\"facts\":3002,\"diagnostics\":[],\"coverage\":[{\"family\":\"ruby_declarations\",\"reason\":null,\"scope\":\"Explicit Ruby class, module and method syntax in captured valid source; names are lexical labels\",\"status\":\"complete\"}]}\n",
+      "stderr": ""
+    },
+    {
+      "case": "invalid_10000",
+      "mode": "main",
+      "bytes": 10003,
+      "returncode": 0,
+      "elapsed_seconds": 0.2744,
+      "stdout": "{\"status\":\"refused\",\"error\":\"limit_exceeded\"}\n",
+      "stderr": ""
+    },
+    {
+      "case": "invalid_10000",
+      "mode": "thread",
+      "bytes": 10003,
+      "returncode": 0,
+      "elapsed_seconds": 0.3009,
+      "stdout": "{\"status\":\"refused\",\"error\":\"limit_exceeded\"}\n",
+      "stderr": ""
+    },
+    {
+      "case": "infix_250000",
+      "mode": "main",
+      "bytes": 500001,
+      "returncode": 0,
+      "elapsed_seconds": 0.7054,
+      "stdout": "{\"status\":\"captured\",\"facts\":1,\"diagnostics\":[],\"coverage\":[{\"family\":\"ruby_declarations\",\"reason\":null,\"scope\":\"Explicit Ruby class, module and method syntax in captured valid source; names are lexical labels\",\"status\":\"complete\"}]}\n",
+      "stderr": ""
+    },
+    {
+      "case": "infix_250000",
+      "mode": "thread",
+      "bytes": 500001,
+      "returncode": 0,
+      "elapsed_seconds": 0.3895,
+      "stdout": "{\"status\":\"captured\",\"facts\":1,\"diagnostics\":[],\"coverage\":[{\"family\":\"ruby_declarations\",\"reason\":null,\"scope\":\"Explicit Ruby class, module and method syntax in captured valid source; names are lexical labels\",\"status\":\"complete\"}]}\n",
+      "stderr": ""
+    },
+    {
+      "case": "calls_250000",
+      "mode": "main",
+      "bytes": 500001,
+      "returncode": 0,
+      "elapsed_seconds": 0.2594,
+      "stdout": "{\"status\":\"captured\",\"facts\":1,\"diagnostics\":[],\"coverage\":[{\"family\":\"ruby_declarations\",\"reason\":null,\"scope\":\"Explicit Ruby class, module and method syntax in captured valid source; names are lexical labels\",\"status\":\"complete\"}]}\n",
+      "stderr": ""
+    },
+    {
+      "case": "calls_250000",
+      "mode": "thread",
+      "bytes": 500001,
+      "returncode": 0,
+      "elapsed_seconds": 0.2247,
+      "stdout": "{\"status\":\"captured\",\"facts\":1,\"diagnostics\":[],\"coverage\":[{\"family\":\"ruby_declarations\",\"reason\":null,\"scope\":\"Explicit Ruby class, module and method syntax in captured valid source; names are lexical labels\",\"status\":\"complete\"}]}\n",
+      "stderr": ""
+    },
+    {
+      "case": "calls_1000000",
+      "mode": "main",
+      "bytes": 2000001,
+      "returncode": 0,
+      "elapsed_seconds": 0.5104,
+      "stdout": "{\"status\":\"refused\",\"error\":\"limit_exceeded\"}\n",
+      "stderr": ""
+    },
+    {
+      "case": "calls_1000000",
+      "mode": "thread",
+      "bytes": 2000001,
+      "returncode": 0,
+      "elapsed_seconds": 0.5124,
+      "stdout": "{\"status\":\"refused\",\"error\":\"limit_exceeded\"}\n",
+      "stderr": ""
+    },
+    {
+      "case": "regexp_10000",
+      "mode": "main",
+      "bytes": 20003,
+      "returncode": 0,
+      "elapsed_seconds": 0.1603,
+      "stdout": "{\"status\":\"captured\",\"facts\":1,\"diagnostics\":[\"syntax_error\"],\"coverage\":[{\"family\":\"ruby_declarations\",\"reason\":\"Some declarations or relationships were unavailable; see diagnostics\",\"scope\":\"Explicit Ruby class, module and method syntax in captured valid source; names are lexical labels\",\"status\":\"partial\"}]}\n",
+      "stderr": ""
+    },
+    {
+      "case": "regexp_10000",
+      "mode": "thread",
+      "bytes": 20003,
+      "returncode": 0,
+      "elapsed_seconds": 0.1176,
+      "stdout": "{\"status\":\"captured\",\"facts\":1,\"diagnostics\":[\"syntax_error\"],\"coverage\":[{\"family\":\"ruby_declarations\",\"reason\":\"Some declarations or relationships were unavailable; see diagnostics\",\"scope\":\"Explicit Ruby class, module and method syntax in captured valid source; names are lexical labels\",\"status\":\"partial\"}]}\n",
+      "stderr": ""
+    }
+  ]
+}

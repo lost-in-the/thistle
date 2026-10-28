@@ -1,0 +1,7 @@
+{
+  "purpose": "negative control against known pre-hardening installed artifact",
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "/tmp/thistle-runtime/install/lib/ruby/3.3.0/json/common.rb:220:in `parse': nesting of 101 is too deep (JSON::NestingError)\n\tfrom /tmp/thistle-runtime/install/lib/ruby/3.3.0/json/common.rb:220:in `parse'\n\tfrom /workspace/scratch/bc08c0d3c126/thistle-eval-runs/baseline/gems/gems/thistle-0.1.0.pre.1/lib/thistle/native.rb:16:in `call'\n\tfrom /workspace/scratch/bc08c0d3c126/thistle-eval-runs/baseline/gems/gems/thistle-0.1.0.pre.1/lib/thistle/reader.rb:10:in `initialize'\n\tfrom /workspace/scratch/bc08c0d3c126/thistle-eval/reader_boundary_probe.rb:46:in `new'\n\tfrom /workspace/scratch/bc08c0d3c126/thistle-eval/reader_boundary_probe.rb:46:in `block (2 levels) in <main>'\n\tfrom <internal:numeric>:237:in `times'\n\tfrom /workspace/scratch/bc08c0d3c126/thistle-eval/reader_boundary_probe.rb:44:in `block in <main>'\n\tfrom /tmp/thistle-runtime/install/lib/ruby/3.3.0/tmpdir.rb:99:in `mktmpdir'\n\tfrom /workspace/scratch/bc08c0d3c126/thistle-eval/reader_boundary_probe.rb:26:in `<main>'\n",
+  "native_sha256": "cb3870d86268099cc23dcd8010316f2c130047bff15bc92404bb3fcc786bff11"
+}
