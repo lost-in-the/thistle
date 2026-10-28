@@ -1,0 +1,13 @@
+{
+  "status": "passed",
+  "ruby": "ruby 3.3.13 (2026-10-23 revision af48f08f21) [x86_64-linux]",
+  "core_version": "0.1.0.pre.1",
+  "map_version": "0.1.0.pre.1",
+  "rouge_version": "4.7.0",
+  "generation": "7d3fc3df2449dd084865911a93d93e123fe2e3ec0a1a12044e1b23519fecb18b",
+  "core_gem": "/home/runner/work/_temp/experiment/candidate/installed-baseline/gems/gems/thistle-0.1.0.pre.1",
+  "map_gem": "/home/runner/work/_temp/experiment/candidate/installed-baseline/gems/gems/thistle-map-0.1.0.pre.1",
+  "native_sha256": "f563f7d2a3872b48e6029e05d5ad38cb94c81b393a01f64cc3b343f51c0055cb",
+  "woods_installed": false,
+  "source_checkout_load_path": false
+}

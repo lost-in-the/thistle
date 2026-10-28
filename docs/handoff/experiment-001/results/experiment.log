@@ -1,0 +1,69 @@
+{
+  "verdict": "retain_candidate",
+  "gates": [
+    {
+      "gate": "aa_directional_noise",
+      "mode": "single",
+      "value": 0.0020280246429478233,
+      "maximum": 0.05,
+      "pass": true
+    },
+    {
+      "gate": "complete_session",
+      "mode": "single",
+      "metric": "process_until_results_seconds",
+      "ratio": 1.0032596685669128,
+      "maximum": 1.1,
+      "pass": true
+    },
+    {
+      "gate": "process_memory",
+      "mode": "single",
+      "metric": "initial_peak_rss_kib",
+      "ratio": 1.007435919384292,
+      "maximum": 1.2,
+      "pass": true
+    },
+    {
+      "gate": "process_memory",
+      "mode": "single",
+      "metric": "warm_peak_rss_kib",
+      "ratio": 1.007435919384292,
+      "maximum": 1.2,
+      "pass": true
+    },
+    {
+      "gate": "aa_directional_noise",
+      "mode": "sequence",
+      "value": 0.005283265545110272,
+      "maximum": 0.05,
+      "pass": true
+    },
+    {
+      "gate": "complete_session",
+      "mode": "sequence",
+      "metric": "process_until_results_seconds",
+      "ratio": 0.7131717962441166,
+      "maximum": 0.9,
+      "pass": true
+    },
+    {
+      "gate": "process_memory",
+      "mode": "sequence",
+      "metric": "initial_peak_rss_kib",
+      "ratio": 1.0059534309402012,
+      "maximum": 1.2,
+      "pass": true
+    },
+    {
+      "gate": "process_memory",
+      "mode": "sequence",
+      "metric": "warm_peak_rss_kib",
+      "ratio": 1.0049372170711064,
+      "maximum": 1.2,
+      "pass": true
+    }
+  ],
+  "scope": "One synthetic development workload on one host; no launch or population inference",
+  "reason": "all frozen gates passed"
+}
