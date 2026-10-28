@@ -1,0 +1,94 @@
+# frozen_string_literal: true
+
+require "optparse"
+require_relative "../thistle"
+
+module Thistle
+  class CLI
+    HELP = <<~TEXT.freeze
+      Thistle — inspect captured evidence
+
+      thistle capture ROOT --output STORE
+      thistle find TEXT --store STORE [--generation ID] [--limit 50]
+      thistle source ID --store STORE [--generation ID]
+      thistle links ID --store STORE [--generation ID]
+      thistle check --store STORE [--generation ID]
+      thistle version
+
+      Find discovers facts. Source returns the exact captured file. Links preserves
+      unresolved relationships. Check verifies snapshot integrity and reports scope;
+      it does not claim the live application is fresh. Static capture executes no app
+      code. Live Rails capture is an explicit Ruby API (see README).
+    TEXT
+
+    def initialize(out: $stdout, err: $stderr)
+      @out, @err = out, err
+    end
+
+    def run(arguments)
+      args = arguments.dup
+      command = args.shift
+      if [nil, "help", "--help", "-h"].include?(command)
+        @out.write(HELP)
+        return 0
+      end
+      if command == "version"
+        raise InvalidInput, "version accepts no arguments" unless args.empty?
+        emit("version" => VERSION, "native" => Native.call("op" => "version"))
+        return 0
+      end
+      unless %w[capture find source links check].include?(command)
+        raise InvalidInput, "Unknown action. Use thistle help to see the available actions."
+      end
+      options = { limit: 50 }
+      parser = OptionParser.new do |opts|
+        if command == "capture"
+          opts.on("--output PATH") { |value| options[:output] = value }
+        else
+          opts.on("--store PATH") { |value| options[:store] = value }
+          opts.on("--generation ID") { |value| options[:generation] = value }
+          opts.on("--limit NUMBER", Integer) { |value| options[:limit] = value } if command == "find"
+        end
+      end
+      parser.parse!(args)
+      expected = command == "check" ? 0 : 1
+      raise InvalidInput, "#{command} expects #{expected} argument#{expected == 1 ? '' : 's'}" unless args.length == expected
+      if command == "capture"
+        raise InvalidInput, "capture requires --output STORE" unless options[:output]
+        emit(Thistle.capture(root: args.first, output: options[:output]))
+      else
+        raise InvalidInput, "#{command} requires --store STORE" unless options[:store]
+        reader = Reader.new(options[:store], generation: options[:generation])
+        begin
+          result = case command
+          when "find" then reader.search(args.first, limit: options[:limit])
+          when "source" then reader.source(args.first)
+          when "links" then { "generation" => reader.generation, "fact_id" => args.first, "links" => reader.links(args.first) }
+          when "check" then reader.check
+          end
+          emit(result)
+        ensure
+          reader.close
+        end
+      end
+      0
+    rescue OptionParser::ParseError, ArgumentError => error
+      fail_with("invalid_input", error.message, 2)
+    rescue Error => error
+      fail_with(error.code, error.message, error.is_a?(InvalidInput) ? 2 : (error.is_a?(NotFound) ? 3 : 4))
+    rescue StandardError
+      fail_with("internal_error", "The operation failed without a result.", 1)
+    end
+
+    private
+
+    def emit(value)
+      @out.puts(JSON.generate(value))
+    end
+
+    def fail_with(code, message, status)
+      @err.puts(JSON.generate("error" => { "code" => code, "message" => message }))
+      status
+    end
+  end
+end

@@ -1,0 +1,115 @@
+{
+  "browser": "134.0.6998.35",
+  "axe": "4.10.3",
+  "violations": [],
+  "keyboard": "passed",
+  "no_javascript_navigation": "passed",
+  "page_errors": [],
+  "scope": "Controlled Reader fixture; not a real installed-core qualification",
+  "views_and_widths": [
+    {
+      "view": "Find",
+      "width": 1440,
+      "violation_count": 0,
+      "incomplete_rules": []
+    },
+    {
+      "view": "Source",
+      "width": 1440,
+      "violation_count": 0,
+      "incomplete_rules": [
+        "color-contrast"
+      ]
+    },
+    {
+      "view": "Links",
+      "width": 1440,
+      "violation_count": 0,
+      "incomplete_rules": []
+    },
+    {
+      "view": "Check",
+      "width": 1440,
+      "violation_count": 0,
+      "incomplete_rules": []
+    },
+    {
+      "view": "Find",
+      "width": 960,
+      "violation_count": 0,
+      "incomplete_rules": []
+    },
+    {
+      "view": "Source",
+      "width": 960,
+      "violation_count": 0,
+      "incomplete_rules": [
+        "color-contrast"
+      ]
+    },
+    {
+      "view": "Links",
+      "width": 960,
+      "violation_count": 0,
+      "incomplete_rules": []
+    },
+    {
+      "view": "Check",
+      "width": 960,
+      "violation_count": 0,
+      "incomplete_rules": []
+    },
+    {
+      "view": "Find",
+      "width": 640,
+      "violation_count": 0,
+      "incomplete_rules": []
+    },
+    {
+      "view": "Source",
+      "width": 640,
+      "violation_count": 0,
+      "incomplete_rules": [
+        "color-contrast"
+      ]
+    },
+    {
+      "view": "Links",
+      "width": 640,
+      "violation_count": 0,
+      "incomplete_rules": []
+    },
+    {
+      "view": "Check",
+      "width": 640,
+      "violation_count": 0,
+      "incomplete_rules": []
+    },
+    {
+      "view": "Find",
+      "width": 390,
+      "violation_count": 0,
+      "incomplete_rules": []
+    },
+    {
+      "view": "Source",
+      "width": 390,
+      "violation_count": 0,
+      "incomplete_rules": [
+        "color-contrast"
+      ]
+    },
+    {
+      "view": "Links",
+      "width": 390,
+      "violation_count": 0,
+      "incomplete_rules": []
+    },
+    {
+      "view": "Check",
+      "width": 390,
+      "violation_count": 0,
+      "incomplete_rules": []
+    }
+  ]
+}

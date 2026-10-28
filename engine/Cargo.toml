@@ -1,0 +1,27 @@
+[package]
+name = "thistle-core"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.90"
+publish = false
+description = "Thistle's native evidence, snapshot, and query engine"
+
+[lib]
+name = "thistle_core"
+crate-type = ["staticlib", "rlib"]
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.10"
+libc = "0.2"
+ruby-prism = "=1.9.0"
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+debug = 1
+panic = "unwind"
