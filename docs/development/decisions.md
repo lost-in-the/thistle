@@ -59,6 +59,15 @@ needs new evidence; the earlier experiment's result is neither erased nor
 silently broadened. The historical baseline workflow refuses current-policy
 source before installing tools or compiling it.
 
+The completed Experiment 001 workflow is
+[retired outside active Actions](retired-workflows/README.md). Keeping its manual
+dispatch with an exact historical-source allowlist was considered, but would add
+preflight and failure-upload maintenance for a campaign that must not be replayed
+as routine work. An inert copy plus exact original-source/run links preserves
+provenance without a new executable guard or dependency. PR #27's maintained pin
+updates remain separate from historical action identities. Reconsider an active
+campaign only with a separately reviewed source/environment/policy decision.
+
 ## Changelogs: Woods' workflow, Towncrier's implementation
 
 Keep the useful Woods model: each change owns a unique fragment; one release

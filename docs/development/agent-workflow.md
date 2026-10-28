@@ -184,15 +184,19 @@ Baseline restoration [PR #1](https://github.com/lost-in-the/thistle/pull/1) merg
 into main as `1b65f82ae8b8b693a8d7e8adb052b939b23bd5a9`. Issue #20 still requires
 its post-merge verification record; merging the source does not finish every
 integration or qualification decision. Experiment
-[PR #2](https://github.com/lost-in-the/thistle/pull/2) remains open against main.
-Read current status and head commits before claiming either scope.
+[PR #2](https://github.com/lost-in-the/thistle/pull/2) merged as
+`b3a2985af3388ac4bc784bccf57d89e0ea569358`, after workflow PR #26 merged as
+`ee247b0017e11dd9f20380e36d13fe8e2645f561`. Issues #21 and #22 completed adoption;
+#28 owns the resulting automation reconciliation. Read current status and head
+commits before claiming work.
 
 The restored main tree records a bounded accepted baseline and self-inspection
-in `docs/handoff/BASELINE_ACCEPTANCE.md`; the experiment branch
-contains an implementation, dedicated orchestration, and a recorded
+in `docs/handoff/BASELINE_ACCEPTANCE.md`; integrated source contains the
+implementation and a recorded
 [`retain_candidate` result](https://github.com/lost-in-the/thistle/blob/7ce504a9abff606370b5f55973ba7bd414fa4a0e/docs/handoff/experiment-001/RESULTS.md)
-for review. Preserve integrated restoration work and review the existing
-experiment; do not replay a completed campaign.
+with its original artifact/environment scope. The completed one-off orchestration
+is [retired from active Actions](retired-workflows/README.md). Preserve integrated
+restoration work and historical evidence; do not replay a completed campaign.
 
 The selected baseline and later repackages can have different package hashes even
 when payload/native bytes match. Preserve the selected experiment artifact until
