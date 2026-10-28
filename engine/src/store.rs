@@ -255,6 +255,19 @@ mod tests {
         assert_eq!(Reader::open(temp.path(), first["generation"].as_str()).unwrap().facts[0]["name"], "First");
     }
     #[test]
+    fn grammar_metadata_changes_identity_and_legacy_manifest_remains_readable() {
+        let temp = tempfile::tempdir().unwrap();
+        let legacy = fixture("Same");
+        let old = publish(temp.path(), &legacy).unwrap();
+        let mut current = legacy;
+        current["producer"]["ruby_syntax_version"] = json!("4.1");
+        current["producer"]["parser_policy"] = json!("prism-default-guarded");
+        let new = publish(temp.path(), &current).unwrap();
+        assert_ne!(old["generation"], new["generation"]);
+        let reader = Reader::open(temp.path(), old["generation"].as_str()).unwrap();
+        assert!(reader.manifest["producer"].get("ruby_syntax_version").is_none());
+    }
+    #[test]
     fn invalid_publication_preserves_pointer() {
         let temp = tempfile::tempdir().unwrap();
         let first = publish(temp.path(), &fixture("First")).unwrap();

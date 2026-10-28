@@ -23,6 +23,11 @@ mod children;
 
 const EXCLUDED: &[&str] = &[".git", ".thistle", "vendor", "node_modules", "tmp", "target"];
 const PRISM_VERSION: &str = "1.9.0";
+// The supported wrapper passes null options, which Prism maps to LATEST.
+// An upstream change to that alias requires an explicit grammar policy review.
+const _: () = assert!(ruby_prism_sys::PM_OPTIONS_VERSION_LATEST == ruby_prism_sys::PM_OPTIONS_VERSION_CRUBY_4_1);
+const RUBY_SYNTAX_VERSION: &str = "4.1";
+const PARSER_POLICY: &str = "prism-default-guarded";
 const PARSER_STACK_BYTES: usize = 64 * 1024 * 1024;
 static CAPTURE_ACTIVE: AtomicBool = AtomicBool::new(false);
 const DEFAULT_LIMITS: &[(&str, usize)] = &[
@@ -129,7 +134,7 @@ fn capture_inner(root: &Path, limits: &Value) -> Result<Value> {
         "files": capture.files, "facts": capture.facts,
         "coverage": coverage, "diagnostics": capture.diagnostics,
         "producer": { "name": "thistle", "engine": "rust", "core_version": env!("CARGO_PKG_VERSION"), "capture_schema": 1,
-            "prism_version": PRISM_VERSION, "parser_stack_bytes":PARSER_STACK_BYTES, "capture_concurrency":1 }
+            "prism_version": PRISM_VERSION, "ruby_syntax_version": RUBY_SYNTAX_VERSION, "parser_policy": PARSER_POLICY, "parser_stack_bytes":PARSER_STACK_BYTES, "capture_concurrency":1 }
     }))
 }
 
@@ -301,6 +306,10 @@ impl Capture {
             for error in errors {
                 let message = format!("Line {}: {}", lines.line(error.location().start_offset()), error.message());
                 self.diagnostic("syntax_error", &message, path)?;
+                let diagnostic = self.diagnostics.last_mut().unwrap();
+                diagnostic["prism_version"] = json!(PRISM_VERSION);
+                diagnostic["ruby_syntax_version"] = json!(RUBY_SYNTAX_VERSION);
+                diagnostic["parser_policy"] = json!(PARSER_POLICY);
             }
             return Ok(());
         }
@@ -456,6 +465,7 @@ impl Capture {
               "reason":if self.inventory_partial {Some("Some source entries were unavailable; see diagnostics")} else {None} },
             { "family":"ruby_declarations", "status":if self.declarations_partial {"partial"} else {"complete"},
               "scope":"Explicit Ruby class, module and method syntax in captured valid source; names are lexical labels",
+              "prism_version":PRISM_VERSION, "ruby_syntax_version":RUBY_SYNTAX_VERSION, "parser_policy":PARSER_POLICY,
               "reason":if self.declarations_partial {Some("Some declarations or relationships were unavailable; see diagnostics")} else {None} },
             { "family":"dynamic_resolution", "status":"unavailable", "scope":"Ruby constant lookup, metaprogramming, visibility, dispatch and generated methods",
               "reason":"Static capture does not evaluate application code; relationship targets are unresolved" },
@@ -548,6 +558,22 @@ mod tests {
         assert_eq!(result["files"][0]["content"], source);
         assert_eq!(result["producer"]["engine"], "rust");
         schema::capture(&result).unwrap();
+    }
+
+    #[test]
+    fn guarded_grammar_reports_version_sensitive_source_and_errors() {
+        let root = tempfile::tempdir().unwrap();
+        std::fs::write(root.path().join("modern.rb"), "class Example\n private def greet = puts 'Hello'\nend\n").unwrap();
+        std::fs::write(root.path().join("broken.rb"), "class Broken\n def missing(").unwrap();
+        let result = capture(root.path(), &json!({})).unwrap();
+        assert!(result["facts"].as_array().unwrap().iter().any(|f| f["name"] == "Example#greet"));
+        let coverage = result["coverage"].as_array().unwrap().iter().find(|c| c["family"] == "ruby_declarations").unwrap();
+        let diagnostic = result["diagnostics"].as_array().unwrap().iter().find(|d| d["code"] == "syntax_error").unwrap();
+        for metadata in [&result["producer"], coverage, diagnostic] {
+            assert_eq!(metadata["prism_version"], "1.9.0");
+            assert_eq!(metadata["ruby_syntax_version"], "4.1");
+            assert_eq!(metadata["parser_policy"], "prism-default-guarded");
+        }
     }
 
     #[test]

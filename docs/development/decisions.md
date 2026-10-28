@@ -139,10 +139,27 @@ Revisit it for an upstream security issue, a dependency/MSRV requirement, or a
 measured build/runtime improvement in a separately reviewed change. Keep the
 minimum compiler install contract distinct from performance claims.
 
-Parser target-language selection is also separate from the host Ruby. Inspection
-found the current null-options call selecting Prism's latest grammar (4.1).
-An explicit language-version policy and modern-syntax fixture remain bounded
-product follow-up work; the CI change does not silently alter parsing semantics.
+## Capture parser grammar policy
+
+Capture retains vendored ruby-prism 1.9.0 and its supported `parse()` interface.
+Its null options select Prism's latest compatibility mode, currently CRuby 4.1;
+a compile-time assertion against the public sys constants makes an alias change
+or removal fail the build for explicit review. The direct sys dependency is
+exactly pinned and already vendored. This guards the current behavior without
+adding unsafe wrappers or modifying vendor checksums. Producer, Ruby coverage,
+and syntax diagnostics report the effective policy; producer metadata binds it
+into generation identity. Older manifests lacking it remain readable as unknown.
+
+Host CI Ruby 3.4 and 4.0 are separate from source grammar. Compatibility mode
+does not prove complete Ruby 4.1 language coverage. Alternative explicit typed
+options in maintained Prism 2.1 would require a broader upgrade involving arena,
+location, API and eager-error-vector changes; that cost is disproportionate to
+this policy fix. An unsafe adapter to 1.9 private options would add ownership and
+ABI maintenance risk. The retained guard requires reviewing parser upgrades and
+checking upstream default semantics as well as the constants; it is not a runtime
+negotiation or a configurable target. Reconsider for security fixes, needed syntax
+features, supported explicit options, or a changed upstream default, with fresh
+artifact and compatibility evidence.
 
 ## Maintenance rule
 
