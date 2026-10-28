@@ -398,6 +398,26 @@ class ManifestTests(GitFixture):
 
 
 class WorkflowBoundaryTests(unittest.TestCase):
+    def assert_reviewed_reference(self, use, registry):
+        action, separator, revision = use.partition("@")
+        self.assertEqual(separator, "@")
+        self.assertRegex(revision, r"^[0-9a-f]{40}$")
+        pins = registry["actions"]
+        if "/.github/workflows/" in action:
+            entry = registry["reusable_workflows"][action]
+            self.assertRegex(action, r"^[^/]+/[^/]+/\.github/workflows/[^/]+\.ya?ml$")
+            self.assertEqual(entry["kind"], "metadata_scan")
+            self.assertEqual(entry["sha"], revision)
+            repository, workflow = action.split("/.github/workflows/", 1)
+            self.assertEqual(entry["source"], f"https://github.com/{repository}/blob/{revision}/.github/workflows/{workflow}")
+            self.assertTrue(entry["transitive_actions"])
+            for dependency, sha in entry["transitive_actions"].items():
+                self.assert_reviewed_reference(f"{dependency}@{sha}", registry)
+            return
+        self.assertEqual(pins[action]["sha"], revision)
+        self.assertEqual(pins[action]["runtime"], "node24")
+        self.assertEqual(pins[action]["metadata"], f"https://github.com/{action}/blob/{revision}/action.yml")
+
     def test_completed_experiment_has_no_active_execution_path(self):
         # Retention and current-package checks must not start the completed
         # campaign, even under a renamed workflow or the alternate YAML suffix.
@@ -409,22 +429,43 @@ class WorkflowBoundaryTests(unittest.TestCase):
                     self.assertNotIn("run_experiment.py", path.read_text())
 
     def test_external_actions_have_reviewed_full_sha_pins(self):
-        pins = json.loads((ROOT / ".github/scripts/action-pins.json").read_text())["actions"]
-        for path in (ROOT / ".github/workflows").glob("*.yml"):
+        registry = json.loads((ROOT / ".github/scripts/action-pins.json").read_text())
+        for path in (ROOT / ".github/workflows").iterdir():
+            if path.suffix not in (".yml", ".yaml"):
+                continue
             name, workflow = path.name, path.read_text()
             for use in re.findall(r"^\s*(?:-\s*)?uses:\s*(\S+)", workflow, re.M):
                 if use.startswith("./"):
                     continue
-                action, separator, revision = use.partition("@")
-                with self.subTest(workflow=name, action=action):
-                    self.assertEqual(separator, "@")
-                    self.assertRegex(revision, r"^[0-9a-f]{40}$")
-                    self.assertEqual(pins[action]["sha"], revision)
-                    self.assertEqual(pins[action]["runtime"], "node24")
-                    self.assertEqual(pins[action]["metadata"], f"https://github.com/{action}/blob/{revision}/action.yml")
+                with self.subTest(workflow=name, reference=use):
+                    self.assert_reviewed_reference(use, registry)
             self.assertNotIn("pull_request_target:", workflow)
             self.assertNotIn("secrets: inherit", workflow)
             self.assertNotRegex(workflow, r"(?m)^\s*(?:contents|actions|id-token|pull-requests):\s*write")
+
+    def test_reusable_reference_refuses_floating_unknown_and_unreviewed_dependencies(self):
+        registry = json.loads((ROOT / ".github/scripts/action-pins.json").read_text())
+        name, entry = next(iter(registry["reusable_workflows"].items()))
+        with self.assertRaises(AssertionError):
+            self.assert_reviewed_reference(f"{name}@main", registry)
+        with self.assertRaises(KeyError):
+            self.assert_reviewed_reference(f"unknown/repository/.github/workflows/scan.yml@{entry['sha']}", registry)
+        changed = copy.deepcopy(registry)
+        changed["reusable_workflows"][name]["transitive_actions"]["actions/checkout"] = "0" * 40
+        with self.assertRaises(AssertionError):
+            self.assert_reviewed_reference(f"{name}@{entry['sha']}", changed)
+
+    def test_pii_configuration_is_only_passed_to_shared_metadata_scanner(self):
+        for path in (ROOT / ".github/workflows").iterdir():
+            if path.suffix not in (".yml", ".yaml"):
+                continue
+            workflow = path.read_text()
+            with self.subTest(workflow=path.name):
+                if path.name == "pii-check.yml":
+                    self.assertIn("PII_PATTERNS: ${{ secrets.PII_PATTERNS }}", workflow)
+                    self.assertNotRegex(workflow, r"(?m)^\s*(?:steps|run|runs-on):")
+                else:
+                    self.assertNotIn("PII_PATTERNS", workflow)
 
     def test_aggregate_is_always_present_and_not_path_filtered(self):
         workflow = (ROOT / ".github/workflows/ci.yml").read_text()

@@ -1,0 +1,14 @@
+name: PII privacy check
+
+# Match the existing organization consumer contract. Missing secrets, including
+# fork/Dependabot restrictions, fail closed in the shared scanner.
+on: [pull_request, push]
+
+permissions:
+  contents: read
+
+jobs:
+  pii-check:
+    uses: lost-in-the/.github/.github/workflows/pii-check.yml@8352c67a10c152e80f276ccc99a4ba598eb7a2e5
+    secrets:
+      PII_PATTERNS: ${{ secrets.PII_PATTERNS }}
