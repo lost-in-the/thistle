@@ -1,0 +1,3 @@
+Nonsecret disposable basic-protection fixture for issue #23.
+This branch is an enforcement proof target, not product or qualification evidence.
+Never merge these fixture commits into main.
