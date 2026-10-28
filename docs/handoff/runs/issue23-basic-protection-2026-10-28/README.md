@@ -30,6 +30,12 @@ blanket-direct-update expectation was too broad. See the
 Accepting that narrower native scope needs an explicit owner decision and a fresh,
 completed proof before main activation.
 
+**Subsequent owner decision:** after this stopped proof, the owner instructed
+[“Accept native behavior; prove before activation”](https://github.com/lost-in-the/thistle/issues/23#issuecomment-6483840523).
+That accepts the narrower scope for a fresh proof; it does not convert this
+failed attempt into a pass or authorize activation before all fresh controls pass.
+The pending-decision statement above records the earlier proof's disposition.
+
 ## Results and limits
 
 | Control | Observed result |

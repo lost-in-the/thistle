@@ -414,7 +414,8 @@ the result. Pre-test rule and effective-rule readbacks were retained; an
 unassociated-head direct-update refusal was not attempted. These are separately
 accounted for in the linked report and structured receipt. GitHub's PR rule
 requires association with an opened PR, not an
-exclusive merge endpoint. The owner subsequently accepted that native scope;
+exclusive merge endpoint. The owner subsequently accepted that native scope
+with the instruction [“Accept native behavior; prove before activation”](https://github.com/lost-in-the/thistle/issues/23#issuecomment-6483840523);
 a completed fresh proof is still required before activation. This is not retroactive approval of
 that negative-control result. No broader mechanism is added to ordinary PRs.
 
