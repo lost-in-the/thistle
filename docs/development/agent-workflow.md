@@ -162,7 +162,7 @@ dependencies; this table is only an index.
 | Core launch requirements | [L03 / #5](https://github.com/lost-in-the/thistle/issues/5), [L04 / #6](https://github.com/lost-in-the/thistle/issues/6), [L05 / #7](https://github.com/lost-in-the/thistle/issues/7), [L06 / #8](https://github.com/lost-in-the/thistle/issues/8), [L07 / #9](https://github.com/lost-in-the/thistle/issues/9), [L08 / #10](https://github.com/lost-in-the/thistle/issues/10), [L09 / #11](https://github.com/lost-in-the/thistle/issues/11), [L11 / #13](https://github.com/lost-in-the/thistle/issues/13), [L13 / #15](https://github.com/lost-in-the/thistle/issues/15) |
 | Map launch requirements | [L14 / #16](https://github.com/lost-in-the/thistle/issues/16), [L15 / #17](https://github.com/lost-in-the/thistle/issues/17), [L16 / #18](https://github.com/lost-in-the/thistle/issues/18) |
 | Delivery launch requirement | [L17 / #19](https://github.com/lost-in-the/thistle/issues/19) |
-| Existing hardened baseline integration | [#20](https://github.com/lost-in-the/thistle/issues/20) |
+| Hardened baseline integration and post-merge verification | [#20](https://github.com/lost-in-the/thistle/issues/20) |
 | Recorded Experiment 001 result review | [#21](https://github.com/lost-in-the/thistle/issues/21) |
 | Agent, PR, CI, and release workflow | [#22](https://github.com/lost-in-the/thistle/issues/22) |
 | Protected qualification authority | [#23](https://github.com/lost-in-the/thistle/issues/23) |
@@ -173,17 +173,19 @@ When recording a parent or blocker, save and verify the native relationship as
 well as the evidence link. This index does not assert that a native dependency
 relationship or a running agent exists.
 
-Before claiming restoration or experiment work, inspect
-`codex/restore-hardened-baseline` in [PR #1](https://github.com/lost-in-the/thistle/pull/1)
-and `codex/experiment-001` in [PR #2](https://github.com/lost-in-the/thistle/pull/2).
-Read their current status and head commits; links identify existing work, not a
-claim that it remains active or unmerged.
-The restoration branch already records a bounded accepted baseline and
-self-inspection in `docs/handoff/BASELINE_ACCEPTANCE.md`; the experiment branch
+Baseline restoration [PR #1](https://github.com/lost-in-the/thistle/pull/1) merged
+into main as `1b65f82ae8b8b693a8d7e8adb052b939b23bd5a9`. Issue #20 still requires
+its post-merge verification record; merging the source does not finish every
+integration or qualification decision. Experiment
+[PR #2](https://github.com/lost-in-the/thistle/pull/2) remains open against main.
+Read current status and head commits before claiming either scope.
+
+The restored main tree records a bounded accepted baseline and self-inspection
+in `docs/handoff/BASELINE_ACCEPTANCE.md`; the experiment branch
 contains an implementation, dedicated orchestration, and a recorded
 [`retain_candidate` result](https://github.com/lost-in-the/thistle/blob/7ce504a9abff606370b5f55973ba7bd414fa4a0e/docs/handoff/experiment-001/RESULTS.md)
-for review. These are current work
-to review and integrate, not permission to replay a completed campaign.
+for review. Preserve integrated restoration work and review the existing
+experiment; do not replay a completed campaign.
 
 The selected baseline and later repackages can have different package hashes even
 when payload/native bytes match. Preserve the selected experiment artifact until

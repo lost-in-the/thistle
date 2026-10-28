@@ -1,0 +1,97 @@
+{
+  "review": "Independent core adversarial review before normalized-search-cache optimization",
+  "verdict": "Accepted for the explicitly limited first private milestone after two ownership blockers were fixed",
+  "reviewer": "thistle_capture",
+  "artifact_identity_note": "The sha256 section records the exact artifact used for this review's executed ownership probes. The final_handoff section records the subsequent complete rebuild verified by the integrating parent.",
+  "final_handoff": {
+    "implementation_frozen": true,
+    "native_sha256": "24d42578b938bd5498c476f43e5a1239bf41f3760035d30630d8a11b8d451f7b",
+    "native_hash_observed_by": "thistle_capture",
+    "complete_suite_reported_by": "root",
+    "tests": 28,
+    "assertions": 237,
+    "failures": 0,
+    "errors": 0,
+    "skips": 0
+  },
+  "scope": [
+    "engine/src/lib.rs",
+    "engine/src/fs.rs",
+    "engine/src/schema.rs",
+    "engine/src/store.rs",
+    "ext/thistle_native/thistle_native.c",
+    "lib/thistle/native.rb",
+    "lib/thistle/reader.rb",
+    "lib/thistle/cli.rb"
+  ],
+  "findings": [
+    {
+      "id": "reader_response_decode_ownership",
+      "status": "fixed_and_retested",
+      "before": "A correctly rehashed manifest with producer nested 110 levels passed native parsing, registered a reader handle, then failed Ruby JSON parsing at depth 101. No Reader finalizer owned the handle; closing unreturned handle 1 afterward returned true.",
+      "fix": "Native requests, manifests and facts enforce a 64-level structural bound; manifest producer/diagnostics shapes are checked before registration. Ruby response parsing explicitly allows 128 levels for envelope headroom.",
+      "after": "The hostile manifest raises Thistle::LimitExceeded before registration. The next valid native open receives handle 1."
+    },
+    {
+      "id": "reader_interrupted_construction",
+      "status": "fixed_and_retested",
+      "before": "Four real Thread#kill interruptions during Reader.new over a 4000-method snapshot left four registered, unreturned native handles even after GC.start. Thread.handle_interrupt(Exception => :never) did not fix termination.",
+      "fix": "Reader acquisition and finalizer attachment defer Object interrupts; an outer ensure closes acquired handles when construction does not complete. Cleanup and explicit close use the same interruption protection.",
+      "after": "All four uninstrumented acquisitions were interrupted and all four handles were released. A deterministic real Thread#kill at the native-return handoff also leaves no retained handle before or after GC."
+    }
+  ],
+  "tests": {
+    "positive": {
+      "file": "thistle/test/test_reader_ownership.rb",
+      "runs": 3,
+      "assertions": 20,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0
+    },
+    "negative_control": {
+      "fixture": "woods-design-review/thistle-reader-ownership-negative.rb",
+      "description": "The original pre-review constructor is loaded only into disposable probe processes. Both ownership tests detect the genuinely acquired handle leak.",
+      "runs": 2,
+      "assertions": 10,
+      "expected_failures": 2,
+      "observed_retained_handles_per_case": [1]
+    },
+    "uninstrumented_interruption": {
+      "snapshot_methods": 4000,
+      "attempts": 4,
+      "delay_seconds": 0.002,
+      "interrupted": 4,
+      "native_handles_allocated": 4,
+      "retained_after_gc": []
+    }
+  },
+  "review_observations": [
+    "The C bridge copies Ruby input before releasing the GVL and frees owned input/response buffers through rb_ensure.",
+    "Arc ownership pins an already-started native query when its reader is concurrently closed.",
+    "Store access is descriptor relative, refuses symlinks/nonregular files and checks bounded reads.",
+    "Publication validates before changing CURRENT; already-fixed post-selection directory sync errors explicitly report commit_uncertain.",
+    "Source expansion and Check verify captured byte digests and source-coordinate agreement.",
+    "The registry's serialized-data/handle budgets are honestly documented as distinct from a heap or process RSS cap."
+  ],
+  "remaining_qualifications": [
+    "This review is for a private milestone, not broad platform, launch-parity or production-security certification.",
+    "Prism is C code invoked through Rust bindings. The bounded-stack worker and exercised parser probes do not establish hostile-input safety or replace process isolation, external deadlines and fuzzing.",
+    "Decoded allocations, concurrent in-flight operations and process RSS do not have a measured aggregate hard cap.",
+    "Power-loss recovery, retention, disk quotas, generalized fork support and public platform distribution remain separately qualified launch work.",
+    "A complete store author can produce another internally consistent store; content digests are integrity checks, not authenticity or authorization."
+  ],
+  "sha256": {
+    "engine/src/lib.rs": "61610820545de4c952e829e9d9f5c5b8be9f8c024c7fbe9590e57d98279c414a",
+    "engine/src/fs.rs": "2c95a8b01c7bfc654e3861080c7fed63a7f6aae628b1cbe3c1ef4c46e2200cf3",
+    "engine/src/schema.rs": "439f20ac88d818b79199f7ed43ed38c3acf84ed99a7bb0809686615938d2c1b3",
+    "engine/src/store.rs": "45fb5d5f7c4f7fdc4ae14171537420ea094ca13a985b0cbf6377225d90063c10",
+    "ext/thistle_native/thistle_native.c": "48e21025744904ba8b2a1205c7f9352da17aae35fd2fa491e49c9bec193f2b14",
+    "lib/thistle/native.rb": "375beca29fc7c9c6247aa236a149f76db69f00ef919a4cfe18058c315cb243f9",
+    "lib/thistle/reader.rb": "45cc9cc9acc57785aecec570062b7ba1054ee686eb04127309e4e7be70be56e6",
+    "lib/thistle/cli.rb": "ef02f950b7e51fc143fbf0833e6c585218befce47f343c9300ab8a3d0ccb6842",
+    "lib/thistle/thistle_native.so": "67a6a685c18d4ab6fe7957f1bb7229dc2624c2cea8a1900c384f80966d20da02",
+    "test/test_reader_ownership.rb": "cdc99657cc51020568eae2513281a5ef0eccfcc2a1e5ab382e1fc0a63ec1b541",
+    "negative_fixture": "81180f51ca5cba44aea0060271ed2615335f1fcb7c329f389c64742ab1ef04a7"
+  }
+}

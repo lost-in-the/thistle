@@ -1,0 +1,23 @@
+test_common_mode_omission_fails_independent_label (test_evaluator.DefectiveResultControls.test_common_mode_omission_fails_independent_label) ... ok
+test_fabricated_line_number_fails_even_with_real_source (test_evaluator.DefectiveResultControls.test_fabricated_line_number_fails_even_with_real_source) ... ok
+test_false_freshness_claim_fails (test_evaluator.DefectiveResultControls.test_false_freshness_claim_fails) ... ok
+test_forged_matching_source_hash_does_not_override_fixture (test_evaluator.DefectiveResultControls.test_forged_matching_source_hash_does_not_override_fixture) ... ok
+test_generation_substitution_fails (test_evaluator.DefectiveResultControls.test_generation_substitution_fails) ... ok
+test_missing_truncation_label_fails (test_evaluator.DefectiveResultControls.test_missing_truncation_label_fails) ... ok
+test_missing_unknown_coverage_fails (test_evaluator.DefectiveResultControls.test_missing_unknown_coverage_fails) ... ok
+test_path_escape_fails (test_evaluator.DefectiveResultControls.test_path_escape_fails) ... ok
+test_positive_control (test_evaluator.DefectiveResultControls.test_positive_control) ... ok
+test_static_mislabeled_runtime_fails (test_evaluator.DefectiveResultControls.test_static_mislabeled_runtime_fails) ... ok
+test_wrong_source_path_fails (test_evaluator.DefectiveResultControls.test_wrong_source_path_fails) ... ok
+test_directional_calibration_noise_blocks_speed_verdict (test_experiment_policy.FrozenExperimentPolicyTests.test_directional_calibration_noise_blocks_speed_verdict) ... ok
+test_each_memory_peak_gate_matters (test_experiment_policy.FrozenExperimentPolicyTests.test_each_memory_peak_gate_matters) ... ok
+test_failure_never_passes (test_experiment_policy.FrozenExperimentPolicyTests.test_failure_never_passes) ... ok
+test_fast_warm_metric_cannot_replace_failed_complete_session (test_experiment_policy.FrozenExperimentPolicyTests.test_fast_warm_metric_cannot_replace_failed_complete_session) ... ok
+test_inclusive_policy_boundaries (test_experiment_policy.FrozenExperimentPolicyTests.test_inclusive_policy_boundaries) ... ok
+test_positive_control (test_experiment_policy.FrozenExperimentPolicyTests.test_positive_control) ... ok
+test_single_session_regression_cannot_hide_behind_repeated_gain (test_experiment_policy.FrozenExperimentPolicyTests.test_single_session_regression_cannot_hide_behind_repeated_gain) ... ok
+
+----------------------------------------------------------------------
+Ran 18 tests in 0.003s
+
+OK

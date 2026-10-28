@@ -13,13 +13,14 @@ the work. Set its project Area, Target, Priority, and Status during triage.
 
 ## Start from current work
 
-The main branch began as a bootstrap handoff with Git bundles. Source restoration
-and experiment work already exist on named Codex branches. Before importing a
-bundle or recreating a task, inspect its issue, branch, and PR status. An old
-snapshot is historical evidence; newer accepted evidence must retain its own
+The main branch began as a bootstrap handoff with Git bundles. Baseline restoration
+landed through PR #1; the restored source and `docs/handoff/` now live on main.
+Experiment PR #2 remains separately reviewable against main. Before importing a
+bundle or recreating a task, inspect current issues, branches, and PR status. An
+old snapshot is historical evidence; newer accepted evidence must retain its own
 identity and scope.
 
-After source restoration, follow the implementation README for the pinned Rust
+Follow the restored README for the pinned Rust
 toolchain, Ruby development headers, C compiler, libclang, and locked vendored
 dependencies. Preserve every vendored source file, including legitimate directories
 named `target`. Run checks against the source and artifact actually under review.

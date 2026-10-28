@@ -1,0 +1,12 @@
+/engine/target/
+/ext/thistle_native/target/
+/ext/thistle_native/Makefile
+/ext/thistle_native/mkmf.log
+/ext/thistle_native/*.o
+/ext/thistle_native/*.so
+/lib/thistle/*.so
+/.thistle/
+/.bundle/
+/pkg/
+/*.gem
+/Gemfile.lock

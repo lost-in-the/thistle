@@ -1,0 +1,47 @@
+/* Thistle layout over the reused Woods Map token and component system. */
+html,body{margin:0;min-height:100%;background:#222126}
+.thistle-workbench{min-height:100vh;box-sizing:border-box;padding:var(--s5);font-size:var(--fs-15)}
+.thistle-workbench [hidden]{display:none!important}
+.thistle-workbench .ui{font-family:var(--ff-ui)}
+.thistle-workbench .app-header{display:flex;gap:var(--s6);align-items:center;flex-wrap:wrap;margin-bottom:var(--s5)}
+.thistle-workbench .brand{font-family:var(--ff-ui);font-size:var(--fs-24);font-weight:700;color:var(--bright)}
+.thistle-workbench .brand span{font-weight:400;color:var(--mut)}
+.thistle-workbench .find-form{display:flex;align-items:center;gap:var(--s3);flex:1;min-width:0;font-family:var(--ff-ui);flex-wrap:wrap}
+.thistle-workbench input[type=search]{flex:1;min-width:12rem;box-sizing:border-box;background:var(--panel);color:var(--bright);border:1px solid var(--rule2);padding:var(--s3);font:inherit;min-height:44px}
+.thistle-workbench .btn{min-height:44px;font-size:var(--fs-15)}
+.thistle-workbench nav{display:flex;flex-wrap:wrap;gap:var(--s3);border-bottom:1px solid var(--rule);padding-bottom:var(--s3);font-family:var(--ff-ui)}
+.thistle-workbench nav a,.thistle-workbench nav .disabled{display:inline-flex;align-items:center;gap:var(--s3);padding:var(--s3) var(--s4);min-height:28px}
+.thistle-workbench nav a[aria-current=page]{color:var(--bright);background:var(--select-tint);box-shadow:inset 0 -2px var(--select)}
+.thistle-workbench nav .disabled{color:var(--mut)}
+.thistle-workbench nav small{font-size:var(--fs-12)}
+.thistle-workbench .capture{margin:var(--s4) 0;color:var(--mut)}
+.thistle-workbench main{display:grid;gap:var(--s4);padding:var(--s4) 0 var(--s6);min-width:0}
+.thistle-workbench .t1{overflow-wrap:anywhere}
+.thistle-workbench .notice{padding:var(--s4);border-left:3px solid var(--select);background:var(--panel)}
+.thistle-workbench .facts{display:flex;flex-wrap:wrap;gap:var(--s6)}
+.thistle-workbench .facts>div{min-width:12rem;flex:1}
+.thistle-workbench .facts dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--s3) var(--s4);margin:var(--s3) 0}
+.thistle-workbench .facts dd{margin:0;overflow-wrap:anywhere}
+.thistle-workbench .table-wrap{overflow:auto;border:1px solid var(--rule)}
+.thistle-workbench .tbl{width:100%;border-collapse:collapse}
+.thistle-workbench .tbl td,.thistle-workbench .tbl th{padding:var(--s4);text-align:left;border-bottom:1px solid var(--rule)}
+.thistle-workbench .tbl tr:last-child td{border-bottom:0}
+.thistle-workbench .tbl td{overflow-wrap:anywhere}
+.thistle-workbench .digest{font-size:var(--fs-12);color:var(--mut);overflow-wrap:anywhere}
+.thistle-workbench .cvwrap{overflow:auto;border:1px solid var(--rule);max-height:70vh;position:relative}
+.thistle-workbench .cv{display:table;min-width:100%;width:max-content;font-size:var(--fs-13);line-height:1.7}
+.thistle-workbench .source-row{display:table-row}
+.thistle-workbench .source-row.selected{background:var(--select-tint);--cm:var(--mut)}
+.thistle-workbench .source-row:target{outline:2px solid var(--select);outline-offset:-2px}
+.thistle-workbench .source-row .ln{display:table-cell;position:sticky;left:0;min-width:3em;padding:0 var(--s4);text-align:right;color:var(--mut);background:var(--panel);border-right:1px solid var(--rule);user-select:none}
+.thistle-workbench .source-row .src{display:table-cell;white-space:pre;padding:0 var(--s4);overflow:visible}
+.thistle-workbench .check-data{overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;background:var(--panel);padding:var(--s4)}
+.thistle-workbench summary{font-family:var(--ff-ui);cursor:pointer;padding:var(--s3) 0}
+.thistle-workbench footer{border-top:1px solid var(--rule);padding-top:var(--s4);display:grid;gap:var(--s3);color:var(--mut)}
+.thistle-workbench .shortcut-setting{display:flex;gap:var(--s3);align-items:center;min-height:44px;cursor:pointer}
+.thistle-workbench .shortcut-setting input{width:18px;height:18px}
+.thistle-workbench .pager a{padding:var(--s3)}
+.skip{position:absolute;top:-10rem;left:1rem;z-index:10;background:white;color:black;padding:1rem}
+.skip:focus{top:1rem}
+@media(max-width:640px){.thistle-workbench{padding:var(--s4)}.thistle-workbench .app-header{gap:var(--s4)}.thistle-workbench .find-form{flex-basis:100%}.thistle-workbench .find-form label{flex-basis:100%}.thistle-workbench nav a,.thistle-workbench nav .disabled{padding:var(--s3)}.thistle-workbench nav small{display:block}.thistle-workbench .tbl td,.thistle-workbench .tbl th{padding:var(--s3)}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}

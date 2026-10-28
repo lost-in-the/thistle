@@ -149,10 +149,11 @@ matrix remains development evidence. Passing it does not prove every supported
 ABI, precompiled install, database/provider route, accessibility journey, or
 hostile-parser case.
 
-### Avoid duplicate work during restoration
+### Integrate the restored workflow once
 
-The active restoration branch already owns `.github/workflows/ci.yml`. Integrate
-the optimized routing/aggregate workflow deliberately: compare both versions,
+Baseline restoration PR #1 has merged, and main owns its existing
+`.github/workflows/ci.yml`. Integrate the optimized routing/aggregate workflow
+deliberately: compare both versions,
 retain the stronger regression and packaging checks, and keep one canonical PR
 feedback path. Do not accidentally run the old full matrix and a replacement
 full matrix on every push. Preserve the dedicated frozen experiment workflow and

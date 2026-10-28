@@ -10,15 +10,19 @@ precedence over dated handoff snapshots.
    current branch/base commits. Check whether another agent already owns the work.
 2. Read [the project and agent workflow](docs/development/agent-workflow.md) and
    [the PR, CI, and release flow](docs/development/pr-ci-release.md).
-3. Read the applicable implementation contract, capability-ledger rows, and
-   experiment policy. In a bootstrap checkout, read `CODEX_HANDOFF.md`,
-   `IMPLEMENTATION.md`, `EVALUATOR_HANDOFF.md`, and `ARCHITECTURE_PLAN.md`; after
-   restoration, also check `docs/handoff/` for newer evidence and dispositions.
+3. Read the current README, applicable implementation contract, capability-ledger
+   rows, and experiment policy. Restored source uses `docs/handoff/CODEX_HANDOFF.md`,
+   `docs/handoff/IMPLEMENTATION.md`, `docs/handoff/EVALUATOR_HANDOFF.md`, and
+   `docs/handoff/ARCHITECTURE_PLAN.md`. Check `docs/handoff/RESTORATION.md` and
+   `docs/handoff/BASELINE_ACCEPTANCE.md` for newer evidence and dispositions.
+   Only an older bootstrap checkout keeps those four handoff files at the root;
+   use the paths present in the actual checkout rather than restoring old copies.
 
-Check out the existing restoration or experiment work when reviewing it. Do not
-start another source import or benchmark merely because an old handoff says it
-has not happened. Existing branches `codex/restore-hardened-baseline` and
-`codex/experiment-001` must be checked before claiming their scope.
+Baseline restoration landed in main through PR #1. Review its integrated source
+and current issue #20 checks before claiming more restoration work. Experiment
+PR #2 remains separately reviewable against main. Check current PR/branch state;
+do not start another import or benchmark because an old handoff says it has not
+happened.
 
 ## Product constraints
 

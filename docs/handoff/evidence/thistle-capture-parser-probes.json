@@ -1,0 +1,95 @@
+[
+  {
+    "case": "parens_1000",
+    "mode": "main",
+    "bytes": 2001,
+    "returncode": 0,
+    "elapsed_seconds": 0.1132,
+    "stdout": "{\"facts\":1,\"diagnostics\":[],\"coverage\":[{\"family\":\"ruby_declarations\",\"reason\":null,\"scope\":\"Explicit Ruby class, module and method syntax in captured valid source; names are lexical labels\",\"status\":\"complete\"}]}\n",
+    "stderr": ""
+  },
+  {
+    "case": "parens_1000",
+    "mode": "thread",
+    "bytes": 2001,
+    "returncode": 0,
+    "elapsed_seconds": 0.0809,
+    "stdout": "{\"facts\":1,\"diagnostics\":[],\"coverage\":[{\"family\":\"ruby_declarations\",\"reason\":null,\"scope\":\"Explicit Ruby class, module and method syntax in captured valid source; names are lexical labels\",\"status\":\"complete\"}]}\n",
+    "stderr": ""
+  },
+  {
+    "case": "parens_10000",
+    "mode": "main",
+    "bytes": 20001,
+    "returncode": 1,
+    "elapsed_seconds": 0.1401,
+    "stdout": "",
+    "stderr": "/workspace/scratch/bc08c0d3c126/thistle/lib/thistle/native.rb:16:in `request_raw': stack level too deep (SystemStackError)\n\tfrom /workspace/scratch/bc08c0d3c126/thistle/lib/thistle/native.rb:16:in `call'\n\tfrom /workspace/scratch/bc08c0d3c126/thistle/lib/thistle/capture.rb:37:in `call'\n\tfrom -e:1:in `block in <main>'\n\tfrom -e:1:in `<main>'\n"
+  },
+  {
+    "case": "parens_10000",
+    "mode": "thread",
+    "bytes": 20001,
+    "timeout": true
+  },
+  {
+    "case": "parens_100000",
+    "mode": "main",
+    "bytes": 200001,
+    "returncode": 1,
+    "elapsed_seconds": 0.1109,
+    "stdout": "",
+    "stderr": "/workspace/scratch/bc08c0d3c126/thistle/lib/thistle/native.rb:16:in `request_raw': stack level too deep (SystemStackError)\n\tfrom /workspace/scratch/bc08c0d3c126/thistle/lib/thistle/native.rb:16:in `call'\n\tfrom /workspace/scratch/bc08c0d3c126/thistle/lib/thistle/capture.rb:37:in `call'\n\tfrom -e:1:in `block in <main>'\n\tfrom -e:1:in `<main>'\n"
+  },
+  {
+    "case": "parens_100000",
+    "mode": "thread",
+    "bytes": 200001,
+    "timeout": true
+  },
+  {
+    "case": "array_10000",
+    "mode": "main",
+    "bytes": 20001,
+    "returncode": 1,
+    "elapsed_seconds": 0.1507,
+    "stdout": "",
+    "stderr": "/workspace/scratch/bc08c0d3c126/thistle/lib/thistle/native.rb:16:in `request_raw': stack level too deep (SystemStackError)\n\tfrom /workspace/scratch/bc08c0d3c126/thistle/lib/thistle/native.rb:16:in `call'\n\tfrom /workspace/scratch/bc08c0d3c126/thistle/lib/thistle/capture.rb:37:in `call'\n\tfrom -e:1:in `block in <main>'\n\tfrom -e:1:in `<main>'\n"
+  },
+  {
+    "case": "array_10000",
+    "mode": "thread",
+    "bytes": 20001,
+    "timeout": true
+  },
+  {
+    "case": "methods_3000",
+    "mode": "main",
+    "bytes": 30016,
+    "returncode": 0,
+    "elapsed_seconds": 0.1789,
+    "stdout": "{\"facts\":3002,\"diagnostics\":[],\"coverage\":[{\"family\":\"ruby_declarations\",\"reason\":null,\"scope\":\"Explicit Ruby class, module and method syntax in captured valid source; names are lexical labels\",\"status\":\"complete\"}]}\n",
+    "stderr": ""
+  },
+  {
+    "case": "methods_3000",
+    "mode": "thread",
+    "bytes": 30016,
+    "timeout": true
+  },
+  {
+    "case": "invalid_10000",
+    "mode": "main",
+    "bytes": 10003,
+    "returncode": 1,
+    "elapsed_seconds": 0.093,
+    "stdout": "",
+    "stderr": "/workspace/scratch/bc08c0d3c126/thistle/lib/thistle/native.rb:16:in `request_raw': stack level too deep (SystemStackError)\n\tfrom /workspace/scratch/bc08c0d3c126/thistle/lib/thistle/native.rb:16:in `call'\n\tfrom /workspace/scratch/bc08c0d3c126/thistle/lib/thistle/capture.rb:37:in `call'\n\tfrom -e:1:in `block in <main>'\n\tfrom -e:1:in `<main>'\n"
+  },
+  {
+    "case": "invalid_10000",
+    "mode": "thread",
+    "bytes": 10003,
+    "timeout": true
+  }
+]

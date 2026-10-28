@@ -1,0 +1,58 @@
+# Launch capability ledger — development inventory 0.1
+
+This ledger preserves the approved [Thistle product architecture and launch plan](https://chatgpt.com/space/page_83d1d4a1a4ec81918d7310c21061c4e4). It is the initial outcome inventory, not a declaration of parity. A passing first implementation slice cannot close these launch rows.
+
+## Baseline and scope
+
+The released comparison floor is [Woods 2.1.0](https://github.com/lost-in-the/woods/releases/tag/v2.1.0), source revision `cdd330f709cca9f47302390799641b986f08e213`. The useful current implemented-product target additionally uses [Woods `fccb95782e38dd072a016d317a8e8ca782580b11`](https://github.com/lost-in-the/woods/tree/fccb95782e38dd072a016d317a8e8ca782580b11) and [Map `29e7f6ac60bdeb8eee50138c2c87bd7ae21442a9`](https://github.com/lost-in-the/woods-map/tree/29e7f6ac60bdeb8eee50138c2c87bd7ae21442a9). Artifact package hashes and installed behavior have **not** yet been qualified by this implementation workspace.
+
+The initial independent evaluator lives in `../thistle-eval`; it can move into a test-only repository or the user's independently controlled testbed. Each product's evaluator adapter may differ. Customer-visible outcome parity does not require old commands, APIs, storage formats, gem boundaries or tool schemas.
+
+Current implementation uses a Rust core behind the Ruby gem facade following the owner's subsequent direction. This changes implementation, not the launch outcome/support bar. Local source-build prerequisites and native extension identities must be disclosed. A successful build on one machine cannot qualify precompiled installation, every CPU/libc/ABI, or the promised Ruby/Rails support floor.
+
+Every row below is a **required equivalent outcome**. Its exact implemented baseline behaviors still require installed-artifact verification, positive/negative cases, supported configuration cases and an assigned independent acceptance owner. Unknown baseline details block qualification; they are not permission to omit a useful job. All launch statuses are `UNQUALIFIED`.
+
+| ID | Required job and evidence | Baseline discovery source | Candidate workflow / current evidence | Acceptance owner role |
+|---|---|---|---|---|
+| L01 | Install, configure and diagnose through supported Ruby/Rails/database, container and worktree cohorts | [README](https://github.com/lost-in-the/woods/blob/fccb95782e38dd072a016d317a8e8ca782580b11/README.md) | Gem build/install controls begin here; complete support tuple matrix remains open | Delivery |
+| L02 | Observe loaded Rails schema/indexes/associations/callbacks/concerns/inheritance/routes/configuration with honest scope | [Extractor reference](https://github.com/lost-in-the/woods/blob/fccb95782e38dd072a016d317a8e8ca782580b11/docs/EXTRACTOR_REFERENCE.md) | Explicit runtime capture; initial route family does not close runtime breadth | Runtime semantics |
+| L03 | Cover useful application/framework/package evidence families and optional configurations | Same extractor reference | Producer-by-producer independent fixtures; broad family inventory below | Evidence coverage |
+| L04 | Recover original/effective source, typed identity, physical spans, versions, unresolved targets and provenance | Extractor and [published reader](https://github.com/lost-in-the/woods/blob/fccb95782e38dd072a016d317a8e8ca782580b11/docs/PUBLISHED_INDEX.md) | `Source` begins with independently verified static file bytes; full semantics open | Source semantics |
+| L05 | Discover exact entities and search names/paths/source/metadata with explicit bounded results | [MCP capabilities](https://github.com/lost-in-the/woods/blob/fccb95782e38dd072a016d317a8e8ca782580b11/docs/MCP_SERVERS.md) | `Find` and identity lookup; filters, pagination and known-answer breadth open | Retrieval |
+| L06 | Rank lexical/semantic evidence, expand full source, control context budgets and see provider readiness | [Retrieval guide](https://github.com/lost-in-the/woods/blob/fccb95782e38dd072a016d317a8e8ca782580b11/docs/RETRIEVAL_GUIDE.md) | Lexical slice only; semantic/provider/task-quality qualification open | Retrieval and evaluation |
+| L07 | Follow dependencies/dependents/flow/structure/clusters and obtain reports/diagrams with evidence limits | MCP and extractor references | `Links` starts with labelled lexical relationships; dynamic resolution/graph jobs open | Graph semantics |
+| L08 | Inspect history/co-change, compare generations, assess change impact and relevant tests | Published reader and MCP references | Generation pinning is foundation; history/impact/test evidence open | Change evidence |
+| L09 | Refresh fully/incrementally/targetedly, watch/manage maintenance, handle reload/branch/crash/overflow | [Freshness](https://github.com/lost-in-the/woods/blob/fccb95782e38dd072a016d317a8e8ca782580b11/docs/SOURCE_FRESHNESS.md), [client hooks](https://github.com/lost-in-the/woods/blob/fccb95782e38dd072a016d317a8e8ca782580b11/docs/CLIENT_HOOKS.md) | Immutable full generations; incremental/resident/reload/retention qualification open | Lifecycle |
+| L10 | Capture supported scoped runtime trace/session evidence separately from static inference | [Runtime tracing](https://github.com/lost-in-the/woods/blob/fccb95782e38dd072a016d317a8e8ca782580b11/docs/RUNTIME_TRACING.md) | Explicitly unavailable in initial slice | Runtime evidence |
+| L11 | Use local/offline, hosted, shared-reader and durable retrieval deployments with useful privacy/scale outcomes | [Backend matrix](https://github.com/lost-in-the/woods/blob/fccb95782e38dd072a016d317a8e8ca782580b11/docs/BACKEND_MATRIX.md), [index layout](https://github.com/lost-in-the/woods/blob/fccb95782e38dd072a016d317a8e8ca782580b11/docs/INDEX_LAYOUT.md) | Local immutable store is one cohort; provider/shared/portable operation open | Storage and operations |
+| L12 | Consume evidence from Ruby, new stdio/remote APIs and machine-readable export/checks | MCP and published reader references | New Ruby/CLI contracts; external protocols/authenticated transport open | Public interfaces |
+| L13 | Export/share Markdown/Obsidian/diagrams/reports with reproducible source/evidence links | [Markdown export](https://github.com/lost-in-the/woods/blob/fccb95782e38dd072a016d317a8e8ca782580b11/docs/MARKDOWN_EXPORT.md) | No launch qualification yet | Exports |
+| L14 | Read code/effective behavior, references, file ownership, schema, routes and history in a browser | [Map README](https://github.com/lost-in-the/woods-map/blob/29e7f6ac60bdeb8eee50138c2c87bd7ae21442a9/README.md) | Optional Map seam starts Find/Source/Links/Check; complete human jobs open | Human interface |
+| L15 | Investigate action/change/flow/architecture/database/impact and collect/resume/share context | [Map coverage](https://github.com/lost-in-the/woods-map/blob/29e7f6ac60bdeb8eee50138c2c87bd7ae21442a9/docs/design/coverage.md) | First seam is not the full investigation workbench | Human investigation |
+| L16 | Obtain optional contextual help with streaming/cancellation/budgets/provenance and real provider operation | [Guide qualification notes](https://github.com/lost-in-the/woods-map/blob/29e7f6ac60bdeb8eee50138c2c87bd7ae21442a9/docs/design/notes/m7-guide.md) | No provider qualification; simulated endpoints cannot close this row | Provider integration |
+| L17 | Understand readiness/coverage, recover from failures, adopt/switch and use secure documented defaults | [Configuration](https://github.com/lost-in-the/woods/blob/fccb95782e38dd072a016d317a8e8ca782580b11/docs/CONFIGURATION_REFERENCE.md), [Map threat model](https://github.com/lost-in-the/woods-map/blob/29e7f6ac60bdeb8eee50138c2c87bd7ae21442a9/docs/THREAT_MODEL.md) | `Check` and initial setup/security docs; full operations/switching qualification open | Support and security |
+
+## Required evidence-family expansion
+
+L02–L04 must be expanded into independently observable behaviors, not an extractor-class count. The approved discovery inventory includes:
+
+- Models, tables, columns, indexes, associations, concerns, inheritance, callbacks, migrations, database views and multiple connections.
+- Controllers, actions, filters, routes, views/templates, components, helpers, jobs, mailers and lifecycle/passages.
+- GraphQL types, operations and resolvers; policies and authorization; channels; scheduling and rake tasks.
+- Engines/packages; framework and installed-gem source; configuration and initializers; library source; documentation and currently supported frontend source.
+- I18n, events, state machines, cache behavior, external table consumers and external-service catalogue/call evidence.
+- Factories, tests, test support and relevant test/change evidence.
+
+This is a discovery checklist from the approved plan, not a claim that every construct is resolved by the baseline. Record actual supported limits from installed artifacts. Optional integrations need configured/unconfigured/missing/stale/failing cases. New code must preserve useful supported jobs even when the architecture or provider name changes.
+
+## Row completion record
+
+Before closing any row, add these fields to the independently controlled record: exact baseline/candidate package hashes; input fixture/task identity; Ruby/Rails/database/provider/OS tuple; baseline status (released/current implemented/experimental/deprecated/not implemented); positive, negative and mutation expectations; candidate action; evidence labels and known limitations; independent owner; test revision; execution result and date. A change to baseline classification or acceptance policy is a separate reviewable evaluator change.
+
+An absent, cancelled, timed-out, unsupported, failed or inconclusive required result is not a pass. One passing cohort cannot stand in for another. Any intentional change to a useful customer job or support promise needs an explicit product decision. No implementation shortcut can silently lower the launch bar.
+
+## Cross-cutting launch gates
+
+Every L-row remains subject to runtime independence, correctness, task quality, full-workflow performance/resources, total cost, recognition-focused interaction, installation/recovery, security/privacy, meaningful differentiation and exact release-artifact qualification. Native acceleration is judged with its compilation/packaging/startup/memory/support costs included. Do not make a global speed claim from command smoke timings.
+
+The first development evaluator is visible, adjustable development evidence. It is not a holdout or independent production authority merely because it lives in a sibling directory. Protected evaluation policy, worker isolation and release enforcement still require deployment in separately controlled infrastructure.
