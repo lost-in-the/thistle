@@ -7,6 +7,80 @@ require 'action_controller/railtie'
 class MapIntegrationTest < Minitest::Test
   include MapTestSupport
 
+  def test_real_route_conditions_survive_publish_reader_and_escaped_map
+    Dir.mktmpdir('thistle-map-constraints-') do |directory|
+      root = File.join(directory, 'app')
+      store = File.join(directory, 'store')
+      FileUtils.mkdir_p(root)
+      routes = ActionDispatch::Routing::RouteSet.new
+      routes.draw do
+        get '/orders', to: 'orders#index', constraints: { host: '<script>bad</script>' }
+        get '/orders', to: 'orders#index', constraints: { subdomain: /api/i }
+      end
+      rails = Struct.new(:routes).new(routes)
+      Thistle.capture(root: root, output: store, rails: rails)
+      reader = Thistle::Reader.new(store)
+      facts = reader.find('orders', limit: 10).select { |f| f['kind'] == 'route' }
+      assert_equal 2, facts.length
+      refute_equal facts[0]['id'], facts[1]['id']
+      app = Thistle::Map::App.new(store: store)
+      find = request(app, '/', query: URI.encode_www_form('q' => 'orders', 'generation' => reader.generation))
+      assert_equal 200, find.first
+      assert_includes find.last, '&lt;script&gt;bad&lt;/script&gt;'
+      refute_includes find.last, '<script>bad</script>'
+      assert_includes find.last, 'subdomain'
+      query = URI.encode_www_form('id' => facts[0]['id'], 'generation' => reader.generation)
+      source = request(app, '/source', query: query)
+      assert_equal 200, source.first
+      assert_includes source.last, '&lt;script&gt;bad&lt;/script&gt;'
+      assert_includes source.last, 'No file or line was captured'
+      assert_includes source.last, 'does not prove a request will match'
+      assert_includes source.last, reader.generation
+      routes.draw { get '/orders', to: 'orders#index', constraints: { host: 'new.example' } }
+      Thistle.capture(root: root, output: store, rails: rails)
+      newer = Thistle::Reader.new(store)
+      refute_equal reader.generation, newer.generation
+      new_fact = newer.find('orders', limit: 10).find { |f| f['kind'] == 'route' }
+      assert_equal facts[0]['id'], new_fact['id']
+      new_query = URI.encode_www_form('id' => new_fact['id'], 'generation' => newer.generation)
+      assert_includes request(app, '/source', query: new_query).last, 'new.example'
+      pinned = request(app, '/source', query: query)
+      assert_equal 200, pinned.first
+      assert_includes pinned.last, '&lt;script&gt;bad&lt;/script&gt;'
+    ensure
+      reader&.close
+      newer&.close
+    end
+  end
+
+  def test_schema_valid_untrusted_route_metadata_is_bounded_by_map
+    Dir.mktmpdir('thistle-map-untrusted-constraints-') do |directory|
+      root = File.join(directory, 'app')
+      store = File.join(directory, 'store')
+      FileUtils.mkdir_p(root)
+      capture = Thistle::Capture.new(root: root).call
+      fact = {
+        'id' => Digest::SHA256.hexdigest('untrusted-route'), 'kind' => 'route',
+        'name' => 'GET /untrusted orders#index', 'evidence' => 'runtime',
+        'path' => nil, 'location' => nil, 'links' => [], 'attributes' => {}
+      }
+      capture['facts'] << fact
+      [nil, '<' * 8_193].each do |value|
+        fact['attributes']['route_constraints'] = {
+          'status' => 'observed', 'opaque' => 'none observed', 'segments' => [],
+          'request' => [{ 'key' => 'host', 'type' => 'string', 'value' => value, 'encoding' => 'UTF-8' }]
+        }
+        manifest = Thistle::Store.new(store).publish(capture)
+        query = URI.encode_www_form('id' => fact['id'], 'generation' => manifest['generation'])
+        status, _, body = request(Thistle::Map::App.new(store: store), '/source', query: query)
+        assert_equal 200, status
+        assert_includes body, 'Unknown; conditions are invalid or exceed the display budget'
+        assert_includes body, 'No file or line was captured'
+        assert_operator body.bytesize, :<, 10_000
+      end
+    end
+  end
+
   def test_runtime_route_source_is_available_as_context_across_generations
     Dir.mktmpdir('thistle-map-route-') do |directory|
       root = File.join(directory, 'app')

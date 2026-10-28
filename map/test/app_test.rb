@@ -12,6 +12,7 @@ class MapAppTest < Minitest::Test
     assert_equal 200, status
     assert_includes body, "generation=#{GENERATION}"
     assert_includes body, 'Demo#show'
+    refute_includes body, 'Route conditions'
     assert_equal 'no-store', headers['cache-control']
     assert_nil seen.first
     %w[/source /links /check].each do |path|
@@ -41,6 +42,86 @@ class MapAppTest < Minitest::Test
     refute_includes body, '<img'
     refute_includes body, '<script>x'
     assert_includes body, '&lt;img'
+  end
+
+  def test_route_condition_literals_keep_whitespace_and_controls_visible
+    samples = {
+      'Client A' => '&quot;Client A&quot;',
+      'Client  A' => '&quot;Client  A&quot;',
+      "line\tpart\n<img>\x7f" => '&quot;line\tpart\n&lt;img&gt;\u007f&quot;'
+    }
+    samples.each do |value, displayed|
+      entries = [
+        { 'key' => 'host', 'type' => 'string', 'value' => value, 'encoding' => 'UTF-8' },
+        { 'key' => 'subdomain', 'type' => 'regexp', 'value' => value, 'options' => 1,
+          'encoding' => 'UTF-8', 'regexp_encoding' => 'US-ASCII' }
+      ]
+      conditions = { 'status' => 'observed', 'request' => entries, 'segments' => [], 'opaque' => 'none observed' }
+      fact = Reader.new.fact(FACT_ID).merge('kind' => 'route', 'attributes' => { 'route_constraints' => conditions })
+      app = make_app(Reader.new(facts: [fact]))
+      [['/', 'q=Demo'], ['/source', "id=#{FACT_ID}"]].each do |path, query|
+        status, _, html = request(app, path, query: query)
+        assert_equal 200, status
+        assert_includes html, "string #{displayed}"
+        assert_includes html, "pattern #{displayed}"
+        assert_includes html, 'ignore letter case; options 1'
+        assert_includes html, 'class="route-conditions"'
+        refute_includes html, '<img>'
+      end
+    end
+    status, _, css = request(make_app, '/assets/map.css')
+    assert_equal 200, status
+    assert_match(/\.route-conditions\{[^}]*white-space:pre-wrap/, css)
+  end
+
+  def test_malformed_or_oversized_route_conditions_are_unknown_before_formatting
+    entry = { 'key' => 'host', 'type' => 'string', 'value' => 'test', 'encoding' => 'UTF-8' }
+    hostile_string = Class.new(String) do
+      def instance_of?(_) = true
+      def bytesize = raise('subclass bytes read')
+      def to_s = raise('subclass formatted')
+      def to_json(*) = raise('subclass serialized')
+    end.new('unsafe')
+    invalid_entries = [
+      entry.merge('value' => nil), entry.merge('value' => []),
+      entry.merge('value' => '<' * 8_193), entry.merge('value' => hostile_string),
+      entry.merge('encoding' => nil), entry.merge('encoding' => 'not-an-encoding'),
+      entry.merge('type' => 'unsupported'), entry.merge('key' => nil),
+      entry.merge('extra' => { 'nested' => Object.new }),
+      *[-1, 1.5, '1', 2**64].map { |options| entry.merge('type' => 'regexp', 'regexp_encoding' => 'UTF-8', 'options' => options) }
+    ]
+    families = invalid_entries.map { |invalid| [invalid] } + [Array.new(33) { entry }]
+    families.each do |family|
+      conditions = { 'status' => 'observed', 'request' => family, 'segments' => [], 'opaque' => 'none observed' }
+      fact = Reader.new.fact(FACT_ID).merge('kind' => 'route', 'attributes' => { 'route_constraints' => conditions })
+      app = make_app(Reader.new(facts: [fact]))
+      [['/', 'q=Demo'], ['/source', "id=#{FACT_ID}"]].each do |path, query|
+        status, _, body = request(app, path, query: query)
+        assert_equal 200, status
+        assert_includes body, 'Unknown; conditions are invalid or exceed the display budget'
+        refute_includes body, 'No conditions observed'
+        assert_operator body.bytesize, :<, 10_000
+      end
+    end
+  end
+
+  def test_map_enforces_the_complete_encoded_constraint_family_boundary
+    entry = { 'key' => 'host', 'type' => 'string', 'value' => '', 'encoding' => 'UTF-8' }
+    overhead = JSON.generate([entry]).bytesize
+    entry['value'] = 'x' * (8_192 - overhead)
+    conditions = { 'status' => 'observed', 'request' => [entry], 'segments' => [], 'opaque' => 'none observed' }
+    fact = Reader.new.fact(FACT_ID).merge('kind' => 'route', 'attributes' => { 'route_constraints' => conditions })
+    app = make_app(Reader.new(facts: [fact]))
+    assert_equal 8_192, JSON.generate(conditions['request']).bytesize
+    status, _, accepted = request(app, '/', query: 'q=Demo')
+    assert_equal 200, status
+    assert_includes accepted, 'string &quot;xxxxx'
+    refute_includes accepted, 'conditions are invalid'
+    entry['value'] += 'x'
+    status, _, refused = request(app, '/', query: 'q=Demo')
+    assert_equal 200, status
+    assert_includes refused, 'Unknown; conditions are invalid or exceed the display budget'
+    refute_includes refused, 'string &quot;xxxxx'
   end
 
   def test_default_gate_rejects_remote_peers_rebinding_and_forwarded_headers
@@ -175,6 +256,7 @@ class MapAppTest < Minitest::Test
     status, _, body = request(make_app(reader), '/source', query: "id=#{FACT_ID}")
     assert_equal 200, status
     assert_includes body, 'No file or line was captured'
+    assert_includes body, 'Unknown; conditions were not captured'
     assert_includes body, '/links?'
     assert_includes body, "generation=#{GENERATION}"
   end

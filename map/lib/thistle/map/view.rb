@@ -15,6 +15,20 @@ module Thistle
       PAGE_SIZE = 50
       MAX_SOURCE_BYTES = 262_144
       MAX_SOURCE_LINES = 10_000
+      MAX_CONSTRAINT_ENTRIES = 32
+      MAX_CONSTRAINT_FAMILY_BYTES = 8_192
+      CONSTRAINT_FIELDS = {
+        'string' => %w[key type value encoding].freeze,
+        'regexp' => %w[key type value encoding regexp_encoding options].freeze,
+        'opaque' => %w[key type].freeze
+      }.freeze
+      REGEXP_FLAGS = {
+        Regexp::IGNORECASE => 'ignore letter case',
+        Regexp::EXTENDED => 'ignore pattern spacing and comments',
+        Regexp::MULTILINE => 'dot includes newlines',
+        Regexp::FIXEDENCODING => 'fixed encoding',
+        Regexp::NOENCODING => 'binary matching'
+      }.freeze
 
       def initialize(reader:, mount:, params:)
         @reader = reader
@@ -33,11 +47,15 @@ module Thistle
           body += '<p class="notice ui">No matches in this capture. Check its coverage before concluding the code is absent.</p>'
         else
           body += "<p class=\"ui\">Showing up to #{PAGE_SIZE} matches. Narrow the search if the result you need is missing.</p>"
+          show_conditions = matches.any? { |fact| fact['kind'] == 'route' }
           rows = matches.map do |fact|
+            conditions = show_conditions ? "<td class=\"route-conditions\">#{h(constraint_summary(fact))}</td>" : ''
             "<tr><td><a data-result-link href=\"#{h(url('/source', 'id' => fact.fetch('id')))}\">#{h(fact.fetch('name'))}</a></td>" \
-              "<td>#{h(fact.fetch('kind'))}</td><td>#{h(fact.fetch('evidence'))}</td><td>#{h(fact['path'] || 'Source unavailable')}</td></tr>"
+              "<td>#{h(fact.fetch('kind'))}</td><td>#{h(fact.fetch('evidence'))}</td><td>#{h(fact['path'] || 'Source unavailable')}</td>#{conditions}</tr>"
           end.join
-          body += table('Search results', %w[Name Kind Evidence File], rows)
+          headings = %w[Name Kind Evidence File]
+          headings << 'Route conditions' if show_conditions
+          body += table('Search results', headings, rows)
         end
         layout('Find', body)
       end
@@ -164,10 +182,103 @@ module Thistle
           ['Identity', [['Kind', fact['kind']], ['Evidence', fact['evidence']]]],
           ['Source', [['File', fact['path'] || 'Unavailable'], ['Line', fact.dig('location', 'start_line') || 'Unavailable']]]
         ]
+        if fact['kind'] == 'route'
+          tiles << ['Route conditions', [['Observed conditions', constraint_summary(fact)],
+            ['Meaning', 'Route presence does not prove a request will match.']]]
+        end
         '<div class="facts">' + tiles.map do |eyebrow, rows|
-          "<div><span class=\"eyebrow\">#{h(eyebrow)}</span><dl>" +
+          klass = eyebrow == 'Route conditions' ? ' class="route-conditions"' : ''
+          "<div#{klass}><span class=\"eyebrow\">#{h(eyebrow)}</span><dl>" +
             rows.map { |label, value| "<dt>#{h(label)}</dt><dd>#{h(value)}</dd>" }.join + '</dl></div>'
         end.join + '</div>'
+      end
+
+      def constraint_summary(fact)
+        return 'Not applicable' unless fact['kind'] == 'route'
+        data = fact.dig('attributes', 'route_constraints')
+        return 'Unknown; conditions were not captured' if data.nil?
+        return 'Unknown; conditions are invalid or exceed the display budget' unless constraint_metadata_valid?(data)
+
+        parts = []
+        [['request', 'Request'], ['segments', 'Path segment']].each do |key, label|
+          entries = data[key]
+          entries.each do |entry|
+            value = case entry['type']
+            when 'string' then "string #{quoted_constraint(entry['value'])} (encoding #{entry['encoding']})"
+            when 'regexp' then "pattern #{quoted_constraint(entry['value'])} (#{regexp_flags(entry['options'])}; options #{entry['options']}, source encoding #{entry['encoding']}, pattern encoding #{entry['regexp_encoding']})"
+            else 'opaque value'
+            end
+            parts << "#{label}: #{entry['key']} = #{value}"
+          end
+        end
+        parts << 'Other constraint present; details unavailable' if data['opaque'] == 'present'
+        parts << 'Other constraints unknown' unless ['present', 'none observed'].include?(data['opaque'])
+        parts << 'Some conditions unknown' unless data['status'] == 'observed'
+        parts.empty? ? 'No conditions observed' : parts.join('; ')
+      end
+
+      def plain?(value, klass)
+        Object.instance_method(:instance_of?).bind_call(value, klass)
+      end
+
+      def constraint_string_valid?(value)
+        plain?(value, String) && value.bytesize <= MAX_CONSTRAINT_FAMILY_BYTES &&
+          value.valid_encoding? && [Encoding::UTF_8, Encoding::US_ASCII].include?(value.encoding)
+      end
+
+      def constraint_encoding_valid?(value)
+        constraint_string_valid?(value) && Encoding.find(value).name == value
+      rescue ArgumentError
+        false
+      end
+
+      def constraint_metadata_valid?(data)
+        return false unless plain?(data, Hash) && data.size == 4
+        return false unless data.keys.all? { |key| plain?(key, String) && %w[status request segments opaque].include?(key) }
+        return false unless plain?(data['status'], String) && %w[observed unknown].include?(data['status'])
+        return false unless plain?(data['opaque'], String) && ['present', 'none observed', 'unknown'].include?(data['opaque'])
+
+        constraint_entries_valid?(data['request']) && constraint_entries_valid?(data['segments'])
+      end
+
+      def constraint_entries_valid?(entries)
+        return false unless plain?(entries, Array) && entries.length <= MAX_CONSTRAINT_ENTRIES
+
+        bytes = 2
+        entries.each_with_index do |entry, index|
+          return false unless plain?(entry, Hash) && entry.size <= 6 && constraint_string_valid?(entry['type'])
+          fields = CONSTRAINT_FIELDS[entry['type']]
+          return false unless fields && entry.size == fields.length && entry.keys.all? { |key| plain?(key, String) && fields.include?(key) }
+          return false unless constraint_string_valid?(entry['key'])
+          unless entry['type'] == 'opaque'
+            return false unless constraint_string_valid?(entry['value']) && constraint_encoding_valid?(entry['encoding'])
+          end
+          if entry['type'] == 'regexp'
+            return false unless constraint_encoding_valid?(entry['regexp_encoding'])
+            options = entry['options']
+            return false unless plain?(options, Integer) && options.between?(0, 0xffff_ffff)
+          end
+          bytes += JSON.generate(entry).bytesize + (index.zero? ? 0 : 1)
+          return false if bytes > MAX_CONSTRAINT_FAMILY_BYTES
+        end
+        true
+      rescue EncodingError, JSON::GeneratorError
+        false
+      end
+
+      def quoted_constraint(value)
+        return 'unknown value' unless value.is_a?(String)
+
+        # JSON escapes C0 controls; make DEL, C1 and line separators visible too.
+        JSON.generate(value).gsub(/[\u007f-\u009f\u2028\u2029]/) { |character| format('\\u%04x', character.ord) }
+      end
+
+      def regexp_flags(options)
+        return 'unknown flags' unless options.is_a?(Integer) && options >= 0
+
+        flags = REGEXP_FLAGS.filter_map { |bit, label| label unless (options & bit).zero? }
+        flags << 'unknown option bits' unless (options & ~REGEXP_FLAGS.keys.reduce(0, :|)).zero?
+        flags.empty? ? 'no flags' : flags.join(', ')
       end
 
       def table(label, headings, rows)
