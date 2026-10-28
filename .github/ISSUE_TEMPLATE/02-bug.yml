@@ -1,0 +1,46 @@
+name: Bug report
+description: Report a reproducible behavior, boundary, or packaging failure.
+labels: [bug]
+projects: [lost-in-the/2]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Include a minimal safe reproduction and the exact affected version or artifact.
+        Keep credentials and private application data out of this issue. For disclosure-sensitive findings,
+        use a sanitized summary and ask the maintainer for an appropriate restricted evidence channel.
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed and expected behavior
+      description: What happened, and what should have happened under the stated contract?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Minimal inputs, commands, and safe logs. Distinguish a reproducible result from a suspicion.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Candidate and environment
+      description: Source/package/native identity where known; Ruby/Rails, Rust, OS/ABI, installation route, and relevant configuration.
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact and regression check
+      description: Affected customer outcome or boundary, known workaround, and the check that should detect a fix.
+    validations:
+      required: true
+  - type: textarea
+    id: related
+    attributes:
+      label: Related work
+      description: Existing issues, capability IDs, reports, or active branches/PRs.
+    validations:
+      required: false

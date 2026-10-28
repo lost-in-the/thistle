@@ -1,0 +1,43 @@
+{
+  "verified_on": "2026-10-28",
+  "verification": "Stable release tags resolved to authoritative full commit SHAs; action.yml at each exact SHA verified to declare node24. Reviewed used inputs, outputs and artifact digest failure behavior.",
+  "scope": "All workflows in this branch, including the historical hardened-baseline workflow. Historical run/artifact identities are not rewritten.",
+  "minimum_runner": "2.327.1",
+  "runner_requirement_source": "https://github.com/actions/upload-artifact/releases/tag/v6.0.0",
+  "checkout_container_git_minimum_runner": "2.329.0",
+  "checkout_container_git_requirement_source": "https://github.com/actions/checkout/blob/3d3c42e5aac5ba805825da76410c181273ba90b1/README.md",
+  "actions": {
+    "actions/checkout": {
+      "version": "v7.0.1",
+      "sha": "3d3c42e5aac5ba805825da76410c181273ba90b1",
+      "runtime": "node24",
+      "source": "https://github.com/actions/checkout/commit/3d3c42e5aac5ba805825da76410c181273ba90b1",
+      "release": "https://github.com/actions/checkout/releases/tag/v7.0.1",
+      "metadata": "https://github.com/actions/checkout/blob/3d3c42e5aac5ba805825da76410c181273ba90b1/action.yml"
+    },
+    "ruby/setup-ruby": {
+      "version": "v1.335.0",
+      "sha": "7f797815d8adceb1c412e7abefdd1ab4abc47a5f",
+      "runtime": "node24",
+      "source": "https://github.com/ruby/setup-ruby/commit/7f797815d8adceb1c412e7abefdd1ab4abc47a5f",
+      "release": "https://github.com/ruby/setup-ruby/releases/tag/v1.335.0",
+      "metadata": "https://github.com/ruby/setup-ruby/blob/7f797815d8adceb1c412e7abefdd1ab4abc47a5f/action.yml"
+    },
+    "actions/upload-artifact": {
+      "version": "v7.0.2",
+      "sha": "cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+      "runtime": "node24",
+      "source": "https://github.com/actions/upload-artifact/commit/cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+      "release": "https://github.com/actions/upload-artifact/releases/tag/v7.0.2",
+      "metadata": "https://github.com/actions/upload-artifact/blob/cf430e030ddbb5b0abf93d22962f4752f3646cd9/action.yml"
+    },
+    "actions/download-artifact": {
+      "version": "v8.0.2",
+      "sha": "9000827ccba6bdab643e8b6fd33ac0654aef8333",
+      "runtime": "node24",
+      "source": "https://github.com/actions/download-artifact/commit/9000827ccba6bdab643e8b6fd33ac0654aef8333",
+      "release": "https://github.com/actions/download-artifact/releases/tag/v8.0.2",
+      "metadata": "https://github.com/actions/download-artifact/blob/9000827ccba6bdab643e8b6fd33ac0654aef8333/action.yml"
+    }
+  }
+}

@@ -1,4 +1,6 @@
-name: Hardened baseline evidence (development)
+# Historical reproducibility lane, not Thistle's current supported Ruby/Rails policy.
+# Existing accepted artifacts and recorded evaluator identities remain unchanged.
+name: Hardened baseline evidence (historical)
 on:
   push:
     branches: [codex/restore-hardened-baseline]
@@ -14,10 +16,17 @@ jobs:
       LIBCLANG_PATH: /usr/lib/llvm-18/lib
       CARGO_NET_OFFLINE: 'true'
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
           persist-credentials: false
+      - name: Refuse a current-policy checkout in this historical lane
+        run: |
+          if [[ -f .github/ci-policy.json ]]; then
+            echo 'This lane only replays historical baseline source; current Ruby/Rails policy is incompatible with its frozen tuple.'
+            echo 'Use Thistle CI or Release candidate for current source. Recorded baseline artifacts remain unchanged.'
+            exit 1
+          fi
       - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f
         with:
           ruby-version: '3.3.13'
@@ -67,7 +76,7 @@ jobs:
           if test -d pkg/hardened-baseline; then cp pkg/hardened-baseline/*.gem "$RUNNER_TEMP/thistle-results/packages/"; fi
           find "$RUNNER_TEMP/thistle-results/installed-baseline/gems" -path '*/lib/thistle/thistle_native.so' -exec cp '{}' "$RUNNER_TEMP/thistle-results/native/" \; 2>/dev/null || true
           git status --porcelain > "$RUNNER_TEMP/thistle-results/build-worktree-status.txt"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
           name: hardened-baseline-${{ github.run_id }}-${{ github.run_attempt }}
@@ -85,3 +94,4 @@ jobs:
 # This workflow executes a frozen evaluator, but candidate control of this
 # workflow and shared runner authority mean this is NOT a protected external
 # qualification service. There are no release credentials or privileged forks.
+

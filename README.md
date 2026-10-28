@@ -13,10 +13,18 @@ buffers. There is no Ruby engine fallback.
 
 ## Build the private source gem
 
-The current tested build route is Linux with Ruby 3.3, Rust 1.90.0, a C compiler,
-Ruby development headers and libclang. Cargo dependencies are vendored and locked
-for offline source-gem builds. Public platform support and precompiled gems are
-launch work, not established by the gem's Ruby >=3.0 metadata.
+Development targets Linux with Ruby 3.4 or 4.0 and Rails 8.1 integration. The
+primary and minimum CI pairs, including exact patches, live in
+[`.github/ci-policy.json`](.github/ci-policy.json); the Gemfile reads that same
+Rails default. Both gems require Ruby 3.4 or later. Use Rust 1.90.0, a C compiler,
+Ruby development headers and libclang 18. Cargo dependencies are vendored and
+locked for offline source-gem builds. Public platform qualification and
+precompiled gems remain launch work; passing these development cohorts does not
+qualify other Ruby/Rails combinations or platforms.
+
+The [CI policy decisions](docs/development/decisions.md) explain the selected
+cohorts, their maintenance policy, and the separate historical experiment profile.
+For release notes, use [one fragment per change](docs/development/changelog.md).
 
 ```sh
 bundle install
@@ -119,3 +127,4 @@ This milestone is intended to make the architecture executable and reviewable.
 Full customer-outcome parity, full reused Map integration, semantic retrieval,
 incremental/watch behavior, platform distribution, user studies and comparative
 launch qualification remain explicit gates in the reviewed plan.
+
