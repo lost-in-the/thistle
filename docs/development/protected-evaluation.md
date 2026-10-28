@@ -150,11 +150,12 @@ rejects conflicts or identity mismatches, and allocates an immutable attempt ID.
 Public Free repository rules can enforce policy review after authorization. For
 the private evaluator fallback on Free, “protected” instead means an exclusive
 custodian write/access boundary, **not** an available private-repository branch
-rule. The advisory reviewer supplies a recorded disposition; Leah supplies final policy
-approval and the human custodian promotes the reviewed SHA. GitHub does not technically enforce that two-person
-review on this proposed private Free setup. If the owner requires enforced policy
-reviews, choose public evaluator visibility with repository rules, or an eligible
-paid plan, before activation. Neither alternative is approved. Record and prove
+rule. CodeRabbit supplies recorded advisory review; Leah supplies final policy
+approval and the human custodian promotes the reviewed SHA. The private Free
+fallback does not technically enforce policy review.
+The owner selected the public Free route, where repository rules can enforce the
+approved review policy; its setup remains unauthorized. An eligible paid plan
+would require a separate decision. Record and prove
 all effective writers; candidate-authoring credentials must reach none of them.
 Only reviewed controller code is dispatched. No candidate workflow
 completion event or artifact name alone authorizes a result.
@@ -164,7 +165,7 @@ final publication:
 
 1. A trusted admission job uses the publisher's existing narrowly scoped App
    authority, without checking out or executing candidate code. Before admitting
-   any required attempt, including a retry or policy change on the same head/base,
+   any required attempt, including a retry or policy change for the same request,
    it establishes and reads back a blocking state for the canonical trusted check.
    It must verify that no earlier success or duplicate check still makes that
    request eligible. Revoke this short-lived token before worker dispatch. Failure
@@ -173,9 +174,12 @@ final publication:
    If an earlier result must be withdrawn but cannot be invalidated, the custodian
    must freeze that qualification/promotion decision through the approved recovery
    control before proceeding; ordinary main PRs retain their separate CI gate.
-2. A trusted preparation job resolves approved tool/dependency/image digests,
-   source and tested-merge identity using bounded downloads. It emits an immutable
-   input manifest. No candidate build, gemspec or install hook runs in this job.
+2. A trusted preparation job resolves approved tool/dependency/image digests and
+   the selected repository/source SHA/tree using bounded downloads. For a
+   PR-scoped request it also resolves the PR/head/base/tested-merge identities;
+   these are not required for an exact-package request without a PR. It emits an
+   immutable input manifest. No candidate build, gemspec or install hook runs in
+   this job.
 3. A fresh execution VM launches the unprivileged candidate runtime. For an
    already selected candidate, retrieve and verify the exact Core/Map bytes; do not
    rebuild them for qualification. A separately requested new candidate may be
@@ -189,9 +193,13 @@ final publication:
    `pass` text and self-reported hashes are evidence inputs, never the verdict.
 5. A different fresh publisher VM reads only the controller-owned result envelope
    from the exact approved run/workflow/attempt. It verifies the artifact ID and
-   digest, schema and complete required cohort set, then re-reads current head,
-   base and merge identity. It never checks out or executes candidate code,
-   loads a candidate plugin, evaluates a template or sources a report as shell.
+   digest, schema and complete required cohort set, then revalidates the selected
+   repository/source/tree, package, policy and request/attempt identities. Only
+   for a PR-scoped request does it also re-read current head/base/merge and enforce
+   that request's approved PR-freshness policy. An exact-package request without
+   a PR is not bound to a moving branch tip. It never checks out or executes
+   candidate code, loads a candidate plugin, evaluates a template or sources a
+   report as shell.
    Only after these validations may it obtain a separate narrowly scoped App token
    for final success publication. The earlier admission token is not reused.
    Interrupted or failed final publication leaves the verified admission state
@@ -233,7 +241,7 @@ The trusted manifest must bind at least:
 
 | Identity | Required retained evidence |
 | --- | --- |
-| Source | Repository ID, PR, full head SHA, base ref/SHA, tested merge SHA/tree and parent identities; controller workflow SHA and request ID |
+| Source | Always: repository ID, selected full source SHA/tree and parent identities, controller workflow SHA and request ID/scope. For PR-scoped requests only: PR number, full head SHA, base ref/SHA and tested merge SHA/tree/parents. Record PR scope as not applicable when absent; never invent a PR tuple. |
 | Packages | Actual ZIP/archive bytes if used, actual Core/Map gems and digest inventory; bounded extraction with path/symlink/type/size checks |
 | Installed execution | Per-cohort complete installed files, actual built extension and loaded dependency binaries, runtime libraries; trusted observed loads and immutable file/object identities linked to retained bytes |
 | Environment | Resolved dependency lock and actual dependency gems; Ruby/Rails, OS image digest, kernel, compiler/linker/libclang, Cargo/Rust and flags; actual tool bytes or recoverable content-addressed artifacts |
@@ -470,11 +478,12 @@ merges, stop and record failed enforcement instead of continuing the campaign.
 | B | Canary credential reads, network/DNS/metadata access, runtime socket, evaluator writes, namespace/capability escape | All forbidden access fails; use nonsecret canaries, never expose a real owner/policy/publisher key to test isolation. |
 | B | CPU/memory/PID/disk/output/deadline exhaustion; detached descendants; cancellation during install/collection | Enforced bounds, complete descendant cleanup, failed verdict and clean next VM. Retain measured peaks and cleanup observations. |
 | B | Short-lived/native replacement loads, memfd/anonymous execution, FD passing, children, trace loss and assertion spoofing | Observer/enforcement rejects or attributes every required case to actual retained bytes. Unknown coverage blocks readiness. |
-| B | Complete real package positive control on both cohorts | Independently verified exact installed tuple and every required result make PR eligible, without merge or publication. |
+| B | Complete real package positive control on both cohorts | Independently verified exact installed tuple and every required result satisfy the selected qualification decision, without promotion or publication. PR eligibility is relevant only for a PR-scoped proof request. |
 
 Retain actual rule and App/installation/source-workflow JSON, permissions readback,
-workflow revision, check runs/statuses, exact head/base/merge refs, request/result
-bytes and digests, refusal bodies, resource observations and every earlier attempt.
+workflow revision, check runs/statuses, exact source/tree and applicable
+PR/head/base/merge identities, request/result bytes and digests, refusal bodies,
+resource observations and every earlier attempt.
 Redact authentication headers and secrets; preserve nonsecret response evidence.
 Store a reviewer-signed disposition referencing the exact evidence index. Source
 files declaring a rule are not proof that GitHub enforced it. Issue/project status

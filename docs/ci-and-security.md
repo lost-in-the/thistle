@@ -89,7 +89,7 @@ protection is a separate bounded owner decision.
 The authoritative controller and policy belong outside the candidate's writable checkout. The proposed `thistle-eval` workspace provides an executable starting point, but sibling directories are not a security boundary. In protected infrastructure, the controller:
 
 1. Selects a reviewed evaluator revision and required lane set independently of candidate paths/workflow contents.
-2. Binds the exact candidate head/tested merge and dependency/package bytes. Build/install workers run with no production, evaluator or release credentials.
+2. Binds the selected repository/source SHA/tree, dependency/package bytes, policy and request/attempt identities. PR-scoped requests additionally bind head/base/tested merge; exact-package requests without a PR do not depend on a moving branch tip. Build/install workers run with no production, evaluator or release credentials.
 3. Runs disposable least-privilege workers with bounded CPU, memory, processes, disk and egress. Worker identities cannot write policy, expected facts, controller verdicts or other candidates' caches.
 4. Accepts only bounded outputs, then validates evidence against independent expected facts. Candidate-generated “pass” text is data.
 5. Publishes a verdict bound to candidate, package, evaluator, fixture and environment identities. Missing/cancelled/timed-out lanes fail qualification. Re-runs retain previous failure evidence.
