@@ -95,6 +95,11 @@ pub fn publish(path: &Path, capture: &Value) -> Result<Value> {
     Ok(manifest)
 }
 
+struct SearchRecord {
+    name: String,
+    text: String,
+}
+
 pub struct Reader {
     pub manifest: Value,
     pub generation: String,
@@ -103,6 +108,7 @@ pub struct Reader {
     by_id: HashMap<String, usize>,
     by_path: HashMap<String, Value>,
     by_file: HashMap<String, Vec<usize>>,
+    search: Vec<SearchRecord>,
     blobs: Dir,
 }
 
@@ -149,7 +155,23 @@ impl Reader {
             if let Some(path) = fact["path"].as_str() { by_file.entry(path.to_string()).or_default().push(index); }
         }
         let blobs = root.child("blobs", false)?;
-        Ok(Self { manifest, generation, facts, weight: facts_bytes.len() + manifest_bytes.len(), by_id, by_path, by_file, blobs })
+        let mut search = Vec::with_capacity(facts.len());
+        let mut weight = facts_bytes.len() + manifest_bytes.len();
+        for fact in &facts {
+            let name = fact["name"].as_str().unwrap().to_lowercase();
+            let text = format!("{} {} {}", name, fact["kind"].as_str().unwrap(), fact["path"].as_str().unwrap_or("").to_lowercase());
+            weight = weight.checked_add(name.capacity()).and_then(|n| n.checked_add(text.capacity()))
+                .ok_or_else(|| CoreError::limit("Search cache accounting overflow"))?;
+            search.push(SearchRecord { name, text });
+        }
+        // Charge retained allocation capacities, including vector storage and its
+        // header, in addition to the existing encoded-data admission estimate.
+        // This remains an estimate, not a physical process-memory limit.
+        let slots = search.capacity().checked_mul(std::mem::size_of::<SearchRecord>())
+            .and_then(|n| n.checked_add(std::mem::size_of::<Vec<SearchRecord>>()))
+            .ok_or_else(|| CoreError::limit("Search cache accounting overflow"))?;
+        weight = weight.checked_add(slots).ok_or_else(|| CoreError::limit("Search cache accounting overflow"))?;
+        Ok(Self { manifest, generation, facts, weight, by_id, by_path, by_file, search, blobs })
     }
 
     pub fn fact(&self, id: &str) -> Result<&Value> {
@@ -163,12 +185,10 @@ impl Reader {
         let normalized = query.trim().to_lowercase();
         let words: Vec<&str> = normalized.split_whitespace().collect();
         if words.len() > 16 { return Err(CoreError::input("Find supports at most 16 terms")); }
-        let mut matches: Vec<(usize, &Value)> = self.facts.iter().filter_map(|fact| {
-            let name = fact["name"].as_str().unwrap().to_lowercase();
-            let haystack = format!("{} {} {}", name, fact["kind"].as_str().unwrap(), fact["path"].as_str().unwrap_or("").to_lowercase());
+        let mut matches: Vec<(usize, &Value)> = self.facts.iter().zip(&self.search).filter_map(|(fact, record)| {
             let id_match = fact["id"].as_str() == Some(query);
-            if id_match || words.iter().all(|word| haystack.contains(word)) {
-                let rank = if id_match || name == normalized { 0 } else if name.starts_with(&normalized) { 1 } else { 2 };
+            if id_match || words.iter().all(|word| record.text.contains(word)) {
+                let rank = if id_match || record.name == normalized { 0 } else if record.name.starts_with(&normalized) { 1 } else { 2 };
                 Some((rank, fact))
             } else { None }
         }).collect();
@@ -282,5 +302,52 @@ mod tests {
         assert_eq!(error.code, "commit_uncertain");
         assert!(error.message.contains("was selected"));
         assert!(error.message.contains(&"a".repeat(64)));
+    }
+
+    #[test]
+    fn search_preserves_unicode_original_id_kind_and_ranking_semantics() {
+        let temp = tempfile::tempdir().unwrap();
+        let mut data = fixture("unused");
+        data["files"][0]["path"] = json!("ÄPP.rb");
+        data["facts"] = json!([
+            {"id":"b".repeat(64),"kind":"Class","name":"İTEM","path":"ÄPP.rb","location":null,"evidence":"static","attributes":{},"links":[]},
+            {"id":"c".repeat(64),"kind":"class","name":"Itemized","path":"ÄPP.rb","location":null,"evidence":"static","attributes":{},"links":[]},
+            {"id":"d".repeat(64),"kind":"class","name":"Item","path":null,"location":null,"evidence":"runtime","attributes":{},"links":[]},
+            {"id":"e".repeat(64),"kind":"class","name":"item","path":"ÄPP.rb","location":null,"evidence":"static","attributes":{},"links":[]},
+            {"id":"f".repeat(64),"kind":"class","name":"AnItem","path":null,"location":null,"evidence":"runtime","attributes":{},"links":[]}
+        ]);
+        publish(temp.path(), &data).unwrap();
+        let reader = Reader::open(temp.path(), None).unwrap();
+        let found = reader.find(" item ", 3).unwrap();
+        assert_eq!(found["query"], " item ");
+        assert_eq!(found["total_matches"], 4);
+        assert_eq!(found["truncated"], true);
+        assert_eq!(found["results"].as_array().unwrap().iter().map(|f| f["name"].as_str().unwrap()).collect::<Vec<_>>(), ["Item", "item", "Itemized"]);
+        assert_eq!(reader.find("İTEM", 10).unwrap()["results"][0]["name"], "İTEM");
+        assert_eq!(reader.find("CLASS äpp", 10).unwrap()["total_matches"], 2);
+        assert_eq!(reader.find("äPP", 10).unwrap()["total_matches"], 3);
+        assert_eq!(reader.find(&"b".repeat(64), 10).unwrap()["total_matches"], 1);
+        assert_eq!(reader.find(&format!(" {} ", "b".repeat(64)), 10).unwrap()["total_matches"], 0);
+        assert_eq!(reader.find(&"B".repeat(64), 10).unwrap()["total_matches"], 0);
+        for query in ["".to_string(), "  \n".to_string(), "a".repeat(257), vec!["a"; 17].join(" ")] {
+            assert_eq!(reader.find(&query, 10).unwrap_err().code, "invalid_input");
+        }
+        assert!(reader.find("item", 0).is_err());
+        assert!(reader.find("item", 501).is_err());
+    }
+
+    #[test]
+    fn search_cache_retained_capacities_are_charged_to_reader_admission() {
+        let temp = tempfile::tempdir().unwrap();
+        publish(temp.path(), &fixture("İTEM")).unwrap();
+        let reader = Reader::open(temp.path(), None).unwrap();
+        let directory = temp.path().join("generations").join(&reader.generation);
+        let encoded = std::fs::metadata(directory.join("facts.json")).unwrap().len() as usize
+            + std::fs::metadata(directory.join("manifest.json")).unwrap().len() as usize;
+        let cache = std::mem::size_of::<Vec<SearchRecord>>()
+            + reader.search.capacity() * std::mem::size_of::<SearchRecord>()
+            + reader.search.iter().map(|r| r.name.capacity() + r.text.capacity()).sum::<usize>();
+        assert!(cache > 0);
+        assert_eq!(reader.weight, encoded + cache);
     }
 }

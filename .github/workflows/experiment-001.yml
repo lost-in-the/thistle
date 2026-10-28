@@ -1,0 +1,111 @@
+name: Frozen experiment 001 (development)
+on:
+  push:
+    branches: [codex/experiment-001]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  experiment:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      THISTLE_RAILS_VERSION: '= 7.2.4'
+      LIBCLANG_PATH: /usr/lib/llvm-18/lib
+      CARGO_NET_OFFLINE: 'true'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f
+        with:
+          ruby-version: '3.3.13'
+          bundler-cache: false
+      - name: Prepare source-build tools and frozen evaluator
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/thistle-results"
+          sudo apt-get update -qq
+          sudo apt-get install -y libclang-18-dev
+          rustup toolchain install 1.90.0 --profile minimal
+          echo "$(dirname "$(rustup which --toolchain 1.90.0 rustc)")" >> "$GITHUB_PATH"
+          git show 317671367949111861a63d0c3635dec94533fc8e:thistle-eval.git.bundle > "$RUNNER_TEMP/evaluator.bundle"
+          printf '%s  %s\n' 7d24cf43a1ca1c57456d2a009e70bec8cfea10895aff5f981c92ab448e6acb2d "$RUNNER_TEMP/evaluator.bundle" | sha256sum -c -
+          git clone "$RUNNER_TEMP/evaluator.bundle" "$RUNNER_TEMP/thistle-eval"
+          test "$(git -C "$RUNNER_TEMP/thistle-eval" rev-parse HEAD)" = b81f5adc2c647083b6ce8688234012c6d2da0ee4
+          python3 -m unittest discover -s "$RUNNER_TEMP/thistle-eval" -p 'test_*.py' -v 2>&1 | tee "$RUNNER_TEMP/thistle-results/evaluator-unit.log"
+      - name: Resolve explicit development and installed-worker dependencies
+        run: |
+          set -euo pipefail
+          bundle config set path "$RUNNER_TEMP/development-gems"
+          bundle install --jobs 4
+          bundle cache
+          cp Gemfile.lock "$RUNNER_TEMP/thistle-results/Gemfile.lock"
+      - name: Test current native and Ruby source
+        run: |
+          set -euo pipefail
+          cargo test --locked --offline --manifest-path engine/Cargo.toml 2>&1 | tee "$RUNNER_TEMP/thistle-results/native-tests.log"
+          bundle exec rake test 2>&1 | tee "$RUNNER_TEMP/thistle-results/ruby-tests.log"
+          bundle exec ruby -Ilib -Imap/lib -Imap/test -e 'Dir.glob("map/test/*_test.rb").sort.each { |path| require_relative path }' 2>&1 | tee "$RUNNER_TEMP/thistle-results/map-tests.log"
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: hardened-baseline-40700690778-1
+          run-id: '40700690778'
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/accepted-baseline
+      - name: Build bounded search candidate
+        run: |
+          set -euo pipefail
+          mkdir -p pkg/hardened-baseline
+          gem build thistle.gemspec --output pkg/hardened-baseline/thistle.gem
+          git worktree add --detach "$RUNNER_TEMP/baseline-source" 39f49d500ad941b01f9a839978f0fca599d812c6
+      - name: Requalify both installed artifacts then run frozen comparison once
+        run: |
+          set -euo pipefail
+          python3 tools/run_experiment.py --baseline-source "$RUNNER_TEMP/baseline-source" --candidate-source "$GITHUB_WORKSPACE" --accepted "$RUNNER_TEMP/accepted-baseline" --evaluator "$RUNNER_TEMP/thistle-eval" --output "$RUNNER_TEMP/experiment" --ruby "$(command -v ruby)" --toolchain "$(dirname "$(rustup which --toolchain 1.90.0 rustc)")" --libclang "$LIBCLANG_PATH" --dependencies "$GITHUB_WORKSPACE/vendor/cache" 2>&1 | tee "$RUNNER_TEMP/thistle-results/experiment.log"
+      - name: Retain exact package and native identities, including failed attempts
+        if: always()
+        run: |
+          for arm in baseline candidate; do
+            mkdir -p "$RUNNER_TEMP/experiment/$arm/native"
+            find "$RUNNER_TEMP/experiment/$arm/installed-baseline/gems" -path '*/lib/thistle/thistle_native.so' -exec cp '{}' "$RUNNER_TEMP/experiment/$arm/native/" \; 2>/dev/null || true
+          done
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: experiment-001-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/experiment/*.json
+            ${{ runner.temp }}/experiment/*.log
+            ${{ runner.temp }}/thistle-results/
+          if-no-files-found: error
+          retention-days: 30
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: experiment-001-baseline-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/experiment/baseline/*.json
+            ${{ runner.temp }}/experiment/baseline/*.stderr
+            ${{ runner.temp }}/experiment/baseline/packages/
+            ${{ runner.temp }}/experiment/baseline/native/
+          if-no-files-found: warn
+          retention-days: 30
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: experiment-001-candidate-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/experiment/candidate/*.json
+            ${{ runner.temp }}/experiment/candidate/*.stderr
+            ${{ runner.temp }}/experiment/candidate/packages/
+            ${{ runner.temp }}/experiment/candidate/native/
+          if-no-files-found: warn
+          retention-days: 30
+
+# Candidate-owned orchestration is development evidence, not an independent
+# protected check. Both arms use the frozen evaluator history and policy.
+# A valid run can reject the optimization; consult the recorded decision.
