@@ -29,6 +29,8 @@ const _: () = assert!(ruby_prism_sys::PM_OPTIONS_VERSION_LATEST == ruby_prism_sy
 const RUBY_SYNTAX_VERSION: &str = "4.1";
 const PARSER_POLICY: &str = "prism-default-guarded";
 const PARSER_STACK_BYTES: usize = 64 * 1024 * 1024;
+// Provisional operational traversal ceiling, not a parser or process-memory bound.
+const MAX_NODES_CEILING: usize = 5_000_000;
 static CAPTURE_ACTIVE: AtomicBool = AtomicBool::new(false);
 const DEFAULT_LIMITS: &[(&str, usize)] = &[
     ("max_files", 10_000),
@@ -73,12 +75,12 @@ impl Drop for CapturePermit {
 }
 
 pub fn capture(root: &Path, limits: &Value) -> Result<Value> {
+    let effective = effective_limits(limits)?;
     if CAPTURE_ACTIVE.compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire).is_err() {
         return Err(CoreError::new("busy", "A native capture is already active; retry after it completes"));
     }
     let _permit = CapturePermit;
     let root = root.to_path_buf();
-    let limits = limits.clone();
     // Prism's C parser and AST destructor recurse. Ruby worker stacks are much
     // smaller than its depth guard assumes. Keep parsing and destruction on one
     // explicitly sized native stack, and bound concurrency to one capture.
@@ -87,12 +89,12 @@ pub fn capture(root: &Path, limits: &Value) -> Result<Value> {
     std::thread::Builder::new()
         .name("thistle-capture".to_owned())
         .stack_size(PARSER_STACK_BYTES)
-        .spawn(move || capture_inner(&root, &limits))?
+        .spawn(move || capture_inner(&root, effective))?
         .join()
         .map_err(|_| CoreError::new("internal_error", "Native capture worker panicked; no result was published"))?
 }
 
-fn capture_inner(root: &Path, limits: &Value) -> Result<Value> {
+fn effective_limits(limits: &Value) -> Result<HashMap<String, usize>> {
     let mut effective: HashMap<String, usize> = DEFAULT_LIMITS
         .iter()
         .map(|(key, value)| ((*key).to_owned(), *value))
@@ -100,14 +102,20 @@ fn capture_inner(root: &Path, limits: &Value) -> Result<Value> {
     if !limits.is_null() {
         let values = limits.as_object().ok_or_else(|| CoreError::input("Capture limits must be an object"))?;
         for (key, value) in values {
-            let ceiling = effective.get(key).ok_or_else(|| CoreError::input(format!("Unknown capture limit: {key}")))?;
+            let default = effective.get(key).ok_or_else(|| CoreError::input(format!("Unknown capture limit: {key}")))?;
+            let ceiling = if key == "max_nodes" { MAX_NODES_CEILING } else { *default };
             let supplied = value.as_u64().ok_or_else(|| CoreError::input(format!("Capture limit {key} must be a positive integer")))?;
-            if supplied == 0 || supplied > *ceiling as u64 {
+            let supplied = usize::try_from(supplied).map_err(|_| CoreError::input(format!("Capture limit {key} is too large")))?;
+            if supplied == 0 || supplied > ceiling {
                 return Err(CoreError::input(format!("Capture limit {key} must be between 1 and {ceiling}")));
             }
-            effective.insert(key.to_owned(), supplied as usize);
+            effective.insert(key.to_owned(), supplied);
         }
     }
+    Ok(effective)
+}
+
+fn capture_inner(root: &Path, effective: HashMap<String, usize>) -> Result<Value> {
     let canonical = std::fs::canonicalize(root)?;
     let canonical_text = canonical.to_str().ok_or_else(|| CoreError::input("Capture root must be valid UTF-8"))?;
     let directory = open_root(&canonical)?;
@@ -134,7 +142,8 @@ fn capture_inner(root: &Path, limits: &Value) -> Result<Value> {
         "files": capture.files, "facts": capture.facts,
         "coverage": coverage, "diagnostics": capture.diagnostics,
         "producer": { "name": "thistle", "engine": "rust", "core_version": env!("CARGO_PKG_VERSION"), "capture_schema": 1,
-            "prism_version": PRISM_VERSION, "ruby_syntax_version": RUBY_SYNTAX_VERSION, "parser_policy": PARSER_POLICY, "parser_stack_bytes":PARSER_STACK_BYTES, "capture_concurrency":1 }
+            "prism_version": PRISM_VERSION, "ruby_syntax_version": RUBY_SYNTAX_VERSION, "parser_policy": PARSER_POLICY, "parser_stack_bytes":PARSER_STACK_BYTES, "capture_concurrency":1,
+            "effective_limits": capture.limits, "visited_nodes": capture.nodes }
     }))
 }
 
@@ -544,7 +553,7 @@ mod tests {
     // Functional tests can run in parallel without contending for the public
     // capture permit. Parser-stack probes exercise the actual public boundary
     // in bounded subprocesses, including calls from Ruby worker threads.
-    fn capture(root: &Path, limits: &Value) -> Result<Value> { capture_inner(root, limits) }
+    fn capture(root: &Path, limits: &Value) -> Result<Value> { capture_inner(root, effective_limits(limits)?) }
 
     #[test]
     fn native_capture_declares_methods_and_does_not_execute_source() {
@@ -613,6 +622,19 @@ mod tests {
         std::fs::write(root.path().join("a.rb"), "class A; end").unwrap();
         assert_eq!(capture(root.path(), &json!({"max_file_bytes":1})).unwrap_err().code, "limit_exceeded");
         assert_eq!(capture(root.path(), &json!({"unknown":1})).unwrap_err().code, "invalid_input");
+    }
+
+    #[test]
+    fn node_limit_validation_is_typed_and_bounded() {
+        assert_eq!(effective_limits(&json!({})).unwrap()["max_nodes"], 1_000_000);
+        for n in [1, 999_999, 5_000_000] {
+            assert_eq!(effective_limits(&json!({"max_nodes": n})).unwrap()["max_nodes"], n);
+        }
+        for value in [json!(0), json!(-1), json!(1.0), json!("1"), json!(null), json!(5_000_001), json!(u64::MAX)] {
+            assert_eq!(effective_limits(&json!({"max_nodes": value})).unwrap_err().code, "invalid_input");
+        }
+        assert_eq!(effective_limits(&json!({"max_files": 10_001})).unwrap_err().code, "invalid_input");
+        assert_eq!(effective_limits(&json!({"unknown": 1})).unwrap_err().code, "invalid_input");
     }
 
     #[test]

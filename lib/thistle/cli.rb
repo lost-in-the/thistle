@@ -8,7 +8,7 @@ module Thistle
     HELP = <<~TEXT.freeze
       Thistle — inspect captured evidence
 
-      thistle capture ROOT --output STORE
+      thistle capture ROOT --output STORE [--max-nodes INTEGER]
       thistle find TEXT --store STORE [--generation ID] [--limit 50]
       thistle source ID --store STORE [--generation ID]
       thistle links ID --store STORE [--generation ID]
@@ -44,6 +44,7 @@ module Thistle
       parser = OptionParser.new do |opts|
         if command == "capture"
           opts.on("--output PATH") { |value| options[:output] = value }
+          opts.on("--max-nodes INTEGER", Integer) { |value| options[:max_nodes] = value }
         else
           opts.on("--store PATH") { |value| options[:store] = value }
           opts.on("--generation ID") { |value| options[:generation] = value }
@@ -55,7 +56,8 @@ module Thistle
       raise InvalidInput, "#{command} expects #{expected} argument#{expected == 1 ? '' : 's'}" unless args.length == expected
       if command == "capture"
         raise InvalidInput, "capture requires --output STORE" unless options[:output]
-        emit(Thistle.capture(root: args.first, output: options[:output]))
+        limits = options.key?(:max_nodes) ? { max_nodes: options[:max_nodes] } : {}
+        emit(Thistle.capture(root: args.first, output: options[:output], limits: limits))
       else
         raise InvalidInput, "#{command} requires --store STORE" unless options[:store]
         reader = Reader.new(options[:store], generation: options[:generation])
