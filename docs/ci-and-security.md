@@ -76,6 +76,10 @@ ignore, vendored edit or privacy-pattern change is permitted by these rules.
 
 ## Independent required check
 
+The [protected evaluation proposal](development/protected-evaluation.md) records
+current authority gaps, exact owner decisions and the unrun enforcement proof
+for issue #23. It authorizes no deployment or qualification.
+
 The authoritative controller and policy belong outside the candidate's writable checkout. The proposed `thistle-eval` workspace provides an executable starting point, but sibling directories are not a security boundary. In protected infrastructure, the controller:
 
 1. Selects a reviewed evaluator revision and required lane set independently of candidate paths/workflow contents.
