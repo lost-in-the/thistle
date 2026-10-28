@@ -50,7 +50,8 @@ design review. The route and custodian preferences do not authorize setup. Sugge
 | Candidate authoring | Use a restricted authoring identity such as existing `lost-in-the-agent` with Thistle write only; remove owner credentials from candidate-authoring sessions before claiming independence. | Owner-approved credential separation and verification; no account switch or permission change in this task |
 | Evaluator home | Proposed public `lost-in-the/thistle-eval` on Free, with repository rules for policy changes and a distinct App. No candidate authors or authoring connectors may write there. Standard public hosted minutes are free. Private Free custody remains a fallback with weaker review enforcement. | The owner selected this route, but repository creation/disclosure, actual ID, writer/access list and restricted evidence destination still need authorization; inherited organization access must be checked |
 | Enforcement route | Current Free: distinct proposed `Thistle Qualification` App, only Thistle installation, Checks write, Metadata read, Pull requests read and Contents read for head/base/tree verification; all other permissions off. | App name availability, numeric App ID, client ID, installation ID and custodian approval |
-| Key custody | App key in custodian-controlled vault and only the controller repository's publisher secret; no organization-wide secret, candidate secret, developer checkout or worker copy. | Actual approved vault/access list and publisher secret configuration; no key material belongs in this document |
+| Key custody | App key in custodian-controlled vault and only the protected publisher phases' secret (admission and final publication); no organization-wide secret, candidate secret, developer checkout or worker copy. | Actual approved vault/access list and publisher secret configuration; no key material belongs in this document |
+| Admission authority | Admission and final publication are phases of one protected publishing authority. Both would have full App Checks write; the admission program permits blocking updates only, but its token is not conclusion-scoped. | Custodian acceptance and proof of this trusted-code boundary; no claim that a separate job/token prevents a compromised admission publisher from writing success |
 | Native alternative | If eligible plan is chosen, public evaluator workflow source in the organization, pinned repository ID/path/SHA; same independent writers and worker boundary. | Plan purchase/entitlement, public disclosure approval and actual workflow identity |
 | Repository rules | Basic main PR/CI protection is separate from qualification. Qualification source-identity proof uses a disposable target, with no ordinary-main manual qualification requirement. | Separate authorization for each concrete rule; actual IDs/readback and non-bypass proofs |
 | Initial scope | Same Core/Map source-gem bytes installed on both modern Linux cohorts, with installed contracts, parser-worker, reader-boundary and Map checks. | Independent approval of adapter, fixtures, policy, observer coverage and measured limits |
@@ -160,11 +161,25 @@ all effective writers; candidate-authoring credentials must reach none of them.
 Only reviewed controller code is dispatched. No candidate workflow
 completion event or artifact name alone authorizes a result.
 
-Use separate disposable hosted jobs for admission, preparation/execution and
-final publication:
+Admission is protected publisher code, not an unprivileged controller or candidate
+worker. The proposed single App grants both publisher phases full Checks write;
+GitHub does not provide a blocking-conclusions-only permission. Separate jobs,
+revocation and fresh tokens protect the worker boundary and retry lifecycle, not
+conclusion authority. Both publisher phases, their code writers and hosts belong
+to the verdict's trusted computing base. A compromise of either invalidates that
+authority and requires the freeze/recovery procedure.
+
+The protected admission entry point accepts only validated request identities and
+blocking updates; only the final-publication entry point accepts a complete,
+validated result for success. These are protected program-policy guards to prove,
+not an API capability restriction on the token. If the custodian instead requires
+admission credentials that cannot publish success even after publisher compromise,
+stop for a separately reviewed authority design; no extra App or broker is created
+or assumed here. Use separate disposable hosted jobs for the two trusted publisher
+phases and preparation/execution:
 
 1. Only after separate App creation, permission/custody approval and activation,
-   a trusted admission job uses narrowly scoped App authority, without checking
+   a trusted publisher admission job uses repository/permission-scoped App authority, without checking
    out or executing candidate code. Before admitting
    any required attempt, including a retry or policy change for the same request,
    it establishes and reads back a blocking state for the canonical trusted check.
@@ -201,8 +216,9 @@ final publication:
    a PR is not bound to a moving branch tip. It never checks out or executes
    candidate code, loads a candidate plugin, evaluates a template or sources a
    report as shell.
-   Only after these validations may it obtain a separate narrowly scoped App token
-   for final success publication. The earlier admission token is not reused.
+   Only after these validations may it obtain a fresh repository/permission-scoped
+   token from the same App for final success publication. Both tokens have full
+   Checks write; the earlier admission token is not reused.
    Interrupted or failed final publication leaves the verified admission state
    blocking; a complete final result is required to replace it with success.
 
@@ -380,7 +396,7 @@ qualification pass. Do not claim otherwise.
 
 Before activation, export current rules and use an owner-authorized disposable
 proof target with these settings and a non-bypass writer. Read back the effective
-rules before testing. Missing/failed checks, a direct push, a stale base, branch
+rules before testing. Missing/failed checks, unassociated changes pushed directly, a stale base, branch
 deletion, a non-fast-forward push and an unresolved review thread must each be
 refused. A complete green targeted PR with resolved review threads becomes
 eligible without a positive-control merge. Save actual rule/check/source
@@ -388,6 +404,16 @@ identities and each refusal. Verify the approved recovery procedure on the
 disposable target, including restored settings and effective-rule readback.
 Reconcile existing rules rather than replacing others' work. No rule is created
 by this proposal.
+
+The [October 28 proof](../handoff/runs/issue23-basic-protection-2026-10-28/README.md)
+did **not** pass its original blanket-direct-update criterion. GitHub accepted a
+fast-forward to an already eligible opened PR's exact head, indirectly marking
+the disposable PR merged. The target was disposable; main never changed and
+its rule was not activated. The temporary rule/refs were removed after retaining
+the result. GitHub's PR rule requires association with an opened PR, not an
+exclusive merge endpoint. The revised native-scope expectation needs an owner
+decision and completed proof before activation; it is not retroactive approval of
+that negative-control result. No broader mechanism is added to ordinary PRs.
 
 ## Qualification source-identity proof
 
@@ -473,6 +499,7 @@ merges, stop and record failed enforcement instead of continuing the campaign.
 | A | Complete trusted fixture result from actual distinct App, or actual source-bound native workflow | With independent review requirements satisfied, only this positive control makes the disposable PR eligible. Do not merge. Label the fixture result as rule-identity proof, never package qualification. |
 | A | Advance head or base during evaluation and after a success; replay old result; candidate imitation of source workflow | Stale/replayed/lookalike evidence cannot make the updated PR eligible. Save old/new trees, check bindings and refusal. |
 | A | Prior success on the same head/base, verified admission invalidation, replacement attempt, then final-publisher interruption | The old success no longer permits integration throughout the admitted retry. Missing admission credentials or failed invalidation prevents dispatch; retain the observed blocking state, check IDs and token-revocation evidence. Test policy changes and duplicate-check ordering too. |
+| A | Admission interface is asked to publish success or accepts an unvalidated request | Protected publisher code rejects the operation before an API call. This proves its program guard, not a conclusion-scoped credential; the entire admission publisher remains trusted. |
 | A/B | Failure, cancellation, timeout, missing cohort/lane, observer loss, malformed or incomplete envelope | All block; none becomes neutral/skipped qualification. Test finalizer and publisher interruption as well as worker failure. |
 | B | Swap Core/Map/archive/native/dependency/evaluator/policy/fixture bytes; spoof hash/pass text; wrong run/attempt | Trusted byte/schema/identity verification rejects every mismatch, including validly formatted self-reports. |
 | B | Oversized/truncated outputs, deep JSON, duplicate fields, path/symlink escape, archive expansion and forged result paths | Bounded parser/collector rejects; no host extraction escape, uncontrolled allocation or publication. |
