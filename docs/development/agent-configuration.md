@@ -92,10 +92,12 @@ Each clone needs this setup once:
 Entire is optional for contributors. The `AGENTS.md` block points agents at
 `.entire/agent-guide.md`, which uses `entire brain` for task context and falls
 back to direct source inspection when Brain is unavailable. Brain itself is
-per machine. `entire brain setup` builds the local index, then by default starts
-a background backfill that distills up to 25 past sessions per pass and installs
-a background watcher. Both spend agent tokens; `--no-backfill --no-daemon` spends
-nothing. The Claude Code pre-edit hook exits silently when Entire or the Brain
+per machine, and its index and memories stay local. Run
+`entire brain setup --no-backfill --no-daemon` by default. Without those flags,
+setup also starts a backfill that distills up to 25 past sessions per pass and
+installs a watcher that keeps distilling. Distillation spends agent tokens and
+sends session content to the agent CLI's model provider, so enable it only by
+explicit choice. The Claude Code pre-edit hook exits silently when Entire or the Brain
 plugin is absent, and times out after 5 seconds. See the
 [Brain decision](decisions.md#agent-context-entire-brain).
 

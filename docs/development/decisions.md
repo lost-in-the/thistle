@@ -247,16 +247,23 @@ setup creates `CLAUDE.md`, and Claude Code skips `AGENTS.md` whenever a
 
 | Considered approach | Decision |
 |---|---|
-| Brain wired into agent instructions, local only | Selected: agents use recorded decisions and history; nothing leaves the machine. |
+| Brain wired into agent instructions; index and memories local; distillation opt-in | Selected: agents use recorded decisions and history without sending sessions anywhere by default. |
+| Brain with default backfill and watcher for everyone | Rejected: distillation sends session content to the agent CLI's model provider without an explicit choice. |
 | No Brain; checkpoints and `entire why` only | Rejected: context exists but agents are not told to retrieve it. |
 | Brain without agent instructions | Rejected: setup reports agents as not wired, and agents rarely query it unprompted. |
 | Brain with hosted Brainstore sync | Deferred: sends memories to a hosted service; revisit when cross-machine memory is needed. |
 
+Brain's index and memories stay on the machine. Fact distillation, through the
+setup backfill or the watcher, runs the configured agent CLI and so sends session
+content to that CLI's model provider. The documented default is therefore
+`entire brain setup --no-backfill --no-daemon`; distillation is an explicit
+opt-in per machine. The owner's macOS machine opted in on 2026-10-29.
+
 Operating cost, measured on one macOS machine: the agent guide adds about 1.3k
 tokens per session, and the Claude Code pre-edit hook ran in 140 to 270 ms per
-edit. The default backfill distills up to 25 sessions per pass, and the watcher
-runs at most one gated distill per 24 hours, both on a low-effort model. Brain
-setup does not modify Git hooks.
+edit. When opted in, the backfill distills up to 25 sessions per pass, and the
+watcher runs at most one gated distill per 24 hours, both on a low-effort model.
+Brain setup does not modify Git hooks.
 
 The pre-edit hook deviates from the generated command: it calls the plugin
 binary only when it exists and is bounded by a 5-second timeout. A bare
