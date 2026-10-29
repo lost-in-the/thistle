@@ -199,3 +199,23 @@ A new runtime grant must identify exact resources before further execution;
 a released resource is not a grant. The full Reader/Map journey and installed
 candidate checks remain outstanding until root composes and verifies the hooks.
 Source delivery does not authorize publication or launch acceptance.
+
+## Phase A native execution receipt
+
+The single authorized offline native run on combined source
+`f6d3066a49d813ab89b339c6f50920e61f2db422` passed **74 tests**, including all
+nine codec tests and six callback tests. Rust/Cargo 1.90.0 ran in exact image
+`f377fb86ef51f1b4b31787dc58131ad453fe306e58b36296f29e76a98487c520`.
+The child verified 2 CPU, 2 GiB memory, zero swap, 256 PIDs, no network, read-only
+copied source and a private 0700 disk-backed TMPDIR. Deadlines were 600 seconds
+for Cargo and 630 seconds outside the container; logs were capped at 8 MiB.
+Inputs were unchanged and the container/private build directory were removed.
+
+Native log SHA256:
+`6103f3d400b6e79f919692268a1ceb4a724aee177adfa267b33113d65c7ecb21`.
+Input manifest SHA256:
+`b297b50ec372fa2be4a6f0096651600792bfe03e5cd5cb42c47102ab481535b7`.
+The 18 compiler warnings identify codec APIs not yet consumed by production;
+Phase B must connect those APIs. They were not suppressed. No Ruby/Map runtime,
+installed callback journey or exact-package acceptance follows from this native
+receipt. Historical failures retain their original identities and scopes.
