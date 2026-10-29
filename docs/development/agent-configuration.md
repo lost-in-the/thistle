@@ -67,6 +67,13 @@ Each clone needs this setup once:
    pushing account needs write access to the checkpoint repository.
 6. Approve the Entire hooks with `/hooks` inside Codex on each machine.
 
+Entire is optional for contributors. The `AGENTS.md` block points agents at
+`.entire/agent-guide.md`, which uses `entire brain` for task context and falls
+back to direct source inspection when Brain is unavailable. Brain itself is
+per machine: `entire brain setup` builds the local index and may install a
+background watcher whose fact distillation spends agent tokens. The Claude Code
+pre-edit hook exits silently when Entire is absent.
+
 A worktree on a branch without `.entire/settings.json` reports `not set up` and
 captures nothing until it contains this configuration. `entire import` covers
 only the current checkout's recent transcripts; run it from each worktree that
