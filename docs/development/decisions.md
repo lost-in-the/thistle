@@ -201,9 +201,17 @@ Adopt [Entire](https://docs.entire.com/) CLI **0.12.2** to capture Claude Code
 and Codex sessions as checkpoints linked to commits. The default `git-refs`
 backend pushes checkpoints to `origin`, which is public here. Checkpoints hold
 prompts and assistant text; default redaction covers secrets, not PII. The
-project setting therefore fails closed with `push_sessions: false`. Owner
-machines opt in through the gitignored `.entire/settings.local.json`, which
-names the private `lost-in-the/thistle-checkpoints` repository.
+project setting therefore fails closed with `push_sessions: false`. It still
+names the private `lost-in-the/thistle-checkpoints` repository: entire.com reads
+checkpoint settings from the default branch. Owner machines opt in to pushing
+through the gitignored `.entire/settings.local.json`.
+
+The checkpoint repository name is public by design, a reviewed exception to the
+[private-reference rule](agent-configuration.md#public-contracts-and-private-values).
+It reveals that a private repository exists, not its contents; GitHub
+permissions protect those. Entire reads no environment variable, repository
+secret or variable for this setting, so committing the name is the only way
+entire.com can locate the checkpoints.
 
 | Considered approach | Decision |
 |---|---|
