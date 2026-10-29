@@ -1,8 +1,12 @@
 # Protected evaluation: design and owner decisions
 
 This is the bounded design proposal for [issue #23](https://github.com/lost-in-the/thistle/issues/23).
-It prepares a deployment decision and a proof procedure. No controller, repository,
-App, credential, rule, purchase or enforcement proof has been created by this PR.
+It records the basic main control and prepares a separate qualification deployment
+decision and proof procedure. No qualification controller, repository, App,
+credential, purchase or promotion rule has been created by this PR.
+The separately authorized basic main rule is now active, with a completed
+[disposable proof and activation record](../handoff/runs/issue23-basic-protection-2026-10-29/README.md).
+This does not activate the proposed qualification controller or its authority.
 The owner selected Leah as custodian/final policy approver, with CodeRabbit as an
 advisory reviewer. Independent authority has not been activated or proven; shared
 authoring credentials still disqualify it. Root owns integration and peer review.
@@ -53,7 +57,7 @@ design review. The route and custodian preferences do not authorize setup. Sugge
 | Key custody | App key in custodian-controlled vault and only the protected publisher phases' secret (admission and final publication); no organization-wide secret, candidate secret, developer checkout or worker copy. | Actual approved vault/access list and publisher secret configuration; no key material belongs in this document |
 | Admission authority | Admission and final publication are phases of one protected publishing authority. Both would have full App Checks write; the admission program permits blocking updates only, but its token is not conclusion-scoped. | Custodian acceptance and proof of this trusted-code boundary; no claim that a separate job/token prevents a compromised admission publisher from writing success |
 | Native alternative | If eligible plan is chosen, public evaluator workflow source in the organization, pinned repository ID/path/SHA; same independent writers and worker boundary. | Plan purchase/entitlement, public disclosure approval and actual workflow identity |
-| Repository rules | Basic main PR/CI protection is separate from qualification. Qualification source-identity proof uses a disposable target, with no ordinary-main manual qualification requirement. | Separate authorization for each concrete rule; actual IDs/readback and non-bypass proofs |
+| Repository rules | Basic main rule `26097789` is active with separately accepted proof/readback. Qualification source-identity proof still uses a disposable target, with no ordinary-main manual qualification requirement. | Future qualification rules need separate authorization, actual identities/readback and non-bypass proof; basic activation does not supply that authority |
 | Initial scope | Same Core/Map source-gem bytes installed on both modern Linux cohorts, with installed contracts, parser-worker, reader-boundary and Map checks. | Independent approval of adapter, fixtures, policy, observer coverage and measured limits |
 | Operating budget | One request at a time, two sequential cohorts, no paid overage or larger runner until separately approved; retain proof/qualification records before artifact expiry. | Account billing/quota, storage/retention location and cap, operational time budget |
 | Observer feasibility | Propose at most one engineer-day and two maintained-runtime prototypes before a new decision; define the exact load-observation claim and negative controls first. | Approved time/cost cap, collector/archive totals and durable capacity; stop with readiness Needed if coverage cannot be demonstrated within the cap |
@@ -65,7 +69,11 @@ workflow writers, secret users and recovery paths. A human owner can retain
 emergency administration, but an agent with those credentials is inside that
 administrative boundary. This is a prerequisite, not a claim of current separation.
 
-## Current evidence and limits
+## Historical inspection and current limits
+
+The following inspection is dated October 28. The separately verified October 29
+basic-main activation is recorded [here](../handoff/runs/issue23-basic-protection-2026-10-29/README.md);
+the historical empty-rule observations below are not current operational state.
 
 Read-only REST inspection on October 28, 2026 found:
 
@@ -75,10 +83,10 @@ Read-only REST inspection on October 28, 2026 found:
 | Provided branch/worktree | `t3/protected-evaluation-design` in the tool-provided isolated worktree |
 | Local base and live remote main before writing | `3ed85afd4d9569b4b46086c55672bc7c1e3ea9b7` |
 | Organization plan | `free` |
-| Current CLI actor | `LeahArmstrong`, active organization admin; Thistle admin permission |
+| CLI actor at inspection | `LeahArmstrong`, active organization admin; Thistle admin permission |
 | Existing authoring account | `lost-in-the-agent`, Thistle `write` |
 | Rules | Repository rulesets `[]`; effective rules for main `[]`; branch protection GET `404`; branch says `protected: false` |
-| Current check source | `github-actions`, App ID `15368`, including `CI / required` |
+| Check source at inspection | `github-actions`, App ID `15368`, including `CI / required` |
 | Project metadata | GraphQL rate limit reported by root; issue claim recorded through REST; metadata sync pending |
 
 These are dated observations, not durable guarantees. No tokens, secret values or
@@ -344,9 +352,13 @@ No latency, isolation or cost improvement is claimed without measurements.
 
 ## Separate basic main protection
 
-This small protection step does not wait for the controller, native-load observer
-or full qualification worker. Configure it only after a separate owner decision.
-Proposed repository ruleset: exact main ref, required PR, strict current-base
+This small protection step did not wait for the controller, native-load observer
+or full qualification worker. The owner separately authorized it; after the
+completed disposable proof and independent review, rule
+[`26097789`](https://github.com/lost-in-the/thistle/rules/26097789) was activated
+on October 29, 2026. Configured and effective readbacks match the approved JSON
+below. See the [activation record](../handoff/runs/issue23-basic-protection-2026-10-29/README.md).
+The active ruleset uses the exact main ref, required PR association, strict current-base
 `CI / required` and configured PII checks from the existing GitHub Actions App,
 no deletion/force-push and no bypass actors. The checks are automatically dispatched
 and retain current targeted routing. Neither check is renamed qualification.
@@ -386,7 +398,7 @@ inventing an available independent human approver for every owner-authored PR.
 Requiring a particular approving reviewer is a separate concrete owner choice.
 Unresolved review threads still block. PII remains fail-closed when its secret is
 unavailable, including forks; this proposal neither broadens secret access nor
-silently exempts them. Verify exact current check contexts before activation.
+silently exempts them. The activation bound both exact check contexts to App `15368`.
 
 App `15368` identifies ordinary GitHub Actions, not an independently controlled
 workflow. Candidate authors can edit candidate automation; this basic gate reduces
@@ -394,7 +406,7 @@ accidental unchecked integration but does not establish hostile-candidate or
 qualification authority. A same-App lookalike is a known limit, not a protected
 qualification pass. Do not claim otherwise.
 
-Before activation, export current rules and use an owner-authorized disposable
+For any future separately authorized activation or recovery, export current rules and use an owner-authorized disposable
 proof target with these settings and a non-bypass writer. Read back the effective
 rules before testing. Missing/failed checks, unassociated changes pushed directly, a stale base, branch
 deletion, a non-fast-forward push and an unresolved review thread must each be
@@ -416,8 +428,11 @@ accounted for in the linked report and structured receipt. GitHub's PR rule
 requires association with an opened PR, not an
 exclusive merge endpoint. The owner subsequently accepted that native scope
 with the instruction [“Accept native behavior; prove before activation”](https://github.com/lost-in-the/thistle/issues/23#issuecomment-6483840523);
-a completed fresh proof is still required before activation. This is not retroactive approval of
-that negative-control result. No broader mechanism is added to ordinary PRs.
+the subsequent revised proof and independent review completed before the October 29
+activation. This is not retroactive approval of that negative-control result.
+The [new record](../handoff/runs/issue23-basic-protection-2026-10-29/README.md)
+preserves every earlier failed or inconclusive attempt. No broader mechanism is
+added to ordinary PRs.
 
 ## Qualification source-identity proof
 

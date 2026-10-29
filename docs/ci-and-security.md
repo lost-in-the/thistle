@@ -2,6 +2,14 @@
 
 This document describes implemented local controls and required deployment controls separately. No GitHub branch protection, independent check, publishing identity, or repository has been configured by creating these files.
 
+As of October 29, 2026, the separately authorized
+[basic main rule](https://github.com/lost-in-the/thistle/rules/26097789) is active:
+PR association, up-to-date CI and PII checks, resolved threads, no deletion or
+force pushes, and no bypass actors. Machine-required approvals remain zero;
+substantive peer review remains procedural. The
+[activation record](handoff/runs/issue23-basic-protection-2026-10-29/README.md)
+separates this completed control from pending independent qualification.
+
 ## Pull request unit
 
 Each implementation PR links the affected capability-ledger rows, states the intended behavior and its unknowns, and includes meaningful positive/failure/mutation evidence. An optimization PR additionally includes the exact runnable artifacts, input/profile identities, falsifiable hypothesis, full-workflow effect and cost, semantic regression evidence and rollback decision. Expected-output or acceptance-policy changes receive separate evaluator-owner review. A new candidate head invalidates evidence for a prior head.
@@ -16,7 +24,8 @@ Routine development uses the primary and minimum pairs in
 [`.github/ci-policy.json`](../.github/ci-policy.json): Ruby 4.0.9 and 3.4.12,
 both with Rails 8.1.4, on Ubuntu 24.04. See the
 [CI flow](development/pr-ci-release.md) for routing, exact-package installed
-checks and remaining #20 integration evidence. Source builds require the
+checks and the [recorded #20 installed verification](handoff/runs/40738248777/README.md).
+Source builds require the
 checked-in exact Rust toolchain, a C compiler, libclang and locked vendored
 dependencies. Passing source checks does not qualify installed support,
 precompiled gems, or other operating systems/CPU/libc/ABI routes. The older
@@ -77,14 +86,15 @@ ignore, vendored edit or privacy-pattern change is permitted by these rules.
 ## Independent required check
 
 The [protected evaluation proposal](development/protected-evaluation.md) records
-current authority gaps, required owner decisions and the unrun enforcement proof
-for issue #23. It authorizes no deployment or qualification.
+current authority gaps, required owner decisions and the unrun qualification proof
+for issue #23. Its separately authorized basic main control is now active;
+the qualification proposal authorizes no controller deployment or qualification.
 
 Ordinary PRs retain automatic targeted CI and substantive review; main receives
 broader integration checks. Protected qualification is selected for exact-package
 preview/release acceptance and accepted performance work. Its manual dispatch and
 full installed matrix are not requirements for every main PR. Basic main PR/CI
-protection is a separate bounded owner decision.
+protection has its own completed bounded owner decision and activation record.
 
 The authoritative controller and policy belong outside the candidate's writable checkout. The proposed `thistle-eval` workspace provides an executable starting point, but sibling directories are not a security boundary. In protected infrastructure, the controller:
 
