@@ -5,6 +5,7 @@ require 'json'
 require 'digest'
 require 'uri'
 require_relative 'highlighter'
+require_relative 'model_presenter'
 
 module Thistle
   module Map
@@ -292,7 +293,7 @@ module Thistle
           klass = eyebrow == 'Route conditions' ? ' class="route-conditions"' : ''
           "<div#{klass}><span class=\"eyebrow\">#{h(eyebrow)}</span><dl>" +
             rows.map { |label, value| "<dt>#{h(label)}</dt><dd>#{h(value)}</dd>" }.join + '</dl></div>'
-        end.join + '</div>'
+        end.join + '</div>' + ModelPresenter.render(fact)
       end
 
       def constraint_summary(fact)

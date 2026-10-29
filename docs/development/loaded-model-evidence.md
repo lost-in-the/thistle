@@ -41,7 +41,7 @@ class-name labels may be Rails-inflected names. Through associations retain thei
 through label and only an explicit `class_name` target; asking Rails to infer the
 through target can load another class. Polymorphic targets remain unknown.
 
-Rust's `model::append(capture: &Value, observation: &Value) -> Result<Value>`
+Rust's `model::append(capture: Value, observation: &Value) -> Result<Value>`
 validates the input, emits `rails_model` runtime facts under `attributes.model`
 version 1, assigns ordinal-based snapshot-local identities, emits separate
 unresolved labelled links, and admits the combined static/route/model facts.
@@ -62,11 +62,14 @@ capture. Publication is never attempted after refusal.
 
 ## Root integration request
 
-The isolated component intentionally does not edit the shared native module /
-dispatch or existing Map view files. After the Find writer releases those paths:
+The original isolated component left the shared adapters to root. After explicit
+Find per-file release, root added native registration/dispatch and the model
+presenter hook in the model branch. The remaining integration boundaries are:
 
 1. In `engine/src/lib.rs`, add `mod model;`, and the dispatch arm:
-   `"append_models" => model::append(&request["capture"], &request["observation"]),`.
+   `append_models` takes the capture and observation from the request-owned JSON
+   value and calls `model::append(capture, &observation)`. The native dispatch
+   borrows the request mutably; no Ruby-owned buffer crosses or outlives the FFI call.
 2. In the existing Map view, require `model_presenter`, then append
    `ModelPresenter.render(fact)` once to the return value of `fact_tiles`.
    This covers Source (including its source-unavailable fallback) and Links.
@@ -134,8 +137,7 @@ exact-pair Map smoke. Missing or failed checks are not accepted evidence. Keep
 #71's fixed acceptance candidate unchanged. No full private application campaign,
 new benchmark, frozen-policy change or release publication belongs to #73.
 
-Finite implementation review: this path adds one JSON crossing and a bounded
-capture clone, linear model/column/reflection traversal and validation, and
+Finite implementation review: this path adds one full bounded JSON request/response crossing, linear model/column/reflection traversal and validation, and
 snapshot facts charged through existing Reader admission. There is no persistent
 model cache or application-object retention after capture, and no per-association
 target loading. Guarded error handling retains family unavailability without
@@ -143,3 +145,19 @@ serializing application exception text. The Map display cap avoids rendering all
 rows but does serialize the model to check its size. These are operating costs,
 not measured performance results. Runtime API/typecheck compatibility and full
 adapter composition remain substantive outstanding checks.
+
+### Owned capture integration correction
+
+Root removed the avoidable whole-capture Rust deep clone: append consumes the
+JSON request-owned capture and returns that same allocation with the bounded
+model batch appended. Existing source content and fact allocations are moved,
+not duplicated. A focused allocation-identity regression checks retained source
+buffers. Combined validation/admission still runs before publication; a failed
+request yields no result or publication. Ruby caller values remain separate
+from the native request representation. This does not remove the full
+Ruby/native request/response serialization or the existing validation/accounting
+work, and establishes no timing/RSS result.
+
+This root correction is source/static only until the separate Find build lease
+releases and focused runtime checks execute. The original failed component CI
+40910171169 remains recorded; no test result transfers to the corrected head.
