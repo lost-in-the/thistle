@@ -270,8 +270,9 @@ edit. When opted in, the backfill distills up to 25 sessions per pass, and the
 watcher runs at most one gated distill per 24 hours, both on a low-effort model.
 Brain setup does not modify Git hooks.
 
-The pre-edit hook deviates from the generated command: it calls the plugin
-binary only when it exists and is bounded by a 5-second timeout. A bare
+The pre-edit hook deviates from the generated command: it prefers the managed,
+pinned plugin binary, falls back to an `entire-brain` on `PATH`, exits silently
+when neither exists, and is bounded by a 5-second timeout. A bare
 `entire brain` call exits 1 when the plugin is missing. A setup rerun was
 verified to keep this command. Limitations: the hook returns context only, not
 `updatedInput`, so its facts cannot change the edit that triggered them; agents

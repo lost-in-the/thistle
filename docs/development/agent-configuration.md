@@ -65,13 +65,18 @@ Set up each clone once; steps 5 and 6 also repeat in each linked worktree:
    `entire://.../et/...` repository or migrate; those never forward to GitHub.
 3. Configure the authorized commit identity and signer locally, as above.
 4. Install the per-clone Git hooks: `entire enable --agent claude-code`, then
-   `entire enable --agent codex`. Tracked files must stay unchanged.
+   `entire enable --agent codex`. Tracked files must stay unchanged. Codex loads
+   these project hooks by default only from codex-cli 0.124.0; confirm
+   `codex --version` first.
 5. Owner machines only, with write access to the checkpoint repository: create
    the gitignored `.entire/settings.local.json`. A local `checkpoint_remote` is
    always honored; a committed one is ignored when the push target has another
    owner. Entire reads settings from each worktree's root, so repeat this file
-   and step 6 in every linked worktree; without it, that worktree keeps the
-   committed `push_sessions: false`.
+   and step 6 in every linked worktree whose branch includes this
+   configuration; without it, that worktree keeps the committed
+   `push_sessions: false`. On an older branch, merge first: without the
+   `.entire/.gitignore` rule the file could be committed, and without the agent
+   hooks nothing is captured.
 
    ```json
    {
