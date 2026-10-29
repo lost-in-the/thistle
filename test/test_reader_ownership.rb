@@ -5,6 +5,7 @@ require "tmpdir"
 require "json"
 require "rbconfig"
 require "timeout"
+require_relative "support/process_limits"
 
 # Run each ownership probe in a fresh process so native handle identities start
 # at one, and a leaked handle cannot contaminate another test's registry budget.
@@ -133,8 +134,7 @@ class ThistleReaderOwnershipTest < Minitest::Test
       stderr = File.join(directory, "stderr.txt")
       pid = Process.spawn(
         RbConfig.ruby, "-I", File.expand_path("../lib", __dir__), "-e", PROGRAM, directory, mode,
-        out: stdout, err: stderr, rlimit_core: 0, rlimit_cpu: [10, 10],
-        rlimit_as: [2 * 1024 * 1024 * 1024, 2 * 1024 * 1024 * 1024]
+        out: stdout, err: stderr, **ThistleTestProcess::LIMITS
       )
       begin
         _pid, status = Timeout.timeout(15) { Process.waitpid2(pid) }

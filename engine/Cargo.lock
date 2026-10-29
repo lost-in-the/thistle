@@ -445,6 +445,7 @@ dependencies = [
 name = "thistle-core"
 version = "0.1.0-pre.2"
 dependencies = [
+ "errno",
  "libc",
  "ruby-prism",
  "ruby-prism-sys",

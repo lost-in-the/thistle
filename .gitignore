@@ -5,6 +5,9 @@
 /ext/thistle_native/*.o
 /ext/thistle_native/*.so
 /lib/thistle/*.so
+/ext/thistle_native/*.bundle
+/ext/thistle_native/*.dSYM/
+/lib/thistle/*.bundle
 /.thistle/
 /.bundle/
 /pkg/
