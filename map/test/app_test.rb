@@ -86,6 +86,8 @@ class MapAppTest < Minitest::Test
       entry.merge('value' => nil), entry.merge('value' => []),
       entry.merge('value' => '<' * 8_193), entry.merge('value' => hostile_string),
       entry.merge('encoding' => nil), entry.merge('encoding' => 'not-an-encoding'),
+      entry.merge('encoding' => 'internal'),
+      entry.merge('type' => 'regexp', 'options' => 0, 'regexp_encoding' => 'internal'),
       entry.merge('type' => 'unsupported'), entry.merge('key' => nil),
       entry.merge('extra' => { 'nested' => Object.new }),
       *[-1, 1.5, '1', 2**64].map { |options| entry.merge('type' => 'regexp', 'regexp_encoding' => 'UTF-8', 'options' => options) }

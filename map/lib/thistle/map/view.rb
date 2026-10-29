@@ -227,7 +227,7 @@ module Thistle
       end
 
       def constraint_encoding_valid?(value)
-        constraint_string_valid?(value) && Encoding.find(value).name == value
+        constraint_string_valid?(value) && Encoding.find(value)&.name == value
       rescue ArgumentError
         false
       end

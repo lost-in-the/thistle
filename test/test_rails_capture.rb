@@ -85,6 +85,8 @@ class ThistleRailsCaptureTest < Minitest::Test
   end
 
   def test_real_route_conditions_and_opaque_canaries
+    skip 'Route conditions are observed only on supported Rails versions' unless
+      Thistle::RailsCapture::CONSTRAINT_RAILS_VERSIONS.include?(Rails::VERSION::STRING)
     canary = Object.new
     def canary.matches?(_request) = raise('constraint executed')
     def canary.inspect = raise('constraint inspected')
