@@ -211,4 +211,39 @@ class MapCallMetadataTest < Minitest::Test
     end
   end
 
+  def test_schema_three_extended_call_objects_keep_validated_receiver_details
+    content = 'self.render'
+    fact = { 'id' => FACT_ID, 'name' => 'Demo', 'kind' => 'method', 'evidence' => 'static',
+      'path' => 'demo.rb', 'location' => {}, 'attributes' => {} }
+    opaque = Object.new
+    opaque.define_singleton_method(:to_s) { raise 'unexpected extension formatting' }
+    tuple = ['self', nil, false, false, [0, 11, 1, 1], [0, 4, 1, 1]]
+    metadata = { 'version' => 2, 'data' => tuple, 'future' => opaque }
+    link = { 'relation' => 'calls', 'target' => 'render', 'resolution' => 'unresolved',
+      'attributes' => { 'thistle_call' => metadata } }
+    reader = Reader.new(facts: [fact], links: [link], content: content)
+    reader.manifest['files'] = [{ 'path' => 'demo.rb', 'bytes' => content.bytesize, 'sha256' => Digest::SHA256.hexdigest(content) }]
+    page = -> { request(make_app(reader), '/links', query: URI.encode_www_form('id' => FACT_ID)).last }
+    [nil, 1, 2, '3', 3.0].each do |schema|
+      reader.manifest['schema_version'] = schema
+      assert_includes page.call, 'Receiver details unavailable'
+      refute_includes page.call, '#L1'
+    end
+    reader.manifest['schema_version'] = 3
+    html = page.call
+    assert_includes html, '<br>self ·'
+    assert_includes html, 'Representative source'
+    assert_includes html, '#L1'
+    assert_includes html, "generation=#{GENERATION}"
+    assert_same opaque, metadata['future']
+    assert_same tuple, metadata['data']
+    metadata['data'] = tuple[0...5]
+    assert_includes page.call, 'Receiver details unavailable'
+    refute_includes page.call, '#L1'
+    metadata['data'] = tuple
+    tuple[3] = 'false'
+    assert_includes page.call, 'Receiver details unavailable'
+    refute_includes page.call, '#L1'
+  end
+
 end

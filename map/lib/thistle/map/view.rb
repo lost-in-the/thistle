@@ -221,9 +221,12 @@ module Thistle
       # Decode only the current displayed link, and only in explicit schema 2 or 3.
       # The usual v1 validation below remains the single display boundary.
       def decoded_call(data)
-        return data unless call_object?(data, %w[version data]) && plain?(data['version'], Integer) && data['version'] == 2
+        return data unless plain?(data, Hash) && plain?(data['version'], Integer) && data['version'] == 2
         manifest = @reader.manifest
         return nil unless plain?(manifest, Hash) && plain?(manifest['schema_version'], Integer) && [2, 3].include?(manifest['schema_version'])
+        # Schema 3 preserves extended objects; inspect only the known fields.
+        # Schema 2 retains its exact-wrapper contract. Unknown fields stay opaque.
+        return nil if manifest['schema_version'] == 2 && !call_object?(data, %w[version data])
         tuple = data['data']
         return nil unless plain?(tuple, Array) && tuple.length == 6
         kind, name, omitted, safe, call_tuple, receiver_tuple = tuple
