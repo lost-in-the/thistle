@@ -230,7 +230,7 @@ still refuse an otherwise admissible snapshot.
 
 ## Lexical call targets (issue 43)
 
-Calls use the Prism method name as the target, with optional version 1 receiver
+The original issue-43 encoding uses the Prism method name as the target, with version 1 receiver
 syntax and parser locations in `attributes.thistle_call`. They remain unresolved:
 these labels do not identify a runtime object, binding, dispatch target, or call
 execution. Implicit, self, and named lexical receivers group repeated calls in a
@@ -270,3 +270,40 @@ limits do not themselves bound total process RSS. Issue 60 attributed at least
 neither an RSS saving nor a measured improvement. Reconsider the approach if
 canonical serializer behavior changes, or controlled complete-workflow evidence
 shows a material regression or identifies a better bounded alternative.
+
+
+## Compact call metadata and explicit snapshot context (issue 70)
+
+Use the existing locked serde_json serializer with a fixed six-slot call tuple,
+constructed before capture admission accounting. Snapshot schema 2 explicitly
+selects recognition of compact extension v2 and strict legacy v1. Schema 1 keeps
+strict v1 and opaque other versions, even when a v2 payload exactly resembles the
+compact shape. Every publication/open/Source/Check path carries that context.
+New captures select schema 2 and producer call-target schema 2; explicit publish
+with no selector stays schema 1, without producer inference or migration. Invalid
+selectors fail before filesystem mutation. Readers retain stored compact values
+and decode one borrowed view through named fields; no second v1 dataset is built.
+Map decodes only displayed links using the manifest context. New Core/Map versions
+are paired exactly at 0.1.0.pre.2, so old engines refuse the new snapshot format
+instead of silently losing recognized receiver display.
+
+Fixed tuples preserve every flag, name, coordinate and grouping distinction with
+uniform arity and explicit null/default values. Defined-default named-field
+elision is also lossless under a new contract; it offers readability at the cost
+of omission/default rules and less encoded reduction in the issue-69 model.
+We chose tuples for uniform validation and the larger demonstrated inert byte
+reduction, not because default elision is inherently lossy. Dictionaries, codecs,
+custom serializers, broader grouping and source-derived metadata add maintenance
+or semantic costs outside this change. No dependency or C-ABI change is needed.
+Named borrowed decoding centralizes positions and avoids an owned normalized
+fact tree. Capture sorting still compares borrowed call keys; it does not cache
+another dataset. Existing source copies and reader search allocations remain.
+
+The single early full retained-workload source check still refused the unchanged
+64 MiB capture-evidence budget with the existing 5M node override. There was no
+published generation or downstream reader/Map result, and completed totals are
+unknown. Smaller records are neither a full-app remedy nor a process-memory or
+speed claim. Keep the original failure; subsequent exact-pair checks belong to
+the integration owner. Reconsider representation only under a new bounded scope
+with complete-job evidence. Limits, separator accounting, source-file copying,
+frozen evaluation policy and all launch qualification requirements are unchanged.
