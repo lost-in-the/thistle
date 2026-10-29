@@ -139,8 +139,8 @@ module Thistle
 
       private
 
-      # Custom readers are not necessarily native readers. Do not interpolate
-      # arbitrary metadata values or create an anchor from malformed bounds.
+      # Custom readers own source/position integrity, like the native reader.
+      # Check display shapes and bounds without loading source on Links pages.
       def call_detail(link, fact, file_bytes)
         return '' unless link['relation'] == 'calls'
         attrs = link['attributes']
@@ -170,6 +170,9 @@ module Thistle
         label = labels.fetch(kind)
         label += omitted ? ' — name omitted (limit)' : " #{name}" if named
         label += ' · safe navigation' if data['safe_navigation']
+        if file_bytes > MAX_SOURCE_BYTES || call_loc['end_line'] > MAX_SOURCE_LINES
+          return "<br>#{h(label)} · Source exceeds web display limits; use the Thistle source command."
+        end
         grouped = %w[implicit self].include?(kind) || (named && !omitted)
         anchor = "#{url('/source', 'id' => fact.fetch('id'))}#L#{call_loc['start_line']}"
         "<br>#{h(label)} · <a href=\"#{h(anchor)}\">#{grouped ? 'Representative source' : 'Source'}</a>"

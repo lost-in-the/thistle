@@ -29,11 +29,13 @@ reader = Thistle::Map::App.new(
 
 The callback must return `true` for the authenticated request. Use a trusted server-side environment key, not a client header. This app does not supply an identity service, sessions or TLS; the host owns those boundaries. Its read-only mode does not isolate it from the authority of its host process.
 
+An optional `reader_factory` is a trusted adapter, not a sandbox. It must preserve generation and fact identities and validate source bytes, digests, and byte/line positions as the native reader does. Map checks display shapes and budgets; it cannot authenticate evidence invented by an adapter. Links does not load full source files to revalidate positions.
+
 ## Reading and interaction
 
 - Search by a known class, method, route or file name. Each response shows evidence type and the saved capture identity.
 - Open Source to read the full captured file with real line numbers and the selected declaration's span. Source beyond 256 KiB or 10,000 lines is explicitly refused by this view; the core source command remains the full-file path.
-- Links labels unresolved symbolic references without presenting them as proven calls. Lists page in groups of 50. Search shows at most 50 matches and asks the reader to narrow the query.
+- Links labels unresolved symbolic references without presenting them as proven calls. Known source sizes or call lines beyond the web display budgets show a command fallback instead of a source anchor. Source still checks the complete file's byte and line budgets when opened. Lists page in groups of 50. Search shows at most 50 matches and asks the reader to narrow the query.
 - Check exposes coverage and uncertainty. The UI never claims a saved capture establishes present working-tree or live application freshness.
 - Every internal link and search carries the selected generation. A missing or invalid generation fails instead of silently switching to the newest one.
 - Standard links, forms and focus behavior work without JavaScript. Optional letter shortcuts are disabled initially. Enable them using the visible checkbox: F Find, S Source, G Links, J/K results. They are focus-scoped and inactive during text entry, composition, modifier chords or text selection. Browser session preference is the only local state.

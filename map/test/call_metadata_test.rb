@@ -5,6 +5,33 @@ require_relative 'test_helper'
 class MapCallMetadataTest < Minitest::Test
   include MapTestSupport
 
+  def test_call_anchors_respect_known_source_display_limits_without_loading_source
+    [[Thistle::Map::View::MAX_SOURCE_BYTES, 2, true],
+      [Thistle::Map::View::MAX_SOURCE_BYTES + 1, 2, false],
+      [30_000, Thistle::Map::View::MAX_SOURCE_LINES + 1, false]].each do |bytes, line, anchored|
+      location = { 'start_line' => line, 'end_line' => line, 'start_byte' => bytes - 6, 'end_byte' => bytes }
+      fact = { 'id' => FACT_ID, 'name' => 'Demo', 'kind' => 'method', 'evidence' => 'static',
+        'path' => 'demo.rb', 'location' => location, 'attributes' => {} }
+      metadata = { 'version' => 1, 'safe_navigation' => false, 'call_location' => location,
+        'receiver_location' => location, 'receiver' => { 'kind' => 'self', 'name' => nil, 'omitted_limit' => false } }
+      link = { 'relation' => 'calls', 'target' => 'render', 'resolution' => 'unresolved',
+        'attributes' => { 'thistle_call' => metadata } }
+      reader = Reader.new(facts: [fact], links: [link])
+      reader.manifest['files'] = [{ 'path' => 'demo.rb', 'bytes' => bytes }]
+      reader.define_singleton_method(:source) { |_| raise 'Links must not load source' }
+      status, _, body = request(make_app(reader), '/links', query: URI.encode_www_form('id' => FACT_ID))
+      assert_equal 200, status
+      assert_includes body, '<br>self ·'
+      if anchored
+        assert_includes body, "#L#{line}"
+        refute_includes body, 'Source exceeds web display limits'
+      else
+        refute_includes body, "#L#{line}"
+        assert_includes body, 'Source exceeds web display limits; use the Thistle source command.'
+      end
+    end
+  end
+
   def test_spoofed_metadata_types_do_not_format_objects_or_create_anchors
     formatted = false
     name = Object.new
