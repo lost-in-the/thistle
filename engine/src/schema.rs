@@ -119,6 +119,7 @@ pub fn facts(facts: &[Value], files: &[Value], version: u64) -> Result<()> {
             }
         }
         if fact["kind"] == "rails_model" { model_fact(fact)?; }
+        if fact["kind"] == "rails_save_callbacks" { crate::callbacks::validate_fact(fact)?; }
         for link in array(fact, "links")? {
             for key in ["relation", "target"] {
                 let text = string(link, key)?;
@@ -323,6 +324,71 @@ pub fn capture(value: &Value) -> Result<()> {
     coverage(value)?;
     diagnostic_counts(array(value, "diagnostics")?)?;
     Ok(())
+}
+
+/// Incremental admission shared by runtime observation families. Context is
+/// untrusted; publication independently validates the complete actual capture.
+/// Entries retain the existing per-observation-batch meaning, not source nodes.
+pub(crate) struct ObservationAdmission {
+    max_facts: usize, max_links: usize, max_entries: usize,
+    facts: usize, links: usize, entries: usize, bytes: usize,
+    original_facts: usize, original_links: usize, original_bytes: usize,
+}
+
+impl ObservationAdmission {
+    pub(crate) fn new(context: &Value) -> Result<Self> {
+        model_object(context, &["limits", "facts", "links", "diagnostics", "fact_bytes"])?;
+        let limits = &context["limits"];
+        model_object(limits, &["max_facts", "max_links", "max_entries", "max_diagnostics"])?;
+        let limit = |key, ceiling| -> Result<usize> {
+            limits[key].as_u64().filter(|n| *n > 0 && *n <= ceiling).map(|n| n as usize)
+                .ok_or_else(|| CoreError::input(format!("Invalid combined capture limit {key}")))
+        };
+        let max_facts = limit("max_facts", 100_000)?;
+        let max_links = limit("max_links", 500_000)?;
+        let max_entries = limit("max_entries", 100_000)?;
+        let max_diagnostics = limit("max_diagnostics", 1_000)?;
+        let used = |key: &str, ceiling: usize| -> Result<usize> {
+            context[key].as_u64().filter(|n| *n <= ceiling as u64).map(|n| n as usize)
+                .ok_or_else(|| CoreError::limit(format!("Invalid or exhausted observation admission counter {key}")))
+        };
+        let facts = used("facts", max_facts)?;
+        let links = used("links", max_links)?;
+        used("diagnostics", max_diagnostics)?;
+        let bytes = used("fact_bytes", MAX_FACTS_BYTES)?;
+        if bytes < 2 { return Err(CoreError::input("Fact array byte count must include its brackets")); }
+        Ok(Self { max_facts, max_links, max_entries, facts, links, entries: 0, bytes,
+            original_facts: facts, original_links: links, original_bytes: bytes })
+    }
+
+    pub(crate) fn ensure_facts(&self, count: usize) -> Result<()> {
+        if self.facts.checked_add(count).is_none_or(|n| n > self.max_facts) {
+            return Err(CoreError::limit("Combined observation capture exceeds max_facts"));
+        }
+        Ok(())
+    }
+
+    pub(crate) fn admit(&mut self, fact: &Value, entry_count: usize) -> Result<()> {
+        self.ensure_facts(1)?;
+        let entries = self.entries.checked_add(entry_count).filter(|n| *n <= self.max_entries)
+            .ok_or_else(|| CoreError::limit("Observation metadata exceeds max_entries"))?;
+        let links = self.links.checked_add(array(fact, "links")?.len()).filter(|n| *n <= self.max_links)
+            .ok_or_else(|| CoreError::limit("Combined capture exceeds max_links"))?;
+        // Existing [] already charged; every appended member needs at most one comma.
+        let bytes = encoded_bytes(fact, MAX_FACTS_BYTES)?.checked_add(1)
+            .and_then(|n| self.bytes.checked_add(n)).filter(|n| *n <= MAX_FACTS_BYTES)
+            .ok_or_else(|| CoreError::limit("Combined capture exceeds 64 MiB fact budget"))?;
+        // No counter changes if any part of this fact refuses.
+        self.facts += 1; self.links = links; self.entries = entries; self.bytes = bytes;
+        Ok(())
+    }
+
+    /// Charges for this batch only, independent of caller-supplied prior sizes.
+    pub(crate) fn appended(&self) -> Value {
+        serde_json::json!({"facts":self.facts - self.original_facts,
+            "links":self.links - self.original_links, "entries":self.entries,
+            "fact_bytes":self.bytes - self.original_bytes})
+    }
 }
 
 // Model v1 is deliberately closed: arbitrary nested application values must not

@@ -8,6 +8,21 @@ require_relative 'fixtures/callbacks/booted_app'
 # Root-owned hooks must compose the real journey for this test to pass. This is
 # intentionally not a presenter-only substitute or an accepted installed test.
 class ThistleCallbacksJourneyTest < Minitest::Test
+  def test_runtime_batches_do_not_reserialize_the_existing_static_fact_array
+    app = CallbackFixture.boot
+    original = JSON.method(:generate)
+    fact_arrays = 0
+    JSON.define_singleton_method(:generate) do |value, *args, **options|
+      fact_arrays += 1 if value.is_a?(Array) && value.first.is_a?(Hash) && value.first.key?('id')
+      original.call(value, *args, **options)
+    end
+    capture = Thistle::Capture.new(root: File.join(__dir__, 'fixtures/callbacks'), rails: app).call
+    assert capture.fetch('facts').any? { |fact| fact['kind'] == 'rails_save_callbacks' }
+    assert_equal 1, fact_arrays, 'Format2 static admission is counted once; runtime must charge appended batches only'
+  ensure
+    JSON.define_singleton_method(:generate, original) if original
+  end
+
   def test_real_capture_publication_fresh_reader_pins_registered_metadata
     app = CallbackFixture.boot
     Dir.mktmpdir('thistle-callback-store-') do |store|

@@ -1,11 +1,39 @@
 # Registered save callback evidence
 
 LOS-50 ([original issue 78](https://github.com/lost-in-the/thistle/issues/78))
-asks which save callbacks are registered on an already loaded model. This source
-phase supplies independent components; it does not establish an integrated or
-accepted customer journey. Leah owns acceptance; the technical coordinator owns
-shared composition and installed candidate checks. All launch capabilities remain
-unqualified.
+asks which save callbacks are registered on an already loaded model. Phase A
+composes the donated components with accepted Model source: native shared
+admission/dispatch, publication and fresh Reader validation, Capture append and
+Map Source presentation. Source checks are distinct from executed native/Ruby/
+Map and installed-artifact acceptance. Leah owns acceptance; root retains final
+review, integration and exact-package checks. All launch rows remain unqualified.
+
+## Phase A integration and evidence boundary
+
+Model and callbacks share `schema::ObservationAdmission::{new,ensure_facts,admit}`.
+Its context keys, global fact/link/byte counters and configured ceilings retain
+Model's meaning. Entry counts remain per observation batch/family. Each native
+batch returns context-independent `appended` charges for facts, links, entries
+and conservative encoded fact bytes. Capture counts the format-2 static facts
+once, counts only the returned route batch next, and uses native appended
+charges thereafter. It never serializes growing old facts for each new family.
+Publication independently validates the actual complete capture before I/O.
+
+The View hook supplies the existing pinned Reader, generation and mount to the
+callback presenter. A separate installed callback producer copies/boots only the
+harmless callback fixture, captures/publishes it and advances CURRENT. A fresh
+consumer opens the retained generation without Rails, checks registered known
+answers/source/uncertainty and renders the real Map Source view. Its input and
+receipt hashes and loaded native identity are recorded by `qualify_baseline.py`.
+The existing selected-arm Model/Find/heredoc smoke and argv are unchanged.
+Callback applicability is selected by the packaged observer; missing inputs
+refuse. Producer failure stops the consumer and all later qualification work.
+
+Default capture/publication stays format 2. Codec registration/helper work is a
+separate stacked source head; no schema-3 store, measured saving, full-app fit or
+qualification is established by callback composition. The prior failed Ruby
+preflight and failed uncomposed hosted attempts remain evidence below and in
+LOS-50; no earlier result transfers to this changed source.
 
 ## Supported observation and meaning
 
@@ -68,9 +96,9 @@ source hints. The root and external source paths are not stored in callback
 facts. Paths supplied relatively by Ruby may remain unavailable.
 
 `callbacks::batch(context, observation)` follows Model's incremental native
-transport: existing source/fact payloads are never retransmitted. Root extracts
+transport: existing source/fact payloads are never retransmitted. Both components use
 `schema::ObservationAdmission::new(context)` and `admit(&fact, entry_count)`
-from existing Model admission for both components. Context retains Model's
+extracted from existing Model admission. Context retains Model's
 `limits`, `facts`, `links`, `diagnostics`, `fact_bytes` shape. Each callback and
 condition consumes an entry; each model consumes a fact; labelled relationships
 consume links; combined fact JSON consumes the existing byte budget. The helper
@@ -107,7 +135,7 @@ evidence remains available through Reader facts. Source reads are cached only
 for one render; no live files are read. Existing Map authorization, navigation,
 focus and generation routing remain root-owned.
 
-## Exact integration delta reserved for root
+## Original component integration plan
 
 This uses Rails' existing registry rather than parsing callback macros or adding
 a reflection library: source macros alone cannot establish effective inherited
@@ -118,7 +146,8 @@ metadata API. Root should record this bounded choice and shared helper extractio
 in the existing decisions document during integration; this worker does not own
 that shared file.
 
-Existing files remain untouched by the source worker. Integrator work:
+The original donated source left these hooks uncomposed. Phase A now implements
+them on the callback continuation; installed execution/acceptance remain root-owned:
 
 1. Land/reconcile the fixed Model components; reuse its observer helpers and
    `schema::{model_object,model_label,encoded_bytes}`. Extract shared admission
@@ -153,7 +182,7 @@ Dedicated source regressions (not qualification):
 - `map/test/callback_journey_test.rb` requires real capture, a reopened pinned
   Reader and View composition after the current generation changes.
 
-Source delivery has **not run** these tests, built native artifacts, booted
+The original donated source phase had **not run** these tests, built native artifacts, booted
 Rails, executed Map, installed packages or run an evaluator. Eight Ruby syntax
 checks, whitespace validation and the note filesystem/text guard passed. Rust
 formatting/typechecking is unverified (`rustfmt` unavailable).

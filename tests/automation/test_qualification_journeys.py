@@ -78,6 +78,52 @@ class QualificationJourneyTests(unittest.TestCase):
                 self.invoke({"lib/thistle/model_observer.rb": "candidate"})
         self.assertEqual(run.call_count, 1)
 
+    def callback_fixture(self):
+        fixture = self.source / "test/fixtures/callbacks"
+        fixture.mkdir(parents=True)
+        for name in ("booted_app.rb", "records.rb"):
+            (fixture / name).write_text("# harmless callback fixture\n")
+        for name in ("installed_callback_producer.rb", "installed_callback_consumer.rb"):
+            (self.source / "map/test" / name).write_text("# separate callback journey\n")
+
+    def callbacks(self, files):
+        return qualifier.installed_callbacks(self.source, self.output, Path("/ruby"),
+                                              self.consumer, {"GEM_HOME": "/isolated"}, files)
+
+    def test_callback_applicability_keeps_frozen_and_model_only_arms_unchanged(self):
+        for files in ({}, {"lib/thistle/model_observer.rb": "selected"}):
+            with patch.object(qualifier, "run_logged") as run:
+                self.assertEqual(self.callbacks(files), ({}, None, None))
+            run.assert_not_called()
+        self.assertFalse((self.output / "callback-fixture").exists())
+
+    def test_callback_package_uses_separate_producer_and_fresh_consumer(self):
+        self.callback_fixture()
+        with patch.object(qualifier, "run_logged") as run:
+            inputs, receipt, result = self.callbacks({"lib/thistle/callback_observer.rb": "candidate"})
+        producer, consumer = run.call_args_list
+        self.assertEqual(producer.args[0], [Path("/ruby"), self.output / "installed_callback_producer.rb",
+            self.output / "callback-fixture", self.output / "callback-source", self.output / "callback-store"])
+        self.assertEqual(consumer.args[0], [Path("/ruby"), self.output / "installed_callback_consumer.rb",
+            self.output / "callback-store", receipt])
+        self.assertEqual(consumer.args[1], result)
+        self.assertEqual(len(inputs), 4)
+        self.assertTrue(all(qualifier.sha(self.output / path) == digest for path, digest in inputs.items()))
+        self.assertEqual(consumer.kwargs, {"cwd": self.consumer, "env": {"GEM_HOME": "/isolated"}})
+
+    def test_missing_callback_input_refuses_without_downgrading(self):
+        with patch.object(qualifier, "run_logged") as run:
+            with self.assertRaises(FileNotFoundError):
+                self.callbacks({"lib/thistle/callback_observer.rb": "candidate"})
+        run.assert_not_called()
+
+    def test_callback_failure_propagates_and_stops_dependent_work(self):
+        self.callback_fixture()
+        with patch.object(qualifier, "run_logged", side_effect=subprocess.CalledProcessError(9, "producer")) as run:
+            with self.assertRaises(subprocess.CalledProcessError):
+                self.callbacks({"lib/thistle/callback_observer.rb": "candidate"})
+        self.assertEqual(run.call_count, 1)
+
 
 if __name__ == "__main__":
     unittest.main()

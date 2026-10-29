@@ -5,7 +5,7 @@ use std::path::Path;
 
 const SCOPE: &str = "Registered save chains of already loaded Active Record 8.1.4 descendants in the supplied process";
 
-// Root integrates this module and the shared ObservationAdmission extraction.
+// Both runtime families share native admission; publication validates actual facts.
 pub fn batch(context: &Value, observation: &Value) -> Result<Value> {
     schema::depth(observation)?;
     schema::model_object(observation, &["version", "active_record_version", "root", "status", "models"])?;
@@ -21,7 +21,8 @@ pub fn batch(context: &Value, observation: &Value) -> Result<Value> {
     }
     schema::encoded_bytes(observation, schema::MAX_FACTS_BYTES)?;
     let mut admission = schema::ObservationAdmission::new(context)?;
-    let mut facts = Vec::new();
+    admission.ensure_facts(models.len())?;
+    let mut facts = Vec::with_capacity(models.len());
     for (ordinal, model) in models.iter().enumerate() {
         schema::model_object(model, &["name", "superclass", "save"])?;
         schema::model_label(&model["name"])?;
@@ -53,7 +54,7 @@ pub fn batch(context: &Value, observation: &Value) -> Result<Value> {
         admission.admit(&fact, count)?;
         facts.push(fact);
     }
-    Ok(json!({"facts":facts,"coverage":[
+    Ok(json!({"facts":facts,"appended":admission.appended(),"coverage":[
         {"family":"rails_save_callbacks","status":if observation["status"] == "observed" {"partial"} else {"unavailable"},
          "scope":SCOPE,"reason":"Per-model observed/partial/unavailable chains. Zero-based registered positions are not execution chronology. Shared superclass entries and effective method owners do not prove registration sites. Source hints do not prove source/runtime coherence."},
         {"family":"rails_callback_execution","status":"unavailable","scope":"Callback bodies, conditions, scopes, effects and around-callback chronology",

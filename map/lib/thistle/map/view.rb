@@ -6,6 +6,7 @@ require 'digest'
 require 'uri'
 require_relative 'highlighter'
 require_relative 'model_presenter'
+require_relative 'callback_presenter'
 require_relative 'find_presenter'
 
 module Thistle
@@ -369,7 +370,8 @@ module Thistle
           klass = eyebrow == 'Route conditions' ? ' class="route-conditions"' : ''
           "<div#{klass}><span class=\"eyebrow\">#{h(eyebrow)}</span><dl>" +
             rows.map { |label, value| "<dt>#{h(label)}</dt><dd>#{h(value)}</dd>" }.join + '</dl></div>'
-        end.join + '</div>' + ModelPresenter.render(fact)
+        end.join + '</div>' + ModelPresenter.render(fact) +
+          CallbackPresenter.new(generation: @generation, reader: @reader, mount: @mount).render(fact)
       end
 
       def constraint_summary(fact)

@@ -95,6 +95,20 @@ fn charges_existing_combined_counts_conditions_and_exact_encoded_bytes() {
 }
 
 #[test]
+fn shared_admission_preserves_counters_when_a_member_refuses() {
+    let result = batch(&context(), &observation()).unwrap();
+    let fact = &result["facts"][0];
+    let mut limited = context(); limited["limits"]["max_entries"] = json!(4);
+    let mut admission = schema::ObservationAdmission::new(&limited).unwrap();
+    let before = admission.appended();
+    assert!(admission.admit(fact, 5).is_err());
+    assert_eq!(admission.appended(), before);
+    admission.admit(fact, 4).unwrap();
+    assert_eq!(admission.appended(), result["appended"]);
+    assert_eq!(result["appended"]["fact_bytes"], schema::encoded_bytes(fact, schema::MAX_FACTS_BYTES).unwrap() + 1);
+}
+
+#[test]
 fn publication_and_fresh_reader_preserve_generation_local_registered_evidence() {
     // This regression intentionally requires root's real schema/dispatch hooks.
     let temp = tempfile::tempdir().unwrap();
