@@ -268,24 +268,28 @@ pub(crate) fn diagnostic_occurrences(record: &Value) -> Result<u64> {
     }
 }
 
-/// Count encoded bytes without allocating another diagnostic payload. Value
-/// serialization has no fallible custom serializer; refusal here is byte budget
-/// or checked accounting overflow. Escapes and UTF-8 use the real JSON encoder.
-pub(crate) fn diagnostic_bytes<T: serde::Serialize + ?Sized>(value: &T) -> Result<usize> {
-    struct Size(usize);
+/// Count with the real JSON encoder without retaining another payload. Refuse
+/// during encoding at the supplied budget, including checked accounting overflow.
+pub(crate) fn encoded_bytes<T: serde::Serialize + ?Sized>(value: &T, max: usize) -> Result<usize> {
+    struct Size { bytes: usize, max: usize }
     impl std::io::Write for Size {
         fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
-            self.0 = self.0.checked_add(bytes.len())
-                .filter(|n| *n <= MAX_DIAGNOSTIC_BYTES)
-                .ok_or_else(|| std::io::Error::other("Diagnostic byte budget exceeded"))?;
+            self.bytes = self.bytes.checked_add(bytes.len())
+                .filter(|n| *n <= self.max)
+                .ok_or_else(|| std::io::Error::other("Encoded JSON byte budget exceeded"))?;
             Ok(bytes.len())
         }
         fn flush(&mut self) -> std::io::Result<()> { Ok(()) }
     }
-    let mut size = Size(0);
+    let mut size = Size { bytes: 0, max };
     serde_json::to_writer(&mut size, value)
-        .map_err(|_| CoreError::limit("Encoded diagnostics exceed the 8 MiB budget"))?;
-    Ok(size.0)
+        .map_err(|_| CoreError::limit("Encoded JSON exceeds byte budget"))?;
+    Ok(size.bytes)
+}
+
+pub(crate) fn diagnostic_bytes<T: serde::Serialize + ?Sized>(value: &T) -> Result<usize> {
+    encoded_bytes(value, MAX_DIAGNOSTIC_BYTES)
+        .map_err(|_| CoreError::limit("Encoded diagnostics exceed the 8 MiB budget"))
 }
 
 pub(crate) fn diagnostic_budget(bytes: usize) -> Result<()> {

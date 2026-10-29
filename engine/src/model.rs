@@ -47,9 +47,8 @@ pub fn batch(context: &Value, observation: &Value) -> Result<Value> {
     if bytes < 2 { return Err(CoreError::input("Fact array byte count must include its brackets")); }
     let mut entries = 0usize;
     // Refuse an oversized observation before building facts.
-    if schema::canonical(observation)?.len() > schema::MAX_FACTS_BYTES {
-        return Err(CoreError::limit("Model observation exceeds 64 MiB"));
-    }
+    schema::encoded_bytes(observation, schema::MAX_FACTS_BYTES)
+        .map_err(|_| CoreError::limit("Model observation exceeds 64 MiB"))?;
     let mut facts = Vec::with_capacity(models.len());
     for (ordinal, observed) in models.iter().enumerate() {
         schema::model_observation(observed)?;
@@ -74,7 +73,7 @@ pub fn batch(context: &Value, observation: &Value) -> Result<Value> {
         let fact = json!({"id":id,"kind":"rails_model","name":name,"evidence":"runtime",
             "path":null,"location":null,"attributes":{"model":data},"links":model_links(observed)});
         // Existing [] already charged; every appended member needs at most one comma.
-        bytes = bytes.saturating_add(schema::canonical(&fact)?.len() + 1);
+        bytes = bytes.saturating_add(schema::encoded_bytes(&fact, schema::MAX_FACTS_BYTES)? + 1);
         if links > max_links { return Err(CoreError::limit("Combined capture exceeds max_links")); }
         if bytes > schema::MAX_FACTS_BYTES { return Err(CoreError::limit("Combined capture exceeds 64 MiB fact budget")); }
         facts.push(fact);
@@ -188,5 +187,23 @@ mod tests {
         assert_eq!(result["coverage"][1]["status"], "unavailable");
         obs["version"] = json!(99);
         assert!(append(capture(), &obs).is_err());
+    }
+    #[test]
+    fn counted_json_preserves_escaped_bytes_and_combined_admission_boundary() {
+        let escaped = json!({"text":"quote\" slash\\ newline\n 🍎", "values":[null, true, -12, 1.5]});
+        let length = schema::canonical(&escaped).unwrap().len();
+        assert_eq!(schema::encoded_bytes(&escaped, length).unwrap(), length);
+        assert!(schema::encoded_bytes(&escaped, length - 1).is_err());
+        assert!(schema::encoded_bytes(&json!(null), 0).is_err());
+        let mut context = json!({"limits":capture()["producer"]["effective_limits"],
+            "facts":1,"links":0,"diagnostics":0,"fact_bytes":2});
+        let observations = observation();
+        let result = batch(&context, &observations).unwrap();
+        let added = result["facts"].as_array().unwrap().iter()
+            .map(|fact| schema::canonical(fact).unwrap().len() + 1).sum::<usize>();
+        context["fact_bytes"] = json!(schema::MAX_FACTS_BYTES - added);
+        assert_eq!(batch(&context, &observations).unwrap(), result);
+        context["fact_bytes"] = json!(schema::MAX_FACTS_BYTES - added + 1);
+        assert!(batch(&context, &observations).is_err());
     }
 }
