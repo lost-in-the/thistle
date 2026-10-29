@@ -53,7 +53,7 @@ design review. The route and custodian preferences do not authorize setup. Sugge
 | Independent authority | Leah is the custodian and final policy approver. CodeRabbit can supply advisory policy review; it is not the qualification authority. Candidate authors have no controller/policy write or publisher-key access. | Verify human-controlled administration outside authoring sessions, effective access and backup/recovery custody; role selection is not credential or setup authorization |
 | Candidate authoring | Use a restricted authoring identity such as existing `lost-in-the-agent` with Thistle write only; remove owner credentials from candidate-authoring sessions before claiming independence. | Owner-approved credential separation and verification; no account switch or permission change in this task |
 | Evaluator home | Proposed public `lost-in-the/thistle-eval` on Free, with repository rules for policy changes and a distinct App. No candidate authors or authoring connectors may write there. Standard public hosted minutes are free. Private Free custody remains a fallback with weaker review enforcement. | The owner selected this route, but repository creation/disclosure, actual ID, writer/access list and restricted evidence destination still need authorization; inherited organization access must be checked |
-| Enforcement route | Current Free: distinct proposed `Thistle Qualification` App, only Thistle installation, Checks write, Metadata read, Pull requests read and Contents read for head/base/tree verification; all other permissions off. | App name availability, numeric App ID, client ID, installation ID and custodian approval |
+| Enforcement route | Current Free: distinct proposed `Thistle Qualification` App, only Thistle installation; Checks write plus Commit statuses write for GitHub's documented expected-source selection, Metadata read, Pull requests read and Contents read for identity verification; all other permissions off. Publisher tokens are explicitly narrower, as described below. | Owner/security approval of both installation write permissions and the additional status-publication authority, App/installation identities and live source-binding proof; no grant is made by this proposal |
 | Key custody | App key in custodian-controlled vault and only the protected publisher phases' secret (admission and final publication); no organization-wide secret, candidate secret, developer checkout or worker copy. | Actual approved vault/access list and publisher secret configuration; no key material belongs in this document |
 | Admission authority | Admission and final publication are phases of one protected publishing authority. Both would have full App Checks write; the admission program permits blocking updates only, but its token is not conclusion-scoped. | Custodian acceptance and proof of this trusted-code boundary; no claim that a separate job/token prevents a compromised admission publisher from writing success |
 | Native alternative | If eligible plan is chosen, public evaluator workflow source in the organization, pinned repository ID/path/SHA; same independent writers and worker boundary. | Plan purchase/entitlement, public disclosure approval and actual workflow identity |
@@ -142,6 +142,21 @@ write and read access for final identity verification, never Contents write,
 Administration, package publishing or release permissions. Downloading candidate
 Actions artifacts, if later chosen, requires a separately assessed Actions read
 permission; it is not silently added here.
+
+GitHub's [expected-source ruleset documentation](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets#require-status-checks-to-pass-before-merging)
+requires the installed App to have `statuses:write`, in addition to a recent check
+run and an existing required check. The proposed installation therefore needs
+explicit owner/security approval for Commit statuses write as well as Checks
+write. This is an added installation capability, not a read permission; the
+App/key custodian can mint tokens that publish commit statuses too.
+
+For ordinary admission and final publication, explicitly request only Checks
+write and the required identity reads, excluding Commit statuses write. GitHub
+[permits installation tokens to select a narrower permission set](https://docs.github.com/en/rest/apps/apps#create-an-installation-access-token-for-an-app);
+omitting that selection would inherit the installation's permissions. Retain the
+actual token permission readback and prove that publisher tokens cannot create
+commit statuses. This does not constrain the App/key issuer, which remains in the
+trusted authority boundary. No App creation or permission grant is authorized here.
 
 This is a proposed choice record. On authorized adoption, the integration owner
 should index the accepted choice in [development decisions](decisions.md).
@@ -459,8 +474,12 @@ required_status_checks:
 Never substitute null, zero, `-1`, App `15368`, omission or any-source matching.
 Validate the real App/installation and check JSON, then prove source binding through
 the [rules API](https://docs.github.com/en/rest/repos/rules#create-a-repository-ruleset).
-If the chosen interface needs more than proposed Checks write/minimal reads, stop
-for a specific decision; do not grant Statuses write or weaken binding silently.
+Before this proof, obtain the explicit installation-permission decision above,
+including the documented Commit statuses write requirement. If the interface needs
+any permission beyond that approved set, stop for a specific decision. Do not
+widen installation/token permissions or weaken source binding silently. The
+ordinary publisher token remains Checks-write/minimal-read scoped; status-writing
+authority is not needed for its check-run publication path.
 
 The optional native organization-workflow route also requires an eligible plan,
 a public evaluator workflow for a public target, and exact source repository
