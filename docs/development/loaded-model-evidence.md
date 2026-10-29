@@ -161,3 +161,11 @@ work, and establishes no timing/RSS result.
 This root correction is source/static only until the separate Find build lease
 releases and focused runtime checks execute. The original failed component CI
 40910171169 remains recorded; no test result transfers to the corrected head.
+
+### Integrated schema context
+
+Root reconciled the component with integrated schema-2 main 7633b2b0. The
+additive model validator remains in the facts path, alongside the unchanged
+contextual call validator. Both legacy schema-1 behavior and schema-2 tests
+are retained. append moves the capture's explicit schema context unchanged.
+This composition still requires focused runtime and installed checks.
