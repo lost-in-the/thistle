@@ -181,9 +181,13 @@ selected artifacts rather than running its campaign as a per-PR smoke test.
 The aggregate remains `CI / required`. Candidate CI does not establish protected
 required-check authority; #23 owns that unfinished enforcement. A renamed job
 cannot silently replace a required check until the rules and a real run have
-been verified by the authorized administrator. #28 requires new integrated-main
-and Compatibility results after authorized integration; #20 still owns modern
-installed-candidate verification and the primary dependency-lock decision.
+been verified by the authorized administrator. #28 completed its scoped repair
+with integrated-main and Compatibility results. #20's modern installed-candidate
+verification and dependency-lock decision are recorded in the
+[exact-candidate report](../handoff/runs/40738248777/README.md) and the
+[dependency-lock policy](decisions.md#dependency-locks-library-compatibility-feedback-and-exact-tested-resolutions).
+Those completed outcomes retain their recorded artifact/environment scope;
+changed candidates need their own affected checks and installed evidence.
 
 ### Running and inspecting the flow
 
@@ -234,9 +238,11 @@ compile a native binary whose actual identity belongs in each installed report.
 
 The current source dependency graph resolves at build time because its lockfile
 is not committed. Retained per-run/cohort locks describe what was tested; they do
-not establish reproducible dependency resolution or package bytes. Review and
-capture the primary dependency lock during source integration, and keep cohort
-lock differences explicit rather than silently claiming a universal lock.
+not establish reproducible dependency resolution or package bytes. Follow the
+[reviewed dependency-lock policy](decisions.md#dependency-locks-library-compatibility-feedback-and-exact-tested-resolutions):
+retain the actual primary and installed-cohort locks with each candidate's
+evidence, and keep cohort lock differences explicit rather than claiming a
+universal lock. A committed development lock is not the selected policy.
 
 ## Artifact reuse and evidence
 
