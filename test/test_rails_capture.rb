@@ -5,6 +5,8 @@ require "tmpdir"
 require "fileutils"
 require "logger"
 require "stringio"
+require "open3"
+require "rbconfig"
 require "rails"
 require "action_controller/railtie"
 require_relative "../lib/thistle/capture"
@@ -12,7 +14,8 @@ require_relative "../lib/thistle/capture"
 class ThistleRailsCaptureTest < Minitest::Test
   def setup
     @root = Dir.mktmpdir("thistle-rails-")
-    return unless name == "test_observes_real_booted_rails_routes_without_attaching_stale_source"
+    return unless name == "test_observes_real_booted_rails_routes_without_attaching_stale_source" &&
+      ENV["THISTLE_ROUTE_FIXTURE_CHILD"] == "1"
 
     @app = Class.new(Rails::Application).new
     @app.config.root = @root
@@ -33,6 +36,14 @@ class ThistleRailsCaptureTest < Minitest::Test
   end
 
   def test_observes_real_booted_rails_routes_without_attaching_stale_source
+    # Rails freezes process-global autoload paths during initialization. Keep this
+    # application's boot separate from the registered-callback fixture's boot.
+    unless ENV["THISTLE_ROUTE_FIXTURE_CHILD"] == "1"
+      stdout, stderr, status = Open3.capture3({ "THISTLE_ROUTE_FIXTURE_CHILD" => "1" },
+        RbConfig.ruby, "-I", File.expand_path("../lib", __dir__), __FILE__, "--name", name)
+      assert status.success?, "#{stdout}\n#{stderr}"
+      return
+    end
     result = Thistle::Capture.new(root: @root, rails: @app).call
     routes = result["facts"].select { |fact| fact["kind"] == "route" }
     show = routes.find { |fact| fact.dig("attributes", "action") == "show" }
