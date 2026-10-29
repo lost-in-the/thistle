@@ -50,6 +50,8 @@ Dir.mktmpdir("thistle-installed-", File.realpath(Dir.tmpdir)) do |worker|
     File.write(env.fetch("BUNDLE_GEMFILE"), "source \"https://rubygems.org\"\n" +
       requirements.map { |name, version| "gem #{name.inspect}, #{("= " + version).inspect}\n" }.join)
     run.call(ruby, "-S", "bundle", "install", "--local")
+    FileUtils.cp(File.join(source, "Gemfile.lock"), File.join(output, "development-Gemfile.lock"))
+    FileUtils.cp(File.join(worker, "Gemfile.lock"), File.join(output, "consumer-Gemfile.lock"))
     observe = <<~'CHILD'
       require "bundler"
       require "thistle"
@@ -74,8 +76,6 @@ Dir.mktmpdir("thistle-installed-", File.realpath(Dir.tmpdir)) do |worker|
     run.call(ruby, "-S", "bundle", "exec", ruby, "installed_smoke.rb")
     FileUtils.cp(File.join(source, "test/support/installed_cli.rb"), worker)
     run.call(ruby, "-S", "bundle", "exec", ruby, "installed_cli.rb")
-    FileUtils.cp(File.join(source, "Gemfile.lock"), File.join(output, "development-Gemfile.lock"))
-    FileUtils.cp(File.join(worker, "Gemfile.lock"), File.join(output, "consumer-Gemfile.lock"))
     report = {
       status: "passed", scope: "development installed contracts",
       ruby: RUBY_DESCRIPTION, platform: RUBY_PLATFORM,

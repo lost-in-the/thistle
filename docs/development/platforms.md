@@ -73,20 +73,25 @@ runtime/OS compatibility when updating Ruby or Rust.
 
 ## Install in a Ruby or Rails application
 
-Both source gems must be built and installed; nothing is published to a registry.
-The matching package versions are defined by their gemspecs.
+Build and install the core source gem; Map is optional. When using Map, install
+the matching Map source gem: its gemspec requires an exact core version.
+Nothing is published to a registry. Package versions are defined by their gemspecs.
 
 ```sh
 mkdir -p pkg
 gem build thistle.gemspec --output pkg/thistle-0.1.0.pre.2.gem
+gem install pkg/thistle-0.1.0.pre.2.gem
+
+# Optional Map views, paired with the core version above:
 (cd map && gem build thistle-map.gemspec --output ../pkg/thistle-map-0.1.0.pre.2.gem)
-gem install pkg/thistle-0.1.0.pre.2.gem pkg/thistle-map-0.1.0.pre.2.gem
+gem install pkg/thistle-map-0.1.0.pre.2.gem
 ```
 
 Run installation under the destination application's Ruby and native toolchain.
 RubyGems may download missing runtime dependencies such as Rouge.
-For an application managed by Bundler, copy the source-gem artifacts to its
-`vendor/cache` using those canonical versioned filenames, add `gem "thistle", "= 0.1.0.pre.2"` in its development group (and
+For an application managed by Bundler, copy the core artifact (and the matching
+Map artifact, if used) to its `vendor/cache` using those canonical versioned
+filenames, add `gem "thistle", "= 0.1.0.pre.2"` in its development group (and
 optionally `gem "thistle-map", "= 0.1.0.pre.2"`), then run `bundle install` in that
 application. Bundler compiles the extension for that application's environment.
 The private publishing restriction remains in place. Do not copy a compiled
