@@ -272,8 +272,11 @@ Brain setup does not modify Git hooks.
 
 The pre-edit hook deviates from the generated command: it prefers the managed,
 pinned plugin binary, falls back to an `entire-brain` on `PATH`, exits silently
-when neither exists, and is bounded by a 5-second timeout. A bare
-`entire brain` call exits 1 when the plugin is missing. A setup rerun was
+when neither exists, and is bounded by a 5-second timeout. It sets
+`ENTIRE_PLUGIN_DATA_DIR` as Entire's plugin dispatcher does, so both binaries
+read the same facts. Without a terminal, as in a hook, a bare `entire brain`
+call exits 1 when the plugin is missing; interactively, Entire offers to install
+it. A setup rerun was
 verified to keep this command. Limitations: the hook returns context only, not
 `updatedInput`, so its facts cannot change the edit that triggered them; agents
 query `entire brain brief` before editing. Memories are per machine without

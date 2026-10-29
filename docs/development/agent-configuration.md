@@ -107,8 +107,8 @@ plugin versions first: `entire plugin install graph --pin v0.6.0 --yes`, then
 setup also starts a backfill that distills up to 25 past sessions per pass and
 installs a watcher that keeps distilling. Distillation spends agent tokens and
 sends session content to the agent CLI's model provider, so enable it only by
-explicit choice. The Claude Code pre-edit hook exits silently when Entire or the Brain
-plugin is absent, and times out after 5 seconds. See the
+explicit choice. The Claude Code pre-edit hook exits silently when no Brain
+plugin binary is found, and times out after 5 seconds. See the
 [Brain decision](decisions.md#agent-context-entire-brain).
 
 A worktree with neither `.entire/settings.json` nor
