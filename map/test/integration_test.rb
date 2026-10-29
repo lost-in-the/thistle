@@ -68,6 +68,9 @@ class MapIntegrationTest < Minitest::Test
   end
 
   def test_real_route_conditions_survive_publish_reader_and_escaped_map
+    require_relative '../../lib/thistle/rails_capture'
+    skip 'Route conditions are observed only on supported Rails versions' unless
+      Thistle::RailsCapture::CONSTRAINT_RAILS_VERSIONS.include?(Rails::VERSION::STRING)
     Dir.mktmpdir('thistle-map-constraints-') do |directory|
       root = File.join(directory, 'app')
       store = File.join(directory, 'store')
