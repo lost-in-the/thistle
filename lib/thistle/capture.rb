@@ -57,16 +57,17 @@ module Thistle
         result["producer"]["ruby_version"] = RUBY_VERSION
         result["producer"]["ruby_engine"] = RUBY_ENGINE
         require_relative "model_observer"
+        post_route_evidence_bytes = JSON.generate(result.fetch("facts")).bytesize
         observations = ModelObserver.new(
           limits: effective.merge(max_facts: effective[:max_facts] - result.fetch("facts").length),
-          evidence_budget: MAX_EVIDENCE_BYTES - JSON.generate(result.fetch("facts")).bytesize
+          evidence_budget: MAX_EVIDENCE_BYTES - post_route_evidence_bytes
         ).call
         added = Native.call("op" => "model_batch", "observation" => observations, "context" => {
           "limits" => effective.slice(:max_facts, :max_links, :max_entries, :max_diagnostics),
           "facts" => result.fetch("facts").length,
           "links" => result.fetch("facts").sum { |fact| fact.fetch("links").length },
           "diagnostics" => result.fetch("diagnostics").length,
-          "fact_bytes" => JSON.generate(result.fetch("facts")).bytesize
+          "fact_bytes" => post_route_evidence_bytes
         })
         result.fetch("facts").concat(added.fetch("facts"))
         result["coverage"].reject! { |entry| %w[rails_models rails_model_effects].include?(entry["family"]) }
