@@ -223,7 +223,8 @@ entire.com can locate the checkpoints.
 | Local-only checkpoints (`push_sessions: false`) | Rejected: context stays on one machine and hosted search cannot index it. |
 
 Operating cost: every clone installs Entire's Git hooks once, Codex needs hook
-approval on each machine, and each owner machine writes the local opt-in. On an
+approval on each machine, and owners write the local opt-in in every worktree,
+including linked worktrees. On an
 owner machine, each push to `origin` also pushes outgoing checkpoint refs to the
 checkpoint repository. Observed on 2026-10-29: hosted search indexed commits but
 not sessions from the separate checkpoint repository. Limitations: a worktree whose

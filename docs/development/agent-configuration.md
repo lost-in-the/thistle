@@ -68,7 +68,9 @@ Each clone needs this setup once:
 5. Owner machines only, with write access to the checkpoint repository: create
    the gitignored `.entire/settings.local.json`. A local `checkpoint_remote` is
    always honored; a committed one is ignored when the push target has another
-   owner.
+   owner. Entire reads settings from each worktree's root, so repeat this file
+   and step 6 in every linked worktree; without it, that worktree keeps the
+   committed `push_sessions: false`.
 
    ```json
    {
