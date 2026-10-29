@@ -106,8 +106,12 @@ owners, or risk boundaries make review easier.
    `codex/<issue>-<short-name>` or an equivalent descriptive branch.
 5. Open a draft PR when the first coherent slice is reviewable. Keep its base,
    dependencies, and current task record accurate.
-6. Update the issue on review, a meaningful blocker, or handoff. Include the next
-   action, not a stream of routine command output.
+6. Reconcile the current checkpoint on review, handoff, integration, or a change
+   to the proposed head/base, dependency, blocker, or acceptance result. Refresh
+   the remote state, PR summary, issue next action/claim and project stage together.
+   Remove cleared blockers from current summaries while linking
+   earlier attempts and evidence unchanged. Record any inaccessible surface;
+   include the next action, not a stream of routine command output.
 
 A compact claim/handoff comment is enough:
 
@@ -122,9 +126,28 @@ Next action: <review, check, dependency, or resumed task>
 Claim: active | released | blocked
 ```
 
-Never invent task links, reviewer approvals, or run results to fill a field. If
-automation lacks project access, update the issue and report that metadata gap;
-do not claim the board was changed.
+Never invent task links, reviewer approvals, or run results to fill a field. A task
+URL identifies work; it does not establish access to its transcript or live state.
+When another session is inaccessible, coordinate through the canonical issue, PR,
+and remote commits. State the visibility limit and distinguish the last recorded
+claim from an observed running task. If automation lacks project access, update
+the issue and report that metadata gap; do not claim the board was changed.
+
+## Notifications
+
+Treat notifications as prompts to inspect current state. Batch deliveries and
+deduplicate by repository/PR, head SHA, review/comment/check identity, and update
+time. Read current state once per batch; refresh again before a consequential
+action. Reassess substantive updated findings against the current candidate, but
+do not replay an old approval or treat an edited bot summary as a new requirement.
+Older-head feedback can still apply; reconcile it with the current diff.
+
+Retire a watch when its tracked obligations are complete; retain an explicit
+watch for required post-merge checks still outstanding. Do not post a separate
+"no action needed" update for stale or duplicate events. Keep one current
+checkpoint with decisions and next actions. If notification delivery is outside
+the agent's control, suppress duplicate handling within the task; a new
+notification service is not a prerequisite for useful product work.
 
 ## Multi-agent operation
 
@@ -145,17 +168,78 @@ order. Other agents may review shared code read-only. Changes to contracts,
 fixtures, FFI ownership, public schemas, or workflow names should be agreed before
 parallel implementation depends on them.
 
+Keep the coordinator focused on dependency decisions, review and acceptance
+routing, and authorized integration. Delegate implementation, evidence collection,
+and administrative execution to bounded, capable, named owners without transferring
+credentials or expanding their authority. Keep ready implementation
+streams moving within the two-issue limit and batch board maintenance at meaningful
+checkpoints. Direct implementation is reasonable when a small correction is
+cheaper than delegation and does not stall integration. An oversight agent reports
+through this owner; transfer integration ownership explicitly rather than creating
+a competing coordinator.
+When the coordinator implements, claim that writer scope and count it toward the
+implementation limit.
+
 Each agent uses its own branch/worktree. Do not have agents concurrently edit one
 working directory or push to one branch. Stack PRs only for a real dependency;
 record the base PR/commit, then rebase or update the dependent branch after its
-prerequisite lands and run the affected integration checks again. Avoid a
-permanent integration branch that accumulates unreviewed work.
+prerequisite lands and run the affected integration checks again. For every
+blocker, name the exact prerequisite and the step it prevents. An integration
+preference is not a technical dependency: continue independent implementation
+and review while a separate qualification, infrastructure or owner decision is
+pending. Avoid a permanent integration branch that accumulates unreviewed work.
 
 Reviewer agents can examine architecture, security, or Map behavior independently.
 Reviewers should identify concrete findings, severity, evidence, and disposition.
 Consensus is useful, but cannot waive missing checks or substitute for an
 independently controlled evaluator. An agent using the author's privileges does
 not become a separate authority by using a different task name.
+
+After corrections settle, the integration owner names the proposed head and
+identifies changes since the last reviewed and tested commits. Obtain a scoped
+review disposition for material corrections, then run the affected required
+checks. Schedule expensive installed checks against that settled candidate;
+changed package bytes cannot inherit earlier installed acceptance. Earlier reviews
+and package results keep their original identities. A wording or fragment correction
+does not automatically justify a full review or benchmark campaign; follow the
+existing change routing and required gates. New changes reopen only the affected
+review/check scope, without transferring old acceptance to changed bytes.
+
+## Stateful verification
+
+Before an administrative proof or another stateful verification workflow, inspect the
+current lifecycle and API preconditions of reused resources before allocating
+temporary resources. Check whether a PR is open, which refs actually exist, the
+current target/settings, and whether the intended transition is supported. Reuse
+an existing applicable procedure; correct a known setup error before retrying.
+Verify the intended API semantics against current primary documentation. Isolate
+each control so unrelated pending checks cannot explain its result. Compare
+effective settings semantically, accounting for documented service defaults;
+do not discard an unexplained difference to make a restoration check pass.
+
+For each control, name the exact disposable target, expected observable result,
+possible successful side effects, and authorized containment/recovery. An expected
+refusal can succeed, so its successful effects must also fit the authorized scope.
+Read back actual state after the attempt. A generic refusal for the wrong reason,
+a setup failure, or a check still settling does not prove the intended control.
+
+Measurement wrappers must propagate the workload's exit status even when logging,
+artifact collection, or cleanup succeeds. Stateful proof scripts must check each
+operation and observed result, with explicit transitions that prevent dependent
+mutations after a failed or ambiguous control. For a new or changed wrapper or
+proof procedure, exercise failure propagation with harmless stubs before an
+expensive run or settings mutation. Use a small check at this boundary, not another
+orchestration framework: verify success, failure, and that dependent work does not
+run after failure. Reuse this evidence while the execution contract is unchanged;
+preserve the original failure alongside cleanup results.
+
+Unexpected success or ambiguous effects stop the affected proof. Preserve the
+command/result and identities, perform only authorized containment/cleanup, and
+record the failed or inconclusive outcome rather than changing the expected
+result afterward.
+Revise the procedure and disposition the failure before another attempt or
+promotion. Resume only the affected checks whose preconditions or evidence
+changed, within the existing authorization; keep unrelated product work moving.
 
 ## Work already in progress
 
@@ -181,13 +265,14 @@ well as the evidence link. This index does not assert that a native dependency
 relationship or a running agent exists.
 
 Baseline restoration [PR #1](https://github.com/lost-in-the/thistle/pull/1) merged
-into main as `1b65f82ae8b8b693a8d7e8adb052b939b23bd5a9`. Issue #20 still requires
-its post-merge verification record; merging the source does not finish every
-integration or qualification decision. Experiment
+into main as `1b65f82ae8b8b693a8d7e8adb052b939b23bd5a9`. Issue #20 records its
+post-merge verification and later candidate evidence; read that issue for its
+current outcome. Source integration and qualification remain separate. Experiment
 [PR #2](https://github.com/lost-in-the/thistle/pull/2) merged as
 `b3a2985af3388ac4bc784bccf57d89e0ea569358`, after workflow PR #26 merged as
 `ee247b0017e11dd9f20380e36d13fe8e2645f561`. Issues #21 and #22 completed adoption;
-#28 owns the resulting automation reconciliation. Read current status and head
+#28 records the resulting automation reconciliation. This paragraph is historical
+provenance, not a list of unfinished tasks; read current issue status and head
 commits before claiming work.
 
 The restored main tree records a bounded accepted baseline and self-inspection
