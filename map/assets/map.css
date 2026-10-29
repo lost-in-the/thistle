@@ -22,6 +22,7 @@ html,body{margin:0;min-height:100%;background:#222126}
 .thistle-workbench .facts>div{min-width:12rem;flex:1}
 .thistle-workbench .facts dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--s3) var(--s4);margin:var(--s3) 0}
 .thistle-workbench .facts dd{margin:0;overflow-wrap:anywhere}
+.thistle-workbench .route-conditions{white-space:pre-wrap;overflow-wrap:anywhere}
 .thistle-workbench .table-wrap{overflow:auto;border:1px solid var(--rule)}
 .thistle-workbench .tbl{width:100%;border-collapse:collapse}
 .thistle-workbench .tbl td,.thistle-workbench .tbl th{padding:var(--s4);text-align:left;border-bottom:1px solid var(--rule)}
