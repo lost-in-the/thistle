@@ -55,7 +55,7 @@ module Thistle
         capture.call
       end
       {
-        "facts" => facts, "diagnostics" => diagnostics,
+        "facts" => facts, "diagnostics" => diagnostics, "evidence_bytes" => evidence_bytes,
         "rails_version" => defined?(Rails::VERSION::STRING) ? Rails::VERSION::STRING : nil,
         "coverage" => [
           {
@@ -84,7 +84,7 @@ module Thistle
       raise
     rescue StandardError => error
       {
-        "facts" => [],
+        "facts" => [], "evidence_bytes" => 0,
         "diagnostics" => [{ "code" => "rails_capture_failed", "message" => "Runtime route capture failed (#{error.class.name})" }],
         "rails_version" => defined?(Rails::VERSION::STRING) ? Rails::VERSION::STRING : nil,
         "coverage" => [{ "family" => "rails_routes", "status" => "unavailable", "scope" => "live application route set", "reason" => "Capture failed; this is not an empty successful route set" }]

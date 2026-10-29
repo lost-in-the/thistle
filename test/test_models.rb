@@ -32,7 +32,7 @@ class ThistleModelsTest < Minitest::Test
       model_request = requests.find { |request| request['op'] == 'model_batch' }
       refute_nil model_request
       assert_equal %w[context observation op], model_request.keys.sort
-      assert_equal capture.fetch('facts').count { |fact| fact['kind'] != 'rails_model' }, model_request.dig('context', 'facts')
+      assert_equal capture.fetch('facts').count { |fact| !%w[rails_model rails_save_callbacks].include?(fact['kind']) }, model_request.dig('context', 'facts')
       refute JSON.generate(model_request).include?('escaped.rb')
     ensure
       Thistle::Native.define_singleton_method(:request_raw, original) if original

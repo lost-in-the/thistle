@@ -219,16 +219,21 @@ entire.com can locate the checkpoints.
 | Pushing off by default; owners opt in locally to a private GitHub repository | Selected: keeps GitHub as the forge, shares context across owner machines and never publishes from a fork or new clone. |
 | Committed `checkpoint_remote` only | Rejected: Entire ignores an inherited `checkpoint_remote` when the push target has another owner, so a fork push falls back to the public fork. |
 | Entire defaults, checkpoints pushed to `origin` | Rejected: publishes transcripts from a public repository. |
-| Entire-hosted repository or GitHub mirror as `origin` | Rejected: changes the forge; an `et/` repository never forwards pushes to GitHub. |
+| Entire-hosted (`et/`) repository as `origin` | Rejected: changes the forge; it never forwards pushes to GitHub. |
+| Entire's GitHub mirror as `origin` | Not needed: a mirror forwards pushes to GitHub, but every fetch would depend on the `entire://` helper. |
 | Local-only checkpoints (`push_sessions: false`) | Rejected: context stays on one machine and hosted search cannot index it. |
 
 Operating cost: every clone installs Entire's Git hooks once, Codex needs hook
-approval on each machine, and each owner machine writes the local opt-in. On an
+approval on each machine, and owners write the local opt-in in every worktree,
+including linked worktrees. On an
 owner machine, each push to `origin` also pushes outgoing checkpoint refs to the
-checkpoint repository. Observed on 2026-10-29: hosted search indexed commits but
-not sessions from the separate checkpoint repository. Limitations: a worktree whose
-branch lacks `.entire/settings.json` captures nothing, and refs deleted from a
-public repository may persist in existing clones or caches.
+checkpoint repository. Observed on 2026-10-29, before these settings reached
+the default branch: hosted search indexed commits but not sessions from the
+separate checkpoint repository. Limitations: a worktree with neither settings
+file captures nothing; a branch older than this configuration also lacks the
+committed agent hooks, so a local file alone does not capture its agent
+sessions. Refs deleted from a public repository may persist in existing clones
+or caches.
 
 Reconsider if this repository becomes private, if Entire's hosted index cannot
 read the separate checkpoint repository, or if hook latency or failures
@@ -496,3 +501,22 @@ Candidate feedback and matching package receipts are not general Unix support,
 precompiled distribution or independent launch qualification. Darwin cannot enforce
 the existing RLIMIT_AS test bound: retain CPU/wall limits and state that difference
 rather than silently treating the Linux memory guard as tested there.
+
+## Registered save callback storage boundary — 2026-10-29
+
+The Rails 8.1.4 adapter observes the registered save chain without dispatching a
+model's overridable `_save_callbacks` or `__callbacks` accessor. It reads the
+private class-attribute value closure only when its MRI instruction-sequence
+identity matches a fresh Rails-generated reader on an isolated plain class.
+A custom getter or unrecognized VM/layout yields unavailable chain metadata.
+Source-location strings are not used as proof that a method is safe to invoke.
+Callback registrations and source hints still do not prove execution or coherence.
+
+Use Rails' maintained registry and class-attribute implementation instead of
+copying its callback engine or interpreting Ruby bytecode. Textual macro parsing
+cannot establish the effective inherited/skipped chain; ordinary getter dispatch
+can execute application overrides. The guard costs one temporary probe class per
+observer and a method/code identity check per loaded model. It retains no global
+model registry and evaluates no callback bodies or conditions. Reconsider this
+narrow adapter for a new Rails/Ruby implementation or a maintained nonexecuting
+metadata API. Broader Ruby-engine or monkeypatched-framework support is unqualified.

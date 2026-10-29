@@ -53,11 +53,12 @@ to the rule above. Owner machines opt in locally to pushing. The
 [decision record](decisions.md#agent-session-capture-entire-with-a-private-checkpoint-repository)
 explains the choice.
 
-Each clone needs this setup once:
+Set up each clone once; steps 5 and 6 also repeat in each linked worktree:
 
-1. Install Entire CLI 0.12.2 or later with one documented
+1. Install Entire CLI 0.12.2, the reviewed version, with one documented
    [installation method](https://docs.entire.com/installation.md) and confirm
-   `command -v entire`. This setup needs no `git-remote-entire`, which serves only
+   `command -v entire` and `entire version`. Record a new fit assessment in the
+   decision record before adopting another version. This setup needs no `git-remote-entire`, which serves only
    `entire://` remotes. If one is on `PATH`, it must match the CLI version: a
    stale copy breaks every `entire://` fetch.
 2. Keep `origin` on GitHub. Do not repoint it to an Entire-hosted
@@ -68,7 +69,9 @@ Each clone needs this setup once:
 5. Owner machines only, with write access to the checkpoint repository: create
    the gitignored `.entire/settings.local.json`. A local `checkpoint_remote` is
    always honored; a committed one is ignored when the push target has another
-   owner.
+   owner. Entire reads settings from each worktree's root, so repeat this file
+   and step 6 in every linked worktree; without it, that worktree keeps the
+   committed `push_sessions: false`.
 
    ```json
    {

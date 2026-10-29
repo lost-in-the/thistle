@@ -69,6 +69,34 @@ def installed_smoke(src, out, ruby, consumer, env, core_files):
     return smoke, model_inputs, model_receipt
 
 
+def installed_callbacks(src, out, ruby, consumer, env, core_files):
+    # Separate argv protocol and fresh consumer: never modify the selected arm's
+    # Model/Find/heredoc smoke or impose callbacks on frozen older packages.
+    if 'lib/thistle/callback_observer.rb' not in core_files:
+        return {}, None, None
+    fixture = out / 'callback-fixture'
+    fixture.mkdir()
+    paths = []
+    for name in ('booted_app.rb', 'records.rb'):
+        target = fixture / name
+        shutil.copyfile(src / 'test/fixtures/callbacks' / name, target)
+        paths.append(target)
+    for name in ('installed_callback_producer.rb', 'installed_callback_consumer.rb'):
+        target = out / name
+        shutil.copyfile(src / 'map/test' / name, target)
+        paths.append(target)
+    inputs = {path.relative_to(out).as_posix(): sha(path) for path in paths}
+    receipt = out / 'callback-producer.json'
+    store = out / 'callback-store'
+    run_logged([ruby, out / 'installed_callback_producer.rb', fixture, out / 'callback-source', store],
+               receipt, out / 'callback-producer.stderr', cwd=consumer, env=env)
+    result = out / 'callback-consumer.json'
+    run_logged([ruby, out / 'installed_callback_consumer.rb', store, receipt],
+               result, out / 'callback-consumer.stderr', cwd=consumer, env=env)
+    assert inputs == {path.relative_to(out).as_posix(): sha(path) for path in paths}, 'callback inputs changed'
+    return inputs, receipt, result
+
+
 def main():
     parser = argparse.ArgumentParser()
     for name in ('source', 'evaluator', 'output', 'ruby', 'toolchain', 'dependencies', 'libclang'):
@@ -131,6 +159,12 @@ def main():
         src, out, args.ruby, work / 'consumer', env, core_files)
     smoke_report = json.loads((out / 'map-installed-smoke.json').read_text())
     assert smoke_report['native_sha256'] in [item['sha256'] for item in report['loaded_native']]
+    callback_inputs, callback_receipt, callback_result = installed_callbacks(
+        src, out, args.ruby, work / 'consumer', env, core_files)
+    if callback_result:
+        callback_report = json.loads(callback_result.read_text())
+        assert callback_report['status'] == 'passed'
+        assert callback_report['native_sha256'] in [item['sha256'] for item in report['loaded_native']]
     verify_core()
     installed = {}
     for name, files in [('thistle', core_files), ('thistle-map', map_files)]:
@@ -171,6 +205,10 @@ end
         'model_journey': 'pass' if model_receipt else 'not_applicable_to_selected_package',
         'model_fixture_inputs': model_inputs,
         'model_producer_receipt_sha256': sha(model_receipt) if model_receipt else None,
+        'callback_journey': 'pass' if callback_result else 'not_applicable_to_selected_package',
+        'callback_fixture_inputs': callback_inputs,
+        'callback_producer_receipt_sha256': sha(callback_receipt) if callback_receipt else None,
+        'callback_consumer_receipt_sha256': sha(callback_result) if callback_result else None,
         'self_inspection_sha256': sha(out / 'baseline-self-inspection.json'),
     }, indent=2) + '\n')
 
