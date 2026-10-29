@@ -153,10 +153,20 @@ Dedicated source regressions (not qualification):
 - `map/test/callback_journey_test.rb` requires real capture, a reopened pinned
   Reader and View composition after the current generation changes.
 
-Initial source delivery has **not run** these tests, built native artifacts,
-booted Rails, executed Map, installed packages or run an evaluator. Static syntax
-and whitespace checks are permitted; a finite runtime grant must identify the
-process/resource budget and private home-backed TMPDIR before execution. A
-released resource is not a grant. The full Reader/Map journey and installed
+Source delivery has **not run** these tests, built native artifacts, booted
+Rails, executed Map, installed packages or run an evaluator. Eight Ruby syntax
+checks, whitespace validation and the note filesystem/text guard passed. Rust
+formatting/typechecking is unverified (`rustfmt` unavailable).
+
+The single granted Ruby-only attempt stopped at its exact-runtime preflight:
+the selected local image declared Ruby 3.4.12, while the grant required 4.0.9.
+Neither test process ran. Before refusal, the child verified enforced 2 CPU,
+1 GiB, zero swap, 128 PID limits, no network and a task-owned `0700` disk TMPDIR.
+The launcher enforced 600-second child/630-second outer deadlines and an 8 MiB
+combined log cap. Input hashes remained unchanged; the container and private
+HOME/TMPDIR were removed. The slot was released without fallback or rerun.
+
+A new runtime grant must identify exact resources before further execution;
+a released resource is not a grant. The full Reader/Map journey and installed
 candidate checks remain outstanding until root composes and verifies the hooks.
 Source delivery does not authorize publication or launch acceptance.
