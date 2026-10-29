@@ -53,4 +53,33 @@ class ThistleCallbacksJourneyTest < Minitest::Test
       end
     end
   end
+
+  def test_route_join_accounting_matches_prior_exact_array_boundaries
+    CallbackFixture.boot
+    original = Thistle::Native.method(:call)
+    contexts = []
+    Thistle::Native.define_singleton_method(:call) do |request|
+      contexts << request.fetch('context').dup if request['op'] == 'model_batch'
+      original.call(request)
+    end
+    [false, true].each do |with_static|
+      [0, 1, 2].each do |route_count|
+        Dir.mktmpdir('thistle-route-join-') do |root|
+          File.write(File.join(root, 'frame.rb'), "class Frame; end\n") if with_static
+          routes = Array.new(route_count) do |index|
+            Struct.new(:defaults, :name, :verb, :path).new(
+              { controller: 'frames', action: 'show' }, "frame#{index}", 'GET',
+              Struct.new(:spec).new("/frames/#{index}"))
+          end
+          app = Struct.new(:routes).new(Struct.new(:routes).new(routes))
+          capture = Thistle::Capture.new(root: root, rails: app).call
+          preceding = capture.fetch('facts').reject { |fact| %w[rails_model rails_save_callbacks].include?(fact['kind']) }
+          assert_equal JSON.generate(preceding).bytesize, contexts.last.fetch('fact_bytes'),
+            "static=#{with_static}, routes=#{route_count}"
+        end
+      end
+    end
+  ensure
+    Thistle::Native.define_singleton_method(:call, original) if original
+  end
 end
