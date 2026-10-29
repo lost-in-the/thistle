@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "active_record_version": "8.1.4",
+  "root": "/fixture",
+  "status": "observed",
+  "models": [{
+    "name": "Child",
+    "superclass": "Parent",
+    "save": {"status": "observed", "entries": [
+      {"kind": "before", "inherited": true,
+       "filter": {"kind": "method", "name": "stamp", "owner": "Child", "source": {"path": "/fixture/records.rb", "line": 12}},
+       "if": [{"kind": "method", "name": "allowed?", "owner": "Parent", "source": null}], "unless": []},
+      {"kind": "around", "inherited": false,
+       "filter": {"kind": "proc", "source": {"path": "/external.rb", "line": 1}},
+       "if": [], "unless": [{"kind": "opaque"}]}
+    ]}
+  }]
+}
