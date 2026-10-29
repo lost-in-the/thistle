@@ -1,0 +1,92 @@
+{
+  "schema": 1,
+  "issue": 23,
+  "proof_pr": 45,
+  "outcome": "FAILED original blanket-direct-update negative control; production activation withheld",
+  "request": {
+    "at": "2026-10-28T23:02:28.513030+00:00",
+    "actor": "LeahArmstrong",
+    "method": "PATCH",
+    "path": "repos/lost-in-the/thistle/git/refs/heads/proof/thistle-basic-main-20261028",
+    "payload": {
+      "sha": "20871a6bce77005434b5751c369ed23ef579f7dd",
+      "force": false
+    },
+    "effective_authority": {
+      "repository_permissions": {
+        "admin": true,
+        "maintain": true,
+        "push": true,
+        "triage": true,
+        "pull": true
+      },
+      "rule_current_user_can_bypass": "never",
+      "rule_bypass_actors": [],
+      "bypass_requested": false,
+      "basis": "Same authenticated actor; retained repository and pre-test ruleset readbacks; PATCH payload contains only sha and force=false. Administrative capability to edit rules is not independence.",
+      "actor_receipt_sha256": "1c62a64fb70c6a9c24c6f129aaf0a7a43707ddd647599842da611fbd9b355bba",
+      "repository_receipt_sha256": "9fb6c47eebbbbdf23e10386a70f56e877f71a3957637fe62eb1169c016aff153",
+      "rule_receipt_sha256": "508acbdaeb4141599061d2bde0cba08422ae5353c6c912e6f9695600625b30d2"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "ref": "refs/heads/proof/thistle-basic-main-20261028",
+      "node_id": "REF_kwDOVaicoNoALHJlZnMvaGVhZHMvcHJvb2YvdGhpc3RsZS1iYXNpYy1tYWluLTIwMjYxMDI4",
+      "url": "https://api.github.com/repos/lost-in-the/thistle/git/refs/heads/proof/thistle-basic-main-20261028",
+      "object": {
+        "sha": "20871a6bce77005434b5751c369ed23ef579f7dd",
+        "type": "commit",
+        "url": "https://api.github.com/repos/lost-in-the/thistle/git/commits/20871a6bce77005434b5751c369ed23ef579f7dd"
+      }
+    }
+  },
+  "proof_target_before": "241823b613f95715e81f13f09af4fa0cb3a79395",
+  "after_stop": {
+    "proof_pr_state": "closed",
+    "proof_pr_merged": true,
+    "proof_pr_merge_sha": "20871a6bce77005434b5751c369ed23ef579f7dd",
+    "target": "20871a6bce77005434b5751c369ed23ef579f7dd",
+    "source": "80721a2266a73a66bffea412dacfcc377e21d72a",
+    "main": "b53d64c6edf46e30b81b1c2cf91e94f4bb2f408e"
+  },
+  "controls": {
+    "force_push": "refused, target unchanged",
+    "deletion": "refused, target unchanged",
+    "failed_checks": "actual App15368 CI / required failure, head up to date, merge refused, target unchanged",
+    "missing_checks": "CI / required absent before and after atomic reopened-PR merge refusal; target unchanged",
+    "unresolved_threads": "all exact required checks green, up-to-date non-draft PR refused with an unresolved conversation; target unchanged",
+    "green_eligibility": "all exact required checks green, resolved conversation, current base, clean/mergeable; no merge attempted",
+    "direct_push": "FAILED: GitHub accepted exact up-to-date green PR head via ref update; target advanced from241823b to20871a6",
+    "pre_test_rule_readback": {
+      "result": "observed before enforcement controls; active rule26083802, scoped disposable target, no bypass, four effective rule types",
+      "rule_receipt_sha256": "508acbdaeb4141599061d2bde0cba08422ae5353c6c912e6f9695600625b30d2",
+      "effective_receipt_sha256": "9be4389269de84bbd0ce4670ef6d0cc90018dd697940c75fc606248daa734b1c"
+    }
+  },
+  "unrun_controls": [
+    "unassociated-direct-update refusal (the attempted direct update used an associated eligible PR head)",
+    "genuine stale-base refusal",
+    "recovery/restoration enforcement proof"
+  ],
+  "orchestration_error": "Subsequent source-ref setup force-update to80721a2 ran because the command batch did not abort on a failed exec result; no main/prod rule operation ran",
+  "cleanup": {
+    "proof_rule_removed": 26083802,
+    "both_remote_refs_absent": true,
+    "main_unchanged": "b53d64c6edf46e30b81b1c2cf91e94f4bb2f408e",
+    "main_rules": [],
+    "signed_bundle_sha256": "754d4b7d5a05facf10b48cd6411c8922dd0e9179d34a06ab55055e6cb4799ff5",
+    "bundle_bytes": 19266056,
+    "fresh_bare_recovery_verified": true,
+    "commits": {
+      "base": "241823b613f95715e81f13f09af4fa0cb3a79395",
+      "failed": "1d6fd5b5c7a0d8927acce90b3282ecc713c49195",
+      "missing": "a074a16a6caa858a336d53c2e92cb81d1e65641d",
+      "green": "20871a6bce77005434b5751c369ed23ef579f7dd",
+      "unused-stale": "80721a2266a73a66bffea412dacfcc377e21d72a"
+    }
+  },
+  "cleanup_readback_at": "2026-10-28T23:07:47.594077+00:00",
+  "documentation": "https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets"
+}

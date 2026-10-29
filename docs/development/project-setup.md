@@ -1,5 +1,13 @@
 # Project setup and verification record
 
+> Historical PR #26 preparation snapshot. The statuses below describe that earlier
+> setup, not the current queue. PRs #2 and #26 subsequently merged; issues #21 and
+> #22 completed their bounded adoption, and the Experiment 001 workflow was retired
+> with [provenance preserved](retired-workflows/README.md). Consult the
+> [current agent workflow](agent-workflow.md), [canonical issue #21](https://github.com/lost-in-the/thistle/issues/21)
+> and live project for current dispositions. The dated record below is retained
+> unchanged; its open-PR and pending-decision wording is historical evidence.
+
 This snapshot records verified setup on **2026-10-28**. It is an operational
 record; current issue claims, review decisions, and run identities remain the
 authoritative work/evidence records. This snapshot distinguishes completed board

@@ -178,8 +178,11 @@ it is the canonical PR feedback path. PR #2 subsequently integrated the complete
 experiment. Keep one canonical feedback path and preserve the experiment's exact
 selected artifacts rather than running its campaign as a per-PR smoke test.
 
-The aggregate remains `CI / required`. Candidate CI does not establish protected
-required-check authority; #23 owns that unfinished enforcement. A renamed job
+The aggregate remains `CI / required`. The active
+[basic main rule](../handoff/runs/issue23-basic-protection-2026-10-29/README.md)
+requires this check and PII from GitHub Actions, current-base testing and resolved
+threads. Candidate-owned checks still do not establish independent qualification;
+#23 owns that unfinished authority. A renamed job
 cannot silently replace a required check until the rules and a real run have
 been verified by the authorized administrator. #28 completed its scoped repair
 with integrated-main and Compatibility results. #20's modern installed-candidate
