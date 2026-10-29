@@ -83,4 +83,77 @@ class ThistleRailsCaptureTest < Minitest::Test
       Thistle::RailsCapture.new(app: app, limits: limits, evidence_budget: 32).call
     end
   end
+
+  def test_real_route_conditions_and_opaque_canaries
+    require_relative '../lib/thistle/rails_capture'
+    skip 'Route conditions are observed only on supported Rails versions' unless
+      Thistle::RailsCapture::CONSTRAINT_RAILS_VERSIONS.include?(Rails::VERSION::STRING)
+    canary = Object.new
+    def canary.matches?(_request) = raise('constraint executed')
+    def canary.inspect = raise('constraint inspected')
+    def canary.to_s = raise('constraint stringified')
+    callable = ->(_) { raise 'lambda executed' }
+    routes = ActionDispatch::Routing::RouteSet.new
+    pattern = /\A(global-)?api\z/im
+    routes.draw do
+      get '/orders/:id', to: 'orders#index', constraints: { host: 'example.test', id: /[0-9]+/ }
+      get '/orders/:id', to: 'orders#index', constraints: { subdomain: pattern }
+      constraints(canary) { get '/opaque', to: 'orders#index' }
+      constraints(callable) { get '/lambda', to: 'orders#index' }
+    end
+    result = Thistle::Capture.new(root: @root, rails: Struct.new(:routes).new(routes)).call
+    facts = result.fetch('facts').select { |f| f['kind'] == 'route' }
+    assert_equal 4, facts.size
+    first, second, object, lambda_fact = facts.map { |f| f.dig('attributes', 'route_constraints') }
+    assert_equal 'example.test', first['request'].find { |e| e['key'] == 'host' }['value']
+    assert_equal '[0-9]+', first['segments'].find { |e| e['key'] == 'id' }['value']
+    regex = second['request'].find { |e| e['key'] == 'subdomain' }
+    assert_equal pattern.source, regex['value']
+    assert_equal pattern.options, regex['options']
+    assert_equal pattern.encoding.name, regex['regexp_encoding']
+    assert_equal pattern.source.encoding.name, regex['encoding']
+    assert_equal 'present', object['opaque']
+    assert_equal 'present', lambda_fact['opaque']
+    assert_equal 'partial', result['coverage'].find { |c| c['family'] == 'rails_route_constraints' }['status']
+  end
+
+  def test_constraint_family_budget_includes_array_brackets_and_separators
+    require_relative '../lib/thistle/rails_capture'
+    observer = Thistle::RailsCapture.new(app: nil, limits: {})
+    values = { host: '', subdomain: '' }
+    overhead = JSON.generate(observer.send(:constraint_entries, values)).bytesize
+    values[:host] = 'x' * (8_192 - overhead)
+    entries = observer.send(:constraint_entries, values)
+    refute_nil entries
+    assert_equal 8_192, JSON.generate(entries).bytesize
+    values[:host] += 'x'
+    assert_nil observer.send(:constraint_entries, values)
+  end
+
+  def test_constraint_representation_fails_closed_on_unsupported_and_oversized_values
+    require_relative '../lib/thistle/rails_capture'
+    observer = Thistle::RailsCapture.new(app: nil, limits: {})
+    assert_nil observer.send(:constraint_entries, { host: 'x' * 8193 })
+    assert_nil observer.send(:constraint_entries, (0..32).to_h { |i| [i.to_s, 'x'] })
+    assert_nil observer.send(:constraint_entries, { host: "\xff".b })
+    hostile = Object.new
+    def hostile.inspect = raise('inspected')
+    def hostile.to_s = raise('stringified')
+    assert_equal 'opaque', observer.send(:constraint_entries, { host: hostile }).first['type']
+    assert_equal 'unknown', observer.send(:route_constraints, Object.new)['status']
+    latin = "caf\xE9".dup.force_encoding('ISO-8859-1')
+    entry = observer.send(:constraint_entries, { host: latin }).first
+    assert_equal 'café', entry['value']
+    assert_equal 'ISO-8859-1', entry['encoding']
+    routes = ActionDispatch::Routing::RouteSet.new
+    routes.draw { get '/x', to: 'orders#index', constraints: { host: 'test' } }
+    route = routes.routes.first
+    observer.stub(:supported_constraint_version?, false) do
+      assert_equal 'unknown', observer.send(:route_constraints, route)['status']
+    end
+    def route.constraints = raise('sensitive error')
+    observed = observer.send(:route_constraints, route)
+    assert_equal 'unknown', observed['status']
+    refute_includes JSON.generate(observed), 'sensitive error'
+  end
 end
