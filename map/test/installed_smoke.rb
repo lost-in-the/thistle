@@ -11,6 +11,15 @@ require 'uri'
 require 'thistle'
 require 'thistle/map'
 
+def stored_call_fields(reader, link)
+  data = link.fetch('attributes').fetch('thistle_call')
+  return data unless reader.manifest['schema_version'] == 2 && data['version'] == 2
+  kind, name, omitted, safe, call, receiver = data.fetch('data')
+  location = ->(tuple) { tuple && Hash[%w[start_byte end_byte start_line end_line].zip(tuple)] }
+  { 'receiver' => { 'kind' => kind, 'name' => name, 'omitted_limit' => omitted },
+    'safe_navigation' => safe, 'call_location' => location.call(call), 'receiver_location' => location.call(receiver) }
+end
+
 gem_home = File.realpath(ENV.fetch('GEM_HOME'))
 %w[thistle thistle-map rouge].each do |name|
   path = File.realpath(Gem.loaded_specs.fetch(name).full_gem_path)
@@ -69,7 +78,7 @@ result = Dir.mktmpdir('thistle-map-installed-') do |directory|
   raise 'Runtime evidence context missing' unless runtime_html.include?('GET /installed-runtime') && runtime_html.include?('runtime') && runtime_html.include?('No file or line was captured')
   raise 'Runtime navigation lost generation' unless runtime_html.include?("generation=#{runtime_reader.generation}") && runtime_html.include?('/links?') && runtime_html.include?('/check?')
   # This contract is deliberately separate from the frozen evaluator: it checks
-  # the installed packages' v1 call metadata and same-generation provenance.
+  # the installed packages' call metadata and same-generation provenance.
   call_source = "class InstalledParcel\n  def note = <<~TEXT\n    \#{self.render}\n  TEXT\nend\n"
   call_path = File.join(app_root, 'parcel.rb')
   File.write(call_path, call_source)
@@ -78,9 +87,11 @@ result = Dir.mktmpdir('thistle-map-installed-') do |directory|
   call_fact = call_reader.find('InstalledParcel#note', limit: 10).find { |item| item['name'] == 'InstalledParcel#note' }
   raise 'Installed Find did not return the heredoc owner' unless call_fact
   call = call_reader.links(call_fact.fetch('id')).find { |link| link['relation'] == 'calls' && link['target'] == 'render' }
-  data = call && call.dig('attributes', 'thistle_call')
-  raise 'Installed v1 self receiver was not preserved' unless call && call['resolution'] == 'unresolved' &&
-    data && data['version'] == 1 && data.dig('receiver', 'kind') == 'self' && data['safe_navigation'] == false
+  raise 'Installed capture did not retain schema 2 compact metadata' unless call &&
+    call_reader.manifest['schema_version'] == 2 && call.dig('attributes', 'thistle_call', 'version') == 2
+  data = stored_call_fields(call_reader, call)
+  raise 'Installed self receiver was not preserved' unless call && call['resolution'] == 'unresolved' &&
+    data && data.dig('receiver', 'kind') == 'self' && data['safe_navigation'] == false
   location = data.fetch('call_location')
   raise 'Heredoc parser anchor is not the expected call on line 3' unless location['start_line'] == 3 &&
     call_source.b.byteslice(location['start_byte']...location['end_byte']) == 'self.render' &&
