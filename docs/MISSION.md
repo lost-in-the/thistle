@@ -5,6 +5,14 @@ tool. Its independently implemented Rust core is delivered as real Ruby gems
 through a thin Ruby/Rails facade and C-native bridge, with explicit ownership of
 data and lifetimes across that boundary.
 
+Thistle’s progress is measured by the application questions a developer or agent
+can answer correctly, with useful evidence and explicit limits. Application
+understanding combines static source analysis, observation of an explicitly
+supplied loaded Rails application, and separately scoped execution evidence.
+Ruby provides bounded, faithful framework observations; Rust owns normalization,
+identities, validation, storage, querying and derived analysis. Performance
+improvements must preserve the meaning and usefulness of those answers.
+
 This is the canonical governing intent. It is not a claim that the present
 implementation meets every goal. The [README](../README.md) describes the current
 slice; the [capability ledger](capability-ledger.md) owns launch outcomes and
