@@ -2,12 +2,18 @@
 
 require 'erb'
 require 'uri'
+require 'digest'
 
 module Thistle
   module Map
     # Renders evidence returned by the bounded Find operation. Routing and the
     # surrounding layout remain the application's responsibility.
     class FindPresenter
+      # The generation selects the manifest; this fixed-size key selects its path.
+      def self.file_reference(path)
+        Digest::SHA256.hexdigest(path)
+      end
+
       def initialize(generation:, mount: '')
         @generation = generation
         @mount = mount
@@ -51,14 +57,14 @@ module Thistle
           span = match.fetch('span')
           line = span.fetch('start_line')
           raise ArgumentError, 'Invalid source location' unless path.is_a?(String) && line.is_a?(Integer) && line.positive?
-          params['path'] = path
+          params['file'] = self.class.file_reference(path)
           anchor = "#L#{line}"
         elsif match['fact_id']
           params['id'] = match['fact_id']
         elsif path
-          params['path'] = path
+          params['file'] = self.class.file_reference(path)
         end
-        title = if params.key?('path') || params.key?('id')
+        title = if params.key?('file') || params.key?('id')
           href = "#{@mount}/source?#{URI.encode_www_form(params)}#{anchor}"
           "<a data-result-link href=\"#{h(href)}\">#{h(name)}</a>"
         else

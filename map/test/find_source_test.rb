@@ -1,18 +1,25 @@
 # frozen_string_literal: true
 require_relative 'test_helper'
+require 'cgi'
 
 class FindSourceTest < Minitest::Test
   include MapTestSupport
   class FileReader < MapTestSupport::Reader
     attr_reader :closed, :queries
     CONTENT = "# é\n<script>literal</script>\n"
+    def initialize(path: 'spec/file.rb')
+      super()
+      @path = path
+      @manifest['files'] = [{ 'path' => path, 'bytes' => CONTENT.bytesize,
+        'sha256' => Digest::SHA256.hexdigest(CONTENT) }]
+    end
     def search_evidence(query, **filters)
       @queries = [query, filters]
       { 'generation' => generation, 'version' => 1, 'status' => 'complete', 'truncated' => false,
-        'results' => [{ 'origin' => 'source', 'path' => 'spec/file.rb', 'snippet' => '<script>literal</script>', 'span' => { 'start_line' => 2 } }] }
+        'results' => [{ 'origin' => 'source', 'path' => @path, 'snippet' => '<script>literal</script>', 'span' => { 'start_line' => 2 } }] }
     end
     def source_file(path)
-      raise Thistle::NotFound unless path == 'spec/file.rb'
+      raise Thistle::NotFound unless path == @path
       hash = Digest::SHA256.hexdigest(CONTENT)
       { 'generation' => generation, 'file' => { 'path' => path, 'bytes' => CONTENT.bytesize, 'sha256' => hash }, 'sha256' => hash, 'content' => CONTENT }
     end
@@ -24,13 +31,34 @@ class FindSourceTest < Minitest::Test
     status, _, html = request(app, '/', query: 'q=literal&domain=source&kind=file&prefix=spec%2F')
     assert_equal 200, status
     assert_equal({ limit: 50, kind: 'file', path: 'spec/', domain: 'source' }, reader.queries.last)
-    assert_includes html, "generation=#{GENERATION}&amp;path=spec%2Ffile.rb#L2"
+    assert_includes html, "generation=#{GENERATION}&amp;file=#{Thistle::Map::FindPresenter.file_reference('spec/file.rb')}#L2"
     assert_includes html, '&lt;script&gt;literal&lt;/script&gt;'
     status, _, source = request(app, '/source', query: "generation=#{GENERATION}&path=spec%2Ffile.rb")
     assert_equal 200, status
     assert_includes source, 'id="L2"'
     assert_includes source, 'No declaration owner'
     assert reader.closed
+  end
+  def test_long_unicode_path_follows_a_bounded_manifest_reference
+    path = ([('é' * 100)] * 7).join('/') + '.rb'
+    assert_operator URI.encode_www_form('generation' => GENERATION, 'path' => path).bytesize, :>, Thistle::Map::App::MAX_QUERY_BYTES
+    reader = FileReader.new(path: path)
+    app = make_app(reader)
+    status, _, html = request(app, '/', query: 'q=literal&domain=source')
+    assert_equal 200, status
+    link = URI.parse(CGI.unescapeHTML(html[/data-result-link href="([^"]+)"/, 1]))
+    assert_operator link.query.bytesize, :<=, Thistle::Map::App::MAX_QUERY_BYTES
+    assert_equal 'L2', link.fragment
+    status, _, source = request(app, link.path, query: link.query)
+    assert_equal 200, status
+    assert_includes source, path
+    assert_includes source, 'id="L2"'
+    assert reader.closed
+    query = "generation=#{GENERATION}&file=#{'f' * 64}"
+    assert_equal 404, request(app, '/source', query: query).first
+    assert_equal 400, request(app, '/source', query: "#{query}&path=spec%2Ffile.rb").first
+    assert_equal 400, request(app, '/source', query: "file=#{'f' * 64}").first
+    assert_equal 400, request(app, '/source', query: "generation=#{GENERATION}&file=bad").first
   end
   def test_file_source_preserves_access_method_generation_and_path_gates
     app = make_app(FileReader.new)

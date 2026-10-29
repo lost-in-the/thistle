@@ -9,7 +9,8 @@ class FindPresenterTest < Minitest::Test
     html = presenter.render('generation' => 'old', 'status' => 'partial', 'truncated' => true,
       'results' => [{ 'origin' => 'source', 'path' => 'spec/<case>.rb', 'snippet' => '<script>bad</script>',
                       'span' => { 'start_line' => 3 } }])
-    assert_includes html, 'generation=old&amp;path=spec%2F%3Ccase%3E.rb#L3'
+    reference = Thistle::Map::FindPresenter.file_reference('spec/<case>.rb')
+    assert_includes html, "generation=old&amp;file=#{reference}#L3"
     assert_includes html, '&lt;script&gt;bad&lt;/script&gt;'
     refute_includes html, '<script>'
     assert_includes html, 'Search is incomplete'

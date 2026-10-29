@@ -94,7 +94,12 @@ bound totals, not a false complete answer.
 
 `Reader#source_file(path)` resolves a safe relative path in the selected manifest;
 it cannot open an arbitrary filesystem path. Map accepts
-`/source?generation=DIGEST&path=CAPTURED_PATH#LNUMBER`, requires the generation,
+`/source?generation=DIGEST&file=PATH_DIGEST#LNUMBER`. The fixed-size reference is
+the SHA-256 of the original captured path, resolved only inside that generation's
+manifest. Long Unicode paths therefore do not expand past the unchanged 4096-byte
+query limit. Unknown/malformed references, missing generations and ambiguous
+selectors are refused. Direct generation-pinned `path` requests remain accepted
+within the same query cap. The route requires the generation,
 and refuses ambiguous fact-ID/file-path requests. The route passes the existing
 authorization, host/origin and GET/HEAD gates, uses the existing source byte/line
 web caps, escapes/highlights content, and closes the reader on success or error.
@@ -113,3 +118,27 @@ Source and Check continue to use that schema context. Core/Map pairing is now
 pre.2. The original 688f304 candidate's pre.1 local checks and installed receipts
 keep their original identities; affected source and exact-pair installed checks
 remain required for this composed candidate.
+
+## Scoped review corrections
+
+Confirmed matches omitted by the result limit are counted immediately without
+calculating discarded snippets or line spans. This preserves the distinction
+between known omitted matches and files not searched when work is exhausted. A
+21-unit native regression admits two known matches and only one displayed span.
+No operation budget is raised. Native runtime validation remains pending until
+the serialized build lease is available.
+
+The long-Unicode-path reader-double regression fails against the prior routing
+with a 4302-byte generated query and passes with the bounded manifest reference.
+Four focused Map request tests pass (38 assertions), plus two presenter tests
+(13 assertions); these host-Ruby doubles used retained Rouge 4.6.1 and deliberately
+did not load the native extension. The initial host attempt without Rouge failed
+dependency loading; no native or installed-pair success is inferred.
+
+File-reference resolution hashes paths in one pinned manifest pass, bounded by
+the existing manifest/file-count limits; no persistent lookup cache is added.
+Corrupt-source verification, authorization and web source/line caps remain.
+Known nonblocking costs from the scoped review remain: needless corpus work for
+zero-eligible/exhausted queries, warm-query mutex serialization, cold per-request
+Map corpus work and per-route fact calls. They are follow-up opportunities, not
+measured speed/RSS claims or a new shared-cache/graph framework.

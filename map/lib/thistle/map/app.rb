@@ -53,15 +53,29 @@ module Thistle
 
         mount = mount_path(env)
         params = parameters(env.fetch('QUERY_STRING', ''))
-        if (path == '/links' && !params['id']) || (path == '/source' && !params['id'] && !params['path'])
+        if (path == '/links' && !params['id']) || (path == '/source' && %w[id path file].count { |key| params.key?(key) } != 1)
           raise BadRequest, 'Choose a result before opening Source or Links.'
         end
-        if params['path'] && (path != '/source' || params['id'] || !params['generation'])
+        if (params['path'] || params['file']) && (path != '/source' || params['id'] || !params['generation'])
           raise BadRequest, 'File Source requires a saved generation and one captured file.'
         end
         reader = @reader_factory.call(@store, params['generation'])
         if params['generation'] && reader.generation != params['generation']
           raise Thistle::InvalidSnapshot, 'Reader substituted a different generation'
+        end
+        if params['file']
+          # Resolve only inside this pinned manifest; never treat the reference
+          # as a filesystem path or silently select another generation.
+          selected = nil
+          reader.manifest.fetch('files').each do |file|
+            next unless FindPresenter.file_reference(file.fetch('path')) == params['file']
+            raise Thistle::InvalidSnapshot, 'Ambiguous captured file reference' if selected
+
+            selected = file.fetch('path')
+          end
+          raise Thistle::NotFound, 'Captured file reference is absent' unless selected
+
+          params['path'] = selected
         end
         view = View.new(reader: reader, mount: mount, params: params)
         content = case path
@@ -140,10 +154,10 @@ module Thistle
         raise BadRequest, 'Too many query fields.' if pairs.length > 8
 
         pairs.each_with_object({}) do |(key, value), out|
-          raise BadRequest, 'Unknown or repeated query field.' unless %w[q id generation page path kind prefix domain].include?(key) && !out.key?(key)
+          raise BadRequest, 'Unknown or repeated query field.' unless %w[q id generation page path file kind prefix domain].include?(key) && !out.key?(key)
           raise BadRequest, 'Invalid query text.' unless value.valid_encoding? && !value.include?("\0") && !value.include?("\uFFFD")
           raise BadRequest, 'Search text is too long.' if key == 'q' && value.bytesize > 256
-          raise BadRequest, 'Invalid evidence identifier.' if %w[id generation].include?(key) && !DIGEST.match?(value)
+          raise BadRequest, 'Invalid evidence identifier.' if %w[id generation file].include?(key) && !DIGEST.match?(value)
           raise BadRequest, 'Invalid page number.' if key == 'page' && !/\A[1-9][0-9]{0,3}\z/.match?(value)
 
           raise BadRequest, 'Invalid search domain.' if key == 'domain' && !%w[all source metadata].include?(value)

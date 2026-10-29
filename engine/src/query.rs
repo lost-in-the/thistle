@@ -108,7 +108,10 @@ pub(crate) fn search(reader: &Reader, q: &Query<'_>) -> Result<Value> {
 }
 
 fn search_with_budget(reader: &Reader, q: &Query<'_>, budget: &Arc<Budget>) -> Result<Value> {
-    let mut work = MAX_WORK;
+    search_with_work(reader, q, budget, MAX_WORK)
+}
+
+fn search_with_work(reader: &Reader, q: &Query<'_>, budget: &Arc<Budget>, mut work: usize) -> Result<Value> {
     let mut results = Vec::with_capacity(q.limit);
     let mut total = 0;
     let mut partial = false;
@@ -181,6 +184,12 @@ fn search_with_budget(reader: &Reader, q: &Query<'_>, budget: &Arc<Budget>) -> R
                 match literal(content, q.text, &mut work) {
                     Ok(found) => {
                         if let Some(start) = found {
+                            if results.len() == q.limit {
+                                total += 1;
+                                source_matches_omitted += 1;
+                                source_searched += 1;
+                                continue;
+                            }
                             let end = start + q.text.len();
                             // Line counting has a separate linear pass, charged to
                             // the same operation budget, never an offset array.
@@ -188,7 +197,6 @@ fn search_with_budget(reader: &Reader, q: &Query<'_>, budget: &Arc<Budget>) -> R
                             work -= end;
                             let from = content.as_bytes()[..start].iter().filter(|b| **b == b'\n').count() + 1;
                             let to = from + content.as_bytes()[start..end].iter().filter(|b| **b == b'\n').count();
-                            if results.len() == q.limit { source_matches_omitted += 1; }
                             emit(&mut results, &mut total, q.limit, || json!({"origin":"source", "field":"content", "fact_id":null,
                                 "name":path, "kind":"file", "path":path, "snippet":snippet(content, start),
                                 "span":{"start_byte":start,"end_byte":end,"start_line":from,"end_line":to}}));
@@ -300,6 +308,25 @@ mod tests {
         assert!(reader.source_file("spec/only.rb").is_err());
         let fresh = Reader::open(dir.path(), None).unwrap();
         assert_eq!(run(&fresh, json!({"query":"needle"}))["status"], "partial");
+    }
+    #[test]
+    fn omitted_matches_do_not_spend_span_budget_or_become_unsearched() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut data = capture();
+        let content = "aaaaz";
+        data["files"] = json!(["a.rb", "b.rb"].map(|path| json!({"path":path,
+            "content":content,"sha256":schema::digest(content.as_bytes()),"bytes":content.len(),"encoding":"UTF-8"})));
+        crate::store::publish(dir.path(), &data).unwrap();
+        let reader = Reader::open(dir.path(), None).unwrap();
+        let input = json!({"query":"az","domain":"source","limit":1});
+        // Two eight-comparison searches plus only the displayed five-byte span.
+        let result = search_with_work(&reader, &Query::parse(&input).unwrap(), &Budget::new(1024 * 1024), 21).unwrap();
+        assert_eq!(result["status"], "complete");
+        assert_eq!(result["total_matches"], 2);
+        assert_eq!(result["truncated"], true);
+        assert_eq!(result["search_coverage"]["source_matching_files_omitted"], 1);
+        assert_eq!(result["search_coverage"]["source_files_searched"], 2);
+        assert_eq!(result["search_coverage"]["source_files_not_searched"], 0);
     }
     #[test]
     fn malformed_query_limits_and_domains_refuse() {
