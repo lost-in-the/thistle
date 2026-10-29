@@ -15,9 +15,13 @@ Its context keys, global fact/link/byte counters and configured ceilings retain
 Model's meaning. Entry counts remain per observation batch/family. Each native
 batch returns context-independent `appended` charges for facts, links, entries
 and conservative encoded fact bytes. Capture counts the format-2 static facts
-once, counts only the returned route batch next, and uses native appended
+once, reuses RailsCapture's existing local route byte charge next, and uses native appended
 charges thereafter. It never serializes growing old facts for each new family.
 Publication independently validates the actual complete capture before I/O.
+When joining routes into an empty static array, subtract exactly the first
+conservative comma; zero routes add nothing. The focused regression covers empty/
+nonempty static arrays and zero/one/multiple routes, preserving previous exact
+post-route admission boundaries.
 
 The View hook supplies the existing pinned Reader, generation and mount to the
 callback presenter. A separate installed callback producer copies/boots only the
@@ -199,3 +203,31 @@ A new runtime grant must identify exact resources before further execution;
 a released resource is not a grant. The full Reader/Map journey and installed
 candidate checks remain outstanding until root composes and verifies the hooks.
 Source delivery does not authorize publication or launch acceptance.
+
+## Phase A source checks and failed minimum-cohort preflight
+
+The composed native suite passed 74 tests on combined codec source
+`f6d3066a49d813ab89b339c6f50920e61f2db422`, including six callback tests
+and real publication/fresh Reader/refusal checks. That source/archive retains its
+own receipt; later Ruby-only source changes do not relabel it as a new run.
+Nine harmless qualification-orchestration regressions passed, including separate
+callback producer failure propagation and unchanged historical Model applicability.
+Changed Ruby files passed syntax checks.
+
+A distinct Ruby/Map source attempt on
+`4a2ceb6d2c758c1034121fe21eedc41b4dedb6eb` failed in dependency preflight
+before compilation or any Ruby/Map tests. The child verified Ruby 3.4.12,
+Rust 1.90.0 and the granted cgroup/network/private disk TMPDIR controls. The
+exact authorized SQLite 2.10.2 cache installed privately. A compound dependency
+assertion then failed before printing the actual tuple. The author unnecessarily
+required an exact JSON version; the generic retained error cannot identify which
+assertion failed. No cause or alternate tuple is inferred. No source build copy,
+native library, or dependent test was produced. Inputs were unchanged, cleanup
+was verified and the slot released without retry. Root must disposition another
+finite attempt; installed/exact-package acceptance remains separate.
+
+Failure log SHA256:
+`8676d3c05007e1cb7ff58d6423d2bc3379bfb8d5862d0675c617be8cb40ffe7c`.
+Result SHA256:
+`78a31b419ec1b29ad5a33301b2b4f1d3d880ef447a2f484aa8542ff7af8062ae`.
+This preserves both failed preflights; neither is callback runtime success.
