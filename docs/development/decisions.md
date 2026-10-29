@@ -412,3 +412,22 @@ Candidate feedback and matching package receipts are not general Unix support,
 precompiled distribution or independent launch qualification. Darwin cannot enforce
 the existing RLIMIT_AS test bound: retain CPU/wall limits and state that difference
 rather than silently treating the Linux memory guard as tested there.
+
+## Registered save callback storage boundary — 2026-10-29
+
+The Rails 8.1.4 adapter observes the registered save chain without dispatching a
+model's overridable `_save_callbacks` or `__callbacks` accessor. It reads the
+private class-attribute value closure only when its MRI instruction-sequence
+identity matches a fresh Rails-generated reader on an isolated plain class.
+A custom getter or unrecognized VM/layout yields unavailable chain metadata.
+Source-location strings are not used as proof that a method is safe to invoke.
+Callback registrations and source hints still do not prove execution or coherence.
+
+Use Rails' maintained registry and class-attribute implementation instead of
+copying its callback engine or interpreting Ruby bytecode. Textual macro parsing
+cannot establish the effective inherited/skipped chain; ordinary getter dispatch
+can execute application overrides. The guard costs one temporary probe class per
+observer and a method/code identity check per loaded model. It retains no global
+model registry and evaluates no callback bodies or conditions. Reconsider this
+narrow adapter for a new Rails/Ruby implementation or a maintained nonexecuting
+metadata API. Broader Ruby-engine or monkeypatched-framework support is unqualified.

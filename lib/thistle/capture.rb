@@ -37,9 +37,11 @@ module Thistle
       effective = result.fetch("producer").fetch("effective_limits").transform_keys(&:to_sym)
       if @rails
         require_relative "rails_capture"
+        static_fact_count = result.fetch("facts").length
+        static_links = result.fetch("facts").sum { |fact| fact.fetch("links").length }
         remaining = effective.merge(
-          max_facts: effective[:max_facts] - result.fetch("facts").length,
-          max_links: effective[:max_links] - result.fetch("facts").sum { |fact| fact.fetch("links").length },
+          max_facts: effective[:max_facts] - static_fact_count,
+          max_links: effective[:max_links] - static_links,
           max_diagnostics: effective[:max_diagnostics] - result.fetch("diagnostics").length
         )
         static_evidence_bytes = JSON.generate(result.fetch("facts")).bytesize
@@ -57,27 +59,47 @@ module Thistle
         result["producer"]["ruby_version"] = RUBY_VERSION
         result["producer"]["ruby_engine"] = RUBY_ENGINE
         require_relative "model_observer"
-        post_route_evidence_bytes = JSON.generate(result.fetch("facts")).bytesize
+        # RailsCapture already charged each route plus a conservative comma.
+        # Joining into [] needs one fewer comma; preserve the previous exact
+        # post-route array size without serializing the old static facts again.
+        route_bytes = runtime.fetch("evidence_bytes")
+        route_bytes -= 1 if static_fact_count.zero? && !runtime.fetch("facts").empty?
+        fact_bytes = static_evidence_bytes + route_bytes
+        links = static_links + runtime.fetch("facts").sum { |fact| fact.fetch("links").length }
         observations = ModelObserver.new(
           limits: effective.merge(max_facts: effective[:max_facts] - result.fetch("facts").length),
-          evidence_budget: MAX_EVIDENCE_BYTES - post_route_evidence_bytes
+          evidence_budget: MAX_EVIDENCE_BYTES - fact_bytes
         ).call
-        added = Native.call("op" => "model_batch", "observation" => observations, "context" => {
-          "limits" => effective.slice(:max_facts, :max_links, :max_entries, :max_diagnostics),
-          "facts" => result.fetch("facts").length,
-          "links" => result.fetch("facts").sum { |fact| fact.fetch("links").length },
-          "diagnostics" => result.fetch("diagnostics").length,
-          "fact_bytes" => post_route_evidence_bytes
-        })
-        result.fetch("facts").concat(added.fetch("facts"))
-        result["coverage"].reject! { |entry| %w[rails_models rails_model_effects].include?(entry["family"]) }
-        result.fetch("coverage").concat(added.fetch("coverage"))
-        result.fetch("producer")["model_observer"] = added.fetch("model_observer")
+        fact_bytes, links = append_observations(result, effective, "model", observations, fact_bytes, links)
+        require_relative "callback_observer"
+        callbacks = CallbackObserver.new(
+          root: File.expand_path(@root),
+          limits: effective.merge(max_facts: effective[:max_facts] - result.fetch("facts").length),
+          evidence_budget: MAX_EVIDENCE_BYTES - fact_bytes
+        ).call
+        append_observations(result, effective, "callback", callbacks, fact_bytes, links)
       end
       raise LimitError, "Capture exceeds max_facts" if result["facts"].length > effective[:max_facts]
       raise LimitError, "Capture exceeds max_diagnostics" if result["diagnostics"].length > effective[:max_diagnostics]
 
       result
+    end
+
+    private
+
+    def append_observations(result, effective, family, observation, fact_bytes, links)
+      added = Native.call("op" => "#{family}_batch", "observation" => observation, "context" => {
+        "limits" => effective.slice(:max_facts, :max_links, :max_entries, :max_diagnostics),
+        "facts" => result.fetch("facts").length, "links" => links,
+        "diagnostics" => result.fetch("diagnostics").length, "fact_bytes" => fact_bytes
+      })
+      result.fetch("facts").concat(added.fetch("facts"))
+      families = added.fetch("coverage").map { |entry| entry.fetch("family") }
+      result.fetch("coverage").reject! { |entry| families.include?(entry["family"]) }
+      result.fetch("coverage").concat(added.fetch("coverage"))
+      result.fetch("producer")["#{family}_observer"] = added.fetch("#{family}_observer")
+      charge = added.fetch("appended")
+      [fact_bytes + charge.fetch("fact_bytes"), links + charge.fetch("links")]
     end
   end
 end
