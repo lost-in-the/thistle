@@ -33,7 +33,9 @@ happened.
 ## Product constraints
 
 - Rust owns the core; Ruby supplies the gem/Rails boundary and the C extension
-  bridges them. Preserve exact ownership across the native boundary.
+  bridges them. Thin Ruby means bounded responsibilities, not shallow Rails
+  knowledge: it may faithfully observe substantial Rails semantics while Rust
+  remains the engine owner. Preserve exact ownership across the native boundary.
 - Reimplement the engine without Woods engine code. The owner permits Woods Map
   and branding reuse with provenance and license attribution. Legacy interfaces
   need not be preserved; useful customer outcomes must at least match for launch.
@@ -57,8 +59,10 @@ happened.
   native interfaces, and benchmark hosts. Separate browser tabs share automation
   state. Coordinate and release UI ownership before another agent acts; prefer
   a capable API for atomic changes when available.
-- Keep at most two implementation issues active by default. Parallelize bounded
-  work and independent reviews; serialize noisy benchmarks on shared hardware.
+- Focus on two primary outcomes. Allow named, bounded, genuinely disjoint work
+  with explicit file/resource claims under the
+  [multi-agent workflow](docs/development/agent-workflow.md#multi-agent-operation).
+  Protect measurement windows and release host claims promptly.
 - Open a draft PR when a coherent change is reviewable. Run the smallest checks
   that resolve the change's risk, followed by the required affected CI lanes.
   Broaden testing for a concrete risk or declared gate, not to repeat evidence.
