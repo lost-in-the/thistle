@@ -37,6 +37,21 @@ class ThistleModelObserverTest < Minitest::Test
     Thistle::ModelObserver.new(limits: { max_facts: 100, max_entries: 100 }, evidence_budget: 100_000)
   end
 
+  def test_streamed_size_matches_generate_and_refuses_at_the_exact_byte_boundary
+    value = { 'label' => "quote\" slash\\ newline\n 🍎", 'values' => [nil, true, false, -12, 1.5, {}, []] }
+    expected = JSON.generate(value).bytesize
+    assert_equal expected, observer.send(:encoded_bytes, value, expected)
+    assert_raises(Thistle::LimitExceeded) { observer.send(:encoded_bytes, value, expected - 1) }
+    assert_equal value, observer.send(:charge_entry, value)
+    # A later opaque value must not be visited after an earlier chunk exhausts
+    # the budget. This distinguishes streaming from encoding first, then write.
+    tail = Object.new
+    def tail.to_json(*) = raise('tail serialized after budget exhaustion')
+    assert_raises(Thistle::LimitExceeded) do
+      observer.send(:encoded_bytes, [*Array.new(64, 'x' * 4096), tail], 1024)
+    end
+  end
+
   def test_opaque_values_and_singleton_overrides_are_never_executed_or_formatted
     hostile = Object.new
     def hostile.inspect = raise('inspected')

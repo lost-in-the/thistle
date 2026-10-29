@@ -33,6 +33,14 @@ def package_files(package):
                 for m in data.getmembers() if m.isfile()}
 
 
+def prepare_output(out):
+    # Callers may pre-create this directory for logs, but an executed attempt's
+    # receipts must not be overwritten by a retry. Use a new output per attempt.
+    out.mkdir(parents=True, exist_ok=True)
+    if (out / 'build-identity.json').exists() or (out / 'installed-baseline').exists():
+        raise FileExistsError('Qualification attempt already exists; choose a fresh output directory')
+
+
 def installed_smoke(src, out, ruby, consumer, env, core_files):
     # Each arm uses its selected source's smoke. The historical package has no
     # model observer; never impose a later feature journey on that frozen arm.
@@ -67,7 +75,7 @@ def main():
         parser.add_argument('--' + name, required=True, type=Path)
     args = parser.parse_args()
     src, evaluator, out = args.source.resolve(), args.evaluator.resolve(), args.output.resolve()
-    out.mkdir(parents=True, exist_ok=True)
+    prepare_output(out)
     baseline = src / 'pkg/hardened-baseline/thistle.gem'
     map_gem = src / 'pkg/hardened-baseline/thistle-map.gem'
     core_files, map_files = package_files(baseline), package_files(map_gem)

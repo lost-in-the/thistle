@@ -34,6 +34,17 @@ class QualificationJourneyTests(unittest.TestCase):
             (fixture / name).write_text("# harmless fixture\n")
         (self.source / "map/test/installed_model_producer.rb").write_text("# producer\n")
 
+    def test_precreated_log_directory_is_allowed_but_attempt_receipts_are_preserved(self):
+        log = self.output / "qualification.log"
+        log.write_bytes(b"caller log\n")
+        qualifier.prepare_output(self.output)
+        identity = self.output / "build-identity.json"
+        identity.write_bytes(b"retained failed attempt\n")
+        with self.assertRaisesRegex(FileExistsError, "fresh output directory"):
+            qualifier.prepare_output(self.output)
+        self.assertEqual(identity.read_bytes(), b"retained failed attempt\n")
+        self.assertEqual(log.read_bytes(), b"caller log\n")
+
     def test_historical_arm_uses_its_own_smoke_without_model_files_or_arguments(self):
         with patch.object(qualifier, "run_logged") as run:
             smoke, inputs, receipt = self.invoke({"lib/thistle.rb": "historical"})

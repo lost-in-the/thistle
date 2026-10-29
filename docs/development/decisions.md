@@ -330,6 +330,16 @@ is added. The existing booted SQLite fixture supplies independent schema-known
 answers and unsafe-default canaries; it does not qualify every adapter. The
 installed runner reuses it outside the checkout with installed production code.
 
+Admission sizing reuses the maintained JSON encoders with counting writers:
+serde_json in Rust and a fresh `JSON::State` with an IO sink in Ruby. The
+[JSON 2.9.1 state implementation](https://github.com/ruby/json/blob/v2.9.1/lib/json/ext/generator/state.rb)
+already accepts that sink. This preserves normal generation defaults and avoids
+retaining a second full encoded observation or writing a custom size/escape
+encoder. Encoding work and bounded generator buffers remain; no measured memory
+or speed improvement is claimed. Recheck this fit if the supported JSON generator
+or its streaming behavior changes. Qualification attempts use fresh output
+directories so a retry cannot overwrite retained failure receipts.
+
 Reconsider the version allowlist only after checking changed Rails metadata
 APIs, and broader semantics/adapter or source-binding claims only with their own
 bounded accepted evidence. Callback/execution analysis and generic static macro

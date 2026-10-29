@@ -10,6 +10,22 @@ module Thistle
     SUPPORTED = ['8.1.4'].freeze
     OPTIONS = %i[class_name foreign_key primary_key foreign_type as through source source_type inverse_of dependent optional required autosave counter_cache touch].freeze
 
+    # JSON's IO generator flushes bounded chunks; retain only their byte count.
+    # A fresh State uses generate's defaults, not application dump options.
+    class EncodedSize
+      attr_reader :bytes
+      def initialize(limit)
+        @limit, @bytes = limit, 0
+      end
+      def write(chunk)
+        @bytes += chunk.bytesize
+        raise LimitExceeded, 'Model metadata exceeds evidence budget' if @bytes > @limit
+        chunk.bytesize
+      end
+      def flush; end
+    end
+    private_constant :EncodedSize
+
     def initialize(limits:, evidence_budget:)
       @limits = limits
       @budget = evidence_budget
@@ -31,7 +47,7 @@ module Thistle
       bytes = 2
       models.each do |model|
         observed = observe(model)
-        bytes += JSON.generate(observed).bytesize + 1
+        bytes += encoded_bytes(observed, @budget - bytes - 1) + 1
         raise LimitExceeded, 'Model observation exceeds evidence budget' if bytes > @budget
         result['models'] << observed
       end
@@ -97,9 +113,15 @@ module Thistle
     end
 
     def charge_entry(entry)
-      @metadata_bytes += JSON.generate(entry).bytesize + 1
+      @metadata_bytes += encoded_bytes(entry, @budget - @metadata_bytes - 1) + 1
       raise LimitExceeded, 'Model metadata exceeds evidence budget' if @metadata_bytes > @budget
       entry
+    end
+
+    def encoded_bytes(value, remaining)
+      counter = EncodedSize.new(remaining)
+      JSON::State.new.generate(value, counter)
+      counter.bytes
     end
 
     def observe_column(column)
