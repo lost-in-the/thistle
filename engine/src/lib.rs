@@ -3,6 +3,7 @@ pub mod capture;
 mod fs;
 mod model;
 mod callbacks;
+mod link_encoding;
 mod schema;
 mod store;
 mod query;

@@ -133,20 +133,11 @@ pub fn facts(facts: &[Value], files: &[Value], version: u64) -> Result<()> {
                     if link["relation"] != "calls" || link["resolution"] != "unresolved" || fact["evidence"] != "static" {
                         return Err(CoreError::input("Invalid call metadata shape"));
                     }
-                    let named = matches!(call.kind, "constant" | "local" | "instance_variable");
-                    if !matches!(call.kind, "implicit" | "self" | "constant" | "local" | "instance_variable" | "call" | "literal" | "expression") ||
-                       (named && !(call.omitted && call.name.is_none() || !call.omitted && call.name.is_some_and(|s| !s.is_empty() && s.len() <= 256))) ||
-                       (!named && (call.name.is_some() || call.omitted)) {
-                        return Err(CoreError::input("Invalid call receiver combination"));
-                    }
+                    validate_call_shape(&call)?;
                     let file = file.ok_or_else(|| CoreError::input("Call metadata needs captured source"))?;
                     validate_call_location(call.location, file, &newlines)?;
-                    if call.kind == "implicit" {
-                        if call.safe_navigation || call.receiver_location.is_some() {
-                            return Err(CoreError::input("Implicit receiver has a location or safe navigation"));
-                        }
-                    } else {
-                        validate_call_location(call.receiver_location.ok_or_else(|| CoreError::input("Missing receiver location"))?, file, &newlines)?;
+                    if let Some(receiver) = call.receiver_location {
+                        validate_call_location(receiver, file, &newlines)?;
                     }
                 }
             }
@@ -197,30 +188,61 @@ fn exact_keys(value: &Value, keys: &[&str]) -> Result<()> {
 }
 
 pub fn call_metadata(ext: &Value, schema: u64) -> Result<Option<CallMetadata<'_>>> {
-    let compact = match ext.get("version").and_then(Value::as_u64) {
-        Some(1) => false,
-        Some(2) if schema == 2 => true,
-        _ => return Ok(None),
-    };
-    let (kind, name, omitted, safe, location, receiver_location) = if compact {
-        exact_keys(ext, &["version", "data"])?;
-        let data: &[Value; 6] = ext["data"].as_array().and_then(|v| v.as_slice().try_into().ok())
-            .ok_or_else(|| CoreError::input("Compact call data must have six fields"))?;
-        (&data[0], &data[1], &data[2], &data[3], &data[4], &data[5])
-    } else {
-        exact_keys(ext, &["version", "receiver", "safe_navigation", "call_location", "receiver_location"])?;
-        let receiver = &ext["receiver"];
-        exact_keys(receiver, &["kind", "name", "omitted_limit"])?;
-        (&receiver["kind"], &receiver["name"], &receiver["omitted_limit"], &ext["safe_navigation"], &ext["call_location"], &ext["receiver_location"])
-    };
-    Ok(Some(CallMetadata {
+    match ext.get("version").and_then(Value::as_u64) {
+        Some(2) if matches!(schema, 2 | 3) => {
+            // Schema 2 keeps its historical exact-key refusal. Schema 3 can
+            // retain a complete extra-key object, but recognized DATA is strict.
+            if schema == 2 { exact_keys(ext, &["version", "data"])?; }
+            compact_call_metadata(&ext["data"]).map(Some)
+        }
+        Some(1) => {
+            exact_keys(ext, &["version", "receiver", "safe_navigation", "call_location", "receiver_location"])?;
+            let receiver = &ext["receiver"];
+            exact_keys(receiver, &["kind", "name", "omitted_limit"])?;
+            decode_call_fields([&receiver["kind"], &receiver["name"], &receiver["omitted_limit"],
+                &ext["safe_navigation"], &ext["call_location"], &ext["receiver_location"]], false).map(Some)
+        }
+        _ => Ok(None),
+    }
+}
+
+/// Borrow the existing compact-v2 SIX-SLOT DATA value, not an extension wrapper.
+/// Explicit context selection belongs to call_metadata / SemanticLinkView.
+pub(crate) fn compact_call_metadata(data: &Value) -> Result<CallMetadata<'_>> {
+    let data: &[Value; 6] = data.as_array().and_then(|v| v.as_slice().try_into().ok())
+        .ok_or_else(|| CoreError::input("Compact call data must have six fields"))?;
+    decode_call_fields(data.each_ref(), true)
+}
+
+fn decode_call_fields(fields: [&Value; 6], compact: bool) -> Result<CallMetadata<'_>> {
+    let [kind, name, omitted, safe, location, receiver_location] = fields;
+    Ok(CallMetadata {
         kind: kind.as_str().ok_or_else(|| CoreError::input("Invalid receiver kind"))?,
         name: if name.is_null() { None } else { Some(name.as_str().ok_or_else(|| CoreError::input("Invalid receiver name"))?) },
         omitted: omitted.as_bool().ok_or_else(|| CoreError::input("Invalid omitted flag"))?,
         safe_navigation: safe.as_bool().ok_or_else(|| CoreError::input("Invalid safe navigation flag"))?,
         location: CallLocation::decode(location, compact)?,
         receiver_location: if receiver_location.is_null() { None } else { Some(CallLocation::decode(receiver_location, compact)?) },
-    }))
+    })
+}
+
+/// Receiver semantics shared by semantic objects and the borrowed row view.
+/// Captured blob, UTF-8 and line/byte bounds remain full fact validation.
+pub(crate) fn validate_call_shape(call: &CallMetadata<'_>) -> Result<()> {
+    let named = matches!(call.kind, "constant" | "local" | "instance_variable");
+    if !matches!(call.kind, "implicit" | "self" | "constant" | "local" | "instance_variable" | "call" | "literal" | "expression") ||
+       (named && !(call.omitted && call.name.is_none() || !call.omitted && call.name.is_some_and(|s| !s.is_empty() && s.len() <= 256))) ||
+       (!named && (call.name.is_some() || call.omitted)) {
+        return Err(CoreError::input("Invalid call receiver combination"));
+    }
+    if call.kind == "implicit" {
+        if call.safe_navigation || call.receiver_location.is_some() {
+            return Err(CoreError::input("Implicit receiver has a location or safe navigation"));
+        }
+    } else if call.receiver_location.is_none() {
+        return Err(CoreError::input("Missing receiver location"));
+    }
+    Ok(())
 }
 
 fn validate_call_location(location: CallLocation, file: &Value, newlines: &HashMap<&str, Vec<usize>>) -> Result<()> {

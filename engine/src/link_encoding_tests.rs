@@ -113,6 +113,9 @@ fn malformed_rows_and_semantic_row_inputs_refuse() {
 
 #[test]
 fn explicit_context_preserves_schema_one_opaque_exact_v2_lookalike() {
+    assert_eq!(schema::VERSION, 2); // Executable foundation does not enable schema3 stores.
+    assert!(schema::snapshot_version(&json!(3)).is_err());
+    assert_eq!(schema::capture_version(&json!({})).unwrap(), 1);
     let link = call(implicit()); // A perfectly valid compact extension remains opaque in schema 1.
     let row = projected(&link, 3);
     for version in [1,2] {

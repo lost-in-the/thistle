@@ -1,15 +1,22 @@
 # Schema-3 tagged call links
 
-LOS-53 implements the schema-3 encoding contract selected by LOS-52. This initial
-source phase supplies an **uncomposed module and authored tests**. It does not
-enable schema 3: module registration, shared schema helpers, capture accounting,
-publication, Reader outputs, runtime accounting and the matching Core/Map pair
-still require root's integration. No runtime checks or workload results are
-claimed for this phase. LOS-45's full-application outcome remains failed/unproven.
+LOS-53 implements the encoding contract selected by LOS-52. Phase A registers
+`link_encoding` in the real Rust crate and all nine authored unit tests, extracting
+the shared compact decoder and receiver-shape validator. This is an executable
+foundation: **default capture and supported store selectors remain formats 1/2;
+new native capture stays format 2**. The version response remains 2. Snapshot
+selector 3 is still rejected; codec helpers do not authorize publication of rows.
+
+Phase B still requires projected capture admission, bounded publication, stored
+fact validation, retained-row Reader outputs, runtime accounting hints and exact
+Core/Map version pairing. Root owns that separate transfer. No full-app fit,
+measured byte saving or customer acceptance follows from source registration.
+LOS-45's full-application outcome remains failed/unproven.
 
 ## Wire and semantic boundaries
 
-Snapshot schema is explicit: supported contexts are exactly 1, 2 and 3. A missing
+The final schema-3 contract below defines contexts exactly 1, 2 and 3. Phase A
+exposes 3 to codec unit views only; production store selection remains 1/2. A missing
 Capture selector continues to select 1. Producer fields and payload shape never
 select a schema. New native capture will explicitly select 3 and retain
 `producer.call_target_schema: 2`; `producer.link_encoding_schema: 1` describes the
@@ -78,8 +85,8 @@ nested row misuse and malformed recognized metadata refuse.
 | `WireFacts::new(ordered_refs, version)` | Serialize the caller's existing stable-ID fact order. |
 | `SemanticLinkView::materialize`, `materialize_fact`, `materialize_links` | Produce only requested semantic output through serde, with no retained expanded cache. |
 
-Root owns the following existing-source seams. The new module deliberately calls
-them rather than copying their implementations or creating a test-only encoder:
+Phase A composes these existing-source seams. The module calls them rather than
+copying their implementations or creating a test-only encoder:
 
 - `schema::compact_call_metadata(data: &Value) -> Result<CallMetadata<'_>>`:
   extract the existing six-slot decoder for direct borrowed DATA validation.
@@ -90,7 +97,7 @@ them rather than copying their implementations or creating a test-only encoder:
   exact-key validation; recognize explicit 3 and validate recognized DATA even
   when a schema-3 extension's extra keys require object fallback.
 - Use the existing generic `schema::encoded_bytes<T: Serialize + ?Sized>` seam
-  from accepted Model source. The initial base predates this helper. No new
+  from accepted Model main. The initial component base predated this helper. No new
   counter, admission framework, serializer, dependency or Cargo change is added.
 
 The module does not sort links or facts, compute identities, alter grouping, or
@@ -141,14 +148,15 @@ Authored small unit checks cover exact roundtrip and eligibility, complete
 extra-key fallback, malformed rows, recognized-data refusal, receiver values,
 schema-1 opaque-v2 isolation, legacy encoded bytes, real serializer/count equality
 with escaping/Unicode/integer extremes/exact byte boundaries, and requested-only
-materialization. They are not registered or run in this initial phase.
+materialization. All nine are now registered in the real Rust test target. Actual execution
+results remain separate from this source contract and are recorded on the PR.
 
-After shared integration and a finite execution grant, run these checks and the
+Phase A has one finite native suite grant. Phase B must also run the
 existing affected capture replacement/refusal, source-bound, old-generation,
 Reader/native lifecycle and installed runtime/Map contracts. Add focused hint
 and independent-publication-recount regressions at those existing boundaries.
 Unrun compilation, CI, installed audits and full workload acceptance remain
-explicitly outstanding; this module alone cannot complete LOS-53.
+explicitly outstanding; this foundation alone cannot complete LOS-53.
 
 The 103 fixed bytes removed per eligible envelope is format arithmetic only.
 There is no measured saving, full total/fit, speed, RSS or completed customer

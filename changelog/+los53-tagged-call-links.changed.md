@@ -1,3 +1,1 @@
-Prepare borrowed schema-3 call-link projection and semantic materialization helpers,
-with focused encoding tests and an integration contract. This initial source phase
-does not enable schema-3 capture/publication or establish full-application fit.
+Register the borrowed tagged call-link codec and focused tests in the native engine, reusing shared compact metadata validation. This foundation keeps production capture and publication on format 2; schema-3 admission, Reader and package integration remain pending.
