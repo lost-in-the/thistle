@@ -5,6 +5,8 @@ require 'json'
 require 'digest'
 require 'uri'
 require_relative 'highlighter'
+require_relative 'model_presenter'
+require_relative 'find_presenter'
 
 module Thistle
   module Map
@@ -40,6 +42,13 @@ module Thistle
 
       def find
         query = @params.fetch('q', '')
+        if !query.strip.empty? && @reader.respond_to?(:search_evidence)
+          result = @reader.search_evidence(query, limit: PAGE_SIZE, kind: @params['kind'].to_s.empty? ? nil : @params['kind'], path: @params['prefix'].to_s.empty? ? nil : @params['prefix'], domain: @params['domain'])
+          body = FindPresenter.new(generation: @generation, mount: @mount, search: @params).render(result) do |match|
+            constraint_summary(@reader.fact(match.fetch('fact_id'))) if match['origin'] == 'metadata' && match['kind'] == 'route'
+          end
+          return layout('Find', body)
+        end
         matches = query.strip.empty? ? [] : @reader.find(query, limit: PAGE_SIZE)
         body = '<h1 class="t1">Find code</h1><p class="ui">Use a class, method, route or file name.</p>'
         if query.strip.empty?
@@ -97,6 +106,28 @@ module Thistle
         layout('Source', body, fact: fact)
       end
 
+      def source_file
+        result = @reader.source_file(@params.fetch('path'))
+        file = result.fetch('file')
+        unless result['generation'] == @generation && file['path'] == @params['path']
+          raise Thistle::InvalidSnapshot, 'File Source identity does not match this view'
+        end
+        content = result.fetch('content')
+        if content.bytesize > MAX_SOURCE_BYTES || content.count("\n") > MAX_SOURCE_LINES
+          raise Limit, 'This source exceeds web display limits. Use thistle source-file PATH --store STORE --generation ID.'
+        end
+        unless content.bytesize == file['bytes'] && result['sha256'] == file['sha256'] && Digest::SHA256.hexdigest(content) == file['sha256']
+          raise Thistle::InvalidSnapshot, 'File Source digest does not match captured bytes'
+        end
+        rows = Highlighter.lines(content, language: Highlighter.language_for(file['path'])).each_with_index.map do |line, index|
+          number = index + 1
+          "<div class=\"source-row\" id=\"L#{number}\"><a class=\"ln\" href=\"#L#{number}\" aria-label=\"Line #{number}\">#{number}</a><code class=\"src\">#{line}</code></div>"
+        end.join
+        body = "<h1 class=\"t1\">#{h(file['path'])}</h1><p class=\"notice ui\">Captured file evidence. No declaration owner or runtime binding is inferred.</p>" \
+          "<p class=\"digest\">Source SHA-256: #{h(file['sha256'])}</p><div class=\"cvwrap\" role=\"region\" aria-label=\"Captured file source\" tabindex=\"0\"><div class=\"cv codeview\">#{rows}</div></div>"
+        layout('Source', body)
+      end
+
       def links
         fact = @reader.fact(@params.fetch('id'))
         links = @reader.links(fact.fetch('id'))
@@ -105,7 +136,7 @@ module Thistle
         raise Limit, 'This links page does not exist.' if page > pages
 
         body = "<h1 class=\"t1\">Links from #{h(fact.fetch('name'))}</h1>" + fact_tiles(fact)
-        body += '<p class="notice ui">Unresolved links are names found in the source. They do not prove a runtime call or a resolved target.</p>'
+        body += '<p class="notice ui">Unresolved links are captured labels. They do not prove a runtime call or a resolved target.</p>'
         if links.empty?
           body += '<p class="ui">No links were captured for this fact. This does not prove it has no dependencies.</p>'
         else
@@ -270,13 +301,29 @@ module Thistle
       def url(path, extra = {})
         params = @params.reject { |key, _| key == 'page' }.merge('generation' => @generation).merge(extra)
         params.delete('id') if path == '/'
-        "#{@mount}#{path}?#{URI.encode_www_form(params)}"
+        if path == '/source' && !params['id'] && params['path']
+          params['file'] = FindPresenter.file_reference(params['path'])
+        else
+          params.delete('file')
+        end
+        params.delete('path')
+        query = URI.encode_www_form(params)
+        if query.bytesize > FindPresenter::MAX_QUERY_BYTES
+          @navigation_context_omitted = true
+          query = URI.encode_www_form(params.reject { |key, _| FindPresenter::SEARCH_FIELDS.include?(key) })
+        end
+        "#{@mount}#{path}?#{query}"
       end
 
       def layout(title, body, fact: nil)
         selected = fact || (@params['id'] && @reader.fact(@params['id']))
+        file_source = @params['path'] && title == 'Source'
         source_link = selected ? nav_link('Source', '/source', title, 's', selected['id']) : '<span class="disabled">Source <small>Choose a result</small></span>'
+        source_link = nav_link('Source', '/source', title, 's') if file_source
         links_link = selected ? nav_link('Links', '/links', title, 'g', selected['id']) : '<span class="disabled">Links <small>Choose a result</small></span>'
+        brand_url = url('/')
+        navigation = nav_link('Find', '/', title, 'f') + source_link + links_link + nav_link('Check', '/check', title, nil)
+        context_notice = @navigation_context_omitted ? '<p class="notice ui">Search context exceeds the navigation link budget. Narrow the query or filters in the Find form to retain them in links; Back returns to the previous page.</p>' : ''
         <<~HTML
           <!doctype html>
           <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -285,12 +332,16 @@ module Thistle
           <link rel="stylesheet" href="#{h(@mount)}/assets/map.css">
           <script src="#{h(@mount)}/assets/map.js" defer></script></head>
           <body><a class="skip" href="#main">Skip to evidence</a><div class="wm thistle-workbench" id="workbench" tabindex="-1">
-          <header class="app-header"><a class="brand" href="#{h(url('/'))}">Thistle <span>Map</span></a>
+          <header class="app-header"><a class="brand" href="#{h(brand_url)}">Thistle <span>Map</span></a>
           <form method="get" action="#{h(@mount)}/" class="find-form"><label for="find-query">Find code</label>
-          <input type="search" name="q" id="find-query" value="#{h(@params.fetch('q', ''))}" maxlength="256" placeholder="Class, method, route or file" autocomplete="off">
+          <input type="search" name="q" id="find-query" value="#{h(@params.fetch('q', ''))}" maxlength="256" placeholder="Literal source, name or metadata" autocomplete="off">
+          <label for="find-domain">Domain</label><select name="domain" id="find-domain">#{%w[all source metadata].map { |value| "<option value=\"#{value}\"#{' selected' if @params.fetch('domain', 'all') == value}>#{value}</option>" }.join}</select>
+          <label for="find-kind">Kind</label><input name="kind" id="find-kind" value="#{h(@params['kind'])}" placeholder="Any kind">
+          <label for="find-prefix">Path prefix</label><input name="prefix" id="find-prefix" value="#{h(@params['prefix'])}" placeholder="Any captured path">
           <input type="hidden" name="generation" value="#{h(@generation)}"><button class="btn primary" type="submit">Find</button></form></header>
-          <nav aria-label="Evidence views">#{nav_link('Find', '/', title, 'f')}#{source_link}#{links_link}#{nav_link('Check', '/check', title, nil)}</nav>
+          <nav aria-label="Evidence views">#{navigation}</nav>
           <main id="main" tabindex="-1"><p class="capture ui">Saved capture <code>#{h(@generation[0, 12])}</code> · live freshness not checked</p>
+          #{context_notice}
           #{body}</main>
           <footer><label class="shortcut-setting ui" hidden><input id="letter-shortcuts" type="checkbox"> Use letter shortcuts</label>
           <p class="ui" id="shortcut-help">Optional: F Find, S Source, G Links, J/K results. Keys act only within this workbench and never while entering text.</p>
@@ -318,7 +369,7 @@ module Thistle
           klass = eyebrow == 'Route conditions' ? ' class="route-conditions"' : ''
           "<div#{klass}><span class=\"eyebrow\">#{h(eyebrow)}</span><dl>" +
             rows.map { |label, value| "<dt>#{h(label)}</dt><dd>#{h(value)}</dd>" }.join + '</dl></div>'
-        end.join + '</div>'
+        end.join + '</div>' + ModelPresenter.render(fact)
       end
 
       def constraint_summary(fact)

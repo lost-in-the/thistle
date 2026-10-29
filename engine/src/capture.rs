@@ -29,6 +29,8 @@ const _: () = assert!(ruby_prism_sys::PM_OPTIONS_VERSION_LATEST == ruby_prism_sy
 const RUBY_SYNTAX_VERSION: &str = "4.1";
 const PARSER_POLICY: &str = "prism-default-guarded";
 const PARSER_STACK_BYTES: usize = 64 * 1024 * 1024;
+const DECLARATION_SCOPE_MESSAGE: &str = "A declaration inside a dynamic block or singleton receiver was not assigned a speculative owner";
+const MIXIN_SCOPE_MESSAGE: &str = "A mixin call in a block or singleton namespace has an unverified owner and was not attached to the ordinary class";
 // Provisional operational traversal ceiling, not a parser or process-memory bound.
 const MAX_NODES_CEILING: usize = 5_000_000;
 static CAPTURE_ACTIVE: AtomicBool = AtomicBool::new(false);
@@ -42,7 +44,7 @@ const DEFAULT_LIMITS: &[(&str, usize)] = &[
     ("max_facts", 100_000),
     ("max_links", 500_000),
     ("max_routes", 20_000),
-    ("max_diagnostics", 1_000),
+    ("max_diagnostics", schema::MAX_DIAGNOSTIC_GROUPS),
 ];
 
 #[derive(Clone)]
@@ -59,6 +61,8 @@ struct Capture {
     files: Vec<Value>,
     facts: Vec<Value>,
     diagnostics: Vec<Value>,
+    diagnostic_bytes: usize,
+    diagnostic_occurrences: u64,
     entries: usize,
     total_bytes: usize,
     nodes: usize,
@@ -122,7 +126,7 @@ fn capture_inner(root: &Path, effective: HashMap<String, usize>) -> Result<Value
     let directory = open_root(&canonical)?;
     let mut capture = Capture {
         limits: effective,
-        files: Vec::new(), facts: Vec::new(), diagnostics: Vec::new(),
+        files: Vec::new(), facts: Vec::new(), diagnostics: Vec::new(), diagnostic_bytes: 2, diagnostic_occurrences: 0,
         entries: 0, total_bytes: 0, nodes: 0, links: 0, evidence_bytes: 2,
         link_keys: HashSet::new(), call_keys: HashMap::new(), inventory_partial: false, declarations_partial: false,
     };
@@ -325,11 +329,9 @@ impl Capture {
             self.declarations_partial = true;
             for error in errors {
                 let message = format!("Line {}: {}", lines.line(error.location().start_offset()), error.message());
-                self.diagnostic("syntax_error", &message, path)?;
-                let diagnostic = self.diagnostics.last_mut().unwrap();
-                diagnostic["prism_version"] = json!(PRISM_VERSION);
-                diagnostic["ruby_syntax_version"] = json!(RUBY_SYNTAX_VERSION);
-                diagnostic["parser_policy"] = json!(PARSER_POLICY);
+                self.admit_diagnostic(json!({"code":"syntax_error", "message":message, "path":path,
+                    "prism_version":PRISM_VERSION, "ruby_syntax_version":RUBY_SYNTAX_VERSION,
+                    "parser_policy":PARSER_POLICY}))?;
             }
             return Ok(());
         }
@@ -405,7 +407,7 @@ impl Capture {
         let namespace = matches!(self.facts[current]["kind"].as_str(), Some("class") | Some("module"));
         if (scope.dynamic || scope.singleton) && receiver_is_self && namespace && matches!(name.as_str(), "include" | "extend" | "prepend") {
             self.declarations_partial = true;
-            return self.diagnostic("dynamic_scope", "A mixin call in a block or singleton namespace has an unverified owner and was not attached to the ordinary class", path);
+            return self.diagnostic("dynamic_scope", MIXIN_SCOPE_MESSAGE, path);
         }
         if receiver_is_self && namespace && matches!(name.as_str(), "include" | "extend" | "prepend") {
             let relation = match name.as_str() { "include" => "includes", "extend" => "extends", _ => "prepends" };
@@ -494,15 +496,56 @@ impl Capture {
     }
 
     fn diagnostic(&mut self, code: &str, message: &str, path: &str) -> Result<()> {
-        if self.diagnostics.len() >= self.limit("max_diagnostics") { return Err(CoreError::limit("Capture exceeds max_diagnostics")); }
-        if message.len() > 8_192 { return Err(CoreError::limit("Capture diagnostic exceeds 8192 bytes")); }
-        self.diagnostics.push(json!({"code":code,"message":message,"path":path}));
+        self.admit_diagnostic(json!({"code":code,"message":message,"path":path}))
+    }
+
+    fn admit_diagnostic(&mut self, mut record: Value) -> Result<()> {
+        if schema::string(&record, "message")?.len() > 8_192 {
+            return Err(CoreError::limit("Capture diagnostic exceeds 8192 bytes"));
+        }
+        let count = schema::diagnostic_occurrences(&record)?;
+        let total = self.diagnostic_occurrences.checked_add(count)
+            .ok_or_else(|| CoreError::limit("Diagnostic occurrence count overflow"))?;
+        record["occurrences"] = json!(count);
+        // Only these two known recoverable classes coalesce. Compare ALL fields
+        // except the count, preserving future reason/location/provenance fields.
+        // A bounded scan avoids a second retained key/map and its memory budget.
+        let grouped = record["code"] == "dynamic_scope" && matches!(record["message"].as_str(),
+            Some(DECLARATION_SCOPE_MESSAGE) | Some(MIXIN_SCOPE_MESSAGE));
+        let existing = if grouped {
+            self.diagnostics.iter().position(|prior| {
+                let (Some(a), Some(b)) = (prior.as_object(), record.as_object()) else { return false; };
+                a.len() == b.len() && a.iter().all(|(key, value)| key == "occurrences" || b.get(key) == Some(value))
+            })
+        } else { None };
+        let bytes = if let Some(index) = existing {
+            let prior = &self.diagnostics[index];
+            let count = schema::diagnostic_occurrences(prior)?.checked_add(count)
+                .ok_or_else(|| CoreError::limit("Diagnostic occurrence count overflow"))?;
+            record["occurrences"] = json!(count);
+            let old_bytes = schema::diagnostic_bytes(prior)?;
+            let new_bytes = schema::diagnostic_bytes(&record)?;
+            self.diagnostic_bytes.checked_sub(old_bytes).and_then(|n| n.checked_add(new_bytes))
+        } else {
+            if self.diagnostics.len() >= self.limit("max_diagnostics") {
+                return Err(CoreError::limit("Capture exceeds max_diagnostics retained groups"));
+            }
+            let encoded = schema::diagnostic_bytes(&record)?;
+            self.diagnostic_bytes.checked_add(encoded)
+                .and_then(|n| n.checked_add(usize::from(!self.diagnostics.is_empty())))
+        }.ok_or_else(|| CoreError::limit("Diagnostic byte accounting overflow"))?;
+        schema::diagnostic_budget(bytes)?;
+        // Admission completes before any retained state changes.
+        if let Some(index) = existing { self.diagnostics[index] = record; }
+        else { self.diagnostics.push(record); }
+        self.diagnostic_bytes = bytes;
+        self.diagnostic_occurrences = total;
         Ok(())
     }
 
     fn uncertain_scope(&mut self, path: &str) -> Result<()> {
         self.declarations_partial = true;
-        self.diagnostic("dynamic_scope", "A declaration inside a dynamic block or singleton receiver was not assigned a speculative owner", path)
+        self.diagnostic("dynamic_scope", DECLARATION_SCOPE_MESSAGE, path)
     }
 
     fn coverage(&self) -> Value {
@@ -653,7 +696,7 @@ mod tests {
         let last = calls[1].as_call_node().unwrap();
         let mut capture = Capture {
             limits: effective_limits(&json!({})).unwrap(),
-            files: vec![], facts: vec![], diagnostics: vec![],
+            files: vec![], facts: vec![], diagnostics: vec![], diagnostic_bytes: 2, diagnostic_occurrences: 0,
             entries: 0, total_bytes: 0, nodes: 0, links: 0, evidence_bytes: 2,
             link_keys: HashSet::new(), call_keys: HashMap::new(), inventory_partial: false, declarations_partial: false,
         };
@@ -826,3 +869,7 @@ mod tests {
         assert!(result["coverage"].as_array().unwrap().iter().any(|coverage| coverage["family"] == "ruby_declarations" && coverage["status"] == "partial"));
     }
 }
+
+#[cfg(test)]
+#[path = "capture_diagnostics_tests.rs"]
+mod diagnostics_tests;

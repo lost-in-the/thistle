@@ -1,0 +1,138 @@
+{
+  "issue": 74,
+  "base": "9a1250029a6d93a8e0c0325166467c153789ab08",
+  "presenter_parent": "d0ae02f86b31d3d12103a1944ad1d6ba21a84c7f",
+  "task": "059d48e6-ace8-43c7-8521-66af357a28e6",
+  "date": "2026-10-29",
+  "scope": "Candidate development checks; no launch qualification or numerical performance claim. Artifact identity binds runtime source hashes below; receipt is added after package generation. Primary cohort CI and root base/model integration remain outstanding.",
+  "source_sha256": {
+    "engine/src/lib.rs": "e5c32bdb30dba9ac6d0410aa85441eaa99d9cae2f16e20370808e81e7f7c4a91",
+    "engine/src/query.rs": "7ad6c45646768be87047269a3716c3324b0ce5675fd8b9e0967ad8c5a3a51127",
+    "engine/src/store.rs": "bb857f2900a4f8f506bc23e42e02576f38bcf12986e30594e826c4a5b62c7ea9",
+    "lib/thistle/reader.rb": "5ac788fac6cbdadf64467d4e3cc8902e1ff5ab4d87296b987852250ff66777fd",
+    "lib/thistle/cli.rb": "7042db6a02ae86c03e72fd2fc8dbb22a927ef34e040ff4ade5b6f29ad7c25bb7",
+    "map/lib/thistle/map/app.rb": "0d04e1afcbe572542a2ece11c474a2c81fb862ff357ba33314ea4a982b54c57f",
+    "map/lib/thistle/map/view.rb": "326537a36da85433bac2cf399c27381ca761256f5aac6b5ac397cf6262b590c0",
+    "map/lib/thistle/map/find_presenter.rb": "547537701f4b1045d3c31b119a26956a9f1025db4ce461e63fda5c1bbd041e69",
+    "test/test_find_evidence.rb": "6e6cf6f4f8570b597bfb9ef84915b2a5930307680928503ffd4637ba352350a1",
+    "map/test/find_source_test.rb": "4988520d68ad998ef1ca483eaa1d7d2838aeb1d2fb9c6f5c66dc3aa972f9b08b",
+    "map/test/find_presenter_test.rb": "00cfeee51e84a33d0e5338b052eeb73f929b5002cb3559dacb1e9d6da4d96990"
+  },
+  "environment": {
+    "image": "sha256:f377fb86ef51f1b4b31787dc58131ad453fe306e58b36296f29e76a98487c520",
+    "ruby": "3.4.12",
+    "rust": "1.90.0",
+    "offline": true,
+    "network": "none",
+    "rootless": true,
+    "read_only_container_root": true,
+    "copied_product_source": true,
+    "git_home_credentials_policy_sockets_mounted": false,
+    "memory_bytes": 2147483648,
+    "cpus": 2,
+    "pids": 256,
+    "cargo_jobs": 2,
+    "deadline_seconds": 600,
+    "container_deadline_seconds": 630,
+    "file_limit_bytes": 134217728,
+    "release_debug": 0,
+    "temp_resolution": {
+      "ruby": "/work/tmp",
+      "python": "/work/tmp",
+      "backing": "disk-backed btrfs",
+      "observed_available_gib": 627
+    },
+    "logs": "Retained bounded local attempt logs; aggregate under 32 KiB. Final installed run additionally enforced host log file limit 128 MiB."
+  },
+  "checks": {
+    "native": {
+      "passed": 36,
+      "command": "cargo test --manifest-path engine/Cargo.toml --offline --locked --release -- --test-threads=1"
+    },
+    "ruby_focused": {
+      "passed": 19,
+      "assertions": 212,
+      "scope": "core, find_evidence, reader_ownership, parser_boundary"
+    },
+    "map": {
+      "passed": 41,
+      "assertions": 666,
+      "skipped": 0,
+      "scope": "all map/test/*_test.rb"
+    },
+    "installed_ruby": {
+      "passed": 36,
+      "assertions": 308,
+      "skipped": 0,
+      "scope": "all test/test_*.rb copied beside installed library; no source checkout library permitted"
+    },
+    "self_inspection": {
+      "package_source": "thistle/reader.rb",
+      "query": "def search_evidence",
+      "generation": "eac63984a0db99fe4dfc77326a622115e9d1938c832e883a7c8bb32a0f694c71",
+      "span": {
+        "start_byte": 1977,
+        "end_byte": 1996,
+        "start_line": 67,
+        "end_line": 67
+      },
+      "map_source_status": 200
+    }
+  },
+  "artifacts": {
+    "thistle.gem": "d3815adfc5c2d9d8d78708ea77eb187b6c935dfb22061943b8fa5aac96070549",
+    "thistle-map.gem": "c74d30c4ba618464ea508fa751453567e4550b67636af4c67d5260e88926920e",
+    "installed_thistle_native.so": "919c5382a2a73a3749778e16c9974e788d73999e3f45244959e33f830946cdf9"
+  },
+  "attempts": [
+    {
+      "id": 1,
+      "result": "copy setup refused: generic target exclusion omitted vendored cc source; copy corrected without vendor edits"
+    },
+    {
+      "id": 2,
+      "result": "native and Reader/CLI passed; inherited presenter FrozenError exposed and fixed"
+    },
+    {
+      "id": 3,
+      "result": "rustfmt unavailable in pinned image; no build started; optional formatter removed"
+    },
+    {
+      "id": 4,
+      "result": "native/Ruby/Map passed; Map gem build invoked from wrong directory; command corrected"
+    },
+    {
+      "id": 5,
+      "result": "final runtime checks and installed self-inspection passed; copied documentation payload then completed for final package pair"
+    },
+    {
+      "id": 6,
+      "result": "final package pair installed and self-inspection passed; broader tests missing Minitest due to GEM_PATH setup"
+    },
+    {
+      "id": 7,
+      "result": "36 Ruby tests passed but relative test imports loaded source-checkout files; superseded as installed-only evidence"
+    },
+    {
+      "id": 8,
+      "result": "36 installed-only Ruby tests passed with no checkout library imports"
+    }
+  ],
+  "review": {
+    "improvements_resolved": [
+      "Preserved inherited presenter signature; fixed frozen-string mutation",
+      "Charged query scratch through serialization and retained reader admission through last Arc",
+      "Checked fork identity before touching registry for source-file scratch",
+      "Avoided result construction beyond limit and comparator allocations",
+      "Limited failed source-load attempts as well as retained source bytes",
+      "Preserved existing bounded route-conditions presentation",
+      "Separated representative occurrence, omitted matching files and unsearched files"
+    ],
+    "limitations": [
+      "Literal matching worst-case O(bytes times query length), bounded by 32 Mi work units; no speed claim",
+      "Per-reader corpus is rebuilt after close/reopen; partial corpus retry requires fresh Reader",
+      "Existing base reader encoded-data policy is not total process RSS accounting",
+      "Root must reconcile current main and model hooks; all 17 capabilities remain unqualified"
+    ]
+  }
+}

@@ -73,6 +73,30 @@ class ThistleRailsCaptureTest < Minitest::Test
     assert_match(/max_links/, error.message)
   end
 
+  def test_grouped_static_and_appended_runtime_diagnostics_keep_exact_totals
+    require_relative "../lib/thistle"
+    File.write(File.join(@root, "partial.rb"), <<~RUBY)
+      describe "harmless source fixture" do
+        class First; end
+        class Second; end
+        class Third; end
+      end
+    RUBY
+    broken_app = Object.new
+    def broken_app.routes = raise("private runtime detail")
+    capture = Thistle::Capture.new(root: @root, rails: broken_app, limits: { max_diagnostics: 2 }).call
+    assert_equal 2, capture.fetch("diagnostics").length
+    assert_equal 3, capture.fetch("diagnostics").find { |entry| entry["code"] == "dynamic_scope" }.fetch("occurrences")
+    assert_equal "partial", capture.fetch("coverage").find { |entry| entry["family"] == "ruby_declarations" }.fetch("status")
+    assert_equal "unavailable", capture.fetch("coverage").find { |entry| entry["family"] == "rails_routes" }.fetch("status")
+    store = File.join(@root, "saved-store")
+    Thistle::Store.new(store).publish(capture)
+    reader = Thistle::Reader.new(store)
+    assert_equal({ "groups" => 2, "occurrences" => 4 }, reader.check.fetch("diagnostics"))
+  ensure
+    reader&.close
+  end
+
   def test_runtime_batch_refuses_evidence_before_accumulating_it
     require_relative "../lib/thistle/rails_capture"
     routes = ActionDispatch::Routing::RouteSet.new

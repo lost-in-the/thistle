@@ -8,6 +8,7 @@ require 'fileutils'
 require 'json'
 require 'digest'
 require 'uri'
+require 'cgi'
 require 'thistle'
 require 'thistle/map'
 
@@ -115,6 +116,97 @@ result = Dir.mktmpdir('thistle-map-installed-') do |directory|
   raise 'Pinned installed Source bytes changed' unless call_reader.source(call_fact.fetch('id')).fetch('content') == call_source
   raise 'Pinned installed Check failed' unless call_reader.check.fetch('integrity') == 'verified'
 
+  # The separate installed producer has exited; this fresh consumer has neither
+  # Rails nor its model fixture loaded and cannot derive answers from live state.
+  raise 'Model consumer loaded Rails' if defined?(Rails) || defined?(ModelFixture)
+  model_store, model_receipt = ARGV
+  raise 'Installed model producer receipt missing' unless model_store && model_receipt
+  produced = JSON.parse(File.read(model_receipt))
+  model_generation = produced.fetch('generation')
+  raise 'Unexpected model observation cohort' unless produced['active_record_version'] == '8.1.4'
+  Thistle.capture(root: app_root, output: model_store)
+  model_reader = Thistle::Reader.new(model_store, generation: model_generation)
+  models = model_reader.facts.select { |row| row['kind'] == 'rails_model' }
+  by_name = models.to_h { |row| [row['name'], row] }
+  order = by_name.fetch('ModelFixture::Order')
+  model = order.fetch('attributes').fetch('model')
+  raise 'Model identity or schema labels changed' unless model['table'] == 'orders' && model['primary_key'] == ['id'] &&
+    model['source'] == 'unavailable' && model['coherence'] == 'unknown' && order['path'].nil? && order['location'].nil?
+  sti = by_name.fetch('ModelFixture::PriorityOrder').fetch('attributes').fetch('model')
+  raise 'STI labels changed' unless sti['base_class'] == 'ModelFixture::Order' && sti['inheritance_column'] == 'type'
+  state = model.fetch('columns').fetch('entries').find { |column| column['name'] == 'state' }
+  raise 'Raw schema default/nullability changed' unless state && state['type'] == 'string' && state['null'] == false &&
+    state['default'] == { 'kind' => 'literal', 'value' => 'new' }
+  associations = model.fetch('associations').fetch('entries').to_h { |row| [row.fetch('name'), row] }
+  raise 'Association cardinality/labels changed' unless associations.keys.sort == %w[items payments products] &&
+    associations['items']['target'] == 'ModelFixture::Item' && associations['payments']['target'] == 'ModelFixture::Payment' &&
+    associations['items']['scope'] == 'opaque' && associations['products']['through'] == 'items' && associations['products']['target'].nil?
+  payment = by_name.fetch('ModelFixture::Payment').dig('attributes', 'model', 'associations', 'entries').find { |row| row['name'] == 'subject' }
+  missing = by_name.fetch('ModelFixture::MissingTable').dig('attributes', 'model')
+  raise 'Unavailable/unknown families changed' unless payment['polymorphic'] == true && payment['target'].nil? &&
+    missing.dig('columns', 'status') == 'unavailable' && missing.dig('associations', 'status') == 'observed'
+  model_links = model_reader.links(order.fetch('id'))
+  raise 'Model labels became bindings or lost identity' unless model_links.all? { |link| link['resolution'] == 'unresolved' } &&
+    model_links.filter_map { |link| link.dig('attributes', 'association') }.sort == %w[items payments]
+  begin
+    model_reader.source(order.fetch('id'))
+    raise 'Model source was fabricated'
+  rescue Thistle::Error => error
+    raise unless error.code == 'source_unavailable'
+  end
+  static = model_reader.facts.find { |row| row['kind'] == 'class' && row['name'] == 'ModelFixture::Order' }
+  raise 'Separate captured source missing' unless static &&
+    model_reader.source(static.fetch('id')).fetch('sha256') == produced.fetch('fixture_source_sha256')
+  model_check = model_reader.check
+  raise 'Model coverage/integrity changed' unless model_check['integrity'] == 'verified' &&
+    model_check.fetch('coverage').find { |row| row['family'] == 'rails_models' }&.fetch('status') == 'partial'
+  model_app = Thistle::Map::App.new(store: model_store)
+  model_query = URI.encode_www_form('id' => order.fetch('id'), 'generation' => model_generation)
+  %w[/source /links].each do |path|
+    status, _, body = model_app.call(env.merge('PATH_INFO' => path, 'QUERY_STRING' => model_query))
+    html = body.each.to_a.join
+    raise "Installed model #{path} lost evidence" unless status == 200 && html.include?(model_generation) &&
+      html.include?('ModelFixture::Order') && html.include?('items') && html.include?('payments') && html.include?('unknown')
+  end
+
+  # Inspect this exact installed package, without a checkout or a live-app scan.
+  packaged_root = File.join(Gem.loaded_specs.fetch('thistle').full_gem_path, 'lib')
+  packaged_path = 'thistle/reader.rb'
+  packaged_bytes = File.binread(File.join(packaged_root, packaged_path)).force_encoding(Encoding::UTF_8)
+  literal = 'def source_file(path)'
+  # Find spans count original bytes, including any preceding non-ASCII text.
+  expected_byte = packaged_bytes.b.index(literal.b)
+  raise 'Packaged Reader known answer missing' unless expected_byte
+  expected_line = packaged_bytes.b.byteslice(0, expected_byte).count("\n") + 1
+  find_store = File.join(directory, 'find-store')
+  find_manifest = Thistle.capture(root: packaged_root, output: find_store)
+  find_generation = find_manifest.fetch('generation')
+  # Advance CURRENT before opening the fresh pinned consumer.
+  Thistle.capture(root: app_root, output: find_store)
+  find_reader = Thistle::Reader.new(find_store, generation: find_generation)
+  found = find_reader.search_evidence(literal, domain: 'source', kind: 'file', path: packaged_path)
+  raise 'Installed Find is not complete for the packaged Reader' unless found['status'] == 'complete' && found['total_matches'] == 1
+  hit = found.fetch('results').fetch(0)
+  raise 'Installed Find invented a declaration owner' unless hit['origin'] == 'source' && hit['fact_id'].nil? && hit['path'] == packaged_path
+  raise 'Installed Find span changed original bytes' unless hit['span'] == {
+    'start_byte' => expected_byte, 'end_byte' => expected_byte + literal.bytesize,
+    'start_line' => expected_line, 'end_line' => expected_line }
+  raise 'Installed file Source bytes changed' unless find_reader.source_file(packaged_path).fetch('content') == packaged_bytes
+  find_app = Thistle::Map::App.new(store: find_store)
+  find_context = { 'q' => literal, 'domain' => 'source', 'kind' => 'file', 'prefix' => packaged_path }
+  find_status, _, find_body = find_app.call(env.merge('PATH_INFO' => '/',
+    'QUERY_STRING' => URI.encode_www_form(find_context.merge('generation' => find_generation))))
+  find_html = find_body.each.to_a.join
+  raise 'Installed Map Find failed' unless find_status == 200
+  find_uri = URI.parse(CGI.unescapeHTML(find_html[/data-result-link href="([^"]+)"/, 1].to_s))
+  find_params = URI.decode_www_form(find_uri.query.to_s).to_h
+  raise 'Installed Find context or generation lost' unless find_params.slice(*find_context.keys) == find_context && find_params['generation'] == find_generation
+  file_status, _, file_body = find_app.call(env.merge('PATH_INFO' => find_uri.path, 'QUERY_STRING' => find_uri.query))
+  file_html = file_body.each.to_a.join
+  raise 'Installed pinned file Source failed' unless file_status == 200 && find_uri.fragment == "L#{expected_line}" &&
+    file_html.include?("id=\"L#{expected_line}\"") && file_html.include?(find_generation) && file_html.include?('No declaration owner')
+  raise 'Packaged Find Check failed' unless find_reader.check.fetch('integrity') == 'verified'
+
   native = $LOADED_FEATURES.find { |path| path.match?(%r{/thistle/thistle_native\.(so|bundle|dll)\z}) }
   raise 'Installed native engine was not loaded' unless native && File.realpath(native).start_with?(gem_home + File::SEPARATOR)
   raise 'Woods source was loaded' if $LOADED_FEATURES.any? { |path| path.match?(%r{/(woods|woods_map)/}) }
@@ -125,9 +217,18 @@ result = Dir.mktmpdir('thistle-map-installed-') do |directory|
     'core_gem' => Gem.loaded_specs.fetch('thistle').full_gem_path,
     'map_gem' => Gem.loaded_specs.fetch('thistle-map').full_gem_path,
     'native_sha256' => Digest::SHA256.file(native).hexdigest,
+    'model_journey' => { 'generation' => model_generation, 'model_id' => order.fetch('id'),
+      'model_count' => models.length, 'associations' => associations.keys.sort,
+      'fixture_source_sha256' => produced.fetch('fixture_source_sha256'),
+      'current_advanced' => true, 'fresh_consumer_without_rails' => true },
+    'find_journey' => { 'generation' => find_generation, 'path' => packaged_path,
+      'span' => hit.fetch('span'), 'source_sha256' => Digest::SHA256.hexdigest(packaged_bytes),
+      'status' => found.fetch('status'), 'map_source_status' => file_status, 'current_advanced' => true },
     'woods_installed' => false, 'source_checkout_load_path' => false
   }
 ensure
+  model_reader&.close
+  find_reader&.close
   latest_reader&.close
   call_reader&.close
   runtime_reader&.close

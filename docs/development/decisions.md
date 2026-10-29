@@ -28,8 +28,7 @@ Both gems now declare Ruby >=3.4. The Gemfile reads the primary Rails requiremen
 from the policy; an explicit `THISTLE_RAILS_VERSION` still selects a deliberate
 test cohort. Exact patches make a run's intended inputs clear. Per-run locks and
 manifests record actual resolution; this does not promise reproducible archives.
-At this cohort adoption, Linux was the implementation's platform restriction;
-the macOS source-development extension is recorded below under issue #81.
+Linux remains the implementation's actual platform restriction.
 
 PRs ordinarily use primary. Workflow, dependency, policy and Ruby/native-boundary
 changes also test minimum. Main runs primary plus the separate minimum job;
@@ -308,6 +307,76 @@ speed claim. Keep the original failure; subsequent exact-pair checks belong to
 the integration owner. Reconsider representation only under a new bounded scope
 with complete-job evidence. Limits, separator accounting, source-file copying,
 frozen evaluation policy and all launch qualification requirements are unchanged.
+
+
+## Loaded model observation boundary (issue 73)
+
+Use the supplied application's Rails 8.1.4 reflection and raw schema-cache APIs
+for already loaded model descendants. The Ruby boundary observes bounded
+framework metadata; Rust normalizes, validates, identifies, admits and stores
+it. A textual macro extractor would not establish effective reflection metadata
+and would lose through/STI/runtime distinctions; loading targets or evaluating
+scopes/default procs would invent execution evidence. Neither is part of this
+slice. Names remain labels and runtime/source coherence remains unknown.
+
+The observation is a bounded native-normalized batch. Its request contains only
+model observations and current admission counters, never existing source/facts;
+Ruby appends the engine's returned records. Actual full-capture validation stays
+at native publication, whose existing transport/storage limits still apply. Pool
+connection failures are remembered by identity within this capture only,
+including lazy primary-key reads; unrelated table errors do not poison a pool.
+No persistent application cache, new Cargo dependency or runtime gem dependency
+is added. The existing booted SQLite fixture supplies independent schema-known
+answers and unsafe-default canaries; it does not qualify every adapter. The
+installed runner reuses it outside the checkout with installed production code.
+
+Admission sizing reuses the maintained JSON encoders with counting writers:
+serde_json in Rust and a fresh `JSON::State` with an IO sink in Ruby. The
+[JSON 2.9.1 state implementation](https://github.com/ruby/json/blob/v2.9.1/lib/json/ext/generator/state.rb)
+already accepts that sink. This preserves normal generation defaults and avoids
+retaining a second full encoded observation or writing a custom size/escape
+encoder. Encoding work and bounded generator buffers remain; no measured memory
+or speed improvement is claimed. Recheck this fit if the supported JSON generator
+or its streaming behavior changes. Qualification attempts use fresh output
+directories so a retry cannot overwrite retained failure receipts.
+
+Reconsider the version allowlist only after checking changed Rails metadata
+APIs, and broader semantics/adapter or source-binding claims only with their own
+bounded accepted evidence. Callback/execution analysis and generic static macro
+extraction are separate customer slices. See the [model contract and sources](loaded-model-evidence.md#library-fit-and-maintenance).
+
+
+## Evidence search index and matcher
+
+Issue 74 selects one immutable, verified captured-source corpus per Reader and
+one first literal match per file. There is no persistent postings format or
+writer lifecycle. [Tantivy 0.27](https://docs.rs/tantivy/0.27.0/tantivy/indexer/struct.IndexWriter.html)
+provides maintained indexing, but its indexing queues, segments, commits and
+merge-thread lifecycle introduce ownership, memory-accounting and offline
+packaging work beyond this single-literal, generation-local slice. That is a fit
+decision, not evidence that Tantivy is slow or unsuitable for richer retrieval.
+
+For matching, [memchr 2.8.3 memmem](https://docs.rs/memchr/2.8.3/memchr/memmem/index.html)
+finds exact byte substrings; it is not a drop-in ASCII-insensitive matcher.
+[Aho-Corasick 1.1.5](https://docs.rs/aho-corasick/1.1.5/aho_corasick/struct.AhoCorasickBuilder.html#method.ascii_case_insensitive)
+supports the required ASCII-only case folding with original byte offsets. It is
+a viable maintained alternative, already transitively vendored, but adopting its
+automaton would require an explicit build/memory charge and a bounded scan/work
+admission rule. Neither API exposes the current per-comparison stop counter.
+The selected small matcher compares original byte windows, folds ASCII only,
+and stops within the shared 32 Mi comparison/line-count work allowance. It needs
+no folded whole-file copy or query automaton; its worst case is O(text bytes ×
+literal bytes), so partial results are an intentional limitation, not a speed
+claim. Source verification/cache construction has separate bounded accounting.
+
+The maintenance cost is the custom comparison loop and its Unicode/offset,
+work-exhaustion and completeness tests. Retained corpus memory and cold Map
+requests remain material costs; no new shared cache or process service is
+introduced. Reconsider Aho-Corasick with pre-admitted scan bounds if observed
+complete user jobs show comparison exhaustion or search cost is material;
+reconsider Tantivy when accepted retrieval requirements justify indexed/ranked
+or multi-term search. Preserve honest partial coverage and exact pinned Source
+through either change. See the [Find contract and operating budgets](find-evidence.md).
 
 ## macOS and Linux source development — 2026-10-29
 

@@ -138,6 +138,8 @@ pub struct Reader {
     by_file: HashMap<String, Vec<usize>>,
     search: Vec<SearchRecord>,
     blobs: Dir,
+    pub(crate) source_index: std::sync::Mutex<Option<crate::query::Index>>,
+    pub(crate) admission: Option<crate::query::Reservation>,
     schema_version: u64,
 }
 
@@ -165,6 +167,8 @@ impl Reader {
         if schema::digest(&schema::canonical(&manifest)?) != generation { return Err(CoreError::snapshot("Manifest identity verification failed")); }
         manifest["generation"] = Value::String(generation.clone());
         schema::hash(schema::string(&manifest, "root_id")?)?;
+        schema::diagnostic_counts(schema::array(&manifest, "diagnostics")?)
+            .map_err(|_| CoreError::snapshot("Manifest diagnostic counts or budget are invalid"))?;
         schema::coverage(&manifest)?;
         let files = schema::array(&manifest, "files")?;
         schema::files(files, false)?;
@@ -184,7 +188,8 @@ impl Reader {
         }
         let blobs = root.child("blobs", false)?;
         let (search, weight) = search_cache(&facts, facts_bytes.len(), manifest_bytes.len())?;
-        Ok(Self { manifest, generation, facts, weight, by_id, by_path, by_file, search, blobs, schema_version: version })
+        Ok(Self { manifest, generation, facts, weight, by_id, by_path, by_file, search, blobs,
+            source_index: std::sync::Mutex::new(None), admission: None, schema_version: version })
     }
 
     pub fn fact(&self, id: &str) -> Result<&Value> {
@@ -224,9 +229,22 @@ impl Reader {
         Ok(json!({"generation": self.generation, "fact": fact, "content": content, "sha256": file["sha256"]}))
     }
 
-    fn source_bytes(&self, file: &Value) -> Result<String> {
+    pub(crate) fn source_file_scratch(&self, path: &str) -> Result<usize> {
+        schema::path(path)?;
+        let file = self.by_path.get(path).ok_or_else(|| CoreError::new("not_found", "File is absent from this generation"))?;
+        (file["bytes"].as_u64().unwrap() as usize).checked_mul(16).and_then(|n| n.checked_add(65536))
+            .ok_or_else(|| CoreError::limit("Source response accounting overflow"))
+    }
+
+    pub fn source_file(&self, path: &str) -> Result<Value> {
+        schema::path(path)?;
+        let file = self.by_path.get(path).ok_or_else(|| CoreError::new("not_found", "File is absent from this generation"))?;
+        Ok(json!({"generation":self.generation, "file":{"path":file["path"],"bytes":file["bytes"],"sha256":file["sha256"]}, "content":self.source_bytes(file)?, "sha256":file["sha256"]}))
+    }
+
+    pub(crate) fn source_bytes(&self, file: &Value) -> Result<String> {
         let hash = schema::string(file, "sha256")?;
-        let bytes = self.blobs.read(hash, schema::MAX_SOURCE)?;
+        let bytes = self.blobs.read(hash, file["bytes"].as_u64().unwrap() as usize)?;
         if schema::digest(&bytes) != hash || Some(bytes.len() as u64) != file["bytes"].as_u64() {
             return Err(CoreError::snapshot("Source content verification failed"));
         }
@@ -242,6 +260,7 @@ impl Reader {
         }
         Ok(json!({"generation": self.generation, "integrity": "verified", "freshness": "not_checked",
             "files": self.by_path.len(), "facts": self.facts.len(), "coverage": self.manifest["coverage"],
+            "diagnostics": schema::diagnostic_counts(schema::array(&self.manifest, "diagnostics")?)?,
             "note": "Integrity verifies captured bytes, not current application state."}))
     }
 }
@@ -255,6 +274,33 @@ mod tests {
             "files": [{"path":"app.rb","sha256":schema::digest(content.as_bytes()),"bytes":content.len(),"encoding":"UTF-8","content":content}],
             "facts": [{"id":"b".repeat(64),"kind":"class","name":name,"path":"app.rb","location":null,"evidence":"static","attributes":{},"links":[]}],
             "coverage":[{"family":"ruby","status":"partial","scope":"fixture","reason":"No runtime resolution"}],"diagnostics":[]})
+    }
+    #[test]
+    fn saved_diagnostic_groups_and_occurrences_are_checked_at_open_and_check() {
+        let temp = tempfile::tempdir().unwrap();
+        let mut data = fixture("DiagnosticCounts");
+        data["diagnostics"] = json!([
+            {"code":"dynamic_scope","message":"recoverable fixture","path":"app.rb","occurrences":3},
+            {"code":"syntax_error","message":"legacy fixture","path":"app.rb"}
+        ]);
+        let mut manifest = publish(temp.path(), &data).unwrap();
+        let reader = Reader::open(temp.path(), None).unwrap();
+        assert_eq!(reader.check().unwrap()["diagnostics"], json!({"groups":2,"occurrences":4}));
+        let old = temp.path().join("generations").join(manifest["generation"].as_str().unwrap());
+        // Recompute the identity so refusal is attributable to diagnostic
+        // validation rather than an unrelated manifest hash mismatch.
+        manifest["diagnostics"][0]["occurrences"] = json!(0);
+        manifest.as_object_mut().unwrap().remove("generation");
+        let generation = schema::digest(&schema::canonical(&manifest).unwrap());
+        manifest["generation"] = json!(generation);
+        let invalid = temp.path().join("generations").join(&generation);
+        std::fs::create_dir(&invalid).unwrap();
+        std::fs::copy(old.join("facts.json"), invalid.join("facts.json")).unwrap();
+        std::fs::write(invalid.join("manifest.json"), schema::canonical(&manifest).unwrap()).unwrap();
+        let error = Reader::open(temp.path(), Some(&generation)).err().unwrap();
+        assert_eq!(error.code, "invalid_snapshot");
+        assert!(error.message.contains("diagnostic"));
+        assert_eq!(Reader::open(temp.path(), None).unwrap().generation, reader.generation);
     }
     #[test]
     fn borrowed_publication_matches_owned_reference_for_permutations() {
