@@ -118,6 +118,8 @@ pub fn facts(facts: &[Value], files: &[Value], version: u64) -> Result<()> {
                 }
             }
         }
+        if fact["kind"] == "rails_model" { model_fact(fact)?; }
+        if fact["kind"] == "rails_save_callbacks" { crate::callbacks::validate_fact(fact)?; }
         for link in array(fact, "links")? {
             for key in ["relation", "target"] {
                 let text = string(link, key)?;
@@ -267,24 +269,28 @@ pub(crate) fn diagnostic_occurrences(record: &Value) -> Result<u64> {
     }
 }
 
-/// Count encoded bytes without allocating another diagnostic payload. Value
-/// serialization has no fallible custom serializer; refusal here is byte budget
-/// or checked accounting overflow. Escapes and UTF-8 use the real JSON encoder.
-pub(crate) fn diagnostic_bytes<T: serde::Serialize + ?Sized>(value: &T) -> Result<usize> {
-    struct Size(usize);
+/// Count with the real JSON encoder without retaining another payload. Refuse
+/// during encoding at the supplied budget, including checked accounting overflow.
+pub(crate) fn encoded_bytes<T: serde::Serialize + ?Sized>(value: &T, max: usize) -> Result<usize> {
+    struct Size { bytes: usize, max: usize }
     impl std::io::Write for Size {
         fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
-            self.0 = self.0.checked_add(bytes.len())
-                .filter(|n| *n <= MAX_DIAGNOSTIC_BYTES)
-                .ok_or_else(|| std::io::Error::other("Diagnostic byte budget exceeded"))?;
+            self.bytes = self.bytes.checked_add(bytes.len())
+                .filter(|n| *n <= self.max)
+                .ok_or_else(|| std::io::Error::other("Encoded JSON byte budget exceeded"))?;
             Ok(bytes.len())
         }
         fn flush(&mut self) -> std::io::Result<()> { Ok(()) }
     }
-    let mut size = Size(0);
+    let mut size = Size { bytes: 0, max };
     serde_json::to_writer(&mut size, value)
-        .map_err(|_| CoreError::limit("Encoded diagnostics exceed the 8 MiB budget"))?;
-    Ok(size.0)
+        .map_err(|_| CoreError::limit("Encoded JSON exceeds byte budget"))?;
+    Ok(size.bytes)
+}
+
+pub(crate) fn diagnostic_bytes<T: serde::Serialize + ?Sized>(value: &T) -> Result<usize> {
+    encoded_bytes(value, MAX_DIAGNOSTIC_BYTES)
+        .map_err(|_| CoreError::limit("Encoded diagnostics exceed the 8 MiB budget"))
 }
 
 pub(crate) fn diagnostic_budget(bytes: usize) -> Result<()> {
@@ -317,6 +323,179 @@ pub fn capture(value: &Value) -> Result<()> {
     facts(array(value, "facts")?, array(value, "files")?, capture_version(value)?)?;
     coverage(value)?;
     diagnostic_counts(array(value, "diagnostics")?)?;
+    Ok(())
+}
+
+/// Incremental admission shared by runtime observation families. Context is
+/// untrusted; publication independently validates the complete actual capture.
+/// Entries retain the existing per-observation-batch meaning, not source nodes.
+pub(crate) struct ObservationAdmission {
+    max_facts: usize, max_links: usize, max_entries: usize,
+    facts: usize, links: usize, entries: usize, bytes: usize,
+    original_facts: usize, original_links: usize, original_bytes: usize,
+}
+
+impl ObservationAdmission {
+    pub(crate) fn new(context: &Value) -> Result<Self> {
+        model_object(context, &["limits", "facts", "links", "diagnostics", "fact_bytes"])?;
+        let limits = &context["limits"];
+        model_object(limits, &["max_facts", "max_links", "max_entries", "max_diagnostics"])?;
+        let limit = |key, ceiling| -> Result<usize> {
+            limits[key].as_u64().filter(|n| *n > 0 && *n <= ceiling).map(|n| n as usize)
+                .ok_or_else(|| CoreError::input(format!("Invalid combined capture limit {key}")))
+        };
+        let max_facts = limit("max_facts", 100_000)?;
+        let max_links = limit("max_links", 500_000)?;
+        let max_entries = limit("max_entries", 100_000)?;
+        let max_diagnostics = limit("max_diagnostics", 1_000)?;
+        let used = |key: &str, ceiling: usize| -> Result<usize> {
+            context[key].as_u64().filter(|n| *n <= ceiling as u64).map(|n| n as usize)
+                .ok_or_else(|| CoreError::limit(format!("Invalid or exhausted observation admission counter {key}")))
+        };
+        let facts = used("facts", max_facts)?;
+        let links = used("links", max_links)?;
+        used("diagnostics", max_diagnostics)?;
+        let bytes = used("fact_bytes", MAX_FACTS_BYTES)?;
+        if bytes < 2 { return Err(CoreError::input("Fact array byte count must include its brackets")); }
+        Ok(Self { max_facts, max_links, max_entries, facts, links, entries: 0, bytes,
+            original_facts: facts, original_links: links, original_bytes: bytes })
+    }
+
+    pub(crate) fn ensure_facts(&self, count: usize) -> Result<()> {
+        if self.facts.checked_add(count).is_none_or(|n| n > self.max_facts) {
+            return Err(CoreError::limit("Combined observation capture exceeds max_facts"));
+        }
+        Ok(())
+    }
+
+    pub(crate) fn admit(&mut self, fact: &Value, entry_count: usize) -> Result<()> {
+        self.ensure_facts(1)?;
+        let entries = self.entries.checked_add(entry_count).filter(|n| *n <= self.max_entries)
+            .ok_or_else(|| CoreError::limit("Observation metadata exceeds max_entries"))?;
+        let links = self.links.checked_add(array(fact, "links")?.len()).filter(|n| *n <= self.max_links)
+            .ok_or_else(|| CoreError::limit("Combined capture exceeds max_links"))?;
+        // Existing [] already charged; every appended member needs at most one comma.
+        let bytes = encoded_bytes(fact, MAX_FACTS_BYTES)?.checked_add(1)
+            .and_then(|n| self.bytes.checked_add(n)).filter(|n| *n <= MAX_FACTS_BYTES)
+            .ok_or_else(|| CoreError::limit("Combined capture exceeds 64 MiB fact budget"))?;
+        // No counter changes if any part of this fact refuses.
+        self.facts += 1; self.links = links; self.entries = entries; self.bytes = bytes;
+        Ok(())
+    }
+
+    /// Charges for this batch only, independent of caller-supplied prior sizes.
+    pub(crate) fn appended(&self) -> Value {
+        serde_json::json!({"facts":self.facts - self.original_facts,
+            "links":self.links - self.original_links, "entries":self.entries,
+            "fact_bytes":self.bytes - self.original_bytes})
+    }
+}
+
+// Model v1 is deliberately closed: arbitrary nested application values must not
+// cross this boundary, including opaque defaults that smuggle a serialized value.
+pub(crate) fn model_object(value: &Value, fields: &[&str]) -> Result<()> {
+    let object = value.as_object().ok_or_else(|| CoreError::input("Expected model object"))?;
+    if object.len() != fields.len() || fields.iter().any(|k| !object.contains_key(*k)) {
+        return Err(CoreError::input("Invalid model object fields"));
+    }
+    Ok(())
+}
+
+pub(crate) fn model_label(value: &Value) -> Result<()> {
+    if value.is_null() || value.as_str().is_some_and(|s| !s.is_empty() && s.len() <= 4096) { return Ok(()); }
+    Err(CoreError::input("Invalid model label"))
+}
+
+fn model_scalar(value: &Value) -> Result<()> {
+    match value["kind"].as_str() {
+        Some("literal" | "symbol") => {
+            model_object(value, &["kind", "value"])?;
+            let v = &value["value"];
+            if value["kind"] == "symbol" {
+                if v.as_str().is_none() { return Err(CoreError::input("Invalid model symbol")); }
+                model_label(v)?;
+            }
+            if !(v.is_null() || v.is_boolean() || v.is_number() || v.as_str().is_some_and(|s| s.len() <= 4096)) {
+                return Err(CoreError::input("Invalid model literal"));
+            }
+            Ok(())
+        }
+        Some("opaque" | "expression") => model_object(value, &["kind"]),
+        _ => Err(CoreError::input("Invalid model value kind")),
+    }
+}
+
+pub(crate) fn model_observation(data: &Value) -> Result<()> {
+    model_object(data, &["name", "base_class", "superclass", "abstract", "table", "primary_key", "inheritance_column", "columns", "associations"])?;
+    model_fields(data)
+}
+
+fn model_fields(data: &Value) -> Result<()> {
+    for key in ["name", "base_class", "superclass", "table", "inheritance_column"] { model_label(&data[key])?; }
+    if !data["abstract"].is_null() && !data["abstract"].is_boolean() { return Err(CoreError::input("Invalid abstract flag")); }
+    if !data["primary_key"].is_null() {
+        let keys = array(data, "primary_key")?;
+        if keys.len() > 100_000 { return Err(CoreError::limit("Primary key exceeds max_entries")); }
+        for key in keys { model_label(key)?; }
+    }
+    for family in ["columns", "associations"] {
+        let value = &data[family];
+        model_object(value, &["status", "entries"])?;
+        let entries = array(value, "entries")?;
+        if entries.len() > 100_000 { return Err(CoreError::limit("Model family exceeds max_entries")); }
+        if !matches!(value["status"].as_str(), Some("observed" | "unavailable")) || value["status"] == "unavailable" && !entries.is_empty() {
+            return Err(CoreError::input("Invalid model family coverage"));
+        }
+        let mut names = HashSet::new();
+        for entry in entries {
+            let name = string(entry, "name")?;
+            model_label(&entry["name"])?;
+            if !names.insert(name) { return Err(CoreError::input("Duplicate model family name")); }
+            if family == "columns" {
+                model_object(entry, &["name", "type", "sql_type", "null", "default"])?;
+                model_label(&entry["type"])?;
+                model_label(&entry["sql_type"])?;
+                if !entry["null"].is_null() && !entry["null"].is_boolean() { return Err(CoreError::input("Invalid column nullability")); }
+                model_scalar(&entry["default"])?;
+            } else {
+                model_object(entry, &["name", "macro", "target", "polymorphic", "through", "scope", "options", "omitted_options"])?;
+                if !matches!(entry["macro"].as_str(), Some("belongs_to" | "has_many" | "has_one" | "has_and_belongs_to_many")) ||
+                    !matches!(entry["scope"].as_str(), Some("none" | "opaque")) ||
+                    !(entry["polymorphic"].is_null() || entry["polymorphic"].is_boolean()) ||
+                    entry["polymorphic"] != false && !entry["target"].is_null() || entry["omitted_options"].as_u64().is_none() {
+                    return Err(CoreError::input("Invalid association evidence"));
+                }
+                model_label(&entry["target"])?;
+                model_label(&entry["through"])?;
+                let options = entry["options"].as_object().ok_or_else(|| CoreError::input("Invalid association options"))?;
+                for (key, value) in options {
+                    if !["class_name", "foreign_key", "primary_key", "foreign_type", "as", "through", "source", "source_type", "inverse_of", "dependent", "optional", "required", "autosave", "counter_cache", "touch"].contains(&key.as_str()) {
+                        return Err(CoreError::input("Unknown association option"));
+                    }
+                    model_scalar(value)?;
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+fn model_fact(fact: &Value) -> Result<()> {
+    model_object(&fact["attributes"], &["model"])?;
+    let data = &fact["attributes"]["model"];
+    if data["version"] != 1 || data["ordinal"].as_u64().is_none() || data["active_record_version"] != "8.1.4" ||
+        data["coherence"] != "unknown" || data["source"] != "unavailable" || fact["evidence"] != "runtime" ||
+        !fact["path"].is_null() || !fact["location"].is_null() {
+        return Err(CoreError::input("Invalid model provenance"));
+    }
+    model_object(data, &["name", "base_class", "superclass", "abstract", "table", "primary_key", "inheritance_column", "columns", "associations",
+        "version", "ordinal", "active_record_version", "coherence", "source"])?;
+    model_fields(data)?;
+    let name = data["name"].as_str().map(str::to_owned).unwrap_or_else(|| format!("Anonymous model {}", data["ordinal"]));
+    let id = digest(&canonical(&serde_json::json!(["rails_model", 1, data["ordinal"], data["name"]]))?);
+    if fact["name"] != name || fact["id"] != id || fact["links"] != Value::Array(crate::model::model_links(data)) {
+        return Err(CoreError::input("Invalid model identity or labelled relationships"));
+    }
     Ok(())
 }
 

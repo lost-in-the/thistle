@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "active_record_version": "8.1.4",
+  "status": "observed",
+  "models": [
+    {
+      "name": "Order",
+      "base_class": "Order",
+      "superclass": "ApplicationRecord",
+      "abstract": false,
+      "table": "orders",
+      "primary_key": [
+        "id"
+      ],
+      "inheritance_column": "type",
+      "columns": {
+        "status": "observed",
+        "entries": [
+          {
+            "name": "state",
+            "type": "string",
+            "sql_type": "varchar",
+            "null": false,
+            "default": {
+              "kind": "literal",
+              "value": "new"
+            }
+          }
+        ]
+      },
+      "associations": {
+        "status": "observed",
+        "entries": [
+          {
+            "name": "items",
+            "macro": "has_many",
+            "target": "Item",
+            "polymorphic": false,
+            "through": null,
+            "scope": "none",
+            "options": {},
+            "omitted_options": 0
+          },
+          {
+            "name": "payments",
+            "macro": "has_many",
+            "target": "Payment",
+            "polymorphic": false,
+            "through": null,
+            "scope": "none",
+            "options": {},
+            "omitted_options": 0
+          }
+        ]
+      }
+    }
+  ]
+}

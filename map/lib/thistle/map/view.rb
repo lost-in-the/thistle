@@ -5,6 +5,8 @@ require 'json'
 require 'digest'
 require 'uri'
 require_relative 'highlighter'
+require_relative 'model_presenter'
+require_relative 'callback_presenter'
 require_relative 'find_presenter'
 
 module Thistle
@@ -135,7 +137,7 @@ module Thistle
         raise Limit, 'This links page does not exist.' if page > pages
 
         body = "<h1 class=\"t1\">Links from #{h(fact.fetch('name'))}</h1>" + fact_tiles(fact)
-        body += '<p class="notice ui">Unresolved links are names found in the source. They do not prove a runtime call or a resolved target.</p>'
+        body += '<p class="notice ui">Unresolved links are captured labels. They do not prove a runtime call or a resolved target.</p>'
         if links.empty?
           body += '<p class="ui">No links were captured for this fact. This does not prove it has no dependencies.</p>'
         else
@@ -368,7 +370,8 @@ module Thistle
           klass = eyebrow == 'Route conditions' ? ' class="route-conditions"' : ''
           "<div#{klass}><span class=\"eyebrow\">#{h(eyebrow)}</span><dl>" +
             rows.map { |label, value| "<dt>#{h(label)}</dt><dd>#{h(value)}</dd>" }.join + '</dl></div>'
-        end.join + '</div>'
+        end.join + '</div>' + ModelPresenter.render(fact) +
+          CallbackPresenter.new(generation: @generation, reader: @reader, mount: @mount).render(fact)
       end
 
       def constraint_summary(fact)
