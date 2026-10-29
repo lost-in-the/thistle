@@ -70,6 +70,10 @@ qualified only for the exact outcome and support scope covered by accepted
 evidence. A release check concerns the exact candidate packages. These decisions
 must not be collapsed into one green status.
 
+Completing a component, proposal, or presenter does not establish a working
+customer journey. Record which user question the integrated path answers, its
+evidence and limits, and the remaining integration or acceptance work.
+
 A valid experiment can be **Done / Reject**. A known failed requirement remains
 visible in the capability record. Mark superseded evidence Stale for the current
 candidate without modifying the original report. Completing all currently known
@@ -155,9 +159,15 @@ notification service is not a prerequisite for useful product work.
 
 ## Multi-agent operation
 
-Keep at most **two implementation issues** in Doing by default. Independent
-reviews and clearly separated evaluator or Map work can proceed in parallel.
-Only one benchmark campaign should use a shared performance host at a time.
+Keep **two primary outcomes** in focus. This is not an absolute worker or issue
+ceiling: named, bounded, genuinely disjoint fixture, review, diagnostic, or
+integration work may proceed with explicit file/resource claims without routine
+manager approval. Keep that work within the agreed work-in-progress scope.
+
+A shared performance-host claim names the protected measurement window and an
+explicit release condition. Block conflicting execution during that window,
+rather than reserving the host for the entire PR lifetime. Release the claim
+promptly when the window ends; a continuation names only the remaining checks.
 
 Parallelize independent reads and code work; assign one writer to shared mutable
 resources, including browser sessions/project configuration, shared files or
@@ -176,13 +186,13 @@ Keep the coordinator focused on dependency decisions, review and acceptance
 routing, and authorized integration. Delegate implementation, evidence collection,
 and administrative execution to bounded, capable, named owners without transferring
 credentials or expanding their authority. Keep ready implementation
-streams moving within the two-issue limit and batch board maintenance at meaningful
-checkpoints. Direct implementation is reasonable when a small correction is
-cheaper than delegation and does not stall integration. An oversight agent reports
-through this owner; transfer integration ownership explicitly rather than creating
-a competing coordinator.
-When the coordinator implements, claim that writer scope and count it toward the
-implementation limit.
+streams moving within the agreed work-in-progress scope and batch board
+maintenance at meaningful checkpoints. Direct implementation is reasonable when
+a small correction is cheaper than delegation and does not stall integration. An
+oversight agent reports through this owner; transfer integration ownership
+explicitly rather than creating a competing coordinator.
+When the coordinator implements, claim that writer scope and include it in the
+agreed work-in-progress scope.
 
 Each agent uses its own branch/worktree. Do not have agents concurrently edit one
 working directory or push to one branch. Stack PRs only for a real dependency;
