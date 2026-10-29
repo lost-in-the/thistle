@@ -46,8 +46,10 @@ rather than copying its implementation or privately supplying a missing gate.
 checkpoints. GitHub remains the forge; Entire supplies agent context only. This
 repository is public and transcripts are private material, so
 `.entire/settings.json` sets `push_sessions: false`: a fork or a new clone
-captures locally and pushes no checkpoints. Owner machines opt in locally to
-the private `lost-in-the/thistle-checkpoints` repository. The
+captures locally and pushes no checkpoints. The same file names the private
+`lost-in-the/thistle-checkpoints` repository, because entire.com reads checkpoint
+settings from the default branch; naming it publicly is a recorded exception
+to the rule above. Owner machines opt in locally to pushing. The
 [decision record](decisions.md#agent-session-capture-entire-with-a-private-checkpoint-repository)
 explains the choice.
 
