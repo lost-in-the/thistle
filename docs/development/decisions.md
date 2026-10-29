@@ -271,11 +271,14 @@ binary only when it exists and is bounded by a 5-second timeout. A bare
 verified to keep this command. Limitations: the hook returns context only, not
 `updatedInput`, so its facts cannot change the edit that triggered them; agents
 query `entire brain brief` before editing. Memories are per machine without
-Brainstore.
+Brainstore. Brain 0.4.0 generates `.entire/agent-guide.md` describing hybrid
+vector search, but its `query` ranks with BM25 only and `--semantic` is a
+compatibility alias. Setup regenerates the guide and reverts edits, so it stays
+as generated until upstream corrects it; treat query results as lexical.
 
 Reconsider if per-edit latency or session token cost grows materially, if
-upstream Brain fixes the missing-plugin exit, or if cross-machine memory needs
-hosted sync.
+upstream Brain fixes the missing-plugin exit or the guide's search description,
+or if cross-machine memory needs hosted sync.
 
 ## Maintenance rule
 

@@ -92,7 +92,9 @@ Each clone needs this setup once:
 Entire is optional for contributors. The `AGENTS.md` block points agents at
 `.entire/agent-guide.md`, which uses `entire brain` for task context and falls
 back to direct source inspection when Brain is unavailable. Brain itself is
-per machine, and its index and memories stay local. Run
+per machine, and its index and memories stay local. Install the recorded
+plugin versions first: `entire plugin install graph --pin v0.6.0 --yes`, then
+`entire plugin install brain --pin v0.4.0 --yes`. Run
 `entire brain setup --no-backfill --no-daemon` by default. Without those flags,
 setup also starts a backfill that distills up to 25 past sessions per pass and
 installs a watcher that keeps distilling. Distillation spends agent tokens and
