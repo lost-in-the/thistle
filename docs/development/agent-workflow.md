@@ -6,6 +6,10 @@ The issue owns the task contract; the project exposes its position and the next
 decision. Versioned reports own the detailed evidence. Evaluation work can share
 this plan while retaining separate policy and execution authority.
 
+The [mission](../MISSION.md) is the canonical product intent. Use the
+[configuration guide](agent-configuration.md) for shared rules, private values
+and verified instruction-loading boundaries.
+
 ## Views
 
 | View | Layout | Contents and purpose |
@@ -240,6 +244,28 @@ result afterward.
 Revise the procedure and disposition the failure before another attempt or
 promotion. Resume only the affected checks whose preconditions or evidence
 changed, within the existing authorization; keep unrelated product work moving.
+
+## Improve the cause at the right layer
+
+Choose the smallest durable repair for the demonstrated cause:
+
+- Clarify the canonical rule when ambiguity caused the failure; link it instead
+  of adding competing instructions.
+- Use a reusable procedure or skill when recurring judgment benefits from one.
+  Do not create a skill for every incident or use instructions to mask a code defect.
+- Add an executable guard at the lowest useful boundary for a deterministic
+  failure, reusing the [stateful verification procedure](#stateful-verification)
+  where applicable.
+- Make a bounded, behavior-preserving structural fix when recurring workarounds
+  cost more than repairing the design. Avoid aesthetic rewrites.
+
+An investigation needs a concrete question and a stopping condition. Choose the
+repair by expected benefit and ongoing cost, not instruction or agent count.
+Apply the [existing review standard](pr-ci-release.md#review-standard); this adds
+no approval layer. Record deliberate tradeoffs with scope, consequences,
+evidence and conditions for reconsideration. A temporary compromise also needs
+an owner and an exit condition. Neither silently qualifies a launch requirement.
+Record tooling alternatives and decisions in the [development decisions](decisions.md).
 
 ## Work already in progress
 
