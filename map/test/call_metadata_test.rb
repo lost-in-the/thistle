@@ -5,6 +5,38 @@ require_relative 'test_helper'
 class MapCallMetadataTest < Minitest::Test
   include MapTestSupport
 
+  def test_spoofed_metadata_types_do_not_format_objects_or_create_anchors
+    formatted = false
+    name = Object.new
+    name.define_singleton_method(:instance_of?) { |klass| klass == String }
+    name.define_singleton_method(:empty?) { false }
+    name.define_singleton_method(:bytesize) { 1 }
+    name.define_singleton_method(:to_s) { formatted = true; raise 'unexpected formatting' }
+    hash_type = Class.new(Hash) do
+      def instance_of?(klass) = klass == Hash
+      def keys = raise('unexpected keys callback')
+    end
+    location = { 'start_line' => 2, 'end_line' => 2, 'start_byte' => 8, 'end_byte' => 14 }
+    metadata = { 'version' => 1, 'safe_navigation' => false, 'call_location' => location,
+      'receiver_location' => location, 'receiver' => { 'kind' => 'local', 'name' => 'x', 'omitted_limit' => false } }
+    cases = [metadata.merge('receiver' => metadata['receiver'].merge('name' => name)),
+      hash_type.new.update(metadata), metadata.merge('call_location' => hash_type.new.update(location)),
+      metadata.merge('call_location' => location.merge('end_byte' => 31))]
+    fact = { 'id' => FACT_ID, 'name' => 'Demo', 'kind' => 'method', 'evidence' => 'static',
+      'path' => 'demo.rb', 'location' => location.merge('start_byte' => 0, 'end_byte' => 30), 'attributes' => {} }
+    cases.each do |data|
+      link = { 'relation' => 'calls', 'target' => 'render', 'resolution' => 'unresolved',
+        'attributes' => { 'thistle_call' => data } }
+      reader = Reader.new(facts: [fact], links: [link])
+      reader.manifest['files'] = [{ 'path' => 'demo.rb', 'bytes' => 30 }]
+      status, _, body = request(make_app(reader), '/links', query: URI.encode_www_form('id' => FACT_ID))
+      assert_equal 200, status
+      assert_includes body, 'Receiver details unavailable'
+      refute_includes body, '#L2'
+      refute formatted
+    end
+  end
+
   def test_unknown_and_malformed_metadata_never_create_source_anchors
     fact = { 'id' => FACT_ID, 'name' => 'Demo', 'kind' => 'method', 'evidence' => 'static',
       'path' => 'demo.rb', 'location' => { 'start_line' => 1, 'end_line' => 2, 'start_byte' => 0, 'end_byte' => 30 }, 'attributes' => {} }

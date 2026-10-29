@@ -13,6 +13,7 @@ class MapIntegrationTest < Minitest::Test
       store = File.join(directory, 'store')
       FileUtils.mkdir_p(root)
       source = "class Parcel\n  def show(x)\n    x&.render; x.render; x.render\n    [1].same; [2].same; \"#{'a' * 8192}\".size\n  end\nend\n"
+      source = source.sub("\nend\n", "\n  def note = <<~TEXT\n    \#{self.render}\n  TEXT\nend\n")
       File.write(File.join(root, 'parcel.rb'), source)
       Thistle.capture(root: root, output: store)
       old = Thistle::Reader.new(store)
@@ -33,6 +34,16 @@ class MapIntegrationTest < Minitest::Test
       assert_includes html, 'Representative source'
       assert_includes html, '#L3'
       assert_includes html, old.generation
+      note = old.find('Parcel#note', limit: 10).find { |item| item['name'] == 'Parcel#note' }
+      line = source.lines.index { |text| text.include?('#{self.render}') } + 1
+      assert_operator line, :>, note.fetch('location').fetch('end_line')
+      note_query = URI.encode_www_form('id' => note.fetch('id'), 'generation' => old.generation)
+      note_page = request(app, '/links', query: note_query)
+      assert_equal 200, note_page.first
+      assert_includes note_page.last, '<br>self ·'
+      href = note_page.last[/href="([^"]+#L#{line})"/, 1]
+      refute_nil href
+      source_uri = URI.parse(href.gsub('&amp;', '&'))
       assert_equal source, old.source(fact['id'])['content']
       assert_equal 'verified', old.check['integrity']
       File.write(File.join(root, 'parcel.rb'), source.sub('[1]', '[3]'))
@@ -44,6 +55,11 @@ class MapIntegrationTest < Minitest::Test
       assert_equal 200, pinned.first
       assert_includes pinned.last, old.generation
       assert_includes pinned.last, 'id="L3"'
+      followed = request(app, source_uri.path, query: source_uri.query)
+      assert_equal 200, followed.first
+      assert_includes followed.last, old.generation
+      assert_includes followed.last, "id=\"L#{line}\""
+      assert_equal source, old.source(note.fetch('id')).fetch('content')
       assert_equal 200, request(app, '/check', query: query).first
     ensure
       old&.close
