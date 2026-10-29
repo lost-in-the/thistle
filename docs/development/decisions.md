@@ -196,6 +196,50 @@ negotiation or a configurable target. Reconsider for security fixes, needed synt
 features, supported explicit options, or a changed upstream default, with fresh
 artifact and compatibility evidence.
 
+## Agent session capture: Entire with a private checkpoint repository
+
+Adopt [Entire](https://docs.entire.com/) CLI **0.12.2** to capture Claude Code
+and Codex sessions as checkpoints linked to commits. The default `git-refs`
+backend pushes checkpoints to `origin`, which is public here. Checkpoints hold
+prompts and assistant text; default redaction covers secrets, not PII. The
+project setting therefore fails closed with `push_sessions: false`. It still
+names the private `lost-in-the/thistle-checkpoints` repository: entire.com reads
+checkpoint settings from the default branch. Owner machines opt in to pushing
+through the gitignored `.entire/settings.local.json`.
+
+The checkpoint repository name is public by design, a reviewed exception to the
+[private-reference rule](agent-configuration.md#public-contracts-and-private-values).
+It reveals that a private repository exists, not its contents; GitHub
+permissions protect those. Entire reads no environment variable, repository
+secret or variable for this setting, so committing the name is the only way
+entire.com can locate the checkpoints.
+
+| Considered approach | Decision |
+|---|---|
+| Pushing off by default; owners opt in locally to a private GitHub repository | Selected: keeps GitHub as the forge, shares context across owner machines and never publishes from a fork or new clone. |
+| Committed `checkpoint_remote` only | Rejected: Entire ignores an inherited `checkpoint_remote` when the push target has another owner, so a fork push falls back to the public fork. |
+| Entire defaults, checkpoints pushed to `origin` | Rejected: publishes transcripts from a public repository. |
+| Entire-hosted (`et/`) repository as `origin` | Rejected: changes the forge; it never forwards pushes to GitHub. |
+| Entire's GitHub mirror as `origin` | Not needed: a mirror forwards pushes to GitHub, but every fetch would depend on the `entire://` helper. |
+| Local-only checkpoints (`push_sessions: false`) | Rejected: context stays on one machine and hosted search cannot index it. |
+
+Operating cost: every clone installs Entire's Git hooks once, Codex needs hook
+approval on each machine, and owners write the local opt-in in every worktree,
+including linked worktrees. On an
+owner machine, each push to `origin` also pushes outgoing checkpoint refs to the
+checkpoint repository. Observed on 2026-10-29, before these settings reached
+the default branch: hosted search indexed commits but not sessions from the
+separate checkpoint repository. Limitations: a worktree with neither settings
+file captures nothing; a branch older than this configuration also lacks the
+committed agent hooks, so a local file alone does not capture its agent
+sessions. Refs deleted from a public repository may persist in existing clones
+or caches.
+
+Reconsider if this repository becomes private, if Entire's hosted index cannot
+read the separate checkpoint repository, or if hook latency or failures
+measurably slow normal Git use. Setup steps are in
+[agent configuration](agent-configuration.md#agent-session-capture-entire).
+
 ## Maintenance rule
 
 Every tool/version update records upstream maintenance/runtime status, actual
