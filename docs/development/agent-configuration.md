@@ -45,8 +45,9 @@ rather than copying its implementation or privately supplying a missing gate.
 [Entire](https://docs.entire.com/) records Claude Code and Codex sessions as
 checkpoints. GitHub remains the forge; Entire supplies agent context only. This
 repository is public and transcripts are private material, so
-`.entire/settings.json` sends checkpoints to the private
-`lost-in-the/thistle-checkpoints` repository instead of `origin`. The
+`.entire/settings.json` sets `push_sessions: false`: a fork or a new clone
+captures locally and pushes no checkpoints. Owner machines opt in locally to
+the private `lost-in-the/thistle-checkpoints` repository. The
 [decision record](decisions.md#agent-session-capture-entire-with-a-private-checkpoint-repository)
 explains the choice.
 
@@ -56,16 +57,34 @@ Each clone needs this setup once:
    [installation method](https://docs.entire.com/installation.md). Confirm
    `command -v entire git-remote-entire` resolves both from that install with
    matching versions; remove any second copy on `PATH`.
-2. Keep `origin` on GitHub. Do not repoint it with `entire repo remote add`, a
-   mirror or a migration; an `entire://.../et/...` remote never forwards to GitHub.
+2. Keep `origin` on GitHub. Do not repoint it to an Entire-hosted
+   `entire://.../et/...` repository or migrate; those never forward to GitHub.
 3. Configure the authorized commit identity and signer locally, as above.
 4. Install the per-clone Git hooks: `entire enable --agent claude-code`, then
    `entire enable --agent codex`. Tracked files must stay unchanged.
-5. Verify before any push: `entire status` reports
-   `Checkpoints sync to: dedicated checkpoint remote (lost-in-the/thistle-checkpoints)`,
-   and `entire doctor` reports no issue except pending Codex hook trust. The
-   pushing account needs write access to the checkpoint repository.
-6. Approve the Entire hooks with `/hooks` inside Codex on each machine.
+5. Owner machines only, with write access to the checkpoint repository: create
+   the gitignored `.entire/settings.local.json`. A local `checkpoint_remote` is
+   always honored; a committed one is ignored when the push target has another
+   owner.
+
+   ```json
+   {
+     "strategy_options": {
+       "push_sessions": true,
+       "checkpoint_remote": {
+         "provider": "github",
+         "repo": "lost-in-the/thistle-checkpoints"
+       }
+     }
+   }
+   ```
+
+6. Verify before any push. `entire status` reports
+   `Checkpoints sync to: dedicated checkpoint remote (lost-in-the/thistle-checkpoints)`
+   on an owner machine, and
+   `Automatic checkpoint pushing: disabled (push_sessions=false)` elsewhere.
+   `entire doctor` reports no issue except pending Codex hook trust.
+7. Approve the Entire hooks with `/hooks` inside Codex on each machine.
 
 Entire is optional for contributors. The `AGENTS.md` block points agents at
 `.entire/agent-guide.md`, which uses `entire brain` for task context and falls
