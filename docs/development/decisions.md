@@ -259,8 +259,10 @@ reconstructing an owned JSON value would do the same. A custom writer or streami
 store adds format and failure-path maintenance without a demonstrated need.
 
 The reference vector has O(n) capacity, stable sorting may use O(n) scratch,
-and the original capture and growing serialized byte buffer still coexist; the
-buffer remains bounded by the existing encoded-size check after serialization.
+and the original capture and growing serialized byte buffer still coexist.
+Serialization grows that buffer before the existing 64 MiB length check rejects
+oversized facts; the check bounds accepted output, not peak allocation or buffer
+capacity.
 On error, local allocations are dropped before return. Reader admission and its
 temporary search cache remain separate costs. The 100,000-fact and 64 MiB encoded
 limits do not themselves bound total process RSS. Issue 60 attributed at least

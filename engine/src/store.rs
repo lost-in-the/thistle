@@ -284,6 +284,49 @@ mod tests {
         assert_eq!(std::fs::read(dir.join("manifest.json")).unwrap(), manifest_bytes);
         assert_eq!(Reader::open(temp.path(), None).unwrap().facts, serde_json::from_slice::<Vec<Value>>(&expected).unwrap());
     }
+    fn assert_publication_limit_preserves_store(capture: Value, message: &str) {
+        let temp = tempfile::tempdir().unwrap();
+        let missing = temp.path().join("missing");
+        let error = publish(&missing, &capture).unwrap_err();
+        assert_eq!(error.code, "limit_exceeded");
+        assert_eq!(error.message, message);
+        assert!(!missing.exists());
+
+        let existing = temp.path().join("existing");
+        let first = publish(&existing, &fixture("First")).unwrap();
+        let pointer = std::fs::read(existing.join("CURRENT")).unwrap();
+        let error = publish(&existing, &capture).unwrap_err();
+        assert_eq!(error.code, "limit_exceeded");
+        assert_eq!(error.message, message);
+        assert_eq!(std::fs::read(existing.join("CURRENT")).unwrap(), pointer);
+        let reader = Reader::open(&existing, None).unwrap();
+        assert_eq!(reader.generation, first["generation"].as_str().unwrap());
+        assert_eq!(reader.facts[0]["name"], "First");
+        reader.check().unwrap();
+    }
+    #[test]
+    fn publication_depth_refusal_precedes_filesystem_changes() {
+        let mut capture = fixture("Deep");
+        let mut nested = Value::Null;
+        for _ in 0..=schema::MAX_DEPTH { nested = Value::Array(vec![nested]); }
+        capture["facts"][0]["attributes"]["nested"] = nested;
+        assert_publication_limit_preserves_store(capture, "JSON structure exceeds 64 nested levels");
+    }
+    #[test]
+    fn publication_fact_count_refusal_precedes_filesystem_changes() {
+        let mut capture = fixture("Many");
+        // Count validation must refuse before inspecting the individual entries.
+        capture["facts"] = Value::Array(vec![Value::Null; 100_001]);
+        assert_publication_limit_preserves_store(capture, "Fact count exceeds 100000");
+    }
+    #[test]
+    fn publication_encoded_size_refusal_preserves_existing_generation() {
+        let mut capture = fixture("Escaped");
+        // Each NUL encodes as six bytes: exceed the real limit with ~11 MiB input.
+        capture["facts"][0]["attributes"]["payload"] =
+            Value::String("\0".repeat(schema::MAX_FACTS_BYTES / 6 + 1));
+        assert_publication_limit_preserves_store(capture, "Facts exceed snapshot size limit");
+    }
     #[test]
     fn invalid_fact_ids_fail_before_creating_store() {
         let temp = tempfile::tempdir().unwrap();
