@@ -118,6 +118,7 @@ pub fn facts(facts: &[Value], files: &[Value], version: u64) -> Result<()> {
                 }
             }
         }
+        if fact["kind"] == "rails_model" { model_fact(fact)?; }
         for link in array(fact, "links")? {
             for key in ["relation", "target"] {
                 let text = string(link, key)?;
@@ -267,24 +268,28 @@ pub(crate) fn diagnostic_occurrences(record: &Value) -> Result<u64> {
     }
 }
 
-/// Count encoded bytes without allocating another diagnostic payload. Value
-/// serialization has no fallible custom serializer; refusal here is byte budget
-/// or checked accounting overflow. Escapes and UTF-8 use the real JSON encoder.
-pub(crate) fn diagnostic_bytes<T: serde::Serialize + ?Sized>(value: &T) -> Result<usize> {
-    struct Size(usize);
+/// Count with the real JSON encoder without retaining another payload. Refuse
+/// during encoding at the supplied budget, including checked accounting overflow.
+pub(crate) fn encoded_bytes<T: serde::Serialize + ?Sized>(value: &T, max: usize) -> Result<usize> {
+    struct Size { bytes: usize, max: usize }
     impl std::io::Write for Size {
         fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
-            self.0 = self.0.checked_add(bytes.len())
-                .filter(|n| *n <= MAX_DIAGNOSTIC_BYTES)
-                .ok_or_else(|| std::io::Error::other("Diagnostic byte budget exceeded"))?;
+            self.bytes = self.bytes.checked_add(bytes.len())
+                .filter(|n| *n <= self.max)
+                .ok_or_else(|| std::io::Error::other("Encoded JSON byte budget exceeded"))?;
             Ok(bytes.len())
         }
         fn flush(&mut self) -> std::io::Result<()> { Ok(()) }
     }
-    let mut size = Size(0);
+    let mut size = Size { bytes: 0, max };
     serde_json::to_writer(&mut size, value)
-        .map_err(|_| CoreError::limit("Encoded diagnostics exceed the 8 MiB budget"))?;
-    Ok(size.0)
+        .map_err(|_| CoreError::limit("Encoded JSON exceeds byte budget"))?;
+    Ok(size.bytes)
+}
+
+pub(crate) fn diagnostic_bytes<T: serde::Serialize + ?Sized>(value: &T) -> Result<usize> {
+    encoded_bytes(value, MAX_DIAGNOSTIC_BYTES)
+        .map_err(|_| CoreError::limit("Encoded diagnostics exceed the 8 MiB budget"))
 }
 
 pub(crate) fn diagnostic_budget(bytes: usize) -> Result<()> {
@@ -317,6 +322,114 @@ pub fn capture(value: &Value) -> Result<()> {
     facts(array(value, "facts")?, array(value, "files")?, capture_version(value)?)?;
     coverage(value)?;
     diagnostic_counts(array(value, "diagnostics")?)?;
+    Ok(())
+}
+
+// Model v1 is deliberately closed: arbitrary nested application values must not
+// cross this boundary, including opaque defaults that smuggle a serialized value.
+pub(crate) fn model_object(value: &Value, fields: &[&str]) -> Result<()> {
+    let object = value.as_object().ok_or_else(|| CoreError::input("Expected model object"))?;
+    if object.len() != fields.len() || fields.iter().any(|k| !object.contains_key(*k)) {
+        return Err(CoreError::input("Invalid model object fields"));
+    }
+    Ok(())
+}
+
+pub(crate) fn model_label(value: &Value) -> Result<()> {
+    if value.is_null() || value.as_str().is_some_and(|s| !s.is_empty() && s.len() <= 4096) { return Ok(()); }
+    Err(CoreError::input("Invalid model label"))
+}
+
+fn model_scalar(value: &Value) -> Result<()> {
+    match value["kind"].as_str() {
+        Some("literal" | "symbol") => {
+            model_object(value, &["kind", "value"])?;
+            let v = &value["value"];
+            if value["kind"] == "symbol" {
+                if v.as_str().is_none() { return Err(CoreError::input("Invalid model symbol")); }
+                model_label(v)?;
+            }
+            if !(v.is_null() || v.is_boolean() || v.is_number() || v.as_str().is_some_and(|s| s.len() <= 4096)) {
+                return Err(CoreError::input("Invalid model literal"));
+            }
+            Ok(())
+        }
+        Some("opaque" | "expression") => model_object(value, &["kind"]),
+        _ => Err(CoreError::input("Invalid model value kind")),
+    }
+}
+
+pub(crate) fn model_observation(data: &Value) -> Result<()> {
+    model_object(data, &["name", "base_class", "superclass", "abstract", "table", "primary_key", "inheritance_column", "columns", "associations"])?;
+    model_fields(data)
+}
+
+fn model_fields(data: &Value) -> Result<()> {
+    for key in ["name", "base_class", "superclass", "table", "inheritance_column"] { model_label(&data[key])?; }
+    if !data["abstract"].is_null() && !data["abstract"].is_boolean() { return Err(CoreError::input("Invalid abstract flag")); }
+    if !data["primary_key"].is_null() {
+        let keys = array(data, "primary_key")?;
+        if keys.len() > 100_000 { return Err(CoreError::limit("Primary key exceeds max_entries")); }
+        for key in keys { model_label(key)?; }
+    }
+    for family in ["columns", "associations"] {
+        let value = &data[family];
+        model_object(value, &["status", "entries"])?;
+        let entries = array(value, "entries")?;
+        if entries.len() > 100_000 { return Err(CoreError::limit("Model family exceeds max_entries")); }
+        if !matches!(value["status"].as_str(), Some("observed" | "unavailable")) || value["status"] == "unavailable" && !entries.is_empty() {
+            return Err(CoreError::input("Invalid model family coverage"));
+        }
+        let mut names = HashSet::new();
+        for entry in entries {
+            let name = string(entry, "name")?;
+            model_label(&entry["name"])?;
+            if !names.insert(name) { return Err(CoreError::input("Duplicate model family name")); }
+            if family == "columns" {
+                model_object(entry, &["name", "type", "sql_type", "null", "default"])?;
+                model_label(&entry["type"])?;
+                model_label(&entry["sql_type"])?;
+                if !entry["null"].is_null() && !entry["null"].is_boolean() { return Err(CoreError::input("Invalid column nullability")); }
+                model_scalar(&entry["default"])?;
+            } else {
+                model_object(entry, &["name", "macro", "target", "polymorphic", "through", "scope", "options", "omitted_options"])?;
+                if !matches!(entry["macro"].as_str(), Some("belongs_to" | "has_many" | "has_one" | "has_and_belongs_to_many")) ||
+                    !matches!(entry["scope"].as_str(), Some("none" | "opaque")) ||
+                    !(entry["polymorphic"].is_null() || entry["polymorphic"].is_boolean()) ||
+                    entry["polymorphic"] != false && !entry["target"].is_null() || entry["omitted_options"].as_u64().is_none() {
+                    return Err(CoreError::input("Invalid association evidence"));
+                }
+                model_label(&entry["target"])?;
+                model_label(&entry["through"])?;
+                let options = entry["options"].as_object().ok_or_else(|| CoreError::input("Invalid association options"))?;
+                for (key, value) in options {
+                    if !["class_name", "foreign_key", "primary_key", "foreign_type", "as", "through", "source", "source_type", "inverse_of", "dependent", "optional", "required", "autosave", "counter_cache", "touch"].contains(&key.as_str()) {
+                        return Err(CoreError::input("Unknown association option"));
+                    }
+                    model_scalar(value)?;
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+fn model_fact(fact: &Value) -> Result<()> {
+    model_object(&fact["attributes"], &["model"])?;
+    let data = &fact["attributes"]["model"];
+    if data["version"] != 1 || data["ordinal"].as_u64().is_none() || data["active_record_version"] != "8.1.4" ||
+        data["coherence"] != "unknown" || data["source"] != "unavailable" || fact["evidence"] != "runtime" ||
+        !fact["path"].is_null() || !fact["location"].is_null() {
+        return Err(CoreError::input("Invalid model provenance"));
+    }
+    model_object(data, &["name", "base_class", "superclass", "abstract", "table", "primary_key", "inheritance_column", "columns", "associations",
+        "version", "ordinal", "active_record_version", "coherence", "source"])?;
+    model_fields(data)?;
+    let name = data["name"].as_str().map(str::to_owned).unwrap_or_else(|| format!("Anonymous model {}", data["ordinal"]));
+    let id = digest(&canonical(&serde_json::json!(["rails_model", 1, data["ordinal"], data["name"]]))?);
+    if fact["name"] != name || fact["id"] != id || fact["links"] != Value::Array(crate::model::model_links(data)) {
+        return Err(CoreError::input("Invalid model identity or labelled relationships"));
+    }
     Ok(())
 }
 

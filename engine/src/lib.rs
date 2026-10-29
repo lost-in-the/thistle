@@ -1,6 +1,7 @@
 pub mod error;
 pub mod capture;
 mod fs;
+mod model;
 mod schema;
 mod store;
 mod query;
@@ -63,6 +64,7 @@ fn dispatch_inner(request: &Value) -> Result<Value> {
             store::publish(Path::new(schema::string(request, "path")?), &captured)
         }
         "publish" => store::publish(Path::new(schema::string(request, "path")?), &request["capture"]),
+        "model_batch" => model::batch(&request["context"], &request["observation"]),
         "open" => {
             let requested = match request.get("generation") { None | Some(Value::Null) => None,
                 Some(value) => Some(value.as_str().ok_or_else(|| CoreError::input("Generation must be a string"))?) };
