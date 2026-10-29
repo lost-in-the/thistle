@@ -40,6 +40,38 @@ input and state the required artifact identity. The local value and credentials
 stay outside the checkout. Reuse the [existing validation command](pr-ci-release.md#running-and-inspecting-the-flow)
 rather than copying its implementation or privately supplying a missing gate.
 
+## Agent session capture (Entire)
+
+[Entire](https://docs.entire.com/) records Claude Code and Codex sessions as
+checkpoints. GitHub remains the forge; Entire supplies agent context only. This
+repository is public and transcripts are private material, so
+`.entire/settings.json` sends checkpoints to the private
+`lost-in-the/thistle-checkpoints` repository instead of `origin`. The
+[decision record](decisions.md#agent-session-capture-entire-with-a-private-checkpoint-repository)
+explains the choice.
+
+Each clone needs this setup once:
+
+1. Install Entire CLI 0.12.2 or later with one documented
+   [installation method](https://docs.entire.com/installation.md). Confirm
+   `command -v entire git-remote-entire` resolves both from that install with
+   matching versions; remove any second copy on `PATH`.
+2. Keep `origin` on GitHub. Do not repoint it with `entire repo remote add`, a
+   mirror or a migration; an `entire://.../et/...` remote never forwards to GitHub.
+3. Configure the authorized commit identity and signer locally, as above.
+4. Install the per-clone Git hooks: `entire enable --agent claude-code`, then
+   `entire enable --agent codex`. Tracked files must stay unchanged.
+5. Verify before any push: `entire status` reports
+   `Checkpoints sync to: dedicated checkpoint remote (lost-in-the/thistle-checkpoints)`,
+   and `entire doctor` reports no issue except pending Codex hook trust. The
+   pushing account needs write access to the checkpoint repository.
+6. Approve the Entire hooks with `/hooks` inside Codex on each machine.
+
+A worktree on a branch without `.entire/settings.json` reports `not set up` and
+captures nothing until it contains this configuration. `entire import` covers
+only the current checkout's recent transcripts; run it from each worktree that
+has the configuration. Imports are idempotent.
+
 ## Instruction discovery: verify the actual runtime
 
 The official [Codex AGENTS.md contract](https://learn.chatgpt.com/docs/agent-configuration/agents-md)
