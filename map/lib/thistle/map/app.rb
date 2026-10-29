@@ -53,8 +53,11 @@ module Thistle
 
         mount = mount_path(env)
         params = parameters(env.fetch('QUERY_STRING', ''))
-        if %w[/source /links].include?(path) && !params['id']
+        if (path == '/links' && !params['id']) || (path == '/source' && !params['id'] && !params['path'])
           raise BadRequest, 'Choose a result before opening Source or Links.'
+        end
+        if params['path'] && (path != '/source' || params['id'] || !params['generation'])
+          raise BadRequest, 'File Source requires a saved generation and one captured file.'
         end
         reader = @reader_factory.call(@store, params['generation'])
         if params['generation'] && reader.generation != params['generation']
@@ -63,7 +66,7 @@ module Thistle
         view = View.new(reader: reader, mount: mount, params: params)
         content = case path
                   when '/' then view.find
-                  when '/source' then view.source
+                  when '/source' then params['path'] ? view.source_file : view.source
                   when '/links' then view.links
                   when '/check' then view.check
                   end
@@ -134,15 +137,19 @@ module Thistle
         raise BadRequest, 'Malformed query encoding.' if /%(?![0-9a-f]{2})/i.match?(query)
 
         pairs = URI.decode_www_form(query, Encoding::UTF_8)
-        raise BadRequest, 'Too many query fields.' if pairs.length > 4
+        raise BadRequest, 'Too many query fields.' if pairs.length > 8
 
         pairs.each_with_object({}) do |(key, value), out|
-          raise BadRequest, 'Unknown or repeated query field.' unless %w[q id generation page].include?(key) && !out.key?(key)
+          raise BadRequest, 'Unknown or repeated query field.' unless %w[q id generation page path kind prefix domain].include?(key) && !out.key?(key)
           raise BadRequest, 'Invalid query text.' unless value.valid_encoding? && !value.include?("\0") && !value.include?("\uFFFD")
           raise BadRequest, 'Search text is too long.' if key == 'q' && value.bytesize > 256
           raise BadRequest, 'Invalid evidence identifier.' if %w[id generation].include?(key) && !DIGEST.match?(value)
           raise BadRequest, 'Invalid page number.' if key == 'page' && !/\A[1-9][0-9]{0,3}\z/.match?(value)
 
+          raise BadRequest, 'Invalid search domain.' if key == 'domain' && !%w[all source metadata].include?(value)
+          if key == 'path' && (value.empty? || value.include?('\\') || value.match?(/[[:cntrl:]]/) || value.split('/', -1).any? { |part| ['', '.', '..'].include?(part) })
+            raise BadRequest, 'Choose a captured relative file path.'
+          end
           out[key] = value
         end
       rescue ArgumentError

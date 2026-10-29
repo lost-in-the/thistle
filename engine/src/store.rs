@@ -138,6 +138,8 @@ pub struct Reader {
     by_file: HashMap<String, Vec<usize>>,
     search: Vec<SearchRecord>,
     blobs: Dir,
+    pub(crate) source_index: std::sync::Mutex<Option<crate::query::Index>>,
+    pub(crate) admission: Option<crate::query::Reservation>,
 }
 
 impl Reader {
@@ -184,7 +186,7 @@ impl Reader {
         }
         let blobs = root.child("blobs", false)?;
         let (search, weight) = search_cache(&facts, facts_bytes.len(), manifest_bytes.len())?;
-        Ok(Self { manifest, generation, facts, weight, by_id, by_path, by_file, search, blobs })
+        Ok(Self { manifest, generation, facts, weight, by_id, by_path, by_file, search, blobs, source_index: std::sync::Mutex::new(None), admission: None })
     }
 
     pub fn fact(&self, id: &str) -> Result<&Value> {
@@ -224,9 +226,22 @@ impl Reader {
         Ok(json!({"generation": self.generation, "fact": fact, "content": content, "sha256": file["sha256"]}))
     }
 
-    fn source_bytes(&self, file: &Value) -> Result<String> {
+    pub(crate) fn source_file_scratch(&self, path: &str) -> Result<usize> {
+        schema::path(path)?;
+        let file = self.by_path.get(path).ok_or_else(|| CoreError::new("not_found", "File is absent from this generation"))?;
+        (file["bytes"].as_u64().unwrap() as usize).checked_mul(16).and_then(|n| n.checked_add(65536))
+            .ok_or_else(|| CoreError::limit("Source response accounting overflow"))
+    }
+
+    pub fn source_file(&self, path: &str) -> Result<Value> {
+        schema::path(path)?;
+        let file = self.by_path.get(path).ok_or_else(|| CoreError::new("not_found", "File is absent from this generation"))?;
+        Ok(json!({"generation":self.generation, "file":{"path":file["path"],"bytes":file["bytes"],"sha256":file["sha256"]}, "content":self.source_bytes(file)?, "sha256":file["sha256"]}))
+    }
+
+    pub(crate) fn source_bytes(&self, file: &Value) -> Result<String> {
         let hash = schema::string(file, "sha256")?;
-        let bytes = self.blobs.read(hash, schema::MAX_SOURCE)?;
+        let bytes = self.blobs.read(hash, file["bytes"].as_u64().unwrap() as usize)?;
         if schema::digest(&bytes) != hash || Some(bytes.len() as u64) != file["bytes"].as_u64() {
             return Err(CoreError::snapshot("Source content verification failed"));
         }

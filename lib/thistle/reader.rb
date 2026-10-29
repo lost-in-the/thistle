@@ -62,6 +62,17 @@ module Thistle
       search(query, limit: limit).fetch("results")
     end
 
+    # Literal source and explicitly allowlisted metadata, with coverage and spans.
+    # Legacy search/find retain their name discovery contract.
+    def search_evidence(query, limit: 50, kind: nil, path: nil, domain: nil)
+      request("find_evidence", "query" => query, "limit" => limit,
+        "kind" => kind, "path_prefix" => path, "domain" => domain)
+    end
+
+    def source_file(path)
+      request("source_file", "file_path" => path)
+    end
+
     def source(id)
       request("source", "id" => id)
     end

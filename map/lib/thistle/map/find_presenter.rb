@@ -19,11 +19,16 @@ module Thistle
         status = result.fetch('status')
         raise ArgumentError, 'Invalid Find status' unless %w[complete partial unavailable].include?(status)
 
-        body = '<h1 class="t1">Find code</h1>'
+        body = +'<h1 class="t1">Find code</h1>'
         body << '<p class="notice ui">Search is incomplete; absence of a match does not prove absence from the capture.</p>' unless status == 'complete'
         body << '<p class="notice ui">Results were truncated. Narrow the search.</p>' if result.fetch('truncated')
+        body << '<p class="ui">Literal text; ASCII case-insensitive, other Unicode exact. Source returns the first match per captured file. Kind file selects source hits. Capture coverage is separate from search completeness.</p>'
+        coverage = result.fetch('search_coverage', {})
+        if coverage.key?('source_files_not_searched')
+          body << "<p class=\"ui\">Captured files searched: #{h(coverage['source_files_searched'])}; not searched: #{h(coverage['source_files_not_searched'])}. Matching source files omitted by result limit: #{h(coverage['source_matching_files_omitted'])}. Each source row is the first occurrence in that file.</p>"
+        end
         body << '<p class="ui">Name matches identify candidates; they do not establish runtime dispatch.</p>'
-        rows = result.fetch('results').map { |match| row(match) }.join
+        rows = result.fetch('results').map { |match| row(match, block_given? ? yield(match) : nil) }.join
         if rows.empty?
           body << '<p class="notice ui">No matches returned. Check capture coverage before concluding code is absent.</p>'
         else
@@ -35,7 +40,7 @@ module Thistle
 
       private
 
-      def row(match)
+      def row(match, detail)
         origin = match.fetch('origin')
         raise ArgumentError, 'Invalid Find origin' unless %w[source metadata].include?(origin)
         path = match['path']
@@ -50,6 +55,8 @@ module Thistle
           anchor = "#L#{line}"
         elsif match['fact_id']
           params['id'] = match['fact_id']
+        elsif path
+          params['path'] = path
         end
         title = if params.key?('path') || params.key?('id')
           href = "#{@mount}/source?#{URI.encode_www_form(params)}#{anchor}"
@@ -57,7 +64,7 @@ module Thistle
         else
           h(name)
         end
-        "<tr><td>#{title}</td><td>#{h(origin)}</td><td>#{h(path || 'Source unavailable')}</td><td><code>#{h(match['snippet'] || '')}</code></td></tr>"
+        "<tr><td>#{title}</td><td>#{h(origin)}#{match['field'] ? " · #{h(match['field'])}" : ''}</td><td>#{h(path || 'Source unavailable')}</td><td><code>#{h(match['snippet'] || '')}</code>#{detail ? "<p>#{h(detail)}</p>" : ''}</td></tr>"
       end
 
       def h(value)
