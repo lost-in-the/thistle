@@ -28,7 +28,8 @@ Both gems now declare Ruby >=3.4. The Gemfile reads the primary Rails requiremen
 from the policy; an explicit `THISTLE_RAILS_VERSION` still selects a deliberate
 test cohort. Exact patches make a run's intended inputs clear. Per-run locks and
 manifests record actual resolution; this does not promise reproducible archives.
-Linux remains the implementation's actual platform restriction.
+The current source-development routes are Linux and macOS; platform evidence
+and remaining limits are recorded in the macOS/Linux decision below.
 
 PRs ordinarily use primary. Workflow, dependency, policy and Ruby/native-boundary
 changes also test minimum. Main runs primary plus the separate minimum job;
@@ -451,3 +452,37 @@ complete user jobs show comparison exhaustion or search cost is material;
 reconsider Tantivy when accepted retrieval requirements justify indexed/ranked
 or multi-term search. Preserve honest partial coverage and exact pinned Source
 through either change. See the [Find contract and operating budgets](find-evidence.md).
+
+## macOS and Linux source development — 2026-10-29
+
+Issue #81 adds native macOS development alongside Linux and a dedicated Linux
+container. Reuse the existing descriptor-relative POSIX implementation and
+vendored [errno 0.3.14](https://docs.rs/errno/0.3.14/errno/) for thread-local errno
+access. A hand-written cfg/ABI wrapper would duplicate maintained platform code;
+the direct dependency adds no new vendored files or allocation on reset. Keep
+store ancestors symlink-free, including system aliases; use physical temporary
+fixture roots instead of weakening the store trust boundary. Darwin export flags
+expose only the Ruby initializer. Linux retains its existing linker policy.
+
+The container combines the Ruby core team's
+[Ubuntu-based images](https://github.com/ruby/docker-images) and the maintained
+[Rust toolchain image](https://github.com/rust-lang/docker-rust), pinned to
+multi-architecture digests. This avoids a custom Ruby compiler/bootstrap installer
+and keeps libclang 18 aligned with Ubuntu CI. Upstream describes the Ruby image
+service as experimental; exact pins, a runtime policy check and real build/install
+checks bound this choice. Reconsider if its patch availability, maintenance or
+architectures stop meeting the development policy. OS packages and Ruby dependencies
+still resolve at build time, so the image is not claimed reproducible. Update pins
+with policy changes and retain tested locks rather than using another application's
+image or exposing private host mounts. A copy-based container costs a rebuild for
+edits but avoids stale cross-OS objects; native macOS remains the fast local loop.
+
+Use one primary Ruby/Rails cohort on each macOS architecture, not the full
+Ruby-by-OS cross-product on every PR. The existing Linux minimum lane remains.
+This adds two product jobs and installed source-gem compilations; observe their
+hosted cost before broadening the matrix. GitHub documents the
+[macos-15 and macos-15-intel runners](https://docs.github.com/en/actions/reference/runners/github-hosted-runners).
+Candidate feedback and matching package receipts are not general Unix support,
+precompiled distribution or independent launch qualification. Darwin cannot enforce
+the existing RLIMIT_AS test bound: retain CPU/wall limits and state that difference
+rather than silently treating the Linux memory guard as tested there.

@@ -56,9 +56,10 @@ explains the choice.
 Each clone needs this setup once:
 
 1. Install Entire CLI 0.12.2 or later with one documented
-   [installation method](https://docs.entire.com/installation.md). Confirm
-   `command -v entire git-remote-entire` resolves both from that install with
-   matching versions; remove any second copy on `PATH`.
+   [installation method](https://docs.entire.com/installation.md) and confirm
+   `command -v entire`. This setup needs no `git-remote-entire`, which serves only
+   `entire://` remotes. If one is on `PATH`, it must match the CLI version: a
+   stale copy breaks every `entire://` fetch.
 2. Keep `origin` on GitHub. Do not repoint it to an Entire-hosted
    `entire://.../et/...` repository or migrate; those never forward to GitHub.
 3. Configure the authorized commit identity and signer locally, as above.
@@ -98,10 +99,13 @@ nothing. The Claude Code pre-edit hook exits silently when Entire or the Brain
 plugin is absent, and times out after 5 seconds. See the
 [Brain decision](decisions.md#agent-context-entire-brain).
 
-A worktree on a branch without `.entire/settings.json` reports `not set up` and
-captures nothing until it contains this configuration. `entire import` covers
+A worktree with neither `.entire/settings.json` nor
+`.entire/settings.local.json` reports `not set up` and captures nothing. The
+local file alone enables Entire's settings, but a branch older than this
+configuration also lacks the committed Claude Code and Codex hooks, so agent
+sessions there are not captured until a merge brings them in. `entire import` covers
 only the current checkout's recent transcripts; run it from each worktree that
-has the configuration. Imports are idempotent.
+has a configuration. Imports are idempotent.
 
 ## Instruction discovery: verify the actual runtime
 
