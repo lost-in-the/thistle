@@ -196,8 +196,9 @@ module Thistle
         return nil unless plain?(tuple, Array) && tuple.length == 6
         kind, name, omitted, safe, call_tuple, receiver_tuple = tuple
         call_location = tuple_location(call_tuple)
-        receiver_location = receiver_tuple.nil? ? nil : tuple_location(receiver_tuple)
-        return nil unless call_location && (receiver_tuple.nil? || receiver_location)
+        receiver_is_null = plain?(receiver_tuple, NilClass)
+        receiver_location = receiver_is_null ? nil : tuple_location(receiver_tuple)
+        return nil unless call_location && (receiver_is_null || receiver_location)
         { 'version' => 1, 'safe_navigation' => safe, 'call_location' => call_location,
           'receiver_location' => receiver_location,
           'receiver' => { 'kind' => kind, 'name' => name, 'omitted_limit' => omitted } }

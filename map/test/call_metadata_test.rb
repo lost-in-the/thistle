@@ -137,6 +137,32 @@ class MapCallMetadataTest < Minitest::Test
       refute_includes body, '<script>'
     end
   end
+  def test_compact_receiver_null_check_does_not_dispatch_adapter_callbacks
+    content = 'self.render'
+    fact = { 'id' => FACT_ID, 'name' => 'Demo', 'kind' => 'method', 'evidence' => 'static',
+      'path' => 'demo.rb', 'location' => {}, 'attributes' => {} }
+    [true, :raise].each do |answer|
+      called = false
+      receiver = Object.new
+      receiver.define_singleton_method(:nil?) do
+        called = true
+        raise 'unexpected nil? callback' if answer == :raise
+        answer
+      end
+      metadata = { 'version' => 2, 'data' => ['implicit', nil, false, false, [0, 11, 1, 1], receiver] }
+      link = { 'relation' => 'calls', 'target' => 'render', 'resolution' => 'unresolved',
+        'attributes' => { 'thistle_call' => metadata } }
+      reader = Reader.new(facts: [fact], links: [link], content: content)
+      reader.manifest['schema_version'] = 2
+      reader.manifest['files'] = [{ 'path' => 'demo.rb', 'bytes' => content.bytesize, 'sha256' => Digest::SHA256.hexdigest(content) }]
+      status, _, body = request(make_app(reader), '/links', query: URI.encode_www_form('id' => FACT_ID))
+      assert_equal 200, status
+      assert_includes body, 'Receiver details unavailable'
+      refute_includes body, '#L1'
+      refute called
+    end
+  end
+
   def test_compact_calls_require_explicit_schema_two_and_validate_fields
     content = 'self.render'
     loc = [0, 11, 1, 1]
