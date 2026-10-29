@@ -165,6 +165,8 @@ impl Reader {
         if schema::digest(&schema::canonical(&manifest)?) != generation { return Err(CoreError::snapshot("Manifest identity verification failed")); }
         manifest["generation"] = Value::String(generation.clone());
         schema::hash(schema::string(&manifest, "root_id")?)?;
+        schema::diagnostic_counts(schema::array(&manifest, "diagnostics")?)
+            .map_err(|_| CoreError::snapshot("Manifest diagnostic counts or budget are invalid"))?;
         schema::coverage(&manifest)?;
         let files = schema::array(&manifest, "files")?;
         schema::files(files, false)?;
@@ -242,6 +244,7 @@ impl Reader {
         }
         Ok(json!({"generation": self.generation, "integrity": "verified", "freshness": "not_checked",
             "files": self.by_path.len(), "facts": self.facts.len(), "coverage": self.manifest["coverage"],
+            "diagnostics": schema::diagnostic_counts(schema::array(&self.manifest, "diagnostics")?)?,
             "note": "Integrity verifies captured bytes, not current application state."}))
     }
 }
@@ -255,6 +258,33 @@ mod tests {
             "files": [{"path":"app.rb","sha256":schema::digest(content.as_bytes()),"bytes":content.len(),"encoding":"UTF-8","content":content}],
             "facts": [{"id":"b".repeat(64),"kind":"class","name":name,"path":"app.rb","location":null,"evidence":"static","attributes":{},"links":[]}],
             "coverage":[{"family":"ruby","status":"partial","scope":"fixture","reason":"No runtime resolution"}],"diagnostics":[]})
+    }
+    #[test]
+    fn saved_diagnostic_groups_and_occurrences_are_checked_at_open_and_check() {
+        let temp = tempfile::tempdir().unwrap();
+        let mut data = fixture("DiagnosticCounts");
+        data["diagnostics"] = json!([
+            {"code":"dynamic_scope","message":"recoverable fixture","path":"app.rb","occurrences":3},
+            {"code":"syntax_error","message":"legacy fixture","path":"app.rb"}
+        ]);
+        let mut manifest = publish(temp.path(), &data).unwrap();
+        let reader = Reader::open(temp.path(), None).unwrap();
+        assert_eq!(reader.check().unwrap()["diagnostics"], json!({"groups":2,"occurrences":4}));
+        let old = temp.path().join("generations").join(manifest["generation"].as_str().unwrap());
+        // Recompute the identity so refusal is attributable to diagnostic
+        // validation rather than an unrelated manifest hash mismatch.
+        manifest["diagnostics"][0]["occurrences"] = json!(0);
+        manifest.as_object_mut().unwrap().remove("generation");
+        let generation = schema::digest(&schema::canonical(&manifest).unwrap());
+        manifest["generation"] = json!(generation);
+        let invalid = temp.path().join("generations").join(&generation);
+        std::fs::create_dir(&invalid).unwrap();
+        std::fs::copy(old.join("facts.json"), invalid.join("facts.json")).unwrap();
+        std::fs::write(invalid.join("manifest.json"), schema::canonical(&manifest).unwrap()).unwrap();
+        let error = Reader::open(temp.path(), Some(&generation)).err().unwrap();
+        assert_eq!(error.code, "invalid_snapshot");
+        assert!(error.message.contains("diagnostic"));
+        assert_eq!(Reader::open(temp.path(), None).unwrap().generation, reader.generation);
     }
     #[test]
     fn borrowed_publication_matches_owned_reference_for_permutations() {
