@@ -109,7 +109,8 @@ module Thistle
           body += '<p class="ui">No links were captured for this fact. This does not prove it has no dependencies.</p>'
         else
           rows = links.slice((page - 1) * PAGE_SIZE, PAGE_SIZE).map do |link|
-            "<tr><td>#{h(link.fetch('relation'))}</td><td>#{h(link.fetch('target'))}</td><td>#{h(link.fetch('resolution'))}</td></tr>"
+            detail = call_detail(link, fact)
+            "<tr><td>#{h(link.fetch('relation'))}</td><td>#{h(link.fetch('target'))}#{detail}</td><td>#{h(link.fetch('resolution'))}</td></tr>"
           end.join
           body += table('Captured links', %w[Relation Target Evidence], rows)
           body += "<p class=\"pager ui\">Page #{page} of #{pages} · #{links.length} links "
@@ -134,6 +135,46 @@ module Thistle
       end
 
       private
+
+      # Custom readers are not necessarily native readers. Do not interpolate
+      # arbitrary metadata values or create an anchor from malformed bounds.
+      def call_detail(link, fact)
+        return '' unless link['relation'] == 'calls'
+        attrs = link['attributes']
+        data = attrs.is_a?(Hash) ? attrs['thistle_call'] : nil
+        return '' if data.nil?
+        fallback = '<br>Receiver details unavailable'
+        return fallback unless data.instance_of?(Hash) && data.keys.all? { |key| key.instance_of?(String) } && data.keys.sort == %w[call_location receiver receiver_location safe_navigation version].sort && data['version'].instance_of?(Integer) && data['version'] == 1 && link['resolution'] == 'unresolved' &&
+          [true, false].include?(data['safe_navigation']) && fact['evidence'] == 'static' && fact['path'].is_a?(String)
+        receiver = data['receiver']
+        return fallback unless receiver.instance_of?(Hash) && receiver.keys.all? { |key| key.instance_of?(String) } && receiver.keys.sort == %w[kind name omitted_limit].sort && [true, false].include?(receiver['omitted_limit'])
+        kind, name, omitted = receiver.values_at('kind', 'name', 'omitted_limit')
+        named = %w[constant local instance_variable].include?(kind)
+        return fallback unless %w[implicit self constant local instance_variable call literal expression].include?(kind)
+        return fallback unless named ? (omitted ? name.nil? : name.instance_of?(String) && !name.empty? && name.bytesize <= 256) : (name.nil? && !omitted)
+        call_loc = data['call_location']
+        bounds = fact['location']
+        return fallback unless valid_call_location?(call_loc) && valid_call_location?(bounds) &&
+          call_loc['start_byte'] >= bounds['start_byte'] && call_loc['end_byte'] <= bounds['end_byte'] &&
+          call_loc['start_line'] >= bounds['start_line'] && call_loc['end_line'] <= bounds['end_line']
+        receiver_loc = data['receiver_location']
+        return fallback unless kind == 'implicit' ? (receiver_loc.nil? && !data['safe_navigation']) : valid_call_location?(receiver_loc)
+        labels = { 'implicit' => 'implicit receiver', 'self' => 'self', 'constant' => 'constant', 'local' => 'local',
+          'instance_variable' => 'instance variable', 'call' => 'call result — unknown',
+          'literal' => 'literal syntax — value not resolved', 'expression' => 'expression — unknown' }
+        label = labels.fetch(kind)
+        label += omitted ? ' — name omitted (limit)' : " #{name}" if named
+        label += ' · safe navigation' if data['safe_navigation']
+        grouped = %w[implicit self].include?(kind) || (named && !omitted)
+        anchor = "#{url('/source', 'id' => fact.fetch('id'))}#L#{call_loc['start_line']}"
+        "<br>#{h(label)} · <a href=\"#{h(anchor)}\">#{grouped ? 'Representative source' : 'Source'}</a>"
+      end
+
+      def valid_call_location?(location)
+        return false unless location.instance_of?(Hash) && location.keys.all? { |key| key.instance_of?(String) } && location.keys.sort == %w[start_byte end_byte start_line end_line].sort
+        a, b, c, d = location.values_at('start_byte', 'end_byte', 'start_line', 'end_line')
+        [a, b, c, d].all? { |n| n.instance_of?(Integer) && n >= 0 && n <= 4_194_304 } && a <= b && c > 0 && c <= d
+      end
 
       def h(value)
         ERB::Util.html_escape(value.to_s)

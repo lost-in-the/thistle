@@ -115,6 +115,59 @@ pub fn facts(facts: &[Value], files: &[Value]) -> Result<()> {
             if !matches!(link["resolution"].as_str(), Some("resolved") | Some("unresolved")) {
                 return Err(CoreError::input("Link resolution must be explicit"));
             }
+            if let Some(ext) = link.get("attributes").and_then(|a| a.get("thistle_call")) {
+                // Unrecognized versions are opaque. Version 1 is a strict, bounded contract.
+                if ext.get("version").and_then(Value::as_u64) == Some(1) {
+                    let obj = ext.as_object().ok_or_else(|| CoreError::input("Invalid call metadata"))?;
+                    if obj.len() != 5 || !["version", "receiver", "safe_navigation", "call_location", "receiver_location"].iter().all(|k| obj.contains_key(*k)) ||
+                        link["relation"] != "calls" || link["resolution"] != "unresolved" || fact["evidence"] != "static" || !ext["safe_navigation"].is_boolean() {
+                        return Err(CoreError::input("Invalid call metadata shape"));
+                    }
+                    let receiver = ext["receiver"].as_object().ok_or_else(|| CoreError::input("Invalid call receiver"))?;
+                    if receiver.len() != 3 || !["kind", "name", "omitted_limit"].iter().all(|k| receiver.contains_key(*k)) {
+                        return Err(CoreError::input("Invalid call receiver shape"));
+                    }
+                    let kind = ext["receiver"]["kind"].as_str().ok_or_else(|| CoreError::input("Invalid receiver kind"))?;
+                    let named = matches!(kind, "constant" | "local" | "instance_variable");
+                    let omitted = ext["receiver"]["omitted_limit"].as_bool().ok_or_else(|| CoreError::input("Invalid omitted flag"))?;
+                    let name = &ext["receiver"]["name"];
+                    if !matches!(kind, "implicit" | "self" | "constant" | "local" | "instance_variable" | "call" | "literal" | "expression") ||
+                       (named && !(omitted && name.is_null() || !omitted && name.as_str().is_some_and(|s| !s.is_empty() && s.len() <= 256))) ||
+                       (!named && (!name.is_null() || omitted)) {
+                        return Err(CoreError::input("Invalid call receiver combination"));
+                    }
+                    let file = file.ok_or_else(|| CoreError::input("Call metadata needs captured source"))?;
+                    validate_call_location(&ext["call_location"], file, &newlines)?;
+                    if kind == "implicit" {
+                        if ext["safe_navigation"] == true { return Err(CoreError::input("Implicit receiver cannot use safe navigation")); }
+                        if !ext["receiver_location"].is_null() { return Err(CoreError::input("Implicit receiver has a location")); }
+                    } else {
+                        validate_call_location(&ext["receiver_location"], file, &newlines)?;
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+fn validate_call_location(location: &Value, file: &Value, newlines: &HashMap<&str, Vec<usize>>) -> Result<()> {
+    let obj = location.as_object().ok_or_else(|| CoreError::input("Call location must be an object"))?;
+    if obj.len() != 4 || !["start_line", "end_line", "start_byte", "end_byte"].iter().all(|k| obj.contains_key(*k)) {
+        return Err(CoreError::input("Invalid call location shape"));
+    }
+    let values: Vec<u64> = ["start_line", "end_line", "start_byte", "end_byte"].iter().map(|key|
+        location[*key].as_u64().ok_or_else(|| CoreError::input("Call bounds must be nonnegative integers"))
+    ).collect::<Result<_>>()?;
+    if values[0] == 0 || values[1] < values[0] || values[3] < values[2] || values[3] > file["bytes"].as_u64().unwrap_or(0) {
+        return Err(CoreError::input("Call location is out of bounds"));
+    }
+    if let Some(content) = file["content"].as_str() {
+        let lines = &newlines[file["path"].as_str().unwrap()];
+        if !content.is_char_boundary(values[2] as usize) || !content.is_char_boundary(values[3] as usize) ||
+           lines.partition_point(|offset| *offset < values[2] as usize) as u64 + 1 != values[0] ||
+           lines.partition_point(|offset| *offset < values[3] as usize) as u64 + 1 != values[1] {
+            return Err(CoreError::input("Call byte and line positions disagree"));
         }
     }
     Ok(())
