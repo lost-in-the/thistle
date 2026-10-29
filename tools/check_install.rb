@@ -126,6 +126,46 @@ Dir.mktmpdir("thistle-installed-", File.realpath(Dir.tmpdir)) do |worker|
     smoke_report = JSON.parse(File.read(File.join(output, "map-installed-smoke.json")))
     raise "Installed Map smoke did not pass" unless smoke_report.fetch("status") == "passed"
     raise "Installed Map smoke loaded different native bytes" unless smoke_report.fetch("native_sha256") == observed.fetch("native_sha256")
+    # Callbacks have their own accepted producer/consumer argv protocol. Keep the
+    # selected Model/Find smoke unchanged, including on pre-callback packages.
+    callback_enabled = File.file?(File.join(installed_lib, "thistle/callback_observer.rb"))
+    callback_inputs = {}
+    callback_receipt = callback_result = nil
+    if callback_enabled
+      fixture = File.join(worker, "callback-fixture")
+      FileUtils.mkdir_p(fixture)
+      paths = %w[booted_app.rb records.rb].map do |name|
+        target = File.join(fixture, name)
+        FileUtils.cp(File.join(source, "test/fixtures/callbacks", name), target)
+        target
+      end
+      %w[installed_callback_producer.rb installed_callback_consumer.rb].each do |name|
+        target = File.join(worker, name)
+        FileUtils.cp(File.join(source, "map/test", name), target)
+        paths << target
+      end
+      callback_inputs = paths.to_h do |path|
+        [path.delete_prefix(worker + File::SEPARATOR), Digest::SHA256.file(path).hexdigest]
+      end
+      File.write(File.join(output, "callback-inputs.json"), JSON.pretty_generate(callback_inputs) + "\n")
+      store = File.join(worker, "callback-store")
+      callback_receipt = File.join(output, "callback-producer.json")
+      logged.call("callback-producer.json", ruby, "-S", "bundle", "exec", ruby,
+        File.join(worker, "installed_callback_producer.rb"), fixture, File.join(worker, "callback-source"), store)
+      produced = JSON.parse(File.read(callback_receipt))
+      raise "Installed callback producer loaded different native bytes" unless produced.fetch("native_sha256") == observed.fetch("native_sha256")
+      receipt = File.join(worker, "callback-producer.json")
+      FileUtils.cp(callback_receipt, receipt)
+      callback_result = File.join(output, "callback-consumer.json")
+      logged.call("callback-consumer.json", ruby, "-S", "bundle", "exec", ruby,
+        File.join(worker, "installed_callback_consumer.rb"), store, receipt)
+      consumed = JSON.parse(File.read(callback_result))
+      raise "Installed callback consumer did not pass" unless consumed.fetch("status") == "passed"
+      raise "Installed callback consumer loaded different native bytes" unless consumed.fetch("native_sha256") == observed.fetch("native_sha256")
+      callback_inputs.each do |path, expected|
+        raise "Installed callback input changed: #{path}" unless Digest::SHA256.file(File.join(worker, path)).hexdigest == expected
+      end
+    end
     FileUtils.cp(File.join(source, "test/support/installed_cli.rb"), worker)
     logged.call("installed-cli.log", ruby, "-S", "bundle", "exec", ruby, "installed_cli.rb")
     report = {
@@ -142,6 +182,10 @@ Dir.mktmpdir("thistle-installed-", File.realpath(Dir.tmpdir)) do |worker|
       model_journey: model_enabled ? "passed" : "not_applicable_to_selected_package",
       model_producer_receipt_sha256: model_receipt && Digest::SHA256.file(model_receipt).hexdigest,
       map_smoke_receipt_sha256: Digest::SHA256.file(File.join(output, "map-installed-smoke.json")).hexdigest,
+      callback_journey: callback_enabled ? "passed" : "not_applicable_to_selected_package",
+      callback_fixture_inputs: callback_inputs,
+      callback_producer_receipt_sha256: callback_receipt && Digest::SHA256.file(callback_receipt).hexdigest,
+      callback_consumer_receipt_sha256: callback_result && Digest::SHA256.file(callback_result).hexdigest,
       development_lock_sha256: Digest::SHA256.file(File.join(output, "development-Gemfile.lock")).hexdigest,
       consumer_lock_sha256: Digest::SHA256.file(File.join(output, "consumer-Gemfile.lock")).hexdigest
     }
