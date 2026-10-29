@@ -4,6 +4,10 @@ Use one bounded issue, an isolated branch/worktree, and a reviewable PR for each
 implementation task. The current owner request and actual repository state take
 precedence over dated handoff snapshots.
 
+Follow the canonical [mission](docs/MISSION.md) and the
+[public/private configuration boundary](docs/development/agent-configuration.md).
+Linked policy is read explicitly; a link does not establish runtime autoloading.
+
 ## Read before work
 
 1. Read the assigned issue, its dependencies, active claims, linked PRs, and the
