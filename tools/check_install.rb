@@ -77,6 +77,15 @@ Dir.mktmpdir("thistle-installed-", File.realpath(Dir.tmpdir)) do |worker|
     end
     # Relative fixture imports and child processes resolve only installed code.
     FileUtils.cp_r(File.join(source, "test"), worker)
+    # Core's saved-model refusal contract uses this independent known answer.
+    # Stage fixture data only; engine source must not enter the consumer load path.
+    FileUtils.mkdir_p(File.join(worker, "engine/tests"))
+    FileUtils.cp_r(File.join(source, "engine/tests/fixtures"), File.join(worker, "engine/tests"))
+    core_fixture_inputs = Dir[File.join(worker, "engine/tests/fixtures/**/*")].sort
+      .select { |path| File.file?(path) }.to_h do |path|
+        [path.delete_prefix(worker + File::SEPARATOR), Digest::SHA256.file(path).hexdigest]
+      end
+    File.write(File.join(output, "core-fixture-inputs.json"), JSON.pretty_generate(core_fixture_inputs) + "\n")
     File.symlink(installed_lib, File.join(worker, "lib"))
     logged.call("core-tests.log", ruby, "-S", "bundle", "exec", ruby, "-I", installed_lib, "-e",
       'paths = Dir["test/test_*.rb"].sort; abort "Core tests absent" if paths.empty?; paths.each { |f| require File.expand_path(f) }')
@@ -100,7 +109,8 @@ Dir.mktmpdir("thistle-installed-", File.realpath(Dir.tmpdir)) do |worker|
       end
     end
     inputs = { smoke_sha256: Digest::SHA256.file(smoke).hexdigest,
-               model_enabled: model_enabled, model_fixture_inputs: model_inputs }
+               model_enabled: model_enabled, model_fixture_inputs: model_inputs,
+               core_fixture_inputs: core_fixture_inputs }
     File.write(File.join(output, "installed-inputs.json"), JSON.pretty_generate(inputs) + "\n")
     if model_enabled
       model_store = File.join(worker, "model-store")

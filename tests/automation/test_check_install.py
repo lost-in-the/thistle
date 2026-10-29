@@ -28,7 +28,7 @@ class PlatformReceiptTests(unittest.TestCase):
         self.assertIn("if: always()", upload)
         patterns = re.findall(r"^\s+(pkg/install-check-\S+)$", upload, re.MULTILINE)
         for name in (
-            "report.json", "native-observation.json", "installed-inputs.json",
+            "report.json", "native-observation.json", "installed-inputs.json", "core-fixture-inputs.json",
             "model-producer.json", "model-producer.json.stderr",
             "map-installed-smoke.json", "map-installed-smoke.json.stderr",
             "core-tests.log", "core-tests.log.stderr", "installed-cli.log", "installed-cli.log.stderr",
@@ -66,6 +66,9 @@ module HarmlessChildren
     args = args.drop(4)
     if args.include?("-I")
       raise "Unexpected Core command" unless args.last.include?('test/test_*.rb')
+      fixture = "engine/tests/fixtures/models.json"
+      expected = File.binread(File.join(env.fetch("SOURCE"), fixture))
+      raise "Core fixture missing or changed" unless File.binread(File.join(options.fetch(:chdir), fixture)) == expected
       args = [args.first, "-e", "puts 'stub Core tests'"]
     end
     super(env, *args, **options)
@@ -122,6 +125,7 @@ class InstalledContractTests(unittest.TestCase):
         for path in (self.output, self.installed / "lib/thistle"):
             path.mkdir(parents=True)
         self.write("Gemfile.lock", "development lock\n")
+        self.write("engine/tests/fixtures/models.json", '{"models":[]}\n')
         self.write("test/support/installed_cli.rb", 'File.write("cli-ran", "yes")\n')
         self.write("map/test/installed_smoke.rb", SMOKE)
         for name in ("core.gem", "map.gem"):
@@ -166,6 +170,18 @@ class InstalledContractTests(unittest.TestCase):
         self.assert_locks()
         self.assertEqual(self.read_json("native-observation.json")["native_path"],
                          str(self.installed / "lib/thistle/thistle_native.bundle"))
+
+    def test_core_known_answer_fixture_is_staged_and_hashed_before_contracts(self):
+        result = self.invoke()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        relative = "engine/tests/fixtures/models.json"
+        expected = (self.source / relative).read_bytes()
+        self.assertEqual((self.worker / relative).read_bytes(), expected)
+        self.assertEqual(self.read_json("core-fixture-inputs.json"), {
+            relative: hashlib.sha256(expected).hexdigest()
+        })
+        self.assertEqual(self.read_json("installed-inputs.json")["core_fixture_inputs"],
+                         self.read_json("core-fixture-inputs.json"))
 
     def test_legacy_payload_ignores_source_model_inputs_and_uses_no_arguments(self):
         self.model_inputs()
