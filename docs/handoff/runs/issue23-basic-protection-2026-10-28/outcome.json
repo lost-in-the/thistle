@@ -11,6 +11,22 @@
     "payload": {
       "sha": "20871a6bce77005434b5751c369ed23ef579f7dd",
       "force": false
+    },
+    "effective_authority": {
+      "repository_permissions": {
+        "admin": true,
+        "maintain": true,
+        "push": true,
+        "triage": true,
+        "pull": true
+      },
+      "rule_current_user_can_bypass": "never",
+      "rule_bypass_actors": [],
+      "bypass_requested": false,
+      "basis": "Same authenticated actor; retained repository and pre-test ruleset readbacks; PATCH payload contains only sha and force=false. Administrative capability to edit rules is not independence.",
+      "actor_receipt_sha256": "1c62a64fb70c6a9c24c6f129aaf0a7a43707ddd647599842da611fbd9b355bba",
+      "repository_receipt_sha256": "9fb6c47eebbbbdf23e10386a70f56e877f71a3957637fe62eb1169c016aff153",
+      "rule_receipt_sha256": "508acbdaeb4141599061d2bde0cba08422ae5353c6c912e6f9695600625b30d2"
     }
   },
   "response": {

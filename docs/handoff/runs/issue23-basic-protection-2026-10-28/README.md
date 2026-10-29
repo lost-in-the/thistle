@@ -15,6 +15,14 @@ PATCH repos/lost-in-the/thistle/git/refs/heads/proof/thistle-basic-main-20261028
 {"sha":"20871a6bce77005434b5751c369ed23ef579f7dd","force":false}
 ```
 
+The retained actor/repository readbacks identify `LeahArmstrong` with repository
+admin permission. The same actor's pre-test ruleset readback reports
+`current_user_can_bypass: never` and `bypass_actors: []`; the PATCH requested no
+bypass. The structured receipt records these observations and their raw-receipt
+digests. Admin ability to change the rule remains a separate capability and does
+not establish independent qualification authority. The unexpected success was
+observed on this non-bypass rule path; the original negative control remains failed.
+
 GitHub returned **HTTP 200**, advancing that target from
 `241823b613f95715e81f13f09af4fa0cb3a79395` to the requested head. That head belonged
 to an opened, up-to-date PR whose two required contexts were green and conversation
@@ -76,7 +84,7 @@ were removed. Main stayed exactly
 `b53d64c6edf46e30b81b1c2cf91e94f4bb2f408e`; repository rulesets and main effective
 rules read back as empty. No App, credential, controller or publication was created.
 
-Five signed commit objects, every API receipt and the failed attempts remain in
+Five signed commit objects, the retained API receipts and failed attempts remain in
 restricted retention. The 19,266,056-byte Git bundle has SHA-256
 `754d4b7d5a05facf10b48cd6411c8922dd0e9179d34a06ab55055e6cb4799ff5`.
 Its commit objects were recovered into a fresh bare repository and checked again.
