@@ -37,9 +37,10 @@ module Thistle
       effective = result.fetch("producer").fetch("effective_limits").transform_keys(&:to_sym)
       if @rails
         require_relative "rails_capture"
+        static_fact_count = result.fetch("facts").length
         static_links = result.fetch("facts").sum { |fact| fact.fetch("links").length }
         remaining = effective.merge(
-          max_facts: effective[:max_facts] - result.fetch("facts").length,
+          max_facts: effective[:max_facts] - static_fact_count,
           max_links: effective[:max_links] - static_links,
           max_diagnostics: effective[:max_diagnostics] - result.fetch("diagnostics").length
         )
@@ -58,8 +59,12 @@ module Thistle
         result["producer"]["ruby_version"] = RUBY_VERSION
         result["producer"]["ruby_engine"] = RUBY_ENGINE
         require_relative "model_observer"
-        # Count only the returned route batch; never rescan all static facts.
-        fact_bytes = static_evidence_bytes + runtime.fetch("facts").sum { |fact| JSON.generate(fact).bytesize + 1 }
+        # RailsCapture already charged each route plus a conservative comma.
+        # Joining into [] needs one fewer comma; preserve the previous exact
+        # post-route array size without serializing the old static facts again.
+        route_bytes = runtime.fetch("evidence_bytes")
+        route_bytes -= 1 if static_fact_count.zero? && !runtime.fetch("facts").empty?
+        fact_bytes = static_evidence_bytes + route_bytes
         links = static_links + runtime.fetch("facts").sum { |fact| fact.fetch("links").length }
         observations = ModelObserver.new(
           limits: effective.merge(max_facts: effective[:max_facts] - result.fetch("facts").length),
