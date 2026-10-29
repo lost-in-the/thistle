@@ -27,10 +27,12 @@ This mode does not establish complete Ruby 4.1 language or host support.
 
 ## Build the alpha source gem
 
-Development targets Linux with Ruby 3.4 or 4.0 and Rails 8.1 integration. The
+Source development supports Linux and macOS with Ruby 3.4 or 4.0 and Rails 8.1 integration. The
 primary and minimum CI pairs, including exact patches, live in
 [`.github/ci-policy.json`](.github/ci-policy.json); the Gemfile reads that same
-Rails default. Both gems require Ruby 3.4 or later. Use Rust 1.90.0, a C compiler,
+Rails default. See the [platform setup guide](docs/development/platforms.md) for
+native macOS, Linux, a dedicated Docker environment and installation into a Rails
+application. Both gems require Ruby 3.4 or later. Use Rust 1.90.0, a C compiler,
 Ruby development headers and libclang 18. Cargo dependencies are vendored and
 locked for offline source-gem builds. Public platform qualification and
 precompiled gems remain launch work; passing these development cohorts does not
@@ -42,10 +44,10 @@ For release notes, use [one fragment per change](docs/development/changelog.md).
 
 ```sh
 bundle install
-bundle exec rake test
-cargo test --locked --offline --manifest-path engine/Cargo.toml
+bundle exec rake test native map
+bundle exec rake installed
 gem build thistle.gemspec
-gem install --local thistle-0.1.0.pre.2.gem
+gem install --local thistle-0.1.0.pre.3.gem
 ```
 
 If libclang is installed in a nonstandard directory, set `LIBCLANG_PATH` to its
@@ -87,7 +89,7 @@ Explicit `Store#publish` uses the capture's `schema_version` selector. An absent
 selector means legacy schema 1, preserving legacy generation identity; producer
 metadata never selects a format. Unsupported or malformed selectors are refused.
 New readers retain old generations; old engines refuse schema-2 stores. Use the
-matching Core and Map `0.1.0.pre.2` pair for compact call display.
+matching Core and Map `0.1.0.pre.3` pair for compact call display.
 
 Commands return JSON. Errors return structured JSON on stderr and a nonzero exit.
 `thistle help` describes the stable literal action names. Every query identifies

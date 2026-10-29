@@ -17,6 +17,7 @@ Gem::Specification.new do |spec|
     # Transfer archives and historical evidence are repository documentation,
     # not runtime gem contents. Do not alter the vendored dependency byte set.
     next false if path.start_with?("docs/handoff/")
+    next false if path.match?(%r{\Aext/thistle_native/[^/]+\.dSYM/})
     # Vendored crate paths are part of Cargo's checksum contract, including
     # legitimate source subdirectories named target and fixture/build files.
     next true if path.start_with?("engine/vendor/")
