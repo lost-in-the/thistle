@@ -72,7 +72,8 @@ administrative boundary. This is a prerequisite, not a claim of current separati
 ## Historical inspection and current limits
 
 The following inspection is dated October 28. The separately verified October 29
-basic-main activation is recorded [here](../handoff/runs/issue23-basic-protection-2026-10-29/README.md);
+basic-main activation is recorded in the
+[October 29 activation record](../handoff/runs/issue23-basic-protection-2026-10-29/README.md);
 the historical empty-rule observations below are not current operational state.
 
 Read-only REST inspection on October 28, 2026 found:

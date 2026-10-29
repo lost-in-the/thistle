@@ -5,6 +5,15 @@ rule [`26097789`](https://github.com/lost-in-the/thistle/rules/26097789).
 Main was `cea4d04039093586e29070d95a8648de2b8bb760` before and after the write.
 This records basic repository enforcement, not independent qualification.
 
+| Identity | Recorded scope |
+| --- | --- |
+| Source at activation | Main `cea4d04039093586e29070d95a8648de2b8bb760` |
+| Policy artifact | Approved request SHA-256 `2fb4ece45d620e257f87534cdb6f423afdde9611e8f319dafbca1c6e20d06bee` |
+| Package artifact | Not applicable: this administrative operation built or installed no gem |
+| Product native identity | Not applicable: no Thistle native component executed in this operation |
+| Package evaluator identity | Not applicable: no package evaluator ran; the proof and independent reviews inspect repository-rule behavior and receipts |
+| Protected qualification identities | Unavailable: the independent controller/authority has not been created or proven |
+
 ## Active policy and readback
 
 The rule is active only on `refs/heads/main`, with no bypass actors:
