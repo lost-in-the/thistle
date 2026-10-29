@@ -1,1 +1,0 @@
-Store exact eligible static call links as schema-3 tagged rows while preserving semantic Capture and Reader objects. Capture admission and bounded publication use the same native projection under the unchanged global facts budget; explicit schema-1/2 publication and old-generation access retain their original representation. Require the matching pre3 Core/Map pair.

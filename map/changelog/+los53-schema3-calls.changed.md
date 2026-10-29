@@ -1,1 +1,0 @@
-Recognize compact call metadata in explicit schema-3 Core output, preserving legacy schema-1 opacity, pinned source links and uncertainty. Require exactly Core 0.1.0.pre.3; Core owns tagged storage decoding.
