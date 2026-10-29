@@ -60,27 +60,22 @@ budgets, with no raised caps. Ruby bounds each observed entry and the accumulate
 batch before sending JSON; Rust independently validates and admits the combined
 capture. Publication is never attempted after refusal.
 
-## Root integration request
+## Integrated adapters
 
-The original isolated component left the shared adapters to root. After explicit
-Find per-file release, root added native registration/dispatch and the model
-presenter hook in the model branch. The remaining integration boundaries are:
+Root added `mod model`, the `append_models` dispatch and the model presenter hook
+in `4ac02431a01e7b07e3e66ec1b0a9c5a21d46b06a`, then combined integrated schema-2
+main `7633b2b03ada60f6ba112c144702bc662210f27d` in candidate
+`76f7d2197f25902e96a18e2ea3ad100d5ba8f053`. The native dispatch takes the
+request-owned capture and observation, then calls `model::append(capture,
+&observation)`. No Ruby-owned buffer crosses or outlives the FFI call. Existing
+`fact_tiles` appends `ModelPresenter.render(fact)` on Source (including its
+source-unavailable fallback) and Links. Schema-2 contextual call validation and
+legacy snapshot behavior remain in place.
 
-1. In `engine/src/lib.rs`, add `mod model;`, and the dispatch arm:
-   `append_models` takes the capture and observation from the request-owned JSON
-   value and calls `model::append(capture, &observation)`. The native dispatch
-   borrows the request mutably; no Ruby-owned buffer crosses or outlives the FFI call.
-2. In the existing Map view, require `model_presenter`, then append
-   `ModelPresenter.render(fact)` once to the return value of `fact_tiles`.
-   This covers Source (including its source-unavailable fallback) and Links.
-   Keep the current generation, authorization, reader lifecycle and navigation.
-3. Reconcile the additive schema validation with the integrated #71 schema-2
-   implementation; preserve its schema version and grouping behavior. The
-   component itself was prepared on the assigned schema-1 base.
-4. Reconcile shared documentation/version metadata as the integration owner.
-   Do not claim that the component alone has a working native dispatch or Map
-   route. The integration test deliberately requires the adapters and will fail
-   without them; there is no skip or Ruby fallback.
+The focused execution below establishes the composed source journey. Independent
+review, settled installed acceptance, shared docs/version reconciliation and
+Leah's acceptance remain separate. The model writer did not edit `schema.rs`
+during resumed validation; its diagnostic-helper ownership belongs to #75.
 
 `ModelPresenter.render(fact)` emits escaped HTML for model facts, and an empty
 string for other facts. It shows bounded column and association tables, unknowns,
@@ -113,29 +108,63 @@ integration; that file is outside this writer's ownership.
 
 ## Verification and remaining gates
 
-The #70 benchmark lease forbids native compilation, Rails boots and workloads
-during this component's preparation. Ruby syntax and diff/fragment checks are
-static evidence only. Runtime tests and numerical performance claims are unrun.
-One intermediate Ruby syntax check caught a missing closing parenthesis in the
-entry accounting edit; it was corrected and the syntax check passed. The host
-has no `rustfmt` command; Rust parsing/typechecking remains unverified.
+Initial component preparation was source/static only under the #70/Find host
+leases. Hosted component run `40910171169` on `8a68f154` failed at missing native
+registration. Later wired run `40912831415` on `4ac0243` compiled successfully but
+failed the observer test's singleton setup on a frozen String literal in both
+Ruby cohorts. Both failures remain historical; neither is reclassified as a
+passing test or a missing toolchain.
 
-After explicit lease release and adapter composition, run the focused native
-model tests, `test/test_model_observer.rb`, `test/test_models.rb`, and the two new
-Map model tests in the existing credential-free copied-source worker. The real
-fixture boots Rails, declares independent SQLite schema, installs raising scope,
-default, callback and business-method canaries, captures, publishes, and opens a
-fresh Reader process without Rails. Assertions cover ordinary/STI labels,
-columns/defaults, two has-many records, belongs-to, through/polymorphic unknowns,
-missing table, no guessed source, and publication preservation on refusal. Map
-integration consumes the saved normalized model through its ordinary routes.
+The resumed test fix uses a mutable **exact String** for the singleton `encode`
+and `to_json` canaries; it preserves the no-dispatch checks. The real fixture now
+also guards the through reflection's `klass`, asserts partial/unavailable
+coverage, and supplies Map's producer. Map reopens that saved generation without
+Rails, after a newer generation has published, through ordinary Source/Links.
 
-Then run affected native/Ruby/Map required CI lanes on the settled integrated
-head, both current Ruby cohorts for the dependency/native interface changes,
-installed Core contracts, native/parser and reader-boundary regressions, and
-exact-pair Map smoke. Missing or failed checks are not accepted evidence. Keep
-#71's fixed acceptance candidate unchanged. No full private application campaign,
-new benchmark, frozen-policy change or release publication belongs to #73.
+Offline copied-source validation used root input `76f7d219` plus these three
+changed tests (no runtime implementation change). Final input archive SHA-256:
+`61444efd27f712bc16a176eed080583ad8e6168de0f08767fff66c43cbe064cd`;
+per-file SHA-256 manifest:
+`7b8da1e4da1494452959c6607dc8d1ea6c3506c479d3dec3e38ddbac77691c32`.
+The later edit to this document is not part of those tested archive bytes.
+
+The rootless retained image was
+`f377fb86ef51f1b4b31787dc58131ad453fe306e58b36296f29e76a98487c520`:
+Ruby 3.4.12, Rails/Active Record 8.1.4, Rust 1.90.0, libclang 19, Rouge 4.6.1,
+sqlite3 gem 2.10.2 (SQLite 3.54.1). The upstream SQLite gem was copied from the
+existing dependency cache and installed offline; SHA-256
+`ca92731ab464df9cae503fa1a439a549e2724f6953c8c05a7769b59366e38f15`.
+No Woods implementation was copied. This is the minimum CI Ruby cohort; it does
+not replace hosted primary-cohort evidence or widen supported versions.
+
+Execution used 2 CPUs, 2 GiB memory, zero swap and 256 PIDs, verified inside the
+worker; child Ruby/Python resolved task-private disk-backed `/work/tmp`. The
+worker had no network, host home, Git metadata, credentials, evaluator-policy or
+socket mounts. Container/outer deadlines were 600/630 seconds, and output was
+capped at 8 MiB. Only copied source/dependencies/build output were writable.
+
+Attempts 1–2 stopped before candidate compilation: Rustup attempted to update
+its read-only image location, then an incomplete process-local GEM_PATH hid
+bundled Minitest. Explicit selection of the installed Rust toolchain and inclusion
+of the image's bundled-gem path fixed setup. Attempt 3 passed 4 native model tests,
+4 Core model tests/40 assertions and 3 initial Map tests/44 assertions. Attempt 4
+used the stronger real-application Map test and ran the affected guards once:
+
+- `cargo test --locked --offline --manifest-path engine/Cargo.toml -- --test-threads=2`: 36 passed, including model identity, admission, buffer ownership, schema-2 and opaque legacy identity.
+- `rake unit` using the extension built by `rake compile`: 40 tests, 347 assertions.
+- `ruby -Ilib -Imap/lib -e 'gem "rouge", "4.6.1"; Dir["map/test/*_test.rb"].sort.each { |file| require_relative file }'`: 41 tests, 755 assertions.
+
+All final test groups had zero failures/errors/skips. The final log SHA-256 is
+`3997584ca184d78803ace0dd8fd76e009ec17a36264270ec4b31cb4b0d92f672`.
+Source archives, manifests, command arrays, all attempt logs and the built native
+artifact are retained privately with the coordinator's technical handoff.
+This is source validation, not installed-artifact qualification. No unchanged
+build/suite was rerun after that success, and the runtime lease was released.
+
+Next: independent scoped review must converge, then Root schedules the settled
+exact installed Core/Map contracts, parser/reader-boundary probes and Map smoke.
+Current hosted required lanes still apply. No release-candidate or private-app
+campaign, benchmark, frozen-policy change or publication was run here.
 
 Finite implementation review: this path adds one full bounded JSON request/response crossing, linear model/column/reflection traversal and validation, and
 snapshot facts charged through existing Reader admission. There is no persistent
@@ -143,8 +172,8 @@ model cache or application-object retention after capture, and no per-associatio
 target loading. Guarded error handling retains family unavailability without
 serializing application exception text. The Map display cap avoids rendering all
 rows but does serialize the model to check its size. These are operating costs,
-not measured performance results. Runtime API/typecheck compatibility and full
-adapter composition remain substantive outstanding checks.
+not measured performance results. The minimum-cohort source journey now passes; independent review, current
+hosted lanes and settled installed evidence remain substantive outstanding checks.
 
 ### Owned capture integration correction
 
@@ -158,8 +187,8 @@ from the native request representation. This does not remove the full
 Ruby/native request/response serialization or the existing validation/accounting
 work, and establishes no timing/RSS result.
 
-This root correction is source/static only until the separate Find build lease
-releases and focused runtime checks execute. The original failed component CI
+This root correction passed the focused minimum-cohort source checks above after
+the Find build lease released. The original failed component CI
 40910171169 remains recorded; no test result transfers to the corrected head.
 
 ### Integrated schema context
@@ -168,4 +197,5 @@ Root reconciled the component with integrated schema-2 main 7633b2b0. The
 additive model validator remains in the facts path, alongside the unchanged
 contextual call validator. Both legacy schema-1 behavior and schema-2 tests
 are retained. append moves the capture's explicit schema context unchanged.
-This composition still requires focused runtime and installed checks.
+This composition passed the source checks above; independent review and installed
+checks remain outstanding.

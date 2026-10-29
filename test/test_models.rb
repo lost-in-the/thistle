@@ -24,6 +24,7 @@ class ThistleModelsTest < Minitest::Test
         # All canaries are installed after boot, before observation.
         def app.eager_load! = raise('eager load attempted')
         def app.reload_routes! = raise('reload attempted')
+        ModelFixture::Order.reflect_on_association(:items).define_singleton_method(:klass) { raise 'through target loaded' }
         ModelFixture::Item.reflect_on_association(:product).define_singleton_method(:klass) { raise 'target loaded' }
         capture = Thistle::Capture.new(root: ARGV[0], rails: app).call
         manifest = Thistle::Store.new(ARGV[1]).publish(capture)
@@ -53,6 +54,8 @@ class ThistleModelsTest < Minitest::Test
       assert status.success?, err
       result = JSON.parse(out)
       assert_equal generation, result['generation']
+      assert_equal 'partial', result.fetch('check').fetch('coverage').find { |c| c['family'] == 'rails_models' }.fetch('status')
+      assert_equal 'unavailable', result.fetch('check').fetch('coverage').find { |c| c['family'] == 'rails_model_effects' }.fetch('status')
       by_name = result.fetch('facts').to_h { |fact| [fact['name'], fact.dig('attributes', 'model')] }
       order = by_name.fetch('ModelFixture::Order')
       assert_equal 'orders', order['table']

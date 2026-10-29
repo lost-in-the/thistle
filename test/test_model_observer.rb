@@ -19,7 +19,7 @@ class ThistleModelObserverTest < Minitest::Test
     [hostile, -> { raise 'default executed' }, ['not recursively traversed'], { nested: hostile }].each do |value|
       assert_equal({ 'kind' => 'opaque' }, observer.send(:scalar, value))
     end
-    text = '<script>secret</script>'
+    text = +'<script>secret</script>' # Mutable exact String for singleton dispatch canaries.
     def text.to_json(*) = raise('custom JSON executed')
     def text.encode(*) = raise('custom encoding executed')
     assert_equal({ 'kind' => 'literal', 'value' => '<script>secret</script>' }, observer.send(:scalar, text))
