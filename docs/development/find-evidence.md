@@ -2,7 +2,9 @@
 
 `Reader#search_evidence(text, limit: 50, kind: nil, path: nil, domain: nil)`
 returns version 1 evidence. `search` and `find` retain their existing name-search
-contract. The CLI `find` and Map use evidence search. For example:
+contract. Unfiltered CLI `find` retains its named-fact response too. Supplying
+`--domain` (including `all`), `--kind` or `--path` selects evidence search; Map
+always uses evidence search. For example:
 
 ```sh
 thistle find 'render json:' --store STORE --generation GENERATION --domain source --path app/
@@ -179,3 +181,20 @@ Native loading was deliberately stubbed for the Ruby doubles. One stale string
 expectation and an unavailable optional minitest/mock require failed during
 local test preparation; both were corrected without weakening the assertions.
 No package-pair or performance pass is inferred from these source checks.
+
+## Installed refusal and CLI compatibility correction
+
+Exact-pair run 40921764418 attempt 1 prepared the a1767c3 pair successfully but
+both installed cohorts refused with `invalid fact identity` in the unchanged
+frozen evaluator, before Map/Find smoke. The CLI had replaced unfiltered Find's
+full-fact result objects with evidence-match rows (`fact_id` and origin instead
+of the fact contract). This was a CLI response regression, not proof of corrupted
+stored identities. Reports, actual ZIP digests and job logs are retained.
+
+Unfiltered CLI Find now delegates to the existing Reader search; explicit
+`--domain all|source|metadata`, `--kind` or `--path` select evidence results.
+Reader APIs and Map evidence search are unchanged. A minimal CLI-facade regression
+fails before this correction and passes afterward for the legacy full-fact shape
+and all three explicit filter selectors. The separate generation-precondition
+case also passes. No evaluator/policy change or blind rerun is used; a changed
+candidate and its new exact-pair run must establish installed acceptance.

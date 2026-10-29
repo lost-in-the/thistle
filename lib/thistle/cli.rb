@@ -16,7 +16,9 @@ module Thistle
       thistle check --store STORE [--generation ID]
       thistle version
 
-      Find discovers literal source and allowlisted metadata. Source returns the exact captured file. Links preserves
+      Find without domain/kind/path filters returns the existing named-fact response.
+      Add --domain all (or another evidence filter) for literal source/metadata results.
+      Source returns the exact captured file. Links preserves
       unresolved relationships. Check verifies snapshot integrity and reports scope;
       it does not claim the live application is fresh. Static capture executes no app
       code. Live Rails capture is an explicit Ruby API (see README).
@@ -72,7 +74,12 @@ module Thistle
         reader = Reader.new(options[:store], generation: options[:generation])
         begin
           result = case command
-          when "find" then reader.search_evidence(args.first, **options.slice(:limit, :domain, :kind, :path))
+          when "find"
+            if %i[domain kind path].any? { |key| options.key?(key) }
+              reader.search_evidence(args.first, **options.slice(:limit, :domain, :kind, :path))
+            else
+              reader.search(args.first, limit: options[:limit])
+            end
           when "source-file" then reader.source_file(args.first)
           when "source" then reader.source(args.first)
           when "links" then { "generation" => reader.generation, "fact_id" => args.first, "links" => reader.links(args.first) }

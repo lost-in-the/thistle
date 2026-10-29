@@ -7,6 +7,37 @@ require 'thistle'
 require 'thistle/cli'
 
 class FindEvidenceTest < Minitest::Test
+  def test_cli_find_preserves_facts_and_explicitly_selects_evidence_search
+    original = Thistle::Reader.method(:new)
+    fake = Object.new
+    def fake.search(query, limit:)
+      { 'generation' => 'a' * 64, 'coverage' => [], 'truncated' => false,
+        'results' => [{ 'id' => 'b' * 64, 'name' => query, 'kind' => 'method',
+          'evidence' => 'static', 'attributes' => {}, 'links' => [] }] }
+    end
+    def fake.search_evidence(query, **filters)
+      { 'generation' => 'a' * 64, 'version' => 1, 'domain' => filters[:domain] || 'all',
+        'results' => [{ 'origin' => 'source', 'fact_id' => nil, 'name' => query }] }
+    end
+    def fake.close = nil
+    Thistle::Reader.define_singleton_method(:new) { |*args, **kwargs| fake }
+    [[], ['--domain', 'all'], ['--kind', 'file'], ['--path', 'lib/']].each do |filters|
+      out, err = StringIO.new, StringIO.new
+      assert_equal 0, Thistle::CLI.new(out: out, err: err).run(['find', 'needle', '--store', '/unused', *filters]), err.string
+      payload = JSON.parse(out.string)
+      if filters.empty?
+        assert_equal 'b' * 64, payload.fetch('results').first.fetch('id')
+        assert_kind_of Array, payload.fetch('coverage')
+        refute payload.key?('version')
+      else
+        assert_equal 1, payload['version']
+        assert_equal 'source', payload.fetch('results').first.fetch('origin')
+      end
+    end
+  ensure
+    Thistle::Reader.define_singleton_method(:new, original) if original
+  end
+
   def test_file_source_requires_generation_before_opening_a_reader
     out, err = StringIO.new, StringIO.new
     original = Thistle::Reader.method(:new)
