@@ -287,6 +287,48 @@ mod tests {
         assert_eq!(Reader::open(temp.path(), None).unwrap().generation, first["generation"].as_str().unwrap());
     }
     #[test]
+    fn call_metadata_validation_preserves_current_and_legacy() {
+        let temp = tempfile::tempdir().unwrap();
+        let mut data = fixture("First");
+        let old = publish(temp.path(), &data).unwrap();
+        let loc = json!({"start_byte":0,"end_byte":5,"start_line":1,"end_line":1});
+        data["facts"][0]["links"] = json!([{"relation":"calls","target":"hello","resolution":"unresolved",
+            "attributes":{"thistle_call":{"version":1,"receiver":{"kind":"implicit","name":null,"omitted_limit":false},
+            "safe_navigation":false,"call_location":loc,"receiver_location":null}}}]);
+        let good = publish(temp.path(), &data).unwrap();
+        let reader = Reader::open(temp.path(), good["generation"].as_str()).unwrap();
+        assert_eq!(reader.fact(&"b".repeat(64)).unwrap()["links"][0]["target"], "hello");
+        reader.check().unwrap();
+        let mut bad = data.clone();
+        bad["facts"][0]["links"][0]["attributes"]["thistle_call"]["call_location"]["start_line"] = json!(2);
+        assert!(publish(temp.path(), &bad).is_err());
+        bad = data.clone();
+        bad["facts"][0]["links"][0]["attributes"]["thistle_call"]["receiver"]["name"] = json!("invented");
+        assert!(publish(temp.path(), &bad).is_err());
+        bad = data.clone();
+        bad["facts"][0]["links"][0]["attributes"]["thistle_call"]["receiver"] = json!({"kind":"local","name":"x".repeat(257),"omitted_limit":false});
+        bad["facts"][0]["links"][0]["attributes"]["thistle_call"]["receiver_location"] = json!({"start_byte":0,"end_byte":1,"start_line":1,"end_line":1});
+        assert!(publish(temp.path(), &bad).is_err());
+        bad = data.clone();
+        bad["facts"][0]["links"][0]["attributes"]["thistle_call"]["call_location"]["end_byte"] = json!(99999);
+        assert!(publish(temp.path(), &bad).is_err());
+        bad = data.clone();
+        bad["facts"][0]["path"] = json!("missing.rb");
+        assert!(publish(temp.path(), &bad).is_err());
+        bad = data.clone();
+        let unicode = "é\n";
+        bad["files"][0]["content"] = json!(unicode);
+        bad["files"][0]["bytes"] = json!(unicode.len());
+        bad["files"][0]["sha256"] = json!(schema::digest(unicode.as_bytes()));
+        bad["facts"][0]["links"][0]["attributes"]["thistle_call"]["call_location"] = json!({"start_byte":1,"end_byte":2,"start_line":1,"end_line":1});
+        assert!(publish(temp.path(), &bad).is_err());
+        assert_eq!(Reader::open(temp.path(), None).unwrap().generation, good["generation"].as_str().unwrap());
+        assert!(Reader::open(temp.path(), old["generation"].as_str()).unwrap().fact(&"b".repeat(64)).unwrap()["links"].as_array().unwrap().is_empty());
+        data["facts"][0]["links"][0]["attributes"]["thistle_call"] = json!({"version":2,"future":[1,2,3]});
+        publish(temp.path(), &data).unwrap();
+    }
+
+    #[test]
     fn tampering_and_symlinks_fail_closed() {
         use std::os::unix::fs::symlink;
         let temp = tempfile::tempdir().unwrap();

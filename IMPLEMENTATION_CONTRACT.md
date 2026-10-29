@@ -40,3 +40,10 @@ Independent evaluator installs built .gem artifacts in a clean GEM_HOME, runs co
 ## Delivery constraints
 
 Use Ruby 3.0-compatible facade syntax where feasible and Prism >= 1.0, < 2.0 through Rust bindings. Supported platform claims await tests; local testing initially uses official Ruby 3.3.13 and pinned Rust 1.90.0. Native code is the chosen core architecture by owner direction; performance still requires measurements. New code is not automatically licensed for public distribution; record project owner and mark unreleased private work pending release metadata/license choice. Every claimed result must come from an executed check.
+
+New static call links carry the complete method name as `target`, remain
+unresolved, and may carry versioned lexical receiver syntax and representative
+source locations under `attributes.thistle_call`. Source remains pinned to the
+same generation. Grouped simple receivers represent a lexical summary, not a
+runtime binding or every occurrence. Older snapshots keep their recorded targets;
+unknown metadata versions do not imply receiver or dispatch information.

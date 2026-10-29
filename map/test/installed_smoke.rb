@@ -68,6 +68,42 @@ result = Dir.mktmpdir('thistle-map-installed-') do |directory|
   raise "Runtime Source returned #{runtime_status}" unless runtime_status == 200
   raise 'Runtime evidence context missing' unless runtime_html.include?('GET /installed-runtime') && runtime_html.include?('runtime') && runtime_html.include?('No file or line was captured')
   raise 'Runtime navigation lost generation' unless runtime_html.include?("generation=#{runtime_reader.generation}") && runtime_html.include?('/links?') && runtime_html.include?('/check?')
+  # This contract is deliberately separate from the frozen evaluator: it checks
+  # the installed packages' v1 call metadata and same-generation provenance.
+  call_source = "class InstalledParcel\n  def note = <<~TEXT\n    \#{self.render}\n  TEXT\nend\n"
+  call_path = File.join(app_root, 'parcel.rb')
+  File.write(call_path, call_source)
+  first_call = Thistle.capture(root: app_root, output: store)
+  call_reader = Thistle::Reader.new(store, generation: first_call.fetch('generation'))
+  call_fact = call_reader.find('InstalledParcel#note', limit: 10).find { |item| item['name'] == 'InstalledParcel#note' }
+  raise 'Installed Find did not return the heredoc owner' unless call_fact
+  call = call_reader.links(call_fact.fetch('id')).find { |link| link['relation'] == 'calls' && link['target'] == 'render' }
+  data = call && call.dig('attributes', 'thistle_call')
+  raise 'Installed v1 self receiver was not preserved' unless call && call['resolution'] == 'unresolved' &&
+    data && data['version'] == 1 && data.dig('receiver', 'kind') == 'self' && data['safe_navigation'] == false
+  location = data.fetch('call_location')
+  raise 'Heredoc parser anchor is not the expected call on line 3' unless location['start_line'] == 3 &&
+    call_source.b.byteslice(location['start_byte']...location['end_byte']) == 'self.render' &&
+    location['start_line'] > call_fact.fetch('location').fetch('end_line')
+  call_query = URI.encode_www_form('id' => call_fact.fetch('id'), 'generation' => call_reader.generation)
+  call_status, _, call_body = app.call(env.merge('PATH_INFO' => '/links', 'QUERY_STRING' => call_query))
+  call_html = call_body.each.to_a.join
+  raise 'Installed Links did not show the heredoc self receiver' unless call_status == 200 && call_html.include?('<br>self ·') && call_html.include?('Representative source')
+  href = call_html[/href="([^"]+#L3)"/, 1]
+  raise 'Installed Links omitted the heredoc source anchor' unless href
+  source_uri = URI.parse(href.gsub('&amp;', '&'))
+  raise 'Installed source anchor is not pinned to the original generation' unless source_uri.path == '/source' &&
+    URI.decode_www_form(source_uri.query).to_h['generation'] == call_reader.generation && source_uri.fragment == 'L3'
+  File.write(call_path, call_source.sub('self.render', 'self.changed'))
+  Thistle.capture(root: app_root, output: store)
+  latest_reader = Thistle::Reader.new(store)
+  raise 'Second capture did not create a new generation' if latest_reader.generation == call_reader.generation
+  pinned_status, _, pinned_body = app.call(env.merge('PATH_INFO' => source_uri.path, 'QUERY_STRING' => source_uri.query))
+  pinned_html = pinned_body.each.to_a.join
+  raise 'Pinned installed Source lost the original anchor' unless pinned_status == 200 && pinned_html.include?('id="L3"') && pinned_html.include?(call_reader.generation)
+  raise 'Pinned installed Source bytes changed' unless call_reader.source(call_fact.fetch('id')).fetch('content') == call_source
+  raise 'Pinned installed Check failed' unless call_reader.check.fetch('integrity') == 'verified'
+
   native = $LOADED_FEATURES.find { |path| path.match?(%r{/thistle/thistle_native\.(so|bundle|dll)\z}) }
   raise 'Installed native engine was not loaded' unless native && File.realpath(native).start_with?(gem_home + File::SEPARATOR)
   raise 'Woods source was loaded' if $LOADED_FEATURES.any? { |path| path.match?(%r{/(woods|woods_map)/}) }
@@ -81,6 +117,8 @@ result = Dir.mktmpdir('thistle-map-installed-') do |directory|
     'woods_installed' => false, 'source_checkout_load_path' => false
   }
 ensure
+  latest_reader&.close
+  call_reader&.close
   runtime_reader&.close
   reader&.close
 end
