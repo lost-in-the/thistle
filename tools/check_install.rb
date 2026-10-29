@@ -62,10 +62,11 @@ Dir.mktmpdir("thistle-installed-", File.realpath(Dir.tmpdir)) do |worker|
       raise "Installed native extension not loaded" unless native
       native = File.realpath(native)
       raise "Native loaded outside consumer bundle" unless native.start_with?(File.realpath(Bundler.bundle_path) + File::SEPARATOR)
-      puts JSON.generate(native_sha256: Digest::SHA256.file(native).hexdigest,
+      puts JSON.generate(native_path: native, native_sha256: Digest::SHA256.file(native).hexdigest,
         installed_root: Gem.loaded_specs.fetch("thistle").full_gem_path)
     CHILD
     observed = JSON.parse(capture.call(ruby, "-S", "bundle", "exec", ruby, "-e", observe))
+    File.write(File.join(output, "native-observation.json"), JSON.pretty_generate(observed) + "\n")
     installed_root = observed.fetch("installed_root")
     installed_lib = File.join(installed_root, "lib")
     # Stream receipts to retained evidence, including output from failed children.
@@ -125,6 +126,7 @@ Dir.mktmpdir("thistle-installed-", File.realpath(Dir.tmpdir)) do |worker|
       rustc: capture.call("rustc", "--version", cwd: installed_root).strip,
       cc: capture.call("cc", "--version").lines.first.strip,
       packages: { core: Digest::SHA256.file(core).hexdigest, map: Digest::SHA256.file(map).hexdigest },
+      native_path: observed.fetch("native_path"),
       native_sha256: observed.fetch("native_sha256"),
       installed_inputs: inputs,
       model_journey: model_enabled ? "passed" : "not_applicable_to_selected_package",

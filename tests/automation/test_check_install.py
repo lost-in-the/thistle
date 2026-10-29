@@ -26,7 +26,8 @@ source, output, worker, installed_root, helper = ARGV
 ruby = RbConfig.ruby
 env = { "PATH" => ENV.fetch("PATH"), "SOURCE" => source }
 core, map = %w[core.gem map.gem].map { |name| File.join(output, name) }
-observed = { "installed_root" => installed_root, "native_sha256" => "fake-native" }
+observed = { "installed_root" => installed_root, "native_sha256" => "fake-native",
+             "native_path" => File.join(installed_root, "lib/thistle/thistle_native.bundle") }
 run = ->(*args, **options) do
   raise "Unexpected command #{args.inspect}" unless args == [ruby, "-S", "bundle", "install", "--local"]
   File.write(File.join(worker, "Gemfile.lock"), "consumer lock\n")
@@ -141,6 +142,8 @@ class InstalledContractTests(unittest.TestCase):
         self.assertFalse((self.output / "report.json").exists())
         self.assertFalse((self.worker / "cli-ran").exists())
         self.assert_locks()
+        self.assertEqual(self.read_json("native-observation.json")["native_path"],
+                         str(self.installed / "lib/thistle/thistle_native.bundle"))
 
     def test_legacy_payload_ignores_source_model_inputs_and_uses_no_arguments(self):
         self.model_inputs()
@@ -183,6 +186,7 @@ class InstalledContractTests(unittest.TestCase):
         ):
             self.assertEqual(report[key], hashlib.sha256((self.output / name).read_bytes()).hexdigest())
         self.assertEqual(report["native_sha256"], "fake-native")
+        self.assertEqual(report["native_path"], self.read_json("native-observation.json")["native_path"])
         self.assertEqual(report["packages"], {
             name: hashlib.sha256((name + ".gem").encode()).hexdigest() for name in ("core", "map")
         })
