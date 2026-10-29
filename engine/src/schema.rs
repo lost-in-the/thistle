@@ -250,6 +250,66 @@ pub fn coverage(value: &Value) -> Result<()> {
     Ok(())
 }
 
+// Diagnostic admission is separate from fact evidence. The existing manifest
+// cap still applies to the complete output; this is not extra manifest space.
+pub(crate) const MAX_DIAGNOSTIC_GROUPS: usize = 1_000;
+pub(crate) const MAX_DIAGNOSTIC_BYTES: usize = MAX_MANIFEST;
+// Covers the largest encoded {groups, occurrences} summary, including u64::MAX.
+// Reserved even when a caller only emits individual records, so downstream
+// summaries cannot turn an admitted array into an over-budget diagnostic output.
+pub(crate) const DIAGNOSTIC_SUMMARY_BYTES: usize = 64;
+
+/// Old records have one occurrence. Explicit counts must be exact positive u64s.
+pub(crate) fn diagnostic_occurrences(record: &Value) -> Result<u64> {
+    match record.get("occurrences") {
+        None => Ok(1),
+        Some(count) => count.as_u64().filter(|n| *n > 0)
+            .ok_or_else(|| CoreError::input("Diagnostic occurrences must be a positive integer")),
+    }
+}
+
+/// Count encoded bytes without allocating another diagnostic payload. Value
+/// serialization has no fallible custom serializer; refusal here is byte budget
+/// or checked accounting overflow. Escapes and UTF-8 use the real JSON encoder.
+pub(crate) fn diagnostic_bytes<T: serde::Serialize + ?Sized>(value: &T) -> Result<usize> {
+    struct Size(usize);
+    impl std::io::Write for Size {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            self.0 = self.0.checked_add(bytes.len())
+                .filter(|n| *n <= MAX_DIAGNOSTIC_BYTES)
+                .ok_or_else(|| std::io::Error::other("Diagnostic byte budget exceeded"))?;
+            Ok(bytes.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> { Ok(()) }
+    }
+    let mut size = Size(0);
+    serde_json::to_writer(&mut size, value)
+        .map_err(|_| CoreError::limit("Encoded diagnostics exceed the 8 MiB budget"))?;
+    Ok(size.0)
+}
+
+pub(crate) fn diagnostic_budget(bytes: usize) -> Result<()> {
+    if bytes.checked_add(DIAGNOSTIC_SUMMARY_BYTES).is_none_or(|n| n > MAX_DIAGNOSTIC_BYTES) {
+        return Err(CoreError::limit("Encoded diagnostics exceed the 8 MiB budget"));
+    }
+    Ok(())
+}
+
+/// Machine-readable labels separate retained groups from total occurrences.
+/// No summary is cached in capture metadata: Ruby can append runtime records.
+pub(crate) fn diagnostic_counts(records: &[Value]) -> Result<Value> {
+    if records.len() > MAX_DIAGNOSTIC_GROUPS {
+        return Err(CoreError::limit("Diagnostics exceed 1000 retained groups"));
+    }
+    let mut occurrences = 0u64;
+    for record in records {
+        occurrences = occurrences.checked_add(diagnostic_occurrences(record)?)
+            .ok_or_else(|| CoreError::limit("Diagnostic occurrence count overflow"))?;
+    }
+    diagnostic_budget(diagnostic_bytes(records)?)?;
+    Ok(serde_json::json!({"groups": records.len(), "occurrences": occurrences}))
+}
+
 pub fn capture(value: &Value) -> Result<()> {
     depth(value)?;
     hash(string(value, "root_id")?)?;
@@ -257,7 +317,7 @@ pub fn capture(value: &Value) -> Result<()> {
     files(array(value, "files")?, true)?;
     facts(array(value, "facts")?, array(value, "files")?, capture_version(value)?)?;
     coverage(value)?;
-    array(value, "diagnostics")?;
+    diagnostic_counts(array(value, "diagnostics")?)?;
     Ok(())
 }
 

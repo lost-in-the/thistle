@@ -9,6 +9,36 @@ require 'fileutils'
 require 'thistle'
 
 class ThistleModelsTest < Minitest::Test
+  def test_model_request_does_not_retransmit_existing_source_or_facts
+    require 'action_dispatch'
+    require 'action_dispatch/routing/route_set'
+    Dir.mktmpdir('thistle-model-transport-') do |directory|
+      # Escaping makes this harmless comment large on the wire. A scaled bridge
+      # cap catches retransmission without a 128 MiB fixture or timing test.
+      content = '#' + ('"\\' * 16_000) + "\n"
+      File.write(File.join(directory, 'escaped.rb'), content)
+      routes = ActionDispatch::Routing::RouteSet.new
+      routes.draw {}
+      app = Struct.new(:routes).new(routes)
+      original = Thistle::Native.method(:request_raw)
+      requests = []
+      Thistle::Native.define_singleton_method(:request_raw) do |encoded|
+        raise 'Scaled bridge request budget exceeded' if encoded.bytesize > 8192
+        requests << JSON.parse(encoded)
+        original.call(encoded)
+      end
+      capture = Thistle::Capture.new(root: directory, rails: app).call
+      assert_equal content, capture.fetch('files').first.fetch('content')
+      model_request = requests.find { |request| request['op'] == 'model_batch' }
+      refute_nil model_request
+      assert_equal %w[context observation op], model_request.keys.sort
+      assert_equal capture.fetch('facts').count { |fact| fact['kind'] != 'rails_model' }, model_request.dig('context', 'facts')
+      refute JSON.generate(model_request).include?('escaped.rb')
+    ensure
+      Thistle::Native.define_singleton_method(:request_raw, original) if original
+    end
+  end
+
   def test_booted_schema_known_answers_survive_publish_and_fresh_reader
     Dir.mktmpdir('thistle-models-') do |directory|
       root = File.join(directory, 'source')
@@ -92,7 +122,7 @@ class ThistleModelsTest < Minitest::Test
       capture = Thistle::Capture.new(root: root, limits: { max_links: 1 }).call
       original = Thistle::Store.new(store).publish(capture)
       observation = JSON.parse(File.read(File.join(__dir__, '../engine/tests/fixtures/models.json')))
-      assert_raises(Thistle::LimitExceeded) { Thistle::Native.call('op' => 'append_models', 'capture' => capture, 'observation' => observation) }
+      assert_raises(Thistle::LimitExceeded) { Thistle::Native.call('op' => 'model_batch', 'context' => { 'limits' => capture.fetch('producer').fetch('effective_limits').slice('max_facts', 'max_links', 'max_entries', 'max_diagnostics'), 'facts' => 0, 'links' => 0, 'diagnostics' => 0, 'fact_bytes' => 2 }, 'observation' => observation) }
       reader = Thistle::Reader.new(store)
       assert_equal original['generation'], reader.generation
     ensure

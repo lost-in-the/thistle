@@ -319,8 +319,10 @@ and would lose through/STI/runtime distinctions; loading targets or evaluating
 scopes/default procs would invent execution evidence. Neither is part of this
 slice. Names remain labels and runtime/source coherence remains unknown.
 
-The observation is a bounded batch, moved through request-owned native values;
-full JSON transfer and combined capture validation remain real costs. Pool
+The observation is a bounded native-normalized batch. Its request contains only
+model observations and current admission counters, never existing source/facts;
+Ruby appends the engine's returned records. Actual full-capture validation stays
+at native publication, whose existing transport/storage limits still apply. Pool
 connection failures are remembered by identity within this capture only,
 including lazy primary-key reads; unrelated table errors do not poison a pool.
 No persistent application cache, new Cargo dependency or runtime gem dependency

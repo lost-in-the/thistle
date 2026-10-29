@@ -41,10 +41,16 @@ class-name labels may be Rails-inflected names. Through associations retain thei
 through label and only an explicit `class_name` target; asking Rails to infer the
 through target can load another class. Polymorphic targets remain unknown.
 
-Rust's `model::append(capture: Value, observation: &Value) -> Result<Value>`
-validates the input, emits `rails_model` runtime facts under `attributes.model`
+Rust's `model::batch(context: &Value, observation: &Value) -> Result<Value>`
+validates observations, emits `rails_model` runtime facts under `attributes.model`
 version 1, assigns ordinal-based snapshot-local identities, emits separate
-unresolved labelled links, and admits the combined static/route/model facts.
+unresolved labelled links, and checks combined admission against the facade's
+current fact/link/diagnostic counts and encoded-fact-byte count. The request
+contains no existing source files or facts. Ruby appends only the returned
+facts/coverage and observer provenance; normalization remains in Rust. Context
+counters are caller-supplied admission inputs, not an authentication claim:
+native publication independently validates the complete actual capture before
+filesystem changes. Mutating a returned Ruby capture never waives that check.
 The identity is only meaningful with the generation; it does not identify an
 object across reloads, processes or captures. Same-name loaded classes remain
 separate ordinal facts. Model facts have **null path/location**, explicit source
@@ -239,3 +245,35 @@ test-command duration, not capture/job performance evidence. The worker verified
 home-backed private child temp, read-only input and the existing two-CPU,
 2 GiB/no-swap, 256-PID, 600/630-second and 8 MiB-output bounds. No retry occurred.
 The changed installed producer/consumer and both hosted cohorts remain pending.
+
+## Model-only request boundary correction
+
+Codex finding 4415797982 identified an extra full-capture JSON transfer in the
+original append dispatch. Raw source and encoded facts have separate budgets;
+JSON escaping could make that extra request exceed the unchanged 128 MiB bridge
+limit. The corrected dispatch accepts only the bounded model observation and
+small admission context, returns only normalized model facts/coverage/provenance,
+and never receives source contents or existing facts. No native capture handles,
+registry, migration or raised cap is introduced. Static capture still precedes
+Rails observation. Existing publication's full-capture transport and actual
+snapshot/reader limits remain; this is not a full-app capacity claim.
+
+The source/fact payload can therefore grow without increasing the model request;
+only the bounded model observation and fixed counters contribute to it. A scaled
+8 KiB test bridge budget with a harmless escaped comment catches the original
+transfer without a 128 MiB CI allocation. Native tests cover malformed/overflowed
+or exhausted admission counters and combined limits. Real fixture publication,
+fresh Reader, schema-2 and diagnostic composition checks remain required on the
+current main base. Earlier 955e930 installed success retains its original bytes;
+it does not establish the corrected candidate's acceptance.
+
+The current-base model-only correction passed 47 native tests. The prior Ruby
+facade fails the scaled transport regression with its expected request-budget
+error; the corrected facade passes. The first complete Ruby invocation stopped
+at a missing local SQLite dependency (42 other cases passed; Map was not run).
+A finite continuation installed retained offline sqlite3 2.10.2, reused the same
+compiled native without another native build/run, and passed Core 43/383 and
+Map 41/755 with zero failures/errors/skips. Test-local method-redefinition
+warnings are retained; this is not warning-free execution. Both invocations
+kept the same copied runtime source and resource bounds. Source/installed
+acceptance for the changed signed candidate remains separate.

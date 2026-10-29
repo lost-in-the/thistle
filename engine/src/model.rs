@@ -4,11 +4,11 @@ use serde_json::{json, Value};
 
 const SCOPE: &str = "Already loaded ActiveRecord::Base descendants in the supplied application's process; no eager load, reload, target resolution or record execution";
 
-/// Append one observation batch to the existing static/route capture, atomically.
-/// Consume the request-owned capture without cloning its files or existing facts.
-/// The caller publishes only a successful result; a refused request is discarded.
-pub fn append(capture: Value, observation: &Value) -> Result<Value> {
-    schema::capture(&capture)?;
+/// Normalize and admit only new model observations. Existing source/facts never
+/// cross this request. The facade supplies current admission counters; native
+/// publication independently validates the complete actual capture before I/O.
+pub fn batch(context: &Value, observation: &Value) -> Result<Value> {
+    schema::model_object(context, &["limits", "facts", "links", "diagnostics", "fact_bytes"])?;
     schema::depth(observation)?;
     schema::model_object(observation, &["version", "active_record_version", "status", "models"])?;
     if observation["version"] != 1 || !matches!(observation["status"].as_str(), Some("observed" | "unavailable")) {
@@ -22,7 +22,8 @@ pub fn append(capture: Value, observation: &Value) -> Result<Value> {
     if observation["status"] == "observed" && observation["active_record_version"] != "8.1.4" {
         return Err(CoreError::input("Unsupported Active Record observation version"));
     }
-    let limits = &capture["producer"]["effective_limits"];
+    let limits = &context["limits"];
+    schema::model_object(limits, &["max_facts", "max_links", "max_entries", "max_diagnostics"])?;
     let limit = |key, ceiling| -> Result<usize> {
         let value = limits[key].as_u64().filter(|n| *n > 0 && *n <= ceiling)
             .ok_or_else(|| CoreError::input(format!("Invalid combined capture limit {key}")))?;
@@ -32,18 +33,24 @@ pub fn append(capture: Value, observation: &Value) -> Result<Value> {
     let max_links = limit("max_links", 500_000)?;
     let max_entries = limit("max_entries", 100_000)?;
     let max_diagnostics = limit("max_diagnostics", 1_000)?;
-    let original = schema::array(&capture, "facts")?;
-    if original.len().saturating_add(models.len()) > max_facts || schema::array(&capture, "diagnostics")?.len() > max_diagnostics {
-        return Err(CoreError::limit("Combined model capture exceeds max_facts or max_diagnostics"));
+    let used = |key: &str, ceiling: usize| -> Result<usize> {
+        context[key].as_u64().filter(|n| *n <= ceiling as u64).map(|n| n as usize)
+            .ok_or_else(|| CoreError::limit(format!("Invalid or exhausted model admission counter {key}")))
+    };
+    let original_facts = used("facts", max_facts)?;
+    if original_facts.checked_add(models.len()).is_none_or(|n| n > max_facts) {
+        return Err(CoreError::limit("Combined model capture exceeds max_facts"));
     }
-    let mut links: usize = original.iter().map(|f| f["links"].as_array().map_or(0, Vec::len)).sum();
-    let mut bytes = schema::canonical(&capture["facts"])?.len();
+    used("diagnostics", max_diagnostics)?;
+    let mut links = used("links", max_links)?;
+    let mut bytes = used("fact_bytes", schema::MAX_FACTS_BYTES)?;
+    if bytes < 2 { return Err(CoreError::input("Fact array byte count must include its brackets")); }
     let mut entries = 0usize;
     // Refuse an oversized observation before building facts.
     if schema::canonical(observation)?.len() > schema::MAX_FACTS_BYTES {
         return Err(CoreError::limit("Model observation exceeds 64 MiB"));
     }
-    let mut result = capture;
+    let mut facts = Vec::with_capacity(models.len());
     for (ordinal, observed) in models.iter().enumerate() {
         schema::model_observation(observed)?;
         entries = entries.saturating_add(observed["primary_key"].as_array().map_or(0, Vec::len));
@@ -70,19 +77,18 @@ pub fn append(capture: Value, observation: &Value) -> Result<Value> {
         bytes = bytes.saturating_add(schema::canonical(&fact)?.len() + 1);
         if links > max_links { return Err(CoreError::limit("Combined capture exceeds max_links")); }
         if bytes > schema::MAX_FACTS_BYTES { return Err(CoreError::limit("Combined capture exceeds 64 MiB fact budget")); }
-        result["facts"].as_array_mut().unwrap().push(fact);
+        facts.push(fact);
     }
     if links > max_links || bytes > schema::MAX_FACTS_BYTES { return Err(CoreError::limit("Combined capture exceeds evidence budget")); }
-    result["producer"]["model_observer"] = json!({"version":1,"active_record_version":observation["active_record_version"],"scope":SCOPE});
-    let coverage = result["coverage"].as_array_mut().unwrap();
-    coverage.retain(|c| !matches!(c["family"].as_str(), Some("rails_models" | "rails_model_effects")));
+    schema::facts(&facts, &[], schema::VERSION)?;
+    let mut coverage = Vec::new();
     coverage.push(json!({"family":"rails_models","status":if observation["status"] == "observed" {"partial"} else {"unavailable"},
         "scope":SCOPE,"reason":"Per-model family status distinguishes observed empty from unavailable. Database column defaults only; Ruby attribute defaults and source/runtime coherence unknown. Names are labels, not runtime dispatch."}));
     coverage.push(json!({"family":"rails_model_effects","status":"unavailable",
         "scope":"Callbacks, scopes, predicates, custom attribute defaults, indexes, concerns and all-adapter behavior",
         "reason":"Not executed or inferred by this observer"}));
-    schema::capture(&result)?;
-    Ok(result)
+    Ok(json!({"facts":facts, "coverage":coverage,
+        "model_observer":{"version":1,"active_record_version":observation["active_record_version"],"scope":SCOPE}}))
 }
 
 pub(crate) fn model_links(data: &Value) -> Vec<Value> {
@@ -104,6 +110,20 @@ pub(crate) fn model_links(data: &Value) -> Vec<Value> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn append(mut capture: Value, observation: &Value) -> Result<Value> {
+        schema::capture(&capture)?;
+        let context = json!({"limits":capture["producer"]["effective_limits"],
+            "facts":capture["facts"].as_array().unwrap().len(),
+            "links":capture["facts"].as_array().unwrap().iter().map(|f| f["links"].as_array().unwrap().len()).sum::<usize>(),
+            "diagnostics":capture["diagnostics"].as_array().unwrap().len(),
+            "fact_bytes":schema::canonical(&capture["facts"])?.len()});
+        let mut added = batch(&context, observation)?;
+        capture["facts"].as_array_mut().unwrap().append(added["facts"].as_array_mut().unwrap());
+        capture["coverage"].as_array_mut().unwrap().append(added["coverage"].as_array_mut().unwrap());
+        capture["producer"]["model_observer"] = added["model_observer"].take();
+        schema::capture(&capture)?;
+        Ok(capture)
+    }
     fn observation() -> Value { serde_json::from_str(include_str!("../tests/fixtures/models.json")).unwrap() }
     fn capture() -> Value {
         json!({"root_id":"a".repeat(64),"files":[],"facts":[],"diagnostics":[],
@@ -144,14 +164,19 @@ mod tests {
         assert!(schema::capture(&result).is_err());
     }
     #[test]
-    fn reuses_owned_source_buffers_instead_of_cloning_the_capture() {
-        let content = "x".repeat(4096);
-        let mut captured = capture();
-        captured["files"] = json!([{"path":"fixture.rb", "bytes":content.len(),
-            "sha256":schema::digest(content.as_bytes()),"encoding":"UTF-8","content":content}]);
-        let before = captured["files"][0]["content"].as_str().unwrap().as_ptr();
-        let result = append(captured, &observation()).unwrap();
-        assert_eq!(before, result["files"][0]["content"].as_str().unwrap().as_ptr());
+    fn admission_context_refuses_overflow_and_impossible_used_budgets() {
+        let valid = json!({"limits":capture()["producer"]["effective_limits"],
+            "facts":0,"links":0,"diagnostics":0,"fact_bytes":2});
+        let result = batch(&valid, &observation()).unwrap();
+        assert!(result.get("files").is_none());
+        for (key, value) in [("facts",json!(u64::MAX)), ("links",json!(101)),
+            ("diagnostics",json!(11)), ("fact_bytes",json!(schema::MAX_FACTS_BYTES)),
+            ("facts",json!(-1)), ("fact_bytes",json!(1))] {
+            let mut context = valid.clone(); context[key] = value;
+            assert!(batch(&context, &observation()).is_err(), "{key}");
+        }
+        let mut extra = valid.clone(); extra["files"] = json!([]);
+        assert!(batch(&extra, &observation()).is_err());
     }
     #[test]
     fn unavailable_is_not_empty_success_and_unknown_versions_are_refused() {

@@ -61,7 +61,17 @@ module Thistle
           limits: effective.merge(max_facts: effective[:max_facts] - result.fetch("facts").length),
           evidence_budget: MAX_EVIDENCE_BYTES - JSON.generate(result.fetch("facts")).bytesize
         ).call
-        result = Native.call("op" => "append_models", "capture" => result, "observation" => observations)
+        added = Native.call("op" => "model_batch", "observation" => observations, "context" => {
+          "limits" => effective.slice(:max_facts, :max_links, :max_entries, :max_diagnostics),
+          "facts" => result.fetch("facts").length,
+          "links" => result.fetch("facts").sum { |fact| fact.fetch("links").length },
+          "diagnostics" => result.fetch("diagnostics").length,
+          "fact_bytes" => JSON.generate(result.fetch("facts")).bytesize
+        })
+        result.fetch("facts").concat(added.fetch("facts"))
+        result["coverage"].reject! { |entry| %w[rails_models rails_model_effects].include?(entry["family"]) }
+        result.fetch("coverage").concat(added.fetch("coverage"))
+        result.fetch("producer")["model_observer"] = added.fetch("model_observer")
       end
       raise LimitError, "Capture exceeds max_facts" if result["facts"].length > effective[:max_facts]
       raise LimitError, "Capture exceeds max_diagnostics" if result["diagnostics"].length > effective[:max_diagnostics]

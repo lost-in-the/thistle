@@ -23,7 +23,7 @@ fn reader(request: &Value) -> Result<Arc<store::Reader>> {
     registry.readers.get(&handle).cloned().ok_or_else(|| CoreError::new("closed_reader", "Reader is closed or unknown"))
 }
 
-pub fn dispatch(request: &mut Value) -> Result<Value> {
+pub fn dispatch(request: &Value) -> Result<Value> {
     for field in ["root", "path"] {
         if let Some(value) = request.get(field) {
             let value = value.as_str().ok_or_else(|| CoreError::input("Filesystem path must be a string"))?;
@@ -44,10 +44,7 @@ pub fn dispatch(request: &mut Value) -> Result<Value> {
             store::publish(Path::new(schema::string(request, "path")?), &captured)
         }
         "publish" => store::publish(Path::new(schema::string(request, "path")?), &request["capture"]),
-        "append_models" => {
-            let observation = request["observation"].take();
-            model::append(request["capture"].take(), &observation)
-        }
+        "model_batch" => model::batch(&request["context"], &request["observation"]),
         "open" => {
             let requested = match request.get("generation") { None | Some(Value::Null) => None,
                 Some(value) => Some(value.as_str().ok_or_else(|| CoreError::input("Generation must be a string"))?) };
@@ -86,9 +83,9 @@ pub fn dispatch(request: &mut Value) -> Result<Value> {
 fn envelope(bytes: &[u8]) -> Value {
     let outcome = std::panic::catch_unwind(|| -> Result<Value> {
         if bytes.len() > schema::MAX_REQUEST { return Err(CoreError::limit("Native request exceeds 128 MiB")); }
-        let mut request: Value = serde_json::from_slice(bytes)?;
+        let request: Value = serde_json::from_slice(bytes)?;
         schema::depth(&request)?;
-        dispatch(&mut request)
+        dispatch(&request)
     });
     match outcome {
         Ok(Ok(value)) => json!({"ok":true,"result":value}),
