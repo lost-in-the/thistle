@@ -10,6 +10,10 @@ for explicit Rails introspection. This is an early implementation
 milestone of the [reviewed product plan](https://chatgpt.com/space/page_83d1d4a1a4ec81918d7310c21061c4e4).
 It is not yet a launch replacement for Woods and makes no comparative speed claim.
 
+The [mission](docs/MISSION.md) defines the governing product goals. Contributors
+and agents should use the [workflow](docs/development/agent-workflow.md) and
+[portable configuration guide](docs/development/agent-configuration.md).
+
 The engine handles static capture using Prism's established parser, validates
 fact and source identities, publishes immutable generations, and answers queries.
 It does not execute the inspected Ruby files. The Ruby bridge exchanges bounded
