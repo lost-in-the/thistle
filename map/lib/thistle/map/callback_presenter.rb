@@ -12,6 +12,7 @@ module Thistle
     class CallbackPresenter
       MAX_BYTES = 262_144
       MAX_ROWS = 200
+      MAX_SOURCE_LINES = 10_000 # Match the destination File Source view.
       MAX_SOURCE_FILES = 16
       MAX_SOURCE_BYTES = 1_048_576
 
@@ -76,7 +77,7 @@ module Thistle
         when 'opaque' then 'Opaque reference; not evaluated or formatted'
         else 'Reference unavailable; not evaluated'
         end
-        result = h(text)
+        result = +h(text)
         hint = value['source']
         return result + ' · Source unavailable' unless hint
         result << " · location hint #{h(hint.fetch('path'))}:#{h(hint.fetch('line'))}"
@@ -103,7 +104,10 @@ module Thistle
           saved = @reader.source_file(path)
           if saved['generation'] == @generation && saved.dig('file', 'path') == path && saved.dig('file', 'sha256') == file['sha256']
             content = saved.fetch('content')
-            @sources[path] = content.count("\n") + 1 if content.bytesize == file['bytes'] && Digest::SHA256.hexdigest(content) == file['sha256']
+            newlines = content.count("\n")
+            if content.bytesize == file['bytes'] && Digest::SHA256.hexdigest(content) == file['sha256'] && newlines <= MAX_SOURCE_LINES
+              @sources[path] = newlines + (content.end_with?("\n") ? 0 : 1)
+            end
           end
         end
         @sources[path] && line <= @sources[path]

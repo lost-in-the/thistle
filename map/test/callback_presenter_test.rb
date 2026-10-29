@@ -8,8 +8,8 @@ class ThistleCallbackPresenterTest < Minitest::Test
   GENERATION = 'a' * 64
   class SavedReader
     attr_reader :generation, :manifest, :reads
-    def initialize(generation = GENERATION)
-      @generation, @content, @reads = generation, "# <script>fixture</script>\n", []
+    def initialize(generation = GENERATION, content: "# <script>fixture</script>\n")
+      @generation, @content, @reads = generation, content, []
       @manifest = { 'files' => [{ 'path' => 'records.rb', 'bytes' => @content.bytesize, 'sha256' => Digest::SHA256.hexdigest(@content) }] }
     end
     def source_file(path)
@@ -55,6 +55,40 @@ class ThistleCallbackPresenterTest < Minitest::Test
     data = fact
     data['attributes']['callbacks']['save']['entries'][0]['filter']['source']['line'] = 999
     refute_includes presenter(SavedReader.new).render(data), '<a '
+  end
+
+  def test_proc_filter_and_condition_source_hints_render_with_mutable_escaped_text
+    data = fact
+    entry = data['attributes']['callbacks']['save']['entries'][0]
+    reference = { 'kind' => 'proc', 'source' => { 'path' => 'records.rb', 'line' => 1 } }
+    entry['filter'] = reference
+    entry['if'] = [reference]
+    html = presenter(SavedReader.new).render(data)
+    assert_equal 2, html.scan('Proc; body opaque and not evaluated').length
+    assert_equal 2, html.scan('Captured source (coherence unknown)').length
+    assert_includes html, "file=#{Digest::SHA256.hexdigest('records.rb')}#L1"
+  end
+
+  def test_source_links_match_rendered_lines_and_destination_display_limit
+    [
+      ["a\n", 1, true], ["a\n", 2, false], ["a", 1, true],
+      ["\n" * 10_000, 10_000, true]
+    ].each do |content, line, linked|
+      data = fact
+      data['attributes']['callbacks']['save']['entries'][0]['filter']['source']['line'] = line
+      html = presenter(SavedReader.new(content: content)).render(data)
+      assert_equal linked, html.include?('Captured source (coherence unknown)'),
+        "bytes=#{content.bytesize}, line=#{line}"
+      assert_includes html, "location hint records.rb:#{line}"
+      assert_includes html, 'outside display budget' unless linked
+    end
+  end
+
+  def test_source_link_is_absent_when_the_destination_line_budget_refuses_the_file
+    html = presenter(SavedReader.new(content: "\n" * 10_001)).render(fact)
+    refute_includes html, 'Captured source (coherence unknown)'
+    assert_includes html, 'location hint records.rb:1'
+    assert_includes html, 'outside display budget'
   end
 
   def test_empty_unavailable_partial_unknown_and_display_budget_do_not_claim_complete_evidence
