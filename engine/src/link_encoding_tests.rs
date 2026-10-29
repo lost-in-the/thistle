@@ -113,8 +113,8 @@ fn malformed_rows_and_semantic_row_inputs_refuse() {
 
 #[test]
 fn explicit_context_preserves_schema_one_opaque_exact_v2_lookalike() {
-    assert_eq!(schema::VERSION, 2); // Executable foundation does not enable schema3 stores.
-    assert!(schema::snapshot_version(&json!(3)).is_err());
+    assert_eq!(schema::VERSION, 3);
+    assert_eq!(schema::snapshot_version(&json!(3)).unwrap(), 3);
     assert_eq!(schema::capture_version(&json!({})).unwrap(), 1);
     let link = call(implicit()); // A perfectly valid compact extension remains opaque in schema 1.
     let row = projected(&link, 3);
@@ -166,7 +166,9 @@ fn actual_serializer_count_agrees_for_mixed_facts_escapes_unicode_and_exact_boun
         let projected = WireFacts::new(&refs, version);
         let bytes = serde_json::to_vec(&projected).unwrap();
         assert_eq!(schema::encoded_bytes(&projected, bytes.len()).unwrap(), bytes.len());
+        assert_eq!(schema::encoded_vec(&projected, bytes.len()).unwrap(), bytes);
         assert!(schema::encoded_bytes(&projected, bytes.len() - 1).is_err());
+        assert!(schema::encoded_vec(&projected, bytes.len() - 1).is_err());
         let stored: Vec<Value> = serde_json::from_slice(&bytes).unwrap();
         for (original, stored) in facts.iter().zip(&stored) {
             assert_eq!(materialize_fact(stored, version).unwrap(), *original);
@@ -190,4 +192,37 @@ fn requested_fact_expansion_leaves_rows_retained_and_unrelated_facts_unvisited()
     assert_eq!(materialize_links(&retained[0], 3).unwrap(), semantic["links"]);
     assert!(retained[0]["links"][0].is_array());
     assert!(materialize_fact(&retained[1], 3).is_err());
+}
+
+#[test]
+fn observation_context_is_explicit_untrusted_and_counts_the_selected_projection() {
+    let context = json!({"limits":{"max_facts":100,"max_links":100,"max_entries":100,"max_diagnostics":10},
+        "facts":0,"links":0,"diagnostics":0,"fact_bytes":2});
+    let semantic = fact(json!([call(implicit())]));
+    for version in [None, Some(1), Some(2), Some(3)] {
+        let mut selected = context.clone();
+        if let Some(version) = version { selected["schema_version"] = json!(version); }
+        let mut admission = schema::ObservationAdmission::new(&selected).unwrap();
+        admission.admit(&semantic, 0).unwrap();
+        let bytes = serde_json::to_vec(&WireFact::new(&semantic, version.unwrap_or(1)).unwrap()).unwrap().len();
+        assert_eq!(admission.appended()["fact_bytes"], bytes + 1);
+    }
+    let mut runtime = fact(json!([])); runtime["evidence"] = json!("runtime");
+    let mut legacy = schema::ObservationAdmission::new(&context).unwrap();
+    legacy.admit(&runtime, 7).unwrap();
+    for version in [1,2,3] {
+        let mut selected = context.clone(); selected["schema_version"] = json!(version);
+        let mut admission = schema::ObservationAdmission::new(&selected).unwrap();
+        admission.admit(&runtime, 7).unwrap();
+        assert_eq!(admission.appended(), legacy.appended());
+    }
+    for selector in [Value::Null,json!(false),json!(3.0),json!("3"),json!(0),json!(4)] {
+        let mut bad = context.clone(); bad["schema_version"] = selector;
+        assert!(schema::ObservationAdmission::new(&bad).is_err());
+    }
+    for version in [None, Some(3)] {
+        let mut bad = context.clone(); bad["unknown"] = json!(0);
+        if let Some(version) = version { bad["schema_version"] = json!(version); }
+        assert!(schema::ObservationAdmission::new(&bad).is_err());
+    }
 }

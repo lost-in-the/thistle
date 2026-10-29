@@ -149,8 +149,9 @@ fn capture_inner(root: &Path, effective: HashMap<String, usize>) -> Result<Value
         "root_id": schema::digest(canonical_text.as_bytes()),
         "files": capture.files, "facts": capture.facts,
         "coverage": coverage, "diagnostics": capture.diagnostics,
+        "evidence_accounting": {"schema_version":schema::VERSION,"fact_bytes_upper_bound":capture.evidence_bytes},
         "producer": { "name": "thistle", "engine": "rust", "core_version": env!("CARGO_PKG_VERSION"), "capture_schema": 1,
-            "call_target_schema":2, "prism_version": PRISM_VERSION, "ruby_syntax_version": RUBY_SYNTAX_VERSION, "parser_policy": PARSER_POLICY, "parser_stack_bytes":PARSER_STACK_BYTES, "capture_concurrency":1,
+            "call_target_schema":2, "link_encoding_schema":1, "prism_version": PRISM_VERSION, "ruby_syntax_version": RUBY_SYNTAX_VERSION, "parser_policy": PARSER_POLICY, "parser_stack_bytes":PARSER_STACK_BYTES, "capture_concurrency":1,
             "effective_limits": capture.limits, "visited_nodes": capture.nodes }
     }))
 }
@@ -434,16 +435,13 @@ impl Capture {
             if let Some(&index) = self.call_keys.get(&key) {
                 let old = &self.facts[current]["links"][index];
                 if schema::call_metadata(&old["attributes"]["thistle_call"], schema::VERSION)?.expect("captured call").location.start_byte > start as u64 {
-                    let old_len = serde_json::to_vec(old)?.len();
-                    let new_len = serde_json::to_vec(&link)?.len();
-                    if new_len > old_len { self.charge_evidence(new_len - old_len)?; }
-                    else { self.evidence_bytes -= old_len - new_len; }
-                    self.facts[current]["links"][index] = link;
+                    self.replace_link(current, index, link)?;
                 }
             } else {
-                self.links += 1;
-                if self.links > self.limit("max_links") { return Err(CoreError::limit("Capture exceeds max_links")); }
-                self.charge_evidence(serde_json::to_vec(&link)?.len() + 1)?;
+                let links = self.links.checked_add(1).filter(|n| *n <= self.limit("max_links"))
+                    .ok_or_else(|| CoreError::limit("Capture exceeds max_links"))?;
+                self.charge_link(&link)?;
+                self.links = links;
                 let links = self.facts[current]["links"].as_array_mut().expect("fact links array");
                 let index = links.len();
                 links.push(link);
@@ -462,7 +460,8 @@ impl Capture {
             "id":schema::digest(&identity), "kind":kind, "name":name, "path":path,
             "location":position, "evidence":"static", "attributes":attributes, "links":[]
         });
-        self.charge_evidence(serde_json::to_vec(&fact)?.len() + 1)?;
+        self.charge_evidence(schema::encoded_bytes(&crate::link_encoding::WireFact::new(&fact, schema::VERSION)?, schema::MAX_FACTS_BYTES)?
+            .checked_add(1).ok_or_else(|| CoreError::limit("Capture evidence size overflow"))?)?;
         self.facts.push(fact);
         Ok(index)
     }
@@ -477,21 +476,43 @@ impl Capture {
             return self.diagnostic("link_expression_too_large", "A relationship expression exceeded 1024 bytes and is unavailable", path);
         }
         let target = text(target);
-        if !self.link_keys.insert((current, relation.to_owned(), target.clone())) { return Ok(()); }
-        self.links += 1;
-        if self.links > self.limit("max_links") { return Err(CoreError::limit("Capture exceeds max_links")); }
+        let key = (current, relation.to_owned(), target.clone());
+        if self.link_keys.contains(&key) { return Ok(()); }
+        let links = self.links.checked_add(1).filter(|n| *n <= self.limit("max_links"))
+            .ok_or_else(|| CoreError::limit("Capture exceeds max_links"))?;
         let link = json!({"relation":relation,"target":target,"resolution":"unresolved"});
-        self.charge_evidence(serde_json::to_vec(&link)?.len() + 1)?;
+        self.charge_link(&link)?;
+        self.links = links;
+        self.link_keys.insert(key);
         self.facts[current]["links"].as_array_mut().expect("fact links array").push(link);
         Ok(())
     }
 
+    // Group/representative selection belongs to collect_call. This only adjusts
+    // the shared projected charge, refusing before either bytes or link mutate.
+    fn replace_link(&mut self, current: usize, index: usize, link: Value) -> Result<()> {
+        let old = &self.facts[current]["links"][index];
+        let old_len = schema::encoded_bytes(&crate::link_encoding::WireLink::new(old, schema::VERSION, "static")?, schema::MAX_FACTS_BYTES)?;
+        let new_len = schema::encoded_bytes(&crate::link_encoding::WireLink::new(&link, schema::VERSION, "static")?, schema::MAX_FACTS_BYTES)?;
+        if new_len > old_len { self.charge_evidence(new_len - old_len)?; }
+        else { self.evidence_bytes = self.evidence_bytes.checked_sub(old_len - new_len)
+            .ok_or_else(|| CoreError::limit("Capture evidence refund underflow"))?; }
+        self.facts[current]["links"][index] = link;
+        Ok(())
+    }
+
+    fn charge_link(&mut self, link: &Value) -> Result<()> {
+        let bytes = schema::encoded_bytes(&crate::link_encoding::WireLink::new(link, schema::VERSION, "static")?, schema::MAX_FACTS_BYTES)?;
+        self.charge_evidence(bytes.checked_add(1).ok_or_else(|| CoreError::limit("Capture evidence size overflow"))?)
+    }
+
     fn charge_evidence(&mut self, bytes: usize) -> Result<()> {
-        self.evidence_bytes = self.evidence_bytes.checked_add(bytes)
+        let next = self.evidence_bytes.checked_add(bytes)
             .ok_or_else(|| CoreError::limit("Capture evidence size overflow"))?;
-        if self.evidence_bytes > schema::MAX_FACTS_BYTES {
+        if next > schema::MAX_FACTS_BYTES {
             return Err(CoreError::limit("Capture fact evidence exceeds the 64 MiB payload budget"));
         }
+        self.evidence_bytes = next;
         Ok(())
     }
 
@@ -685,6 +706,15 @@ mod tests {
     // in bounded subprocesses, including calls from Ruby worker threads.
     fn capture(root: &Path, limits: &Value) -> Result<Value> { capture_inner(root, effective_limits(limits)?) }
 
+    fn empty_capture() -> Capture {
+        Capture {
+            limits: effective_limits(&json!({})).unwrap(),
+            files: vec![], facts: vec![], diagnostics: vec![], diagnostic_bytes: 2, diagnostic_occurrences: 0,
+            entries: 0, total_bytes: 0, nodes: 0, links: 0, evidence_bytes: 2,
+            link_keys: HashSet::new(), call_keys: HashMap::new(), inventory_partial: false, declarations_partial: false,
+        }
+    }
+
     #[test]
     fn compact_is_charged_before_admission_and_earliest_grouped_site_replaces() {
         let source = b"self.call; self.call";
@@ -694,17 +724,12 @@ mod tests {
         let calls: Vec<_> = statements.body().iter().collect();
         let first = calls[0].as_call_node().unwrap();
         let last = calls[1].as_call_node().unwrap();
-        let mut capture = Capture {
-            limits: effective_limits(&json!({})).unwrap(),
-            files: vec![], facts: vec![], diagnostics: vec![], diagnostic_bytes: 2, diagnostic_occurrences: 0,
-            entries: 0, total_bytes: 0, nodes: 0, links: 0, evidence_bytes: 2,
-            link_keys: HashSet::new(), call_keys: HashMap::new(), inventory_partial: false, declarations_partial: false,
-        };
+        let mut capture = empty_capture();
         capture.add_fact("method", "run", "a.rb", Value::Null, json!({})).unwrap();
         let scope = Scope { owner: "run".into(), namespace: None, singleton: false, current: Some(0), dynamic: false };
         let lines = LineIndex::new(source);
         capture.collect_call(&last, &scope, "a.rb", &lines).unwrap();
-        let later_bytes = serde_json::to_vec(&capture.facts[0]["links"][0]).unwrap().len();
+        let later_bytes = schema::encoded_bytes(&crate::link_encoding::WireLink::new(&capture.facts[0]["links"][0], schema::VERSION, "static").unwrap(), schema::MAX_FACTS_BYTES).unwrap();
         capture.facts[0]["links"] = json!([]); capture.call_keys.clear(); capture.links = 0;
         capture.evidence_bytes = schema::MAX_FACTS_BYTES - later_bytes - 1;
         capture.collect_call(&last, &scope, "a.rb", &lines).unwrap();
@@ -713,11 +738,73 @@ mod tests {
         let earliest = &capture.facts[0]["links"][0];
         assert_eq!(schema::call_metadata(&earliest["attributes"]["thistle_call"], 2).unwrap().unwrap().location.start_byte, 0);
         assert_eq!(capture.links, 1);
-        let early_bytes = serde_json::to_vec(earliest).unwrap().len();
+        let early_bytes = schema::encoded_bytes(&crate::link_encoding::WireLink::new(earliest, schema::VERSION, "static").unwrap(), schema::MAX_FACTS_BYTES).unwrap();
         assert_eq!(capture.evidence_bytes, schema::MAX_FACTS_BYTES - later_bytes + early_bytes);
         capture.collect_call(&last, &scope, "a.rb", &lines).unwrap();
         assert_eq!(capture.evidence_bytes, schema::MAX_FACTS_BYTES - later_bytes + early_bytes);
         assert!(capture.charge_evidence(later_bytes - early_bytes + 1).is_err());
+    }
+
+    #[test]
+    fn projected_replacement_and_append_refuse_before_mutating_capture_state() {
+        let mut capture = empty_capture();
+        capture.add_fact("method", "run", "a.rb", Value::Null, json!({})).unwrap();
+        let old = json!({"relation":"calls","target":"héllo\"\\","resolution":"unresolved",
+            "attributes":{"thistle_call":{"version":2,"data":["implicit",null,false,false,[0,5,1,1],null]}}});
+        let mut bigger = old.clone();
+        bigger["attributes"]["thistle_call"]["data"][4] = json!([0,99999,1,999]);
+        let size = |value: &Value| schema::encoded_bytes(
+            &crate::link_encoding::WireLink::new(value, schema::VERSION, "static").unwrap(), schema::MAX_FACTS_BYTES).unwrap();
+        let delta = size(&bigger) - size(&old);
+        assert!(delta > 0);
+        capture.facts[0]["links"] = json!([old]); capture.links = 1;
+        capture.evidence_bytes = schema::MAX_FACTS_BYTES;
+        assert!(capture.replace_link(0, 0, bigger.clone()).is_err());
+        assert_eq!(capture.facts[0]["links"][0], old);
+        assert_eq!(capture.evidence_bytes, schema::MAX_FACTS_BYTES);
+        capture.evidence_bytes -= delta;
+        capture.replace_link(0, 0, bigger.clone()).unwrap();
+        assert_eq!(capture.evidence_bytes, schema::MAX_FACTS_BYTES);
+        capture.replace_link(0, 0, old).unwrap();
+        assert_eq!(capture.evidence_bytes, schema::MAX_FACTS_BYTES - delta);
+
+        capture.facts[0]["links"] = json!([]); capture.links = 0;
+        let link = json!({"relation":"inherits","target":"X","resolution":"unresolved"});
+        capture.evidence_bytes = schema::MAX_FACTS_BYTES - size(&link);
+        let before = capture.evidence_bytes;
+        assert!(capture.add_link(0, "inherits", b"X", "a.rb").is_err());
+        assert_eq!(capture.evidence_bytes, before);
+        assert_eq!(capture.links, 0);
+        assert!(capture.link_keys.is_empty());
+        assert!(capture.facts[0]["links"].as_array().unwrap().is_empty());
+        capture.evidence_bytes -= 1;
+        capture.add_link(0, "inherits", b"X", "a.rb").unwrap();
+        assert_eq!(capture.evidence_bytes, schema::MAX_FACTS_BYTES);
+        assert!(capture.charge_evidence(usize::MAX).is_err());
+        assert_eq!(capture.evidence_bytes, schema::MAX_FACTS_BYTES);
+    }
+
+    #[test]
+    fn native_hint_is_conservative_for_the_same_single_published_projection() {
+        let temp = tempfile::tempdir().unwrap();
+        std::fs::write(temp.path().join("calls.rb"), "class Box; def run(x); x&.call; self.call; end; end\n").unwrap();
+        let data = capture(temp.path(), &json!({})).unwrap();
+        assert_eq!(data["schema_version"], 3);
+        assert_eq!(data["producer"]["call_target_schema"], 2);
+        assert_eq!(data["producer"]["link_encoding_schema"], 1);
+        let facts = data["facts"].as_array().unwrap();
+        let refs: Vec<_> = facts.iter().collect();
+        let bytes = serde_json::to_vec(&crate::link_encoding::WireFacts::new(&refs, 3)).unwrap();
+        let nonempty_links = facts.iter().filter(|fact| !fact["links"].as_array().unwrap().is_empty()).count();
+        assert_eq!(data["evidence_accounting"]["fact_bytes_upper_bound"], bytes.len() + 1 + nonempty_links);
+        assert!(facts.iter().all(|fact| fact["links"].as_array().unwrap().iter().all(Value::is_object)));
+        let path = temp.path().join("store");
+        let manifest = crate::store::publish(&path, &data).unwrap();
+        let saved = std::fs::read(path.join("generations").join(manifest["generation"].as_str().unwrap()).join("facts.json")).unwrap();
+        assert_eq!(saved.len(), bytes.len());
+        let reader = crate::store::Reader::open(&path, None).unwrap();
+        for fact in facts { assert_eq!(reader.fact(fact["id"].as_str().unwrap()).unwrap(), *fact); }
+        reader.check().unwrap();
     }
 
     #[test]

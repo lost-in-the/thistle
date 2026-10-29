@@ -443,7 +443,7 @@ dependencies = [
 
 [[package]]
 name = "thistle-core"
-version = "0.1.0-pre.2"
+version = "0.1.0-pre.3"
 dependencies = [
  "libc",
  "ruby-prism",

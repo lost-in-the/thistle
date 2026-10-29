@@ -118,7 +118,7 @@ fn publication_and_fresh_reader_preserve_generation_local_registered_evidence() 
     let saved = crate::store::publish(temp.path(), &capture).unwrap();
     let reader = crate::store::Reader::open(temp.path(), Some(saved["generation"].as_str().unwrap())).unwrap();
     let id = capture["facts"][0]["id"].as_str().unwrap();
-    assert_eq!(reader.fact(id).unwrap(), &capture["facts"][0]);
+    assert_eq!(reader.fact(id).unwrap(), capture["facts"][0]);
     assert_eq!(reader.source(id).unwrap_err().code, "source_unavailable");
     assert_eq!(reader.check().unwrap()["freshness"], "not_checked");
     let mut invalid = capture.clone();

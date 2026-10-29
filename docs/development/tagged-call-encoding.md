@@ -1,24 +1,22 @@
 # Schema-3 tagged call links
 
-LOS-53 implements the encoding contract selected by LOS-52. Phase A registers
-`link_encoding` in the real Rust crate and all nine authored unit tests, extracting
-the shared compact decoder and receiver-shape validator. This is an executable
-foundation: **default capture and supported store selectors remain formats 1/2;
-new native capture stays format 2**. The version response remains 2. Snapshot
-selector 3 is still rejected; codec helpers do not authorize publication of rows.
+LOS-53 implements the encoding contract selected by LOS-52. Phase B source
+connects the borrowed codec to capture admission, bounded publication, stored
+validation and requested semantic Reader output. New native captures explicitly
+select schema 3. The exact package pair is Core/Map `0.1.0.pre.3` (native crate
+`0.1.0-pre.3`); Map requires that Core version.
 
-Phase B still requires projected capture admission, bounded publication, stored
-fact validation, retained-row Reader outputs, runtime accounting hints and exact
-Core/Map version pairing. Root owns that separate transfer. No full-app fit,
-measured byte saving or customer acceptance follows from source registration.
-LOS-45's full-application outcome remains failed/unproven.
+This source checkpoint has **no new local runtime/build grant**. Its authored
+checks, compilation, installed package pair and customer journey remain unrun.
+Phase A results below keep their exact earlier identities and cannot qualify
+these changed bytes. LOS-45's full-application outcome remains failed/unproven;
+no byte benefit, full fit, speed or RSS claim follows from this implementation.
 
 ## Wire and semantic boundaries
 
-The final schema-3 contract below defines contexts exactly 1, 2 and 3. Phase A
-exposes 3 to codec unit views only; production store selection remains 1/2. A missing
+Supported snapshot contexts are exactly 1, 2 and 3. A missing
 Capture selector continues to select 1. Producer fields and payload shape never
-select a schema. New native capture will explicitly select 3 and retain
+select a schema. New native capture explicitly selects 3 and retains
 `producer.call_target_schema: 2`; `producer.link_encoding_schema: 1` describes the
 encoding without selecting it. Legacy publication keeps its original bytes and
 generation identity. No migration, rewriting or inferred upgrade occurs.
@@ -71,7 +69,7 @@ invalid/unknown context. Schema-3 wire rows require exactly three slots, integer
 tag 0, a valid target and strict DATA. Boolean/float/string tags, unknown tags,
 nested row misuse and malformed recognized metadata refuse.
 
-## Borrowed API and required shared hooks
+## Borrowed API and shared validation
 
 `engine/src/link_encoding.rs` centralizes row positions and semantic constants:
 
@@ -85,7 +83,7 @@ nested row misuse and malformed recognized metadata refuse.
 | `WireFacts::new(ordered_refs, version)` | Serialize the caller's existing stable-ID fact order. |
 | `SemanticLinkView::materialize`, `materialize_fact`, `materialize_links` | Produce only requested semantic output through serde, with no retained expanded cache. |
 
-Phase A composes these existing-source seams. The module calls them rather than
+The implementation uses these shared seams. The module calls them rather than
 copying their implementations or creating a test-only encoder:
 
 - `schema::compact_call_metadata(data: &Value) -> Result<CallMetadata<'_>>`:
@@ -97,17 +95,19 @@ copying their implementations or creating a test-only encoder:
   exact-key validation; recognize explicit 3 and validate recognized DATA even
   when a schema-3 extension's extra keys require object fallback.
 - Use the existing generic `schema::encoded_bytes<T: Serialize + ?Sized>` seam
-  from accepted Model main. The initial component base predated this helper. No new
-  counter, admission framework, serializer, dependency or Cargo change is added.
+  from accepted Model main. One bounded serde writer now serves counting and
+  `encoded_vec` publication; serialization errors and budget refusals propagate.
+  No alternate JSON encoder, dependency or vendor change is added. Only the
+  native package's own version entries change in Cargo metadata.
 
 The module does not sort links or facts, compute identities, alter grouping, or
 choose representatives. Existing semantic sort keys and equal-start behavior
 must remain unchanged. Full validation precedes authoritative serialization;
 the projection alone does not establish captured source bounds or provenance.
 
-## Accounting and integration obligations
+## Capture and publication accounting
 
-Capture must count the **same WireLink/WireFact bytes** before append or
+Capture counts the **same WireLink/WireFact bytes** before append or
 replacement. Preserve checked arithmetic and conservative separators: two array
 brackets initially, existing per-member charges, checked positive replacement
 deltas before mutation and safe refunds for smaller replacements. Do not
@@ -117,19 +117,32 @@ Publication independently validates the actual complete semantic capture and
 serializes its ordered references through `WireFacts` into one bounded
 `facts.json` of at most 67,108,864 bytes, before any filesystem mutation. Existing
 manifest limits and Reader preflight remain. A shared bounded serde sink stops
-oversized output; root owns that existing-source integration. Counting rows and
+oversized output before retaining over-budget bytes. Counting rows and
 then publishing expanded objects would violate the admission contract.
 
-The native Capture accounting hint is planned as
+The native Capture accounting hint is
 `evidence_accounting: {schema_version: 3, fact_bytes_upper_bound: N}`. It is
-untrusted schema-bound admission context. The in-process Ruby facade must reject
-missing/malformed/mismatched hints in its schema-3 native path and add only each
+untrusted schema-bound admission context. The in-process Ruby facade rejects
+missing/malformed/mismatched hints in its schema-3 native path and adds only each
 runtime batch's conservative charge. It must not size all static objects again
 or send them across another native sizing request. Runtime routes and Model
 facts stay objects; Model's counters, normalization, IDs and provenance retain
 their meanings. Publication ignores hints and recounts actual complete facts.
+The facade updates the returned advisory upper bound after runtime batches.
+Model/Callback admission accepts its original five context keys (absent selector
+means legacy 1) or those exact keys plus an explicit validated `schema_version`.
+No other keys/types/selectors are accepted. Runtime facts remain objects, so their
+charges/normalization/IDs are unchanged across selected contexts. Counters are
+never authenticated provenance. Per-family entry ceilings remain unchanged.
 
-Reader must retain compact wire rows and use borrowed views for validation and
+Capture retains two initial array brackets and conservative member/separator
+charges. The upper bound exceeds actual stored-array bytes by one plus the number
+of nonempty fact-link arrays for a nonempty static capture. Empty capture charges
+two bytes. RailsCapture exposes its existing local route charge; joining its first
+route into an empty fact array subtracts exactly one conservative comma. No static
+fact array is serialized in Ruby for sizing, and no per-fact sizing FFI is added.
+
+Reader retains compact wire rows and uses borrowed views for validation and
 comparison. All public facts/fact/find/source/links outputs materialize semantic
 objects only for requested results. Bulk audit output may expand all requested
 facts transiently; it is a separate cost from ordinary queries. The unchanged
@@ -137,26 +150,30 @@ facts transiently; it is a separate cost from ordinary queries. The unchanged
 request/GVL/buffer/close lifecycles and 128 MiB transport limit still apply.
 Encoded bytes do not bound decoded heap or process RSS.
 
-Map must explicitly support contexts 2 and 3 through semantic Core output. It
-must not decode rows or use a `>= 2` gate. Root owns exact pre3 versions/pairing,
-the Map gate and the accepted Model/Find/diagnostic/callback/platform composition.
+Map explicitly supports contexts 2 and 3 through semantic Core output. It
+does not decode rows or use a `>= 2` gate. The exact pre3 dependency prevents
+unsupported old-Map/new-Core mixing. Accepted Model/Find/diagnostic/callback and
+Platform behavior retain their ownership and scope.
 Old generations remain accessible without rewriting them.
 
 ## Evidence scope and next checks
 
-Authored small unit checks cover exact roundtrip and eligibility, complete
-extra-key fallback, malformed rows, recognized-data refusal, receiver values,
-schema-1 opaque-v2 isolation, legacy encoded bytes, real serializer/count equality
-with escaping/Unicode/integer extremes/exact byte boundaries, and requested-only
-materialization. All nine are now registered in the real Rust test target. Actual execution
-results remain separate from this source contract and are recorded on the PR.
+Authored checks cover exact projection roundtrip/eligibility, extra-key fallback,
+malformed rows, strict contexts, schema-1 opaque-v2 isolation, explicit legacy
+bytes/identities, real count/retained serialization equality, requested-only output,
+pre-admission replacement/refusal/overflow, conservative native hints, independent
+publication recount/refusal before I/O, old-generation reads and Source/Check bounds.
+The runtime context regression preserves absent-selector behavior and checks
+selected-3 serialization equality. Ruby cases check strict hint rejection, absence
+of static sizing, preserved route joins and public Reader object results. Map cases
+check explicit 2/3 acceptance with 1/string/float/future contexts remaining opaque.
 
-Phase A has one finite native suite grant. Phase B must also run the
-existing affected capture replacement/refusal, source-bound, old-generation,
-Reader/native lifecycle and installed runtime/Map contracts. Add focused hint
-and independent-publication-recount regressions at those existing boundaries.
-Unrun compilation, CI, installed audits and full workload acceptance remain
-explicitly outstanding; this foundation alone cannot complete LOS-53.
+These changed-source checks are authored and registered, **not executed locally**.
+A later finite slot should compile/run the native suite once, then use one fresh
+extension/package pair for the affected Ruby/Reader/Map compatibility/refusal and
+installed contracts with actual loaded-native/dependency identities. Root owns
+that grant, substantive review and acceptance. Earlier missing/failed/preflight
+receipts remain evidence and cannot become a pass for these bytes.
 
 The 103 fixed bytes removed per eligible envelope is format arithmetic only.
 There is no measured saving, full total/fit, speed, RSS or completed customer
@@ -180,7 +197,7 @@ Native log SHA256:
 `6103f3d400b6e79f919692268a1ceb4a724aee177adfa267b33113d65c7ecb21`.
 Input manifest SHA256:
 `b297b50ec372fa2be4a6f0096651600792bfe03e5cd5cb42c47102ab481535b7`.
-The 18 compiler warnings identify codec APIs not yet consumed by production;
-Phase B must connect those APIs. They were not suppressed. No Ruby/Map runtime,
+At that earlier head, 18 compiler warnings identified codec APIs not yet consumed
+by production. They were not suppressed; Phase B needs fresh warning inspection. No Ruby/Map runtime,
 installed callback journey or exact-package acceptance follows from this native
 receipt. Historical failures retain their original identities and scopes.
