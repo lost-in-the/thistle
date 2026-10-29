@@ -28,6 +28,7 @@ class MapCallMetadataTest < Minitest::Test
         assert_equal 0, calls
         refute_includes body, '#L1'
         assert_includes body, 'Source exceeds web display limits'
+        assert_includes body, "For call line 1, use <code>thistle source #{FACT_ID} --store STORE --generation #{GENERATION}</code>"
       end
     end
   end
@@ -53,6 +54,7 @@ class MapCallMetadataTest < Minitest::Test
       else
         refute_includes body, '#L1'
         assert_includes body, 'Source exceeds web display limits'
+        assert_includes body, "--generation #{GENERATION}"
       end
     end
     bad = metadata.merge('call_location' => location.merge('start_line' => 2, 'end_line' => 2))

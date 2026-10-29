@@ -173,7 +173,9 @@ module Thistle
         label += omitted ? ' — name omitted (limit)' : " #{name}" if named
         label += ' · safe navigation' if data['safe_navigation']
         if file_bytes > MAX_SOURCE_BYTES || (source_info && source_info[:over_limit])
-          return "<br>#{h(label)} · Source exceeds web display limits; use the Thistle source command."
+          command = "thistle source #{fact.fetch('id')} --store STORE --generation #{@generation}"
+          return "<br>#{h(label)} · Source exceeds web display limits. For call line #{call_loc['start_line']}, " \
+            "use <code>#{h(command)}</code>. Replace STORE with your capture store."
         end
         return fallback unless source_info && valid_source_location?(call_loc, source_info) &&
           (receiver_loc.nil? || valid_source_location?(receiver_loc, source_info)) &&
