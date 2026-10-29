@@ -10,10 +10,52 @@ fn name(value: &str) -> Result<CString> {
     CString::new(value).map_err(|_| CoreError::new("unsafe_path", "NUL in snapshot entry"))
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::os::unix::fs::{symlink, PermissionsExt};
+
+    #[test]
+    fn physical_store_rejects_symlink_ancestors_leaves_and_special_files() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().canonicalize().unwrap();
+        let store = Dir::open(&root.join("store"), true).unwrap();
+        symlink(root.join("store"), root.join("alias")).unwrap();
+        assert_eq!(Dir::open(&root.join("alias/new"), true).err().unwrap().code, "unsafe_path");
+        assert!(!root.join("store/new").exists());
+        store.write_new("original", b"captured").unwrap();
+        symlink("original", root.join("store/link")).unwrap();
+        assert_eq!(store.read("link", 100).unwrap_err().code, "unsafe_path");
+        let fifo = name("fifo").unwrap();
+        // SAFETY: live directory descriptor and a NUL-terminated child name.
+        assert_eq!(unsafe { libc::mkfifoat(store.file.as_raw_fd(), fifo.as_ptr(), 0o600) }, 0);
+        assert_eq!(store.read("fifo", 100).unwrap_err().code, "unsafe_path");
+        assert_eq!(std::fs::metadata(root.join("store")).unwrap().permissions().mode() & 0o077, 0);
+        assert_eq!(std::fs::metadata(root.join("store/original")).unwrap().permissions().mode() & 0o077, 0);
+    }
+
+    #[test]
+    fn directory_sync_and_writer_lock_work_across_independent_opens() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().canonicalize().unwrap();
+        let first = Dir::open(&path, false).unwrap();
+        let second = Dir::open(&path, false).unwrap();
+        let lock = first.lock().unwrap();
+        assert_eq!(second.lock().unwrap_err().code, "busy");
+        first.write_new("staged", b"complete").unwrap();
+        first.rename("staged", &second, "published").unwrap();
+        second.sync().unwrap();
+        assert_eq!(second.read("published", 100).unwrap(), b"complete");
+        drop(lock);
+        second.lock().unwrap();
+    }
+}
+
 impl Dir {
     pub fn open(path: &Path, create: bool) -> Result<Self> {
-        #[cfg(not(target_os = "linux"))]
-        { let _ = (path, create); return Err(CoreError::new("unsupported_platform", "This private milestone supports Linux only")); }
+        if !cfg!(any(target_os = "linux", target_os = "macos")) {
+            return Err(CoreError::new("unsupported_platform", "Snapshot storage requires Linux or macOS"));
+        }
         let absolute = if path.is_absolute() { path.to_path_buf() } else { std::env::current_dir()?.join(path) };
         let mut current = Self { file: File::open("/")? };
         for part in absolute.components() {
