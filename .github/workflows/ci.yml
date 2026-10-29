@@ -122,7 +122,9 @@ jobs:
         with:
           name: macos-${{ matrix.runner }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            pkg/install-check-*/report.json
+            pkg/install-check-*/*.json
+            pkg/install-check-*/*.log
+            pkg/install-check-*/*.stderr
             pkg/install-check-*/*.gem
             pkg/install-check-*/*Gemfile.lock
             Gemfile.lock

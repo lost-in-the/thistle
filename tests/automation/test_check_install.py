@@ -5,10 +5,12 @@ post-install fragment against synthetic files and tiny Ruby producer/consumer
 scripts; installation, native/toolchain observation, and Core tests are stubbed.
 """
 import hashlib
+import fnmatch
 import json
 import os
 from pathlib import Path
 import shutil
+import re
 import subprocess
 import tempfile
 import unittest
@@ -17,6 +19,26 @@ import unittest
 ROOT = Path(__file__).resolve().parents[2]
 HELPER = ROOT / "tools/check_install.rb"
 RUBY = shutil.which("ruby")
+
+
+class PlatformReceiptTests(unittest.TestCase):
+    def test_platform_upload_keeps_success_and_failure_contract_receipts(self):
+        workflow = (ROOT / ".github/workflows/ci.yml").read_text()
+        upload = workflow.split("- name: Preserve platform receipts", 1)[1].split("  required:", 1)[0]
+        self.assertIn("if: always()", upload)
+        patterns = re.findall(r"^\s+(pkg/install-check-\S+)$", upload, re.MULTILINE)
+        for name in (
+            "report.json", "native-observation.json", "installed-inputs.json",
+            "model-producer.json", "model-producer.json.stderr",
+            "map-installed-smoke.json", "map-installed-smoke.json.stderr",
+            "core-tests.log", "core-tests.log.stderr", "installed-cli.log", "installed-cli.log.stderr",
+            "development-Gemfile.lock", "consumer-Gemfile.lock", "thistle.gem",
+        ):
+            with self.subTest(name=name):
+                self.assertTrue(any(fnmatch.fnmatchcase("pkg/install-check-attempt/" + name, pattern)
+                                    for pattern in patterns), name)
+
+
 DRIVER = r'''
 require "digest"
 require "fileutils"
