@@ -13,6 +13,7 @@ require "tmpdir"
 source = File.expand_path("..", __dir__)
 FileUtils.mkdir_p(File.join(source, "pkg"))
 output = Dir.mktmpdir("install-check-", File.join(source, "pkg"))
+puts "Installed evidence: #{output}"
 dependencies = Bundler.load.specs.reject { |spec| %w[thistle bundler].include?(spec.name) || spec.default_gem? }
 dependencies.each do |spec|
   abort "Missing cached gem #{spec.full_name}; run bundle cache first" unless File.file?(spec.cache_file)
@@ -67,15 +68,55 @@ Dir.mktmpdir("thistle-installed-", File.realpath(Dir.tmpdir)) do |worker|
     observed = JSON.parse(capture.call(ruby, "-S", "bundle", "exec", ruby, "-e", observe))
     installed_root = observed.fetch("installed_root")
     installed_lib = File.join(installed_root, "lib")
+    # Stream receipts to retained evidence, including output from failed children.
+    # The worker holds executable inputs and stores outside the source checkout.
+    logged = ->(name, *args) do
+      system(env, *args, chdir: worker, unsetenv_others: true, exception: true,
+        out: File.join(output, name), err: File.join(output, "#{name}.stderr"))
+    end
     # Relative fixture imports and child processes resolve only installed code.
     FileUtils.cp_r(File.join(source, "test"), worker)
     File.symlink(installed_lib, File.join(worker, "lib"))
-    run.call(ruby, "-S", "bundle", "exec", ruby, "-I", installed_lib, "-e",
+    logged.call("core-tests.log", ruby, "-S", "bundle", "exec", ruby, "-I", installed_lib, "-e",
       'paths = Dir["test/test_*.rb"].sort; abort "Core tests absent" if paths.empty?; paths.each { |f| require File.expand_path(f) }')
-    FileUtils.cp(File.join(source, "map/test/installed_smoke.rb"), worker)
-    run.call(ruby, "-S", "bundle", "exec", ruby, "installed_smoke.rb")
+    smoke = File.join(worker, "installed_smoke.rb")
+    FileUtils.cp(File.join(source, "map/test/installed_smoke.rb"), smoke)
+    smoke_args = []
+    model_inputs = {}
+    model_receipt = nil
+    # Installed Core payload, never fixture availability, decides applicability.
+    model_enabled = File.file?(File.join(installed_lib, "thistle/model_observer.rb"))
+    if model_enabled
+      fixture = File.join(worker, "model-fixture")
+      FileUtils.mkdir_p(fixture)
+      %w[booted_app.rb records.rb].each do |name|
+        FileUtils.cp(File.join(source, "test/fixtures/models", name), File.join(fixture, name))
+      end
+      producer = File.join(worker, "installed_model_producer.rb")
+      FileUtils.cp(File.join(source, "map/test/installed_model_producer.rb"), producer)
+      [producer, *Dir[File.join(fixture, "*.rb")].sort].each do |path|
+        model_inputs[path.delete_prefix(worker + File::SEPARATOR)] = Digest::SHA256.file(path).hexdigest
+      end
+    end
+    inputs = { smoke_sha256: Digest::SHA256.file(smoke).hexdigest,
+               model_enabled: model_enabled, model_fixture_inputs: model_inputs }
+    File.write(File.join(output, "installed-inputs.json"), JSON.pretty_generate(inputs) + "\n")
+    if model_enabled
+      model_store = File.join(worker, "model-store")
+      model_receipt = File.join(output, "model-producer.json")
+      logged.call("model-producer.json", ruby, "-S", "bundle", "exec", ruby, producer,
+        fixture, File.join(worker, "model-source"), model_store)
+      # Successful completion is required before a fresh, Rails-free consumer.
+      receipt = File.join(worker, "model-producer.json")
+      FileUtils.cp(model_receipt, receipt)
+      smoke_args = [model_store, receipt]
+    end
+    logged.call("map-installed-smoke.json", ruby, "-S", "bundle", "exec", ruby, smoke, *smoke_args)
+    smoke_report = JSON.parse(File.read(File.join(output, "map-installed-smoke.json")))
+    raise "Installed Map smoke did not pass" unless smoke_report.fetch("status") == "passed"
+    raise "Installed Map smoke loaded different native bytes" unless smoke_report.fetch("native_sha256") == observed.fetch("native_sha256")
     FileUtils.cp(File.join(source, "test/support/installed_cli.rb"), worker)
-    run.call(ruby, "-S", "bundle", "exec", ruby, "installed_cli.rb")
+    logged.call("installed-cli.log", ruby, "-S", "bundle", "exec", ruby, "installed_cli.rb")
     report = {
       status: "passed", scope: "development installed contracts",
       ruby: RUBY_DESCRIPTION, platform: RUBY_PLATFORM,
@@ -85,6 +126,10 @@ Dir.mktmpdir("thistle-installed-", File.realpath(Dir.tmpdir)) do |worker|
       cc: capture.call("cc", "--version").lines.first.strip,
       packages: { core: Digest::SHA256.file(core).hexdigest, map: Digest::SHA256.file(map).hexdigest },
       native_sha256: observed.fetch("native_sha256"),
+      installed_inputs: inputs,
+      model_journey: model_enabled ? "passed" : "not_applicable_to_selected_package",
+      model_producer_receipt_sha256: model_receipt && Digest::SHA256.file(model_receipt).hexdigest,
+      map_smoke_receipt_sha256: Digest::SHA256.file(File.join(output, "map-installed-smoke.json")).hexdigest,
       development_lock_sha256: Digest::SHA256.file(File.join(output, "development-Gemfile.lock")).hexdigest,
       consumer_lock_sha256: Digest::SHA256.file(File.join(output, "consumer-Gemfile.lock")).hexdigest
     }
