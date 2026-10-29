@@ -234,6 +234,41 @@ read the separate checkpoint repository, or if hook latency or failures
 measurably slow normal Git use. Setup steps are in
 [agent configuration](agent-configuration.md#agent-session-capture-entire).
 
+## Agent context: Entire Brain
+
+Adopt the Entire Brain plugin (**0.4.0**, with entire-graph **0.6.0**) as an
+optional, per-machine memory layer. It indexes code, history, documentation and
+captured sessions, and distills sessions into recalled facts. `AGENTS.md` points
+agents at `.entire/agent-guide.md`, and agents fall back to direct source
+inspection when Brain is unavailable. `CLAUDE.md` imports `AGENTS.md`: Brain
+setup creates `CLAUDE.md`, and Claude Code skips `AGENTS.md` whenever a
+`CLAUDE.md` exists.
+
+| Considered approach | Decision |
+|---|---|
+| Brain wired into agent instructions, local only | Selected: agents use recorded decisions and history; nothing leaves the machine. |
+| No Brain; checkpoints and `entire why` only | Rejected: context exists but agents are not told to retrieve it. |
+| Brain without agent instructions | Rejected: setup reports agents as not wired, and agents rarely query it unprompted. |
+| Brain with hosted Brainstore sync | Deferred: sends memories to a hosted service; revisit when cross-machine memory is needed. |
+
+Operating cost, measured on one macOS machine: the agent guide adds about 1.3k
+tokens per session, and the Claude Code pre-edit hook ran in 140 to 270 ms per
+edit. The default backfill distills up to 25 sessions per pass, and the watcher
+runs at most one gated distill per 24 hours, both on a low-effort model. Brain
+setup does not modify Git hooks.
+
+The pre-edit hook deviates from the generated command: it calls the plugin
+binary only when it exists and is bounded by a 5-second timeout. A bare
+`entire brain` call exits 1 when the plugin is missing. A setup rerun was
+verified to keep this command. Limitations: the hook returns context only, not
+`updatedInput`, so its facts cannot change the edit that triggered them; agents
+query `entire brain brief` before editing. Memories are per machine without
+Brainstore.
+
+Reconsider if per-edit latency or session token cost grows materially, if
+upstream Brain fixes the missing-plugin exit, or if cross-machine memory needs
+hosted sync.
+
 ## Maintenance rule
 
 Every tool/version update records upstream maintenance/runtime status, actual
