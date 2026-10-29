@@ -219,8 +219,8 @@ impl Capture {
         let mut names = Vec::new();
         loop {
             // SAFETY: stream remains open; returned dirent is copied before the
-            // next readdir. errno is thread-local on this supported Linux build.
-            unsafe { *libc::__errno_location() = 0; }
+            // next readdir. Reset thread-local errno to distinguish EOF from error.
+            errno::set_errno(errno::Errno(0));
             let entry = unsafe { libc::readdir(stream.0) };
             if entry.is_null() {
                 let error = std::io::Error::last_os_error();

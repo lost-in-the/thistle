@@ -84,10 +84,55 @@ jobs:
       package: ${{ matrix.package }}
       artifact_label: pr-candidate
 
+  macos:
+    name: macOS ${{ matrix.runner }}
+    needs: plan
+    if: needs.plan.outputs.product == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-15, macos-15-intel]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    env:
+      THISTLE_RAILS_VERSION: ${{ fromJSON(needs.plan.outputs.matrix).include[0].rails }}
+      CARGO_NET_OFFLINE: 'true'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.plan.outputs.source_sha }}
+          persist-credentials: false
+      - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f
+        with:
+          ruby-version: ${{ fromJSON(needs.plan.outputs.matrix).include[0].ruby }}
+          bundler-cache: true
+      - name: Prepare macOS source-build tools
+        run: |
+          brew install llvm@18
+          echo "LIBCLANG_PATH=$(brew --prefix llvm@18)/lib" >> "$GITHUB_ENV"
+          rustup toolchain install 1.90.0 --profile minimal --component rustfmt,clippy
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+      - name: Source and fresh installed contracts
+        run: |
+          bundle exec rake test native map
+          bundle exec rake installed
+      - name: Preserve platform receipts
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: macos-${{ matrix.runner }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            pkg/install-check-*/report.json
+            pkg/install-check-*/*.gem
+            pkg/install-check-*/*Gemfile.lock
+            Gemfile.lock
+          if-no-files-found: warn
+          retention-days: 14
+
   required:
     name: CI / required
     if: always()
-    needs: [plan, metadata, product]
+    needs: [plan, metadata, product, macos]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:

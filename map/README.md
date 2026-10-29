@@ -6,7 +6,7 @@ The Source view reuses Woods Map's lossless syntax-highlighting component and to
 
 ## Use
 
-Both gems require Ruby 3.4 or later; the current native Thistle build targets Linux. Build and install the sibling `thistle` gem and this gem from local artifacts. Registry names are working names; nothing has been published. Prepared release notes live in [CHANGELOG.md](CHANGELOG.md).
+Both gems require Ruby 3.4 or later; the native Thistle source build supports Linux and macOS. Follow the [platform setup guide](../docs/development/platforms.md), then build and install the sibling `thistle` gem and this gem from local artifacts. Registry names are working names; nothing has been published. Prepared release notes live in [CHANGELOG.md](CHANGELOG.md).
 
 ```ruby
 require 'thistle/map'

@@ -1,0 +1,17 @@
+{
+  "status": "passed",
+  "scope": "development installed contracts",
+  "ruby": "ruby 3.4.12 (2026-10-23 revision 366f5fdc00) +PRISM [arm64-darwin25]",
+  "platform": "arm64-darwin25",
+  "bundler": "Bundler version 2.6.9",
+  "cargo": "cargo 1.90.0 (840b83a10 2025-07-30)",
+  "rustc": "rustc 1.90.0 (1159e78c4 2025-09-14)",
+  "cc": "Apple clang version 21.0.0 (clang-2100.3.34.2)",
+  "packages": {
+    "core": "14dfda96d7ef76d7754e8dc092dc8315cc763a923e96e47c0e7b616a0b4e72ad",
+    "map": "0d4aa4aacaeac58882e13c28bac24fe6782bba874c5136df15d23e89d0329015"
+  },
+  "native_sha256": "b61aad94f58d83dc9f1f2bc2f566931f5cbe374e4ef2f66b23a9d146892ac89c",
+  "development_lock_sha256": "3629c050d50b22d2772fb03500633209d31bf03570991ad3f2cbf06825f30469",
+  "consumer_lock_sha256": "855fbd9bc1b00c3d91656d629e341e4598b03c0b3a582eadb3c5f9805f71dd62"
+}

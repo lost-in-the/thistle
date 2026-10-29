@@ -278,6 +278,10 @@ def required_results(needs):
         errors.append("Selected product lane must succeed; skipped/cancelled is not a pass")
     if selected == "false" and needs.get("product", {}).get("result") not in ("skipped", "success"):
         errors.append("Unexpected product failure")
+    if selected == "true" and needs.get("macos", {}).get("result") != "success":
+        errors.append("Selected macOS lanes must succeed; missing/skipped/cancelled is not a pass")
+    if selected == "false" and needs.get("macos", {}).get("result") not in ("skipped", "success"):
+        errors.append("Unexpected macOS failure")
     if mode == "bootstrap" and selected != "false":
         errors.append("Bootstrap cannot claim a product check")
     return errors
