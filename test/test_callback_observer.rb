@@ -47,6 +47,35 @@ class ThistleCallbackObserverTest < Minitest::Test
     assert_equal({ 'status' => 'observed', 'entries' => [] }, empty['save'])
   end
 
+  def test_application_callback_accessors_are_never_dispatched
+    singleton = CallbackFixture::Child.singleton_class
+    calls = []
+    %i[_save_callbacks __callbacks].each do |name|
+      singleton.define_method(name) { calls << name; raise 'application accessor executed' }
+    end
+    data = child(observer.call)
+    assert_equal 'observed', data['status']
+    assert data['entries'].any? { |entry| entry.dig('filter', 'name') == 'parent_stamp' }
+    assert_empty calls
+  ensure
+    %i[_save_callbacks __callbacks].each { |name| singleton.remove_method(name) } if singleton
+  end
+
+  def test_overridden_private_storage_is_unavailable_without_executing_it
+    singleton = CallbackFixture::Child.singleton_class
+    original = singleton.instance_method(:__class_attr___callbacks)
+    calls = []
+    singleton.define_method(:__class_attr___callbacks) { calls << :storage; raise 'application storage executed' }
+    singleton.send(:private, :__class_attr___callbacks)
+    assert_equal({ 'status' => 'unavailable', 'entries' => [] }, child(observer.call))
+    assert_empty calls
+  ensure
+    if singleton && original
+      singleton.define_method(:__class_attr___callbacks, original)
+      singleton.send(:private, :__class_attr___callbacks)
+    end
+  end
+
   def test_unknown_chain_entry_and_unreadable_chain_are_not_empty_success
     chain = CallbackFixture::Child._save_callbacks
     original = chain.instance_variable_get(:@chain)
