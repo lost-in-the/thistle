@@ -23,8 +23,11 @@ class MapIntegrationTest < Minitest::Test
       assert_equal 2, links.count { |link| link['target'] == 'render' }
       assert_equal 2, links.count { |link| link['target'] == 'same' }
       long = links.find { |link| link['target'] == 'size' }
-      assert_equal 'literal', long.dig('attributes', 'thistle_call', 'receiver', 'kind')
-      location = long.dig('attributes', 'thistle_call', 'receiver_location')
+      assert_equal 2, old.manifest.fetch('schema_version')
+      assert_equal 2, long.dig('attributes', 'thistle_call', 'version')
+      fields = stored_call_fields(old, long)
+      assert_equal 'literal', fields.dig('receiver', 'kind')
+      location = fields.fetch('receiver_location')
       assert_equal "\"#{'a' * 8192}\"", source.b.byteslice(location['start_byte']...location['end_byte'])
       app = Thistle::Map::App.new(store: store)
       query = URI.encode_www_form('id' => fact['id'], 'generation' => old.generation)
