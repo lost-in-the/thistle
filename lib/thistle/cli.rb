@@ -9,13 +9,16 @@ module Thistle
       Thistle — inspect captured evidence
 
       thistle capture ROOT --output STORE [--max-nodes INTEGER]
-      thistle find TEXT --store STORE [--generation ID] [--limit 50]
+      thistle find TEXT --store STORE [--generation ID] [--limit 50] [--domain all|source|metadata] [--kind KIND] [--path PREFIX]
+      thistle source-file PATH --store STORE --generation ID
       thistle source ID --store STORE [--generation ID]
       thistle links ID --store STORE [--generation ID]
       thistle check --store STORE [--generation ID]
       thistle version
 
-      Find discovers facts. Source returns the exact captured file. Links preserves
+      Find without domain/kind/path filters returns the existing named-fact response.
+      Add --domain all (or another evidence filter) for literal source/metadata results.
+      Source returns the exact captured file. Links preserves
       unresolved relationships. Check verifies snapshot integrity and reports scope;
       it does not claim the live application is fresh. Static capture executes no app
       code. Live Rails capture is an explicit Ruby API (see README).
@@ -37,7 +40,7 @@ module Thistle
         emit("version" => VERSION, "native" => Native.call("op" => "version"))
         return 0
       end
-      unless %w[capture find source links check].include?(command)
+      unless %w[capture find source source-file links check].include?(command)
         raise InvalidInput, "Unknown action. Use thistle help to see the available actions."
       end
       options = { limit: 50 }
@@ -48,7 +51,12 @@ module Thistle
         else
           opts.on("--store PATH") { |value| options[:store] = value }
           opts.on("--generation ID") { |value| options[:generation] = value }
-          opts.on("--limit NUMBER", Integer) { |value| options[:limit] = value } if command == "find"
+          if command == "find"
+            opts.on("--limit NUMBER", Integer) { |value| options[:limit] = value }
+            opts.on("--domain DOMAIN") { |value| options[:domain] = value }
+            opts.on("--kind KIND") { |value| options[:kind] = value }
+            opts.on("--path PREFIX") { |value| options[:path] = value }
+          end
         end
       end
       parser.parse!(args)
@@ -60,10 +68,19 @@ module Thistle
         emit(Thistle.capture(root: args.first, output: options[:output], limits: limits))
       else
         raise InvalidInput, "#{command} requires --store STORE" unless options[:store]
+        if command == "source-file" && !options[:generation]
+          raise InvalidInput, "source-file requires --generation ID"
+        end
         reader = Reader.new(options[:store], generation: options[:generation])
         begin
           result = case command
-          when "find" then reader.search(args.first, limit: options[:limit])
+          when "find"
+            if %i[domain kind path].any? { |key| options.key?(key) }
+              reader.search_evidence(args.first, **options.slice(:limit, :domain, :kind, :path))
+            else
+              reader.search(args.first, limit: options[:limit])
+            end
+          when "source-file" then reader.source_file(args.first)
           when "source" then reader.source(args.first)
           when "links" then { "generation" => reader.generation, "fact_id" => args.first, "links" => reader.links(args.first) }
           when "check" then reader.check

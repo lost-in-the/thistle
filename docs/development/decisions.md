@@ -334,3 +334,36 @@ Reconsider the version allowlist only after checking changed Rails metadata
 APIs, and broader semantics/adapter or source-binding claims only with their own
 bounded accepted evidence. Callback/execution analysis and generic static macro
 extraction are separate customer slices. See the [model contract and sources](loaded-model-evidence.md#library-fit-and-maintenance).
+
+
+## Evidence search index and matcher
+
+Issue 74 selects one immutable, verified captured-source corpus per Reader and
+one first literal match per file. There is no persistent postings format or
+writer lifecycle. [Tantivy 0.27](https://docs.rs/tantivy/0.27.0/tantivy/indexer/struct.IndexWriter.html)
+provides maintained indexing, but its indexing queues, segments, commits and
+merge-thread lifecycle introduce ownership, memory-accounting and offline
+packaging work beyond this single-literal, generation-local slice. That is a fit
+decision, not evidence that Tantivy is slow or unsuitable for richer retrieval.
+
+For matching, [memchr 2.8.3 memmem](https://docs.rs/memchr/2.8.3/memchr/memmem/index.html)
+finds exact byte substrings; it is not a drop-in ASCII-insensitive matcher.
+[Aho-Corasick 1.1.5](https://docs.rs/aho-corasick/1.1.5/aho_corasick/struct.AhoCorasickBuilder.html#method.ascii_case_insensitive)
+supports the required ASCII-only case folding with original byte offsets. It is
+a viable maintained alternative, already transitively vendored, but adopting its
+automaton would require an explicit build/memory charge and a bounded scan/work
+admission rule. Neither API exposes the current per-comparison stop counter.
+The selected small matcher compares original byte windows, folds ASCII only,
+and stops within the shared 32 Mi comparison/line-count work allowance. It needs
+no folded whole-file copy or query automaton; its worst case is O(text bytes ×
+literal bytes), so partial results are an intentional limitation, not a speed
+claim. Source verification/cache construction has separate bounded accounting.
+
+The maintenance cost is the custom comparison loop and its Unicode/offset,
+work-exhaustion and completeness tests. Retained corpus memory and cold Map
+requests remain material costs; no new shared cache or process service is
+introduced. Reconsider Aho-Corasick with pre-admitted scan bounds if observed
+complete user jobs show comparison exhaustion or search cost is material;
+reconsider Tantivy when accepted retrieval requirements justify indexed/ranked
+or multi-term search. Preserve honest partial coverage and exact pinned Source
+through either change. See the [Find contract and operating budgets](find-evidence.md).

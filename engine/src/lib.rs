@@ -4,17 +4,18 @@ mod fs;
 mod model;
 mod schema;
 mod store;
+mod query;
 
 use error::{CoreError, Result};
 use serde_json::{json, Value};
 use std::{collections::HashMap, ffi::{c_char, CString}, path::Path, sync::{Arc, Mutex, OnceLock, atomic::{AtomicU32, Ordering}}};
 
-struct Registry { next: u64, readers: HashMap<u64, Arc<store::Reader>>, bytes: usize }
+struct Registry { next: u64, readers: HashMap<u64, Arc<store::Reader>> }
 static READERS: OnceLock<Mutex<Registry>> = OnceLock::new();
 static PROCESS: AtomicU32 = AtomicU32::new(0);
 
 fn registry() -> &'static Mutex<Registry> {
-    READERS.get_or_init(|| Mutex::new(Registry { next: 1, readers: HashMap::new(), bytes: 0 }))
+    READERS.get_or_init(|| Mutex::new(Registry { next: 1, readers: HashMap::new() }))
 }
 
 fn reader(request: &Value) -> Result<Arc<store::Reader>> {
@@ -24,16 +25,35 @@ fn reader(request: &Value) -> Result<Arc<store::Reader>> {
 }
 
 pub fn dispatch(request: &Value) -> Result<Value> {
+    ensure_process()?;
+    let _scratch = request_scratch(request)?;
+    dispatch_inner(request)
+}
+
+fn request_scratch(request: &Value) -> Result<Option<query::Reservation>> {
+    let bytes = match request["op"].as_str() {
+        Some("find_evidence") => query::Query::parse(request)?.scratch()?,
+        Some("source_file") => reader(request)?.source_file_scratch(schema::string(request, "file_path")?)?,
+        _ => return Ok(None),
+    };
+    Ok(Some(query::budget().reserve(bytes)?))
+}
+
+fn ensure_process() -> Result<()> {
+    let current_pid = std::process::id();
+    let initialized = PROCESS.compare_exchange(0, current_pid, Ordering::SeqCst, Ordering::SeqCst).unwrap_or_else(|value| value);
+    if initialized != 0 && initialized != current_pid {
+        return Err(CoreError::new("forked_process", "Native engine was inherited across fork; exec a fresh process before using Thistle"));
+    }
+    Ok(())
+}
+
+fn dispatch_inner(request: &Value) -> Result<Value> {
     for field in ["root", "path"] {
         if let Some(value) = request.get(field) {
             let value = value.as_str().ok_or_else(|| CoreError::input("Filesystem path must be a string"))?;
             if value.is_empty() || value.contains('\0') { return Err(CoreError::input("Filesystem path must be nonempty and contain no NUL")); }
         }
-    }
-    let current_pid = std::process::id();
-    let initialized = PROCESS.compare_exchange(0, current_pid, Ordering::SeqCst, Ordering::SeqCst).unwrap_or_else(|value| value);
-    if initialized != 0 && initialized != current_pid {
-        return Err(CoreError::new("forked_process", "Native engine was inherited across fork; exec a fresh process before using Thistle"));
     }
     match schema::string(request, "op")? {
         "version" => Ok(json!({"engine":"rust", "version":env!("CARGO_PKG_VERSION"), "schema_version":schema::VERSION,
@@ -48,22 +68,22 @@ pub fn dispatch(request: &Value) -> Result<Value> {
         "open" => {
             let requested = match request.get("generation") { None | Some(Value::Null) => None,
                 Some(value) => Some(value.as_str().ok_or_else(|| CoreError::input("Generation must be a string"))?) };
-            let reader = Arc::new(store::Reader::open(Path::new(schema::string(request, "path")?), requested)?);
+            let mut reader = store::Reader::open(Path::new(schema::string(request, "path")?), requested)?;
             let mut registry = registry().lock().map_err(|_| CoreError::new("internal_error", "Reader registry is unavailable"))?;
-            if registry.readers.len() >= 32 || registry.bytes.saturating_add(reader.weight) > store::READER_BUDGET {
+            if registry.readers.len() >= 32 {
                 return Err(CoreError::limit("Open readers exceed the handle or encoded-data budget; close unused readers"));
             }
+            reader.admission = Some(query::budget().reserve(reader.weight)?);
             let handle = registry.next;
             registry.next = registry.next.checked_add(1).ok_or_else(|| CoreError::limit("Reader identity space exhausted"))?;
             let output = json!({"handle":handle,"generation":reader.generation,"manifest":reader.manifest});
-            registry.bytes += reader.weight;
-            registry.readers.insert(handle, reader);
+            registry.readers.insert(handle, Arc::new(reader));
             Ok(output)
         }
         "close" => {
             let handle = request["handle"].as_u64().ok_or_else(|| CoreError::input("Reader handle is required"))?;
             let mut registry = registry().lock().map_err(|_| CoreError::new("internal_error", "Reader registry is unavailable"))?;
-            let closed = if let Some(reader) = registry.readers.remove(&handle) { registry.bytes -= reader.weight; true } else { false };
+            let closed = registry.readers.remove(&handle).is_some();
             Ok(json!({"closed":closed}))
         }
         "facts" => Ok(Value::Array(reader(request)?.facts.clone())),
@@ -73,6 +93,8 @@ pub fn dispatch(request: &Value) -> Result<Value> {
             if limit > 500 { return Err(CoreError::input("Limit must be between 1 and 500")); }
             reader(request)?.find(schema::string(request, "query")?, limit as usize)
         }
+        "find_evidence" => query::search(&*reader(request)?, &query::Query::parse(request)?),
+        "source_file" => reader(request)?.source_file(schema::string(request, "file_path")?),
         "source" => reader(request)?.source(schema::string(request, "id")?),
         "links" => Ok(reader(request)?.fact(schema::string(request, "id")?)?["links"].clone()),
         "check" => reader(request)?.check(),
@@ -80,13 +102,15 @@ pub fn dispatch(request: &Value) -> Result<Value> {
     }
 }
 
-fn envelope(bytes: &[u8]) -> Value {
-    let outcome = std::panic::catch_unwind(|| -> Result<Value> {
+fn envelope_reserved(bytes: &[u8], reservation: &mut Option<query::Reservation>) -> Value {
+    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<Value> {
         if bytes.len() > schema::MAX_REQUEST { return Err(CoreError::limit("Native request exceeds 128 MiB")); }
         let request: Value = serde_json::from_slice(bytes)?;
         schema::depth(&request)?;
-        dispatch(&request)
-    });
+        ensure_process()?;
+        *reservation = request_scratch(&request)?;
+        dispatch_inner(&request)
+    }));
     match outcome {
         Ok(Ok(value)) => json!({"ok":true,"result":value}),
         Ok(Err(error)) => json!({"ok":false,"error":error}),
@@ -101,11 +125,12 @@ fn envelope(bytes: &[u8]) -> Value {
 /// Input must address `length` readable bytes, or be null with zero length.
 #[no_mangle]
 pub unsafe extern "C" fn thistle_request(input: *const u8, length: usize) -> *mut c_char {
+    let mut reservation = None;
     let result = if length > schema::MAX_REQUEST || (input.is_null() && length != 0) {
         json!({"ok":false,"error":{"code":"invalid_input","message":"Invalid native request buffer"}})
     } else {
         let bytes = if length == 0 { &[] } else { unsafe { std::slice::from_raw_parts(input, length) } };
-        envelope(bytes)
+        envelope_reserved(bytes, &mut reservation)
     };
     let bytes = serde_json::to_vec(&result).unwrap_or_else(|_| b"{\"ok\":false,\"error\":{\"code\":\"internal_error\",\"message\":\"Serialization failed\"}}".to_vec());
     // JSON always escapes embedded NULs.
@@ -118,6 +143,9 @@ pub unsafe extern "C" fn thistle_request(input: *const u8, length: usize) -> *mu
 pub unsafe extern "C" fn thistle_response_free(response: *mut c_char) {
     if !response.is_null() { drop(unsafe { CString::from_raw(response) }); }
 }
+
+#[cfg(test)]
+fn envelope(bytes: &[u8]) -> Value { envelope_reserved(bytes, &mut None) }
 
 #[cfg(test)]
 mod tests {
