@@ -93,7 +93,21 @@ def main():
     run([args.ruby, '-S', 'gem', 'install', '--norc', '--local', '--no-document', map_gem], env=env, cwd=work / 'consumer')
     smoke = out / 'installed_smoke.rb'
     shutil.copyfile(src / 'map/test/installed_smoke.rb', smoke)
-    run_logged([args.ruby, smoke], out / 'map-installed-smoke.json', out / 'map-installed-smoke.stderr',
+    # Reuse the small booted schema fixture, outside the source checkout. The
+    # producer exits before the fresh, Rails-free Reader/Map consumer starts.
+    fixture = out / 'model-fixture'
+    fixture.mkdir()
+    for name in ('booted_app.rb', 'records.rb'):
+        shutil.copyfile(src / 'test/fixtures/models' / name, fixture / name)
+    model_producer = out / 'installed_model_producer.rb'
+    shutil.copyfile(src / 'map/test/installed_model_producer.rb', model_producer)
+    model_receipt = out / 'model-producer.json'
+    model_store = out / 'model-store'
+    run_logged([args.ruby, model_producer, fixture, out / 'model-source', model_store],
+               model_receipt, out / 'model-producer.stderr', cwd=work / 'consumer', env=env)
+    model_inputs = {path.relative_to(out).as_posix(): sha(path)
+                    for path in [model_producer, *sorted(fixture.glob('*.rb'))]}
+    run_logged([args.ruby, smoke, model_store, model_receipt], out / 'map-installed-smoke.json', out / 'map-installed-smoke.stderr',
                cwd=work / 'consumer', env=env)
     smoke_report = json.loads((out / 'map-installed-smoke.json').read_text())
     assert smoke_report['native_sha256'] in [item['sha256'] for item in report['loaded_native']]
@@ -134,6 +148,7 @@ end
         'native': report['loaded_native'], 'runtime_files': report['runtime_files'],
         'core_files_verified': len(core_files), 'map_files_verified': len(map_files),
         'smoke_sha256': sha(smoke), 'baseline_report_sha256': sha(out / 'baseline-report.json'),
+        'model_fixture_inputs': model_inputs, 'model_producer_receipt_sha256': sha(model_receipt),
         'self_inspection_sha256': sha(out / 'baseline-self-inspection.json'),
     }, indent=2) + '\n')
 

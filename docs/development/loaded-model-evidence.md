@@ -103,8 +103,9 @@ Primary sources checked for Rails 8.1.4:
 - [Rails schema cache](https://github.com/rails/rails/blob/v8.1.4/activerecord/lib/active_record/connection_adapters/schema_cache.rb) and [column metadata](https://github.com/rails/rails/blob/v8.1.4/activerecord/lib/active_record/connection_adapters/column.rb): raw defaults and schema reads without model attributes.
 - [sqlite3-ruby](https://github.com/sparklemotion/sqlite3-ruby): maintained embedded fixture adapter.
 
-The coordinator can record this fit decision in shared development decisions at
-integration; that file is outside this writer's ownership.
+The integration owner records this maintained Rails metadata boundary in the
+shared development decisions; the historical component writer did not own that
+file.
 
 ## Verification and remaining gates
 
@@ -199,3 +200,42 @@ contextual call validator. Both legacy schema-1 behavior and schema-2 tests
 are retained. append moves the capture's explicit schema context unchanged.
 This composition passed the source checks above; independent review and installed
 checks remain outstanding.
+
+## Finite review correction
+
+The scoped review identified repeated connection checkout failures across models
+sharing one pool. The observer now remembers recognized
+`ActiveRecord::ConnectionNotEstablished` failures (including checkout timeout)
+by pool identity for this capture, before lazy primary-key/schema reads. Later
+models on that pool retain safe identity and association observations while
+connection-dependent labels/columns remain unavailable. Other pools proceed;
+a missing-table/ordinary API failure does not suppress later tables. No caught
+exception text is serialized and no global cache or retry policy is added.
+A deterministic no-sleep regression exercises failure at primary-key and column
+lookup, a separate healthy pool, missing table followed by valid table, and a
+fresh capture's new attempt.
+
+The same correction shares a borrowed model-field validator across observations
+and stored facts, avoiding the validation-only model clone. Closed keys and
+provenance remain checked per form. Link count is admitted before allocating a
+rejected fact. The required owned model fact and expected-link comparison still
+allocate; the complete Ruby/native JSON transfer and validation costs remain.
+No speed or RSS improvement is claimed. Links wording now says captured labels,
+so runtime observations are not described as names found in static source.
+
+The candidate-owned installed runner copies the existing harmless booted-model
+fixture and a short producer outside the checkout, runs that producer using only
+installed Thistle, then starts the ordinary smoke as a fresh Rails-free consumer.
+It advances CURRENT and verifies old-generation model/default/STI/association,
+unknown/coverage, separate captured source and Map Source/Links evidence. The
+fixture/producer and receipt hashes are added to the existing tuple record.
+Frozen evaluator bytes/policy and package/support scope are unchanged. This
+new installed journey remains pending until the settled pair executes it.
+
+Correction development checks passed in one offline rootless copied-source run:
+36 native tests and three observer tests/41 assertions, zero failures/skips.
+Total invocation time including fresh compilation was 24.97 seconds; this is a
+test-command duration, not capture/job performance evidence. The worker verified
+home-backed private child temp, read-only input and the existing two-CPU,
+2 GiB/no-swap, 256-PID, 600/630-second and 8 MiB-output bounds. No retry occurred.
+The changed installed producer/consumer and both hosted cohorts remain pending.

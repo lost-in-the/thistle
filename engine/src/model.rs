@@ -50,6 +50,11 @@ pub fn append(capture: Value, observation: &Value) -> Result<Value> {
         entries = entries.saturating_add(observed["columns"]["entries"].as_array().unwrap().len())
             .saturating_add(observed["associations"]["entries"].as_array().unwrap().len());
         if entries > max_entries { return Err(CoreError::limit("Model metadata exceeds max_entries")); }
+        let added_links = usize::from(observed["base_class"].is_string()) +
+            observed["associations"]["entries"].as_array().unwrap().iter()
+                .filter(|a| a["name"].is_string() && a["target"].is_string()).count();
+        links = links.checked_add(added_links).filter(|n| *n <= max_links)
+            .ok_or_else(|| CoreError::limit("Combined capture exceeds max_links"))?;
         let mut data = observed.clone();
         let object = data.as_object_mut().unwrap();
         object.insert("version".into(), json!(1));
@@ -61,7 +66,6 @@ pub fn append(capture: Value, observation: &Value) -> Result<Value> {
         let id = schema::digest(&schema::canonical(&json!(["rails_model", 1, ordinal, observed["name"]]))?);
         let fact = json!({"id":id,"kind":"rails_model","name":name,"evidence":"runtime",
             "path":null,"location":null,"attributes":{"model":data},"links":model_links(observed)});
-        links = links.saturating_add(fact["links"].as_array().unwrap().len());
         // Existing [] already charged; every appended member needs at most one comma.
         bytes = bytes.saturating_add(schema::canonical(&fact)?.len() + 1);
         if links > max_links { return Err(CoreError::limit("Combined capture exceeds max_links")); }

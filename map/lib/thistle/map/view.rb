@@ -106,7 +106,7 @@ module Thistle
         raise Limit, 'This links page does not exist.' if page > pages
 
         body = "<h1 class=\"t1\">Links from #{h(fact.fetch('name'))}</h1>" + fact_tiles(fact)
-        body += '<p class="notice ui">Unresolved links are names found in the source. They do not prove a runtime call or a resolved target.</p>'
+        body += '<p class="notice ui">Unresolved links are captured labels. They do not prove a runtime call or a resolved target.</p>'
         if links.empty?
           body += '<p class="ui">No links were captured for this fact. This does not prove it has no dependencies.</p>'
         else

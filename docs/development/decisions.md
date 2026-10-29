@@ -307,3 +307,28 @@ speed claim. Keep the original failure; subsequent exact-pair checks belong to
 the integration owner. Reconsider representation only under a new bounded scope
 with complete-job evidence. Limits, separator accounting, source-file copying,
 frozen evaluation policy and all launch qualification requirements are unchanged.
+
+
+## Loaded model observation boundary (issue 73)
+
+Use the supplied application's Rails 8.1.4 reflection and raw schema-cache APIs
+for already loaded model descendants. The Ruby boundary observes bounded
+framework metadata; Rust normalizes, validates, identifies, admits and stores
+it. A textual macro extractor would not establish effective reflection metadata
+and would lose through/STI/runtime distinctions; loading targets or evaluating
+scopes/default procs would invent execution evidence. Neither is part of this
+slice. Names remain labels and runtime/source coherence remains unknown.
+
+The observation is a bounded batch, moved through request-owned native values;
+full JSON transfer and combined capture validation remain real costs. Pool
+connection failures are remembered by identity within this capture only,
+including lazy primary-key reads; unrelated table errors do not poison a pool.
+No persistent application cache, new Cargo dependency or runtime gem dependency
+is added. The existing booted SQLite fixture supplies independent schema-known
+answers and unsafe-default canaries; it does not qualify every adapter. The
+installed runner reuses it outside the checkout with installed production code.
+
+Reconsider the version allowlist only after checking changed Rails metadata
+APIs, and broader semantics/adapter or source-binding claims only with their own
+bounded accepted evidence. Callback/execution analysis and generic static macro
+extraction are separate customer slices. See the [model contract and sources](loaded-model-evidence.md#library-fit-and-maintenance).

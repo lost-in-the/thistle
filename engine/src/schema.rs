@@ -297,6 +297,10 @@ fn model_scalar(value: &Value) -> Result<()> {
 
 pub(crate) fn model_observation(data: &Value) -> Result<()> {
     model_object(data, &["name", "base_class", "superclass", "abstract", "table", "primary_key", "inheritance_column", "columns", "associations"])?;
+    model_fields(data)
+}
+
+fn model_fields(data: &Value) -> Result<()> {
     for key in ["name", "base_class", "superclass", "table", "inheritance_column"] { model_label(&data[key])?; }
     if !data["abstract"].is_null() && !data["abstract"].is_boolean() { return Err(CoreError::input("Invalid abstract flag")); }
     if !data["primary_key"].is_null() {
@@ -354,10 +358,9 @@ fn model_fact(fact: &Value) -> Result<()> {
         !fact["path"].is_null() || !fact["location"].is_null() {
         return Err(CoreError::input("Invalid model provenance"));
     }
-    let mut observation = data.clone();
-    let object = observation.as_object_mut().ok_or_else(|| CoreError::input("Invalid model evidence"))?;
-    for key in ["version", "ordinal", "active_record_version", "coherence", "source"] { object.remove(key); }
-    model_observation(&observation)?;
+    model_object(data, &["name", "base_class", "superclass", "abstract", "table", "primary_key", "inheritance_column", "columns", "associations",
+        "version", "ordinal", "active_record_version", "coherence", "source"])?;
+    model_fields(data)?;
     let name = data["name"].as_str().map(str::to_owned).unwrap_or_else(|| format!("Anonymous model {}", data["ordinal"]));
     let id = digest(&canonical(&serde_json::json!(["rails_model", 1, data["ordinal"], data["name"]]))?);
     if fact["name"] != name || fact["id"] != id || fact["links"] != Value::Array(crate::model::model_links(data)) {

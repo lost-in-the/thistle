@@ -15,9 +15,11 @@ module Thistle
       @budget = evidence_budget
       @entries = 0
       @metadata_bytes = 0
+      @failed_pools = {}.compare_by_identity
     end
 
     def call
+      @failed_pools.clear
       version = defined?(ActiveRecord::VERSION::STRING) ? ActiveRecord::VERSION::STRING : nil
       result = { 'version' => VERSION, 'active_record_version' => version, 'status' => 'unavailable', 'models' => [] }
       # Do not trigger an autoload of Base in a Rails app that has not used it.
@@ -39,6 +41,7 @@ module Thistle
     private
 
     def observe(model)
+      pool = nil
       data = { 'name' => label(Module.instance_method(:name).bind_call(model)),
         'base_class' => nil, 'superclass' => nil, 'abstract' => nil, 'table' => nil,
         'primary_key' => nil, 'inheritance_column' => nil,
@@ -49,22 +52,30 @@ module Thistle
         data['abstract'] = boolean(model.abstract_class?)
         data['inheritance_column'] = label(model.inheritance_column)
         unless data['abstract']
-          data['table'] = label(model.table_name)
-          key = model.primary_key
-          data['primary_key'] = if exact?(key, Array)
-            raise LimitExceeded, 'Model primary key exceeds max_entries' if key.length > @limits.fetch(:max_entries)
-            key.map { |entry| label(entry) }
-          elsif exact?(key, String)
-            [label(key)]
+          pool = model.connection_pool
+          # A checkout failure applies to this pool during this capture, including
+          # lazy primary-key lookup. Do not retry it for every loaded model.
+          unless @failed_pools.key?(pool)
+            data['table'] = label(model.table_name)
+            key = model.primary_key
+            data['primary_key'] = if exact?(key, Array)
+              raise LimitExceeded, 'Model primary key exceeds max_entries' if key.length > @limits.fetch(:max_entries)
+              key.map { |entry| label(entry) }
+            elsif exact?(key, String)
+              [label(key)]
+            end
+            # Raw adapter schema avoids model.columns / column_defaults, whose schema
+            # setup can materialize custom attribute types or Ruby default values.
+            columns = pool.schema_cache.columns_hash(data['table'])
+            data['columns'] = { 'status' => 'observed', 'entries' => columns.values.map { |column| observe_column(column) } }
           end
-          # Raw adapter schema avoids model.columns / column_defaults, whose schema
-          # setup can materialize custom attribute types or Ruby default values.
-          columns = model.connection_pool.schema_cache.columns_hash(data['table'])
-          data['columns'] = { 'status' => 'observed', 'entries' => columns.values.map { |column| observe_column(column) } }
         end
       rescue Thistle::Error
         raise
-      rescue StandardError
+      rescue StandardError => error
+        if pool && defined?(ActiveRecord::ConnectionNotEstablished) && error.is_a?(ActiveRecord::ConnectionNotEstablished)
+          @failed_pools[pool] = true
+        end
         # Keep safely obtained identity fields; no exception message or object is serialized.
       end
       begin
