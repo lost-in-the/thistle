@@ -135,22 +135,27 @@ fn capture_inner(root: &Path, effective: HashMap<String, usize>) -> Result<Value
     for fact in &mut capture.facts {
         if let Some(links) = fact["links"].as_array_mut() {
             links.sort_by(|a, b| {
-                let x = &a["attributes"]["thistle_call"];
-                let y = &b["attributes"]["thistle_call"];
-                (a["relation"].as_str(), a["target"].as_str(), x["receiver"]["kind"].as_str(), x["receiver"]["name"].as_str(), x["safe_navigation"].as_bool(), x["call_location"]["start_byte"].as_u64(), x["call_location"]["end_byte"].as_u64())
-                    .cmp(&(b["relation"].as_str(), b["target"].as_str(), y["receiver"]["kind"].as_str(), y["receiver"]["name"].as_str(), y["safe_navigation"].as_bool(), y["call_location"]["start_byte"].as_u64(), y["call_location"]["end_byte"].as_u64()))
+                call_sort_key(a).cmp(&call_sort_key(b))
             });
         }
     }
     let coverage = capture.coverage();
     Ok(json!({
+        "schema_version": schema::VERSION,
         "root_id": schema::digest(canonical_text.as_bytes()),
         "files": capture.files, "facts": capture.facts,
         "coverage": coverage, "diagnostics": capture.diagnostics,
         "producer": { "name": "thistle", "engine": "rust", "core_version": env!("CARGO_PKG_VERSION"), "capture_schema": 1,
-            "call_target_schema":1, "prism_version": PRISM_VERSION, "ruby_syntax_version": RUBY_SYNTAX_VERSION, "parser_policy": PARSER_POLICY, "parser_stack_bytes":PARSER_STACK_BYTES, "capture_concurrency":1,
+            "call_target_schema":2, "prism_version": PRISM_VERSION, "ruby_syntax_version": RUBY_SYNTAX_VERSION, "parser_policy": PARSER_POLICY, "parser_stack_bytes":PARSER_STACK_BYTES, "capture_concurrency":1,
             "effective_limits": capture.limits, "visited_nodes": capture.nodes }
     }))
+}
+
+fn call_sort_key(link: &Value) -> (Option<&str>, Option<&str>, Option<&str>, Option<&str>, Option<bool>, Option<u64>, Option<u64>) {
+    let call = schema::call_metadata(&link["attributes"]["thistle_call"], schema::VERSION).expect("captured call metadata");
+    (link["relation"].as_str(), link["target"].as_str(), call.as_ref().map(|c| c.kind),
+        call.as_ref().and_then(|c| c.name), call.as_ref().map(|c| c.safe_navigation),
+        call.as_ref().map(|c| c.location.start_byte), call.as_ref().map(|c| c.location.end_byte))
 }
 
 fn open_root(root: &Path) -> Result<File> {
@@ -420,14 +425,13 @@ impl Capture {
             let simple = matches!(kind, "implicit" | "self") || (matches!(kind, "constant" | "local" | "instance_variable") && name.is_some());
             let site = (!simple).then_some((start, end));
             let key = (current, target.clone(), kind.to_owned(), name.clone(), call.is_safe_navigation(), site);
-            let receiver_location = receiver.as_ref().map(|node| lines.location(&node.location()));
-            let metadata = json!({"version":1, "receiver":{"kind":kind, "name":name, "omitted_limit":omitted},
-                "safe_navigation":call.is_safe_navigation(), "call_location":lines.location(&location),
-                "receiver_location":receiver_location});
+            let receiver_location = receiver.as_ref().map(|node| lines.call_location(&node.location()));
+            let metadata = json!({"version":2, "data":(kind, name, omitted,
+                call.is_safe_navigation(), lines.call_location(&location), receiver_location)});
             let link = json!({"relation":"calls", "target":target, "resolution":"unresolved", "attributes":{"thistle_call":metadata}});
             if let Some(&index) = self.call_keys.get(&key) {
                 let old = &self.facts[current]["links"][index];
-                if old["attributes"]["thistle_call"]["call_location"]["start_byte"].as_u64().unwrap_or(u64::MAX) > start as u64 {
+                if schema::call_metadata(&old["attributes"]["thistle_call"], schema::VERSION)?.expect("captured call").location.start_byte > start as u64 {
                     let old_len = serde_json::to_vec(old)?.len();
                     let new_len = serde_json::to_vec(&link)?.len();
                     if new_len > old_len { self.charge_evidence(new_len - old_len)?; }
@@ -619,6 +623,9 @@ impl LineIndex {
         // endpoint at column zero of the following line, as for Prism locations.
         self.line(bytes.len())
     }
+    fn call_location(&self, location: &Location<'_>) -> (usize, usize, usize, usize) {
+        (location.start_offset(), location.end_offset(), self.line(location.start_offset()), self.line(location.end_offset()))
+    }
     fn location(&self, location: &Location<'_>) -> Value {
         json!({"start_line":self.line(location.start_offset()),"end_line":self.line(location.end_offset()),
                "start_byte":location.start_offset(),"end_byte":location.end_offset()})
@@ -634,6 +641,41 @@ mod tests {
     // capture permit. Parser-stack probes exercise the actual public boundary
     // in bounded subprocesses, including calls from Ruby worker threads.
     fn capture(root: &Path, limits: &Value) -> Result<Value> { capture_inner(root, effective_limits(limits)?) }
+
+    #[test]
+    fn compact_is_charged_before_admission_and_earliest_grouped_site_replaces() {
+        let source = b"self.call; self.call";
+        let parsed = ruby_prism::parse(source);
+        let program = parsed.node();
+        let statements = program.as_program_node().unwrap().statements();
+        let calls: Vec<_> = statements.body().iter().collect();
+        let first = calls[0].as_call_node().unwrap();
+        let last = calls[1].as_call_node().unwrap();
+        let mut capture = Capture {
+            limits: effective_limits(&json!({})).unwrap(),
+            files: vec![], facts: vec![], diagnostics: vec![],
+            entries: 0, total_bytes: 0, nodes: 0, links: 0, evidence_bytes: 2,
+            link_keys: HashSet::new(), call_keys: HashMap::new(), inventory_partial: false, declarations_partial: false,
+        };
+        capture.add_fact("method", "run", "a.rb", Value::Null, json!({})).unwrap();
+        let scope = Scope { owner: "run".into(), namespace: None, singleton: false, current: Some(0), dynamic: false };
+        let lines = LineIndex::new(source);
+        capture.collect_call(&last, &scope, "a.rb", &lines).unwrap();
+        let later_bytes = serde_json::to_vec(&capture.facts[0]["links"][0]).unwrap().len();
+        capture.facts[0]["links"] = json!([]); capture.call_keys.clear(); capture.links = 0;
+        capture.evidence_bytes = schema::MAX_FACTS_BYTES - later_bytes - 1;
+        capture.collect_call(&last, &scope, "a.rb", &lines).unwrap();
+        assert_eq!(capture.evidence_bytes, schema::MAX_FACTS_BYTES);
+        capture.collect_call(&first, &scope, "a.rb", &lines).unwrap();
+        let earliest = &capture.facts[0]["links"][0];
+        assert_eq!(schema::call_metadata(&earliest["attributes"]["thistle_call"], 2).unwrap().unwrap().location.start_byte, 0);
+        assert_eq!(capture.links, 1);
+        let early_bytes = serde_json::to_vec(earliest).unwrap().len();
+        assert_eq!(capture.evidence_bytes, schema::MAX_FACTS_BYTES - later_bytes + early_bytes);
+        capture.collect_call(&last, &scope, "a.rb", &lines).unwrap();
+        assert_eq!(capture.evidence_bytes, schema::MAX_FACTS_BYTES - later_bytes + early_bytes);
+        assert!(capture.charge_evidence(later_bytes - early_bytes + 1).is_err());
+    }
 
     #[test]
     fn names_and_method_size_limits_are_explicit() {
@@ -659,17 +701,18 @@ mod tests {
         schema::capture(&result).unwrap();
         let fact = result["facts"].as_array().unwrap().iter().find(|f| f["name"] == "Box#inspect_calls").unwrap();
         let calls = fact["links"].as_array().unwrap();
-        let selected = |target: &str, kind: &str| calls.iter().filter(|link| link["target"] == target && link["attributes"]["thistle_call"]["receiver"]["kind"] == kind).collect::<Vec<_>>();
+        fn metadata(link: &Value) -> schema::CallMetadata<'_> { schema::call_metadata(&link["attributes"]["thistle_call"], schema::VERSION).unwrap().unwrap() }
+        let selected = |target: &str, kind: &str| calls.iter().filter(|link| link["target"] == target && metadata(link).kind == kind).collect::<Vec<_>>();
         assert_eq!(selected("plain", "implicit").len(), 1);
         assert_eq!(selected("plain", "self").len(), 1);
-        assert_eq!(selected("call", "constant")[0]["attributes"]["thistle_call"]["receiver"]["name"], "Box");
+        assert_eq!(metadata(selected("call", "constant")[0]).name, Some("Box"));
         let locals = selected("call", "local");
         assert_eq!(locals.len(), 2);
-        assert_eq!(locals.iter().filter(|v| v["attributes"]["thistle_call"]["safe_navigation"] == true).count(), 1);
+        assert_eq!(locals.iter().filter(|v| metadata(v).safe_navigation).count(), 1);
         assert_eq!(selected("same", "literal").len(), 2);
         let long_call = selected("size", "literal")[0];
-        let loc = &long_call["attributes"]["thistle_call"]["receiver_location"];
-        assert_eq!(&source[loc["start_byte"].as_u64().unwrap() as usize..loc["end_byte"].as_u64().unwrap() as usize], format!("\"{}\"", long));
+        let loc = metadata(long_call).receiver_location.unwrap();
+        assert_eq!(&source[loc.start_byte as usize..loc.end_byte as usize], format!("\"{}\"", long));
         assert_eq!(result["files"][0]["content"], source);
         assert!(result["diagnostics"].as_array().unwrap().iter().all(|d| d["code"] != "link_expression_too_large"));
     }
