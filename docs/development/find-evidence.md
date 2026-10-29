@@ -104,3 +104,12 @@ Native Source still checks symlinks, regular files, digest, length and UTF-8.
 Focused checks live in native query tests, `test/test_find_evidence.rb`, and the
 Map Find presenter/file Source tests. These are candidate development checks,
 not qualification of L05 or any of the 17 launch capabilities.
+
+## Integrated schema-2 base
+
+Root reconciled the candidate with integrated main 7633b2b0. Reader retains both
+the explicit snapshot schema context and the new corpus/admission fields;
+Source and Check continue to use that schema context. Core/Map pairing is now
+pre.2. The original 688f304 candidate's pre.1 local checks and installed receipts
+keep their original identities; affected source and exact-pair installed checks
+remain required for this composed candidate.

@@ -178,6 +178,7 @@ module Thistle
         data = plain?(attrs, Hash) ? attrs['thistle_call'] : nil
         return '' if data.nil?
         fallback = '<br>Receiver details unavailable'
+        data = decoded_call(data)
         return fallback unless call_object?(data, %w[call_location receiver receiver_location safe_navigation version]) &&
           plain?(data['version'], Integer) && data['version'] == 1 && link['resolution'] == 'unresolved' &&
           [true, false].include?(data['safe_navigation']) && fact['evidence'] == 'static' && file
@@ -213,6 +214,31 @@ module Thistle
         grouped = %w[implicit self].include?(kind) || (named && !omitted)
         anchor = "#{url('/source', 'id' => fact.fetch('id'))}#L#{call_loc['start_line']}"
         "<br>#{h(label)} · <a href=\"#{h(anchor)}\">#{grouped ? 'Representative source' : 'Source'}</a>"
+      end
+
+      # Decode only the current displayed link, and only in explicit schema 2.
+      # The usual v1 validation below remains the single display boundary.
+      def decoded_call(data)
+        return data unless call_object?(data, %w[version data]) && plain?(data['version'], Integer) && data['version'] == 2
+        manifest = @reader.manifest
+        return nil unless plain?(manifest, Hash) && plain?(manifest['schema_version'], Integer) && manifest['schema_version'] == 2
+        tuple = data['data']
+        return nil unless plain?(tuple, Array) && tuple.length == 6
+        kind, name, omitted, safe, call_tuple, receiver_tuple = tuple
+        call_location = tuple_location(call_tuple)
+        receiver_is_null = plain?(receiver_tuple, NilClass)
+        receiver_location = receiver_is_null ? nil : tuple_location(receiver_tuple)
+        return nil unless call_location && (receiver_is_null || receiver_location)
+        { 'version' => 1, 'safe_navigation' => safe, 'call_location' => call_location,
+          'receiver_location' => receiver_location,
+          'receiver' => { 'kind' => kind, 'name' => name, 'omitted_limit' => omitted } }
+      end
+
+      def tuple_location(tuple)
+        return nil unless plain?(tuple, Array) && tuple.length == 4
+        start_byte, end_byte, start_line, end_line = tuple
+        { 'start_byte' => start_byte, 'end_byte' => end_byte,
+          'start_line' => start_line, 'end_line' => end_line }
       end
 
       def call_object?(value, fields)

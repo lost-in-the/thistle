@@ -36,7 +36,7 @@ fn publish_with_reader_budget(path: &Path, capture: &Value, reader_budget: usize
         entry
     }).collect();
     let mut manifest = json!({
-        "schema_version": schema::VERSION,
+        "schema_version": schema::capture_version(capture)?,
         "root_id": capture["root_id"], "producer": capture["producer"],
         "facts": {"sha256": schema::digest(&facts_bytes), "count": capture["facts"].as_array().map_or(0, Vec::len)},
         "files": metadata, "coverage": capture["coverage"], "diagnostics": capture["diagnostics"],
@@ -140,6 +140,7 @@ pub struct Reader {
     blobs: Dir,
     pub(crate) source_index: std::sync::Mutex<Option<crate::query::Index>>,
     pub(crate) admission: Option<crate::query::Reservation>,
+    schema_version: u64,
 }
 
 impl Reader {
@@ -159,9 +160,8 @@ impl Reader {
         if !manifest["producer"].is_object() || !manifest["diagnostics"].is_array() {
             return Err(CoreError::snapshot("Manifest producer or diagnostics has an invalid shape"));
         }
-        if manifest["schema_version"].as_u64() != Some(schema::VERSION) {
-            return Err(CoreError::snapshot("Unsupported snapshot schema"));
-        }
+        let version = schema::snapshot_version(&manifest["schema_version"])
+            .map_err(|_| CoreError::snapshot("Unsupported snapshot schema"))?;
         if manifest["generation"].as_str() != Some(generation.as_str()) { return Err(CoreError::snapshot("Generation mismatch")); }
         manifest.as_object_mut().ok_or_else(|| CoreError::snapshot("Manifest is not an object"))?.remove("generation");
         if schema::digest(&schema::canonical(&manifest)?) != generation { return Err(CoreError::snapshot("Manifest identity verification failed")); }
@@ -176,7 +176,7 @@ impl Reader {
         }
         let facts: Vec<Value> = serde_json::from_slice(&facts_bytes).map_err(|_| CoreError::snapshot("Invalid facts JSON"))?;
         for fact in &facts { schema::depth(fact)?; }
-        schema::facts(&facts, files)?;
+        schema::facts(&facts, files, version)?;
         if manifest["facts"]["count"].as_u64() != Some(facts.len() as u64) { return Err(CoreError::snapshot("Fact count mismatch")); }
         let by_id = facts.iter().enumerate().map(|(index, value)| (value["id"].as_str().unwrap().to_string(), index)).collect();
         let by_path = files.iter().map(|file| (file["path"].as_str().unwrap().to_string(), file.clone())).collect();
@@ -186,7 +186,8 @@ impl Reader {
         }
         let blobs = root.child("blobs", false)?;
         let (search, weight) = search_cache(&facts, facts_bytes.len(), manifest_bytes.len())?;
-        Ok(Self { manifest, generation, facts, weight, by_id, by_path, by_file, search, blobs, source_index: std::sync::Mutex::new(None), admission: None })
+        Ok(Self { manifest, generation, facts, weight, by_id, by_path, by_file, search, blobs,
+            source_index: std::sync::Mutex::new(None), admission: None, schema_version: version })
     }
 
     pub fn fact(&self, id: &str) -> Result<&Value> {
@@ -221,7 +222,7 @@ impl Reader {
         let content = self.source_bytes(file)?;
         let mut expanded_file = file.clone();
         expanded_file["content"] = Value::String(content.clone());
-        schema::facts(std::slice::from_ref(fact), &[expanded_file])
+        schema::facts(std::slice::from_ref(fact), &[expanded_file], self.schema_version)
             .map_err(|_| CoreError::snapshot("Fact source positions disagree with captured bytes"))?;
         Ok(json!({"generation": self.generation, "fact": fact, "content": content, "sha256": file["sha256"]}))
     }
@@ -253,7 +254,7 @@ impl Reader {
             let mut expanded = file.clone();
             expanded["content"] = Value::String(self.source_bytes(file)?);
             let matching: Vec<Value> = self.by_file.get(file["path"].as_str().unwrap()).into_iter().flatten().map(|index| self.facts[*index].clone()).collect();
-            schema::facts(&matching, &[expanded]).map_err(|_| CoreError::snapshot("Fact source positions disagree with captured bytes"))?;
+            schema::facts(&matching, &[expanded], self.schema_version).map_err(|_| CoreError::snapshot("Fact source positions disagree with captured bytes"))?;
         }
         Ok(json!({"generation": self.generation, "integrity": "verified", "freshness": "not_checked",
             "files": self.by_path.len(), "facts": self.facts.len(), "coverage": self.manifest["coverage"],
@@ -428,6 +429,75 @@ mod tests {
         assert!(Reader::open(temp.path(), old["generation"].as_str()).unwrap().fact(&"b".repeat(64)).unwrap()["links"].as_array().unwrap().is_empty());
         data["facts"][0]["links"][0]["attributes"]["thistle_call"] = json!({"version":2,"future":[1,2,3]});
         publish(temp.path(), &data).unwrap();
+    }
+
+    #[test]
+    fn explicit_schema_selection_preserves_legacy_identity_and_opaque_compact() {
+        let temp = tempfile::tempdir().unwrap();
+        let mut legacy = fixture("First");
+        // Intentionally not a static unresolved call: even an EXACT valid compact
+        // extension was opaque in schema 1 and must not acquire v2 semantics.
+        legacy["producer"]["call_target_schema"] = json!(2);
+        let compact = json!({"version":2,"data":["implicit",null,false,false,[0,5,1,1],null]});
+        legacy["facts"][0]["links"] = json!([{"relation":"references","target":"hello","resolution":"resolved",
+            "attributes":{"thistle_call":compact}}]);
+        let old = publish(temp.path(), &legacy).unwrap();
+        assert_eq!(old["schema_version"], 1);
+        legacy["schema_version"] = json!(1);
+        assert_eq!(publish(temp.path(), &legacy).unwrap(), old);
+        let old_facts = std::fs::read(temp.path().join("generations").join(old["generation"].as_str().unwrap()).join("facts.json")).unwrap();
+        let mut current = legacy.clone(); current["schema_version"] = json!(2);
+        assert!(publish(temp.path(), &current).is_err());
+        current["facts"][0]["links"][0]["relation"] = json!("calls");
+        current["facts"][0]["links"][0]["resolution"] = json!("unresolved");
+        let new = publish(temp.path(), &current).unwrap();
+        assert_ne!(old["generation"], new["generation"]);
+        for manifest in [&old, &new] {
+            let reader = Reader::open(temp.path(), manifest["generation"].as_str()).unwrap();
+            let source = reader.source(&"b".repeat(64)).unwrap();
+            assert_eq!(source["fact"]["links"][0]["attributes"]["thistle_call"], compact);
+            reader.check().unwrap();
+        }
+        assert_eq!(std::fs::read(temp.path().join("generations").join(old["generation"].as_str().unwrap()).join("facts.json")).unwrap(), old_facts);
+        for version in [Value::Null, json!(true), json!("2"), json!(2.0), json!(0), json!(3), json!(-1)] {
+            current["schema_version"] = version;
+            let absent = temp.path().join("must-not-exist");
+            assert!(publish(&absent, &current).is_err());
+            assert!(!absent.exists());
+            assert_eq!(Reader::open(temp.path(), None).unwrap().generation, new["generation"].as_str().unwrap());
+        }
+    }
+
+    #[test]
+    fn compact_validation_runs_at_open_source_and_check() {
+        let temp = tempfile::tempdir().unwrap();
+        let mut data = fixture("First"); data["schema_version"] = json!(2);
+        data["facts"][0]["links"] = json!([{"relation":"calls","target":"hello","resolution":"unresolved",
+            "attributes":{"thistle_call":{"version":2,"data":["implicit",null,false,false,[0,5,1,1],null]}}}]);
+        let mut manifest = publish(temp.path(), &data).unwrap();
+        let mut reader = Reader::open(temp.path(), None).unwrap();
+        // Open can validate numeric bounds without blobs; Source and Check must
+        // also validate line/UTF-8 semantics against the pinned source content.
+        reader.facts[0]["links"][0]["attributes"]["thistle_call"]["data"][4][3] = json!(2);
+        assert!(reader.source(&"b".repeat(64)).is_err());
+        assert!(reader.check().is_err());
+        reader.facts[0]["links"][0]["attributes"]["thistle_call"]["data"][4] = json!([0,99999,1,1]);
+        let bytes = serde_json::to_vec(&reader.facts).unwrap();
+        manifest["facts"]["sha256"] = json!(schema::digest(&bytes));
+        manifest.as_object_mut().unwrap().remove("generation");
+        let generation = schema::digest(&schema::canonical(&manifest).unwrap());
+        manifest["generation"] = json!(generation);
+        let dir = temp.path().join("generations").join(&generation);
+        std::fs::create_dir(&dir).unwrap();
+        std::fs::write(dir.join("facts.json"), bytes).unwrap();
+        std::fs::write(dir.join("manifest.json"), schema::canonical(&manifest).unwrap()).unwrap();
+        assert!(Reader::open(temp.path(), Some(&generation)).is_err());
+        // Schema 2 also admits strict v1 without rewriting it.
+        data["facts"][0]["links"][0]["attributes"]["thistle_call"] = json!({"version":1,
+            "receiver":{"kind":"implicit","name":null,"omitted_limit":false},"safe_navigation":false,
+            "call_location":{"start_byte":0,"end_byte":5,"start_line":1,"end_line":1},"receiver_location":null});
+        publish(temp.path(), &data).unwrap();
+        Reader::open(temp.path(), None).unwrap().check().unwrap();
     }
 
     #[test]
