@@ -22,9 +22,11 @@ pub fn publish(path: &Path, capture: &Value) -> Result<Value> {
 
 fn publish_with_reader_budget(path: &Path, capture: &Value, reader_budget: usize) -> Result<Value> {
     schema::capture(capture)?;
-    let mut facts = schema::array(capture, "facts")?.clone();
-    facts.sort_by(|a, b| a["id"].as_str().cmp(&b["id"].as_str()));
-    let facts_bytes = schema::canonical(&Value::Array(facts))?;
+    let facts_bytes = {
+        let mut facts: Vec<&Value> = schema::array(capture, "facts")?.iter().collect();
+        facts.sort_by(|a, b| a["id"].as_str().cmp(&b["id"].as_str()));
+        serde_json::to_vec(&facts)?
+    };
     if facts_bytes.len() > schema::MAX_FACTS_BYTES { return Err(CoreError::limit("Facts exceed snapshot size limit")); }
     let mut files = schema::array(capture, "files")?.clone();
     files.sort_by(|a, b| a["path"].as_str().cmp(&b["path"].as_str()));
@@ -253,6 +255,48 @@ mod tests {
             "files": [{"path":"app.rb","sha256":schema::digest(content.as_bytes()),"bytes":content.len(),"encoding":"UTF-8","content":content}],
             "facts": [{"id":"b".repeat(64),"kind":"class","name":name,"path":"app.rb","location":null,"evidence":"static","attributes":{},"links":[]}],
             "coverage":[{"family":"ruby","status":"partial","scope":"fixture","reason":"No runtime resolution"}],"diagnostics":[]})
+    }
+    #[test]
+    fn borrowed_publication_matches_owned_reference_for_permutations() {
+        let temp = tempfile::tempdir().unwrap();
+        let mut capture = fixture("First");
+        capture["facts"][0]["attributes"] = json!({"nested": ["quote\" slash\\ newline\n", {"unicode":"é", "numbers":[-42, 0, 1.25, 1e30]}]});
+        let mut second = capture["facts"][0].clone();
+        second["id"] = json!("a".repeat(64));
+        second["name"] = json!("Second");
+        capture["facts"].as_array_mut().unwrap().push(second);
+        let original = capture.clone();
+        let mut owned = capture["facts"].as_array().unwrap().clone();
+        owned.sort_by(|a, b| a["id"].as_str().cmp(&b["id"].as_str()));
+        let expected = schema::canonical(&Value::Array(owned)).unwrap();
+        let manifest = publish(temp.path(), &capture).unwrap();
+        assert_eq!(capture, original);
+        let generation = manifest["generation"].as_str().unwrap();
+        let dir = temp.path().join("generations").join(generation);
+        assert_eq!(std::fs::read(dir.join("facts.json")).unwrap(), expected);
+        assert_eq!(manifest["facts"]["sha256"], schema::digest(&expected));
+        let manifest_bytes = std::fs::read(dir.join("manifest.json")).unwrap();
+        capture["facts"].as_array_mut().unwrap().reverse();
+        let reversed = capture.clone();
+        let again = publish(temp.path(), &capture).unwrap();
+        assert_eq!(capture, reversed);
+        assert_eq!(manifest, again);
+        assert_eq!(std::fs::read(dir.join("manifest.json")).unwrap(), manifest_bytes);
+        assert_eq!(Reader::open(temp.path(), None).unwrap().facts, serde_json::from_slice::<Vec<Value>>(&expected).unwrap());
+    }
+    #[test]
+    fn invalid_fact_ids_fail_before_creating_store() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("store");
+        let mut capture = fixture("First");
+        capture["facts"][0]["id"] = json!("invalid");
+        assert_eq!(publish(&path, &capture).unwrap_err().code, "invalid_input");
+        assert!(!path.exists());
+        capture = fixture("First");
+        let duplicate = capture["facts"][0].clone();
+        capture["facts"].as_array_mut().unwrap().push(duplicate);
+        assert_eq!(publish(&path, &capture).unwrap_err().code, "invalid_input");
+        assert!(!path.exists());
     }
     #[test]
     fn immutable_pin_survives_new_publication() {

@@ -248,3 +248,23 @@ claim. Reconsider summary grouping if a separately scoped consumer needs all cal
 sites or binding-aware identities. Old snapshots retain their original targets;
 unknown extension versions remain opaque. This changes new target semantics and
 does not qualify L07 or provide reverse lookup.
+
+## Borrowed publication ordering (issue 64)
+
+After validation, sort references to the existing facts and serialize the sequence
+with the existing serde_json serializer. This keeps the canonical array encoding
+and local synchronous ownership while avoiding the owned fact-tree clone used
+only for ordering. Retaining that clone is simpler but duplicates nested data;
+reconstructing an owned JSON value would do the same. A custom writer or streaming
+store adds format and failure-path maintenance without a demonstrated need.
+
+The reference vector has O(n) capacity, stable sorting may use O(n) scratch,
+and the original capture and growing serialized byte buffer still coexist; the
+buffer remains bounded by the existing encoded-size check after serialization.
+On error, local allocations are dropped before return. Reader admission and its
+temporary search cache remain separate costs. The 100,000-fact and 64 MiB encoded
+limits do not themselves bound total process RSS. Issue 60 attributed at least
+209,195,000 bytes (43.03%) of one intercepted heap peak to clone stacks; that is
+neither an RSS saving nor a measured improvement. Reconsider the approach if
+canonical serializer behavior changes, or controlled complete-workflow evidence
+shows a material regression or identifies a better bounded alternative.
