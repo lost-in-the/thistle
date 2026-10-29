@@ -65,6 +65,7 @@ struct Capture {
     links: usize,
     evidence_bytes: usize,
     link_keys: HashSet<(usize, String, String)>,
+    call_keys: HashMap<(usize, String, String, Option<String>, bool, Option<(usize, usize)>), usize>,
     inventory_partial: bool,
     declarations_partial: bool,
 }
@@ -123,7 +124,7 @@ fn capture_inner(root: &Path, effective: HashMap<String, usize>) -> Result<Value
         limits: effective,
         files: Vec::new(), facts: Vec::new(), diagnostics: Vec::new(),
         entries: 0, total_bytes: 0, nodes: 0, links: 0, evidence_bytes: 2,
-        link_keys: HashSet::new(), inventory_partial: false, declarations_partial: false,
+        link_keys: HashSet::new(), call_keys: HashMap::new(), inventory_partial: false, declarations_partial: false,
     };
     capture.walk(&directory, "", 0)?;
     capture.files.sort_by(|a, b| a["path"].as_str().cmp(&b["path"].as_str()));
@@ -133,7 +134,12 @@ fn capture_inner(root: &Path, effective: HashMap<String, usize>) -> Result<Value
     });
     for fact in &mut capture.facts {
         if let Some(links) = fact["links"].as_array_mut() {
-            links.sort_by(|a, b| (a["relation"].as_str(), a["target"].as_str()).cmp(&(b["relation"].as_str(), b["target"].as_str())));
+            links.sort_by(|a, b| {
+                let x = &a["attributes"]["thistle_call"];
+                let y = &b["attributes"]["thistle_call"];
+                (a["relation"].as_str(), a["target"].as_str(), x["receiver"]["kind"].as_str(), x["receiver"]["name"].as_str(), x["safe_navigation"].as_bool(), x["call_location"]["start_byte"].as_u64(), x["call_location"]["end_byte"].as_u64())
+                    .cmp(&(b["relation"].as_str(), b["target"].as_str(), y["receiver"]["kind"].as_str(), y["receiver"]["name"].as_str(), y["safe_navigation"].as_bool(), y["call_location"]["start_byte"].as_u64(), y["call_location"]["end_byte"].as_u64()))
+            });
         }
     }
     let coverage = capture.coverage();
@@ -142,7 +148,7 @@ fn capture_inner(root: &Path, effective: HashMap<String, usize>) -> Result<Value
         "files": capture.files, "facts": capture.facts,
         "coverage": coverage, "diagnostics": capture.diagnostics,
         "producer": { "name": "thistle", "engine": "rust", "core_version": env!("CARGO_PKG_VERSION"), "capture_schema": 1,
-            "prism_version": PRISM_VERSION, "ruby_syntax_version": RUBY_SYNTAX_VERSION, "parser_policy": PARSER_POLICY, "parser_stack_bytes":PARSER_STACK_BYTES, "capture_concurrency":1,
+            "call_target_schema":1, "prism_version": PRISM_VERSION, "ruby_syntax_version": RUBY_SYNTAX_VERSION, "parser_policy": PARSER_POLICY, "parser_stack_bytes":PARSER_STACK_BYTES, "capture_concurrency":1,
             "effective_limits": capture.limits, "visited_nodes": capture.nodes }
     }))
 }
@@ -378,16 +384,18 @@ impl Capture {
                 let next = Rc::new(Scope { dynamic:true, ..(*scope).clone() });
                 children::for_each_child(&node, |child| pending.push((child, Rc::clone(&next))));
             } else {
-                if let Some(call) = node.as_call_node() { self.collect_call(&call, &scope, path)?; }
+                if let Some(call) = node.as_call_node() { self.collect_call(&call, &scope, path, lines)?; }
                 children::for_each_child(&node, |child| pending.push((child, Rc::clone(&scope))));
             }
         }
         Ok(())
     }
 
-    fn collect_call(&mut self, call: &ruby_prism::CallNode<'_>, scope: &Scope, path: &str) -> Result<()> {
+    fn collect_call(&mut self, call: &ruby_prism::CallNode<'_>, scope: &Scope, path: &str, lines: &LineIndex) -> Result<()> {
         let Some(current) = scope.current else { return Ok(()); };
-        let name = text(call.name().as_slice());
+        let method_name = call.name();
+        if method_name.as_slice().len() > 4096 { return Err(CoreError::limit("Call method exceeds 4096 bytes")); }
+        let name = text(method_name.as_slice());
         let receiver_is_self = call.receiver().map_or(true, |receiver| receiver.as_self_node().is_some());
         let namespace = matches!(self.facts[current]["kind"].as_str(), Some("class") | Some("module"));
         if (scope.dynamic || scope.singleton) && receiver_is_self && namespace && matches!(name.as_str(), "include" | "extend" | "prepend") {
@@ -399,16 +407,42 @@ impl Capture {
             if let Some(arguments) = call.arguments() {
                 for argument in &arguments.arguments() { self.add_link(current, relation, argument.location().as_slice(), path)?; }
             }
-        } else if let Some(receiver) = call.receiver() {
-            let location = receiver.location();
-            if location.as_slice().len() > 1_000 {
-                self.declarations_partial = true;
-                return self.diagnostic("link_expression_too_large", "A relationship receiver exceeded 1000 bytes and is unavailable", path);
-            }
-            let target = format!("{}.{name}", text(location.as_slice()));
-            self.add_link(current, "calls", target.as_bytes(), path)?;
         } else {
-            self.add_link(current, "calls", name.as_bytes(), path)?;
+            let raw_name = call.name();
+            let raw_name = raw_name.as_slice();
+            if raw_name.len() > 4096 { return Err(CoreError::limit("Call method exceeds 4096 bytes")); }
+            let target = text(raw_name);
+            let receiver = call.receiver();
+            let (kind, name, omitted) = receiver.as_ref().map_or(("implicit", None, false), classify_receiver);
+            let location = call.location();
+            let start = location.start_offset();
+            let end = location.end_offset();
+            let simple = matches!(kind, "implicit" | "self") || (matches!(kind, "constant" | "local" | "instance_variable") && name.is_some());
+            let site = (!simple).then_some((start, end));
+            let key = (current, target.clone(), kind.to_owned(), name.clone(), call.is_safe_navigation(), site);
+            let receiver_location = receiver.as_ref().map(|node| lines.location(&node.location()));
+            let metadata = json!({"version":1, "receiver":{"kind":kind, "name":name, "omitted_limit":omitted},
+                "safe_navigation":call.is_safe_navigation(), "call_location":lines.location(&location),
+                "receiver_location":receiver_location});
+            let link = json!({"relation":"calls", "target":target, "resolution":"unresolved", "attributes":{"thistle_call":metadata}});
+            if let Some(&index) = self.call_keys.get(&key) {
+                let old = &self.facts[current]["links"][index];
+                if old["attributes"]["thistle_call"]["call_location"]["start_byte"].as_u64().unwrap_or(u64::MAX) > start as u64 {
+                    let old_len = serde_json::to_vec(old)?.len();
+                    let new_len = serde_json::to_vec(&link)?.len();
+                    if new_len > old_len { self.charge_evidence(new_len - old_len)?; }
+                    else { self.evidence_bytes -= old_len - new_len; }
+                    self.facts[current]["links"][index] = link;
+                }
+            } else {
+                self.links += 1;
+                if self.links > self.limit("max_links") { return Err(CoreError::limit("Capture exceeds max_links")); }
+                self.charge_evidence(serde_json::to_vec(&link)?.len() + 1)?;
+                let links = self.facts[current]["links"].as_array_mut().expect("fact links array");
+                let index = links.len();
+                links.push(link);
+                self.call_keys.insert(key, index);
+            }
         }
         Ok(())
     }
@@ -499,6 +533,52 @@ fn text(bytes: &[u8]) -> String {
     String::from_utf8_lossy(bytes).into_owned()
 }
 
+// Only lexical syntax is named. No parser node or receiver source escapes capture.
+fn bounded_name(kind: &'static str, bytes: &[u8]) -> (&'static str, Option<String>, bool) {
+    if bytes.len() <= 256 { (kind, Some(text(bytes)), false) } else { (kind, None, true) }
+}
+
+fn classify_receiver(node: &Node<'_>) -> (&'static str, Option<String>, bool) {
+    if node.as_self_node().is_some() { return ("self", None, false); }
+    if let Some(n) = node.as_local_variable_read_node() { return bounded_name("local", n.name().as_slice()); }
+    if let Some(n) = node.as_instance_variable_read_node() { return bounded_name("instance_variable", n.name().as_slice()); }
+    if let Some(n) = node.as_constant_read_node() { return bounded_name("constant", n.name().as_slice()); }
+    if node.as_constant_path_node().is_some() {
+        let mut cursor = Some(node.as_constant_path_node().unwrap().as_node());
+        let mut parts = Vec::new();
+        let mut size = 0usize;
+        let mut absolute = false;
+        let mut oversized = false;
+        while let Some(current) = cursor {
+            if parts.len() >= 128 { return ("expression", None, false); }
+            if let Some(path) = current.as_constant_path_node() {
+                let Some(name) = path.name() else { return ("expression", None, false); };
+                let bytes = name.as_slice();
+                size += bytes.len() + 2;
+                oversized |= size > 256;
+                parts.push(if oversized { String::new() } else { text(bytes) });
+                cursor = path.parent();
+                if cursor.is_none() { absolute = true; }
+            } else if let Some(read) = current.as_constant_read_node() {
+                let name = read.name(); let bytes = name.as_slice(); size += bytes.len();
+                oversized |= size > 256;
+                parts.push(if oversized { String::new() } else { text(bytes) }); cursor = None;
+            } else { return ("expression", None, false); }
+        }
+        if oversized { return ("constant", None, true); }
+        parts.reverse();
+        let name = format!("{}{}", if absolute { "::" } else { "" }, parts.join("::"));
+        return if name.len() <= 256 { ("constant", Some(name), false) } else { ("constant", None, true) };
+    }
+    if node.as_call_node().is_some() { return ("call", None, false); }
+    if node.as_array_node().is_some() || node.as_hash_node().is_some() || node.as_string_node().is_some() ||
+       node.as_symbol_node().is_some() || node.as_integer_node().is_some() || node.as_float_node().is_some() ||
+       node.as_regular_expression_node().is_some() || node.as_true_node().is_some() || node.as_false_node().is_some() || node.as_nil_node().is_some() {
+        return ("literal", None, false);
+    }
+    ("expression", None, false)
+}
+
 fn constant_expression(node: &Node<'_>) -> String {
     // A nonrecursive constant-path walk also handles long :: chains safely.
     let mut suffixes = Vec::new();
@@ -554,6 +634,45 @@ mod tests {
     // capture permit. Parser-stack probes exercise the actual public boundary
     // in bounded subprocesses, including calls from Ruby worker threads.
     fn capture(root: &Path, limits: &Value) -> Result<Value> { capture_inner(root, effective_limits(limits)?) }
+
+    #[test]
+    fn names_and_method_size_limits_are_explicit() {
+        assert_eq!(bounded_name("local", &vec![b'x'; 256]).1.unwrap().len(), 256);
+        assert_eq!(bounded_name("local", &vec![b'x'; 257]), ("local", None, true));
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("limits.rb");
+        std::fs::write(&path, format!("class Limits; def run; self.{}; end; end\n", "a".repeat(4096))).unwrap();
+        let result = capture(root.path(), &json!({})).unwrap();
+        let fact = result["facts"].as_array().unwrap().iter().find(|f| f["name"] == "Limits#run").unwrap();
+        assert_eq!(fact["links"][0]["target"].as_str().unwrap().len(), 4096);
+        std::fs::write(path, format!("class Limits; def run; self.{}; end; end\n", "a".repeat(4097))).unwrap();
+        assert_eq!(capture(root.path(), &json!({})).unwrap_err().code, "limit_exceeded");
+    }
+
+    #[test]
+    fn structured_calls_keep_long_receivers_and_distinct_sites() {
+        let root = tempfile::tempdir().unwrap();
+        let long = "x".repeat(8192);
+        let source = format!("class Box\n def inspect_calls(x)\n  plain; self.plain; Box.call; x.call; @x.call; x&.call; x.call\n  [1].same; [2].same; /a  b/.match; \"{}\".size\n end\nend\n", long);
+        std::fs::write(root.path().join("fixture.rb"), &source).unwrap();
+        let result = capture(root.path(), &json!({})).unwrap();
+        schema::capture(&result).unwrap();
+        let fact = result["facts"].as_array().unwrap().iter().find(|f| f["name"] == "Box#inspect_calls").unwrap();
+        let calls = fact["links"].as_array().unwrap();
+        let selected = |target: &str, kind: &str| calls.iter().filter(|link| link["target"] == target && link["attributes"]["thistle_call"]["receiver"]["kind"] == kind).collect::<Vec<_>>();
+        assert_eq!(selected("plain", "implicit").len(), 1);
+        assert_eq!(selected("plain", "self").len(), 1);
+        assert_eq!(selected("call", "constant")[0]["attributes"]["thistle_call"]["receiver"]["name"], "Box");
+        let locals = selected("call", "local");
+        assert_eq!(locals.len(), 2);
+        assert_eq!(locals.iter().filter(|v| v["attributes"]["thistle_call"]["safe_navigation"] == true).count(), 1);
+        assert_eq!(selected("same", "literal").len(), 2);
+        let long_call = selected("size", "literal")[0];
+        let loc = &long_call["attributes"]["thistle_call"]["receiver_location"];
+        assert_eq!(&source[loc["start_byte"].as_u64().unwrap() as usize..loc["end_byte"].as_u64().unwrap() as usize], format!("\"{}\"", long));
+        assert_eq!(result["files"][0]["content"], source);
+        assert!(result["diagnostics"].as_array().unwrap().iter().all(|d| d["code"] != "link_expression_too_large"));
+    }
 
     #[test]
     fn native_capture_declares_methods_and_does_not_execute_source() {

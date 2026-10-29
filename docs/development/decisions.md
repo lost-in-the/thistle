@@ -227,3 +227,24 @@ It builds and drops a search cache, so this adds a traversal and temporary
 allocation; the estimate does not cover all retained or transient memory. It
 does not reserve space in the shared reader registry. Occupied registries may
 still refuse an otherwise admissible snapshot.
+
+## Lexical call targets (issue 43)
+
+Calls use the Prism method name as the target, with optional version 1 receiver
+syntax and parser locations in `attributes.thistle_call`. They remain unresolved:
+these labels do not identify a runtime object, binding, dispatch target, or call
+execution. Implicit, self, and named lexical receivers group repeated calls in a
+fact and retain the earliest representative location; opaque receivers and names
+omitted at the limit retain separate sites. The producer records
+`call_target_schema: 1`. Locations are half-open parser anchors into the captured
+file, not a promise that a receiver's location encodes its complete value.
+
+We reuse the pinned Prism parser and existing snapshot schema, validation and
+source blobs. Full receiver text as a target drops oversized calls and repeats
+source; whitespace normalization can alter literal meaning. A resolver or call
+site database would add cost without proving runtime dispatch. This representation
+adds metadata and can increase opaque link cardinality; it is not a performance
+claim. Reconsider summary grouping if a separately scoped consumer needs all call
+sites or binding-aware identities. Old snapshots retain their original targets;
+unknown extension versions remain opaque. This changes new target semantics and
+does not qualify L07 or provide reverse lookup.

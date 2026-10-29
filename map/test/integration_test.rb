@@ -7,6 +7,66 @@ require 'action_controller/railtie'
 class MapIntegrationTest < Minitest::Test
   include MapTestSupport
 
+  def test_structured_calls_follow_pinned_source_through_real_reader
+    Dir.mktmpdir('thistle-call-journey-') do |directory|
+      root = File.join(directory, 'app')
+      store = File.join(directory, 'store')
+      FileUtils.mkdir_p(root)
+      source = "class Parcel\n  def show(x)\n    x&.render; x.render; x.render\n    [1].same; [2].same; \"#{'a' * 8192}\".size\n  end\nend\n"
+      source = source.sub("\nend\n", "\n  def note = <<~TEXT\n    \#{self.render}\n  TEXT\nend\n")
+      File.write(File.join(root, 'parcel.rb'), source)
+      Thistle.capture(root: root, output: store)
+      old = Thistle::Reader.new(store)
+      fact = old.find('Parcel#show', limit: 10).find { |item| item['name'] == 'Parcel#show' }
+      refute_nil fact
+      links = old.links(fact.fetch('id'))
+      assert_equal 2, links.count { |link| link['target'] == 'render' }
+      assert_equal 2, links.count { |link| link['target'] == 'same' }
+      long = links.find { |link| link['target'] == 'size' }
+      assert_equal 'literal', long.dig('attributes', 'thistle_call', 'receiver', 'kind')
+      location = long.dig('attributes', 'thistle_call', 'receiver_location')
+      assert_equal "\"#{'a' * 8192}\"", source.b.byteslice(location['start_byte']...location['end_byte'])
+      app = Thistle::Map::App.new(store: store)
+      query = URI.encode_www_form('id' => fact['id'], 'generation' => old.generation)
+      html = request(app, '/links', query: query).last
+      assert_includes html, 'local x'
+      assert_includes html, 'safe navigation'
+      assert_includes html, 'Representative source'
+      assert_includes html, '#L3'
+      assert_includes html, old.generation
+      note = old.find('Parcel#note', limit: 10).find { |item| item['name'] == 'Parcel#note' }
+      line = source.lines.index { |text| text.include?('#{self.render}') } + 1
+      assert_operator line, :>, note.fetch('location').fetch('end_line')
+      note_query = URI.encode_www_form('id' => note.fetch('id'), 'generation' => old.generation)
+      note_page = request(app, '/links', query: note_query)
+      assert_equal 200, note_page.first
+      assert_includes note_page.last, '<br>self ·'
+      href = note_page.last[/href="([^"]+#L#{line})"/, 1]
+      refute_nil href
+      source_uri = URI.parse(href.gsub('&amp;', '&'))
+      assert_equal source, old.source(fact['id'])['content']
+      assert_equal 'verified', old.check['integrity']
+      File.write(File.join(root, 'parcel.rb'), source.sub('[1]', '[3]'))
+      Thistle.capture(root: root, output: store)
+      newer = Thistle::Reader.new(store)
+      refute_equal old.generation, newer.generation
+      assert_equal source, old.source(fact['id'])['content']
+      pinned = request(app, '/source', query: query)
+      assert_equal 200, pinned.first
+      assert_includes pinned.last, old.generation
+      assert_includes pinned.last, 'id="L3"'
+      followed = request(app, source_uri.path, query: source_uri.query)
+      assert_equal 200, followed.first
+      assert_includes followed.last, old.generation
+      assert_includes followed.last, "id=\"L#{line}\""
+      assert_equal source, old.source(note.fetch('id')).fetch('content')
+      assert_equal 200, request(app, '/check', query: query).first
+    ensure
+      old&.close
+      newer&.close
+    end
+  end
+
   def test_real_route_conditions_survive_publish_reader_and_escaped_map
     Dir.mktmpdir('thistle-map-constraints-') do |directory|
       root = File.join(directory, 'app')
