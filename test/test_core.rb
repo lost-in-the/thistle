@@ -171,6 +171,9 @@ class ThistleCoreTest < Minitest::Test
     result = JSON.parse(out.string)
     assert_equal generation, result["generation"]
     assert_equal 1, result["results"].length
+    assert_match(/\A[0-9a-f]{64}\z/, result.fetch('results').first.fetch('id'))
+    assert_kind_of Hash, result.fetch('results').first.fetch('attributes')
+    assert_kind_of Array, result.fetch('coverage')
     assert result["truncated"]
     out, err = StringIO.new, StringIO.new
     assert_equal 2, Thistle::CLI.new(out: out, err: err).run(["find", "Basket"])
