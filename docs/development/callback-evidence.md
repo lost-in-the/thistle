@@ -231,3 +231,26 @@ Failure log SHA256:
 Result SHA256:
 `78a31b419ec1b29ad5a33301b2b4f1d3d880ef447a2f484aa8542ff7af8062ae`.
 This preserves both failed preflights; neither is callback runtime success.
+
+A separately authorized corrected attempt on the same frozen source printed and
+retained the actual tuple before named checks: Ruby 3.4.12, Rails/Active Record
+8.1.4, JSON 2.9.1, SQLite 2.10.2 and selected Rouge 5.1.0. The named Rouge check
+refused because the candidate requires development `~> 4.6` and runtime `< 5`.
+Availability of other compatible installed Rouge versions was not inspected.
+The JSON IO-generator probe, extension build and all five test commands were not
+reached. This does not establish the cause of the earlier generic failure.
+No dependency substitution or retry followed. Input invariance and cleanup were
+verified; selected spec paths and the separate receipt remain retained.
+
+Corrected-attempt log SHA256:
+`4bf68a74f3e425a4ccf71518544ed207152221566932f073d7832f5e1ccc2a94`.
+Result SHA256:
+`2c62474704cb2200225c64f3a82be5bdd431bb8e93398ded71b25791cb342845`.
+
+Source self-review examined shared checked admission and refusal atomicity,
+per-family entry meaning, semantic IDs/provenance, one-way primitive native
+transport, exact separator charges, pinned requested source expansion, unchanged
+FFI/Reader lifecycle and installed-orchestration failure propagation. No parallel
+admission implementation or old-static-fact rescan was introduced. The minimum
+source journey and installed artifacts remain open evidence gaps; native tests
+alone cannot accept the callback insight outcome.
