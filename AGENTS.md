@@ -58,13 +58,26 @@ happened.
 - Open a draft PR when a coherent change is reviewable. Run the smallest checks
   that resolve the change's risk, followed by the required affected CI lanes.
   Broaden testing for a concrete risk or declared gate, not to repeat evidence.
-- Update the issue at meaningful transitions or a blocker. Record what actually
-  ran, exact identities and evidence links, remaining limits, and the next action.
+- At review, handoff, integration, or a change to the proposed head/base,
+  dependency, blocker, or acceptance result, reconcile the PR's current summary,
+  issue next action/claim, and project stage against current remote state.
+  Remove cleared blockers from current summaries; preserve dated attempts and
+  their evidence identities. Record a specific access gap when reconciliation
+  cannot be completed; avoid command-by-command status comments.
+- Batch and deduplicate notifications before acting. Check current state, retire
+  watches whose obligations are complete, and suppress stale-event updates.
+  Keep the coordinator focused on integration; delegate bounded implementation,
+  evidence collection, and administrative execution to named owners.
 - Hand back in Review or Check when acceptance is outstanding. Resolve concrete
   findings; preserve unresolved findings and their dispositions. Reconcile other
   agents' changes instead of overwriting or force-pushing them.
 
 ## Review for lasting quality
+
+Verify human and automated findings against the current code, user outcome, and
+threat model. Fix demonstrated defects; explain inapplicable findings or bounded
+follow-ups. A severity label or suggested remedy alone does not establish a new
+requirement or justify more infrastructure.
 
 Every code review must actively seek substantive improvements. Functional
 correctness is necessary, but insufficient. Flag avoidable work, non-performant
@@ -135,6 +148,12 @@ Run candidate build/install code without release or evaluator-policy credentials
 Keep metadata automation separate from candidate execution. Do not execute
 untrusted PR code in a privileged workflow, weaken required gates, change frozen
 policy to obtain a pass, or promote an unqualified cache/artifact into publishing.
+
+For administrative proofs and other stateful verification workflows, follow the
+[lifecycle and failure procedure](docs/development/agent-workflow.md#stateful-verification).
+An expected refusal is still a mutation attempt; verify its actual effects.
+Enforce subprocess failure propagation and dependent mutation stops in executable
+code; prose instructions do not establish those properties.
 
 Prepare and review changes autonomously within the assigned scope. Merging,
 publishing, new credentials, and security-sensitive permission changes require
