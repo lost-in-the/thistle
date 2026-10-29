@@ -7,3 +7,6 @@ gem "minitest", "~> 5.0"
 gem "railties", ENV.fetch("THISTLE_RAILS_VERSION", ci_policy.fetch("primary").fetch("rails"))
 gem "rouge", "~> 4.6"
 
+# Small real-schema model fixture; no runtime dependency is added to either gem.
+gem "activerecord", ENV.fetch("THISTLE_RAILS_VERSION", ci_policy.fetch("primary").fetch("rails"))
+gem "sqlite3", "~> 2.0"
