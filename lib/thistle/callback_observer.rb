@@ -41,7 +41,9 @@ module Thistle
     def chain(model)
       return @chains[model] if @chains.key?(model)
       @chains[model] = nil
-      value = model._save_callbacks
+      registry = stored_chains(model)
+      return unless exact?(registry, Hash)
+      value = Hash.instance_method(:fetch).bind_call(registry, :save, nil)
       return unless exact?(value, ActiveSupport::Callbacks::CallbackChain)
       entries = ivar(value, :@chain)
       return unless exact?(entries, Array)
@@ -51,6 +53,25 @@ module Thistle
       raise
     rescue StandardError
       nil
+    end
+
+    # Rails 8.1.4 class_attribute stores each value in a generated private
+    # closure. Read only that known value-reader code, never a model accessor.
+    # An override or an unrecognized VM/layout makes this chain unavailable.
+    def stored_chains(model)
+      return unless defined?(RubyVM::InstructionSequence)
+      singleton = Object.instance_method(:singleton_class).bind_call(model)
+      getter = Module.instance_method(:instance_method).bind_call(singleton, :__class_attr___callbacks)
+      unless @storage_reader_code
+        probe = Class.new
+        Class.instance_method(:class_attribute).bind_call(probe, :__callbacks, instance_accessor: false)
+        probe_singleton = Object.instance_method(:singleton_class).bind_call(probe)
+        probe_getter = Module.instance_method(:instance_method).bind_call(probe_singleton, :__class_attr___callbacks)
+        @storage_reader_code = RubyVM::InstructionSequence.of(probe_getter)
+      end
+      code = RubyVM::InstructionSequence.of(getter)
+      return unless code && code.equal?(@storage_reader_code)
+      getter.bind_call(model)
     end
 
     def observe_callbacks(model)

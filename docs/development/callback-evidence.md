@@ -46,7 +46,13 @@ Active Record **8.1.4**. Static capture never boots an application. The observer
 inventories loaded `ActiveRecord::Base.descendants` without eager loading,
 autoloading model targets, instantiating records, checking out database
 connections, evaluating scopes, or invoking callback/condition bodies. It reads
-the version-pinned `CallbackChain`/`Callback` primitive layout. Unsupported
+the version-pinned `CallbackChain`/`Callback` primitive layout. The save registry
+comes from Rails' private class-attribute value-reader closure, guarded by the
+same instruction-sequence identity as a fresh framework-generated reader on an
+isolated plain class. It never dispatches model `_save_callbacks` or `__callbacks`
+accessors. A custom storage getter or unavailable VM/layout yields unavailable
+chain metadata. This narrow adapter targets the existing MRI development cohorts;
+it does not establish arbitrary Ruby-engine or monkeypatched-framework support. Unsupported
 versions yield unavailable inventory. Unrecognized chain layout is unavailable;
 unrecognized entries retain their position with partial metadata.
 
