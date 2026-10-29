@@ -66,6 +66,9 @@ module Thistle
         emit(Thistle.capture(root: args.first, output: options[:output], limits: limits))
       else
         raise InvalidInput, "#{command} requires --store STORE" unless options[:store]
+        if command == "source-file" && !options[:generation]
+          raise InvalidInput, "source-file requires --generation ID"
+        end
         reader = Reader.new(options[:store], generation: options[:generation])
         begin
           result = case command

@@ -170,6 +170,8 @@ fn search_with_work(reader: &Reader, q: &Query<'_>, budget: &Arc<Budget>, mut wo
     if q.domain != "metadata" && q.kind.is_none_or(|kind| kind == "file") {
         source_eligible = reader.manifest["files"].as_array().unwrap().iter()
             .filter(|f| q.accepts("file", f["path"].as_str())).count();
+    }
+    if source_eligible > 0 {
         let mut cache = reader.source_index.lock().map_err(|_| CoreError::new("internal_error", "Source index lock unavailable"))?;
         if cache.is_none() { *cache = Index::build(reader, budget).ok(); }
         if let Some(index) = cache.as_ref() {
@@ -273,6 +275,23 @@ mod tests {
         assert_eq!(run(&reader, json!({"query":"needle"}))["generation"], first["generation"]);
         assert!(reader.source_file("../outside").is_err());
         assert!(reader.source_file("app/absent.rb").is_err());
+    }
+    #[test]
+    fn unmatched_source_prefix_never_locks_or_builds_the_corpus() {
+        let dir = tempfile::tempdir().unwrap();
+        crate::store::publish(dir.path(), &capture()).unwrap();
+        let reader = Reader::open(dir.path(), None).unwrap();
+        let budget = Budget::new(1024 * 1024);
+        for domain in ["source", "all"] {
+            let input = json!({"query":"needle", "domain":domain, "path_prefix":"absent/"});
+            let result = search_with_budget(&reader, &Query::parse(&input).unwrap(), &budget).unwrap();
+            assert_eq!(result["status"], "complete");
+            assert_eq!(result["total_matches"], 0);
+            assert_eq!(result["search_coverage"]["source_files_eligible"], 0);
+            assert_eq!(result["search_coverage"]["source_files_not_searched"], 0);
+        }
+        assert!(reader.source_index.lock().unwrap().is_none());
+        assert_eq!(budget.used.load(Ordering::Acquire), 0);
     }
     #[test]
     fn deterministic_truncation_and_partial_cache_do_not_poison_metadata() {

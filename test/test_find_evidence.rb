@@ -7,6 +7,20 @@ require 'thistle'
 require 'thistle/cli'
 
 class FindEvidenceTest < Minitest::Test
+  def test_file_source_requires_generation_before_opening_a_reader
+    out, err = StringIO.new, StringIO.new
+    original = Thistle::Reader.method(:new)
+    opened = false
+    Thistle::Reader.define_singleton_method(:new) { |*| opened = true; raise 'Reader must not open' }
+    assert_equal 2, Thistle::CLI.new(out: out, err: err).run(['source-file', 'spec/demo.rb', '--store', '/unused'])
+    refute opened
+    assert_empty out.string
+    assert_equal 'invalid_input', JSON.parse(err.string).dig('error', 'code')
+    assert_includes JSON.parse(err.string).dig('error', 'message'), '--generation'
+  ensure
+    Thistle::Reader.define_singleton_method(:new, original) if original
+  end
+
   def test_reader_cli_file_source_and_old_generation
     Dir.mktmpdir('find-evidence') do |dir|
       root, store = File.join(dir, 'project'), File.join(dir, 'store')

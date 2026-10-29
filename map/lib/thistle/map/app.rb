@@ -9,7 +9,7 @@ module Thistle
     # A Rack-compatible app. The host chooses the server and the mount explicitly.
     # Never consults forwarded headers or opens a user-supplied filesystem path.
     class App
-      MAX_QUERY_BYTES = 4096
+      MAX_QUERY_BYTES = FindPresenter::MAX_QUERY_BYTES
       DIGEST = /\A[0-9a-f]{64}\z/.freeze
       DEFAULT_HOSTS = %w[localhost 127.0.0.1 [::1]].freeze
       ASSETS = {
@@ -76,6 +76,7 @@ module Thistle
           raise Thistle::NotFound, 'Captured file reference is absent' unless selected
 
           params['path'] = selected
+          params.delete('file')
         end
         view = View.new(reader: reader, mount: mount, params: params)
         content = case path

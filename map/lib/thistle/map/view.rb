@@ -43,7 +43,7 @@ module Thistle
         query = @params.fetch('q', '')
         if !query.strip.empty? && @reader.respond_to?(:search_evidence)
           result = @reader.search_evidence(query, limit: PAGE_SIZE, kind: @params['kind'].to_s.empty? ? nil : @params['kind'], path: @params['prefix'].to_s.empty? ? nil : @params['prefix'], domain: @params['domain'])
-          body = FindPresenter.new(generation: @generation, mount: @mount).render(result) do |match|
+          body = FindPresenter.new(generation: @generation, mount: @mount, search: @params).render(result) do |match|
             constraint_summary(@reader.fact(match.fetch('fact_id'))) if match['origin'] == 'metadata' && match['kind'] == 'route'
           end
           return layout('Find', body)
@@ -300,7 +300,12 @@ module Thistle
       def url(path, extra = {})
         params = @params.reject { |key, _| key == 'page' }.merge('generation' => @generation).merge(extra)
         params.delete('id') if path == '/'
-        params.delete('path') unless path == '/source'
+        if path == '/source' && !params['id'] && params['path']
+          params['file'] = FindPresenter.file_reference(params['path'])
+        else
+          params.delete('file')
+        end
+        params.delete('path')
         "#{@mount}#{path}?#{URI.encode_www_form(params)}"
       end
 

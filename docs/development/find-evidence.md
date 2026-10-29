@@ -49,8 +49,9 @@ background merges and the offline vendor/package cost. This bounded literal job
 uses an immutable verified source corpus instead. No dependencies, background
 threads, persistent index schema or postings were introduced. This is not a
 performance claim. Reconsider Tantivy when measured complete-user-job evidence
-or richer retrieval justifies those lifecycle costs. The integration owner can
-incorporate this decision into the shared decision log.
+or richer retrieval justifies those lifecycle costs. The combined index and
+matcher alternatives, costs and reconsideration conditions are recorded in the
+[development decisions](decisions.md#evidence-search-index-and-matcher).
 
 The first source query builds one corpus per Reader from saved manifest members,
 using descriptor-relative no-follow blob reads and digest/byte-count verification.
@@ -125,8 +126,8 @@ Confirmed matches omitted by the result limit are counted immediately without
 calculating discarded snippets or line spans. This preserves the distinction
 between known omitted matches and files not searched when work is exhausted. A
 21-unit native regression admits two known matches and only one displayed span.
-No operation budget is raised. Native runtime validation remains pending until
-the serialized build lease is available.
+No operation budget is raised. Both product cohorts passed routed source CI
+on dbc1dc3, including the focused native regression.
 
 The long-Unicode-path reader-double regression fails against the prior routing
 with a 4302-byte generated query and passes with the bounded manifest reference.
@@ -138,7 +139,43 @@ dependency loading; no native or installed-pair success is inferred.
 File-reference resolution hashes paths in one pinned manifest pass, bounded by
 the existing manifest/file-count limits; no persistent lookup cache is added.
 Corrupt-source verification, authorization and web source/line caps remain.
-Known nonblocking costs from the scoped review remain: needless corpus work for
-zero-eligible/exhausted queries, warm-query mutex serialization, cold per-request
-Map corpus work and per-route fact calls. They are follow-up opportunities, not
+Known nonblocking costs from the scoped review remain: corpus work after
+comparison-budget exhaustion, warm-query mutex serialization, cold per-request
+Map corpus work and per-route fact calls. These are follow-up opportunities, not
 measured speed/RSS claims or a new shared-cache/graph framework.
+
+## Search context and pinned navigation corrections
+
+Find links carry only the allowlisted query/domain/kind/prefix context alongside
+one generation and one result selector. Resolved manifest references become an
+internal path; generated Source navigation normalizes that path back to a
+fixed-size reference, while Find/Check/brand links remove file selectors. Thus
+following a file result and returning to Find preserves the investigation rather
+than producing an ambiguous or off-route file request. Near the unchanged query
+byte cap, a result link explicitly announces when context cannot fit and keeps
+the pinned Source link usable; Back returns to the original results. No session
+cache, hidden context store or increased query limit is added.
+
+A manifest-confirmed zero-eligible source corpus returns complete empty source
+coverage without acquiring the cache lock, reading blobs or retaining an index.
+The source/all-domain regression checks that the fresh cache remains absent and
+its budget remains uncharged. `source-file` requires `--generation` before any
+Reader construction; the CLI regression verifies invalid_input with no open.
+
+The existing candidate-owned installed smoke now inspects the installed Core
+package's Reader source, verifies original literal byte/line spans and exact
+file bytes, advances CURRENT, then follows Find to generation-pinned Map Source
+using a fresh Reader. It records the generation, source digest, span and Map
+status. This does not modify the frozen evaluator or relabel the original pre.1
+receipts; changed-pair execution remains required.
+
+The final five-comment correction batch passed one offline native run: 42 tests,
+zero failures, 24.42 seconds including fresh compilation. It used read-only
+copied source, Rust 1.90, two CPUs, 2 GiB/no swap, 256 PIDs, 600/630-second
+limits and an 8 MiB combined log cap; actual child temp was private disk-backed
+storage. Focused host reader doubles passed four Map requests/71 assertions,
+three presenter tests/24 assertions and one CLI pre-open test/7 assertions.
+Native loading was deliberately stubbed for the Ruby doubles. One stale string
+expectation and an unavailable optional minitest/mock require failed during
+local test preparation; both were corrected without weakening the assertions.
+No package-pair or performance pass is inferred from these source checks.

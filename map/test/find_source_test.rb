@@ -31,12 +31,26 @@ class FindSourceTest < Minitest::Test
     status, _, html = request(app, '/', query: 'q=literal&domain=source&kind=file&prefix=spec%2F')
     assert_equal 200, status
     assert_equal({ limit: 50, kind: 'file', path: 'spec/', domain: 'source' }, reader.queries.last)
-    assert_includes html, "generation=#{GENERATION}&amp;file=#{Thistle::Map::FindPresenter.file_reference('spec/file.rb')}#L2"
+    assert_includes html, "generation=#{GENERATION}&amp;file=#{Thistle::Map::FindPresenter.file_reference('spec/file.rb')}&amp;q=literal"
     assert_includes html, '&lt;script&gt;literal&lt;/script&gt;'
-    status, _, source = request(app, '/source', query: "generation=#{GENERATION}&path=spec%2Ffile.rb")
+    link = URI.parse(CGI.unescapeHTML(html[/data-result-link href="([^"]+)"/, 1]))
+    context = { 'q' => 'literal', 'domain' => 'source', 'kind' => 'file', 'prefix' => 'spec/' }
+    assert_equal context, URI.decode_www_form(link.query).to_h.slice(*context.keys)
+    status, _, source = request(app, link.path, query: link.query)
     assert_equal 200, status
     assert_includes source, 'id="L2"'
     assert_includes source, 'No declaration owner'
+    navigation = source[/<nav aria-label="Evidence views">(.*?)<\/nav>/m, 1]
+    navigation.scan(/href="([^"]+)"/).flatten.each do |href|
+      target = URI.parse(CGI.unescapeHTML(href))
+      params = URI.decode_www_form(target.query).to_h
+      assert_equal context, params.slice(*context.keys)
+      refute params.key?('path')
+      assert_equal target.path == '/source', params.key?('file')
+      assert_equal 200, request(app, target.path, query: target.query).first
+    end
+    assert_includes source, 'value="literal"'
+    assert_includes source, 'value="spec/"'
     assert reader.closed
   end
   def test_long_unicode_path_follows_a_bounded_manifest_reference
@@ -53,6 +67,13 @@ class FindSourceTest < Minitest::Test
     assert_equal 200, status
     assert_includes source, path
     assert_includes source, 'id="L2"'
+    source.scan(/href="([^"]+)"/).flatten.each do |href|
+      target = URI.parse(CGI.unescapeHTML(href))
+      next unless target.query
+      assert_operator target.query.bytesize, :<=, Thistle::Map::App::MAX_QUERY_BYTES
+      refute URI.decode_www_form(target.query).to_h.key?('path')
+      assert_equal 200, request(app, target.path, query: target.query).first
+    end
     assert reader.closed
     query = "generation=#{GENERATION}&file=#{'f' * 64}"
     assert_equal 404, request(app, '/source', query: query).first

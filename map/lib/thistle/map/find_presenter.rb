@@ -9,14 +9,18 @@ module Thistle
     # Renders evidence returned by the bounded Find operation. Routing and the
     # surrounding layout remain the application's responsibility.
     class FindPresenter
+      MAX_QUERY_BYTES = 4096
+      SEARCH_FIELDS = %w[q domain kind prefix].freeze
+
       # The generation selects the manifest; this fixed-size key selects its path.
       def self.file_reference(path)
         Digest::SHA256.hexdigest(path)
       end
 
-      def initialize(generation:, mount: '')
+      def initialize(generation:, mount: '', search: {})
         @generation = generation
         @mount = mount
+        @search = search.slice(*SEARCH_FIELDS)
       end
 
       def render(result)
@@ -65,8 +69,15 @@ module Thistle
           params['file'] = self.class.file_reference(path)
         end
         title = if params.key?('file') || params.key?('id')
-          href = "#{@mount}/source?#{URI.encode_www_form(params)}#{anchor}"
-          "<a data-result-link href=\"#{h(href)}\">#{h(name)}</a>"
+          query = URI.encode_www_form(params.merge(@search))
+          # A valid Find query can already occupy the entire request budget.
+          # Keep Source usable without emitting an invalid URL or hiding the loss.
+          context_omitted = query.bytesize > MAX_QUERY_BYTES
+          query = URI.encode_www_form(params) if context_omitted
+          href = "#{@mount}/source?#{query}#{anchor}"
+          link = "<a data-result-link href=\"#{h(href)}\">#{h(name)}</a>"
+          link += '<small>Search context exceeds the link budget; use Back to return to these results.</small>' if context_omitted
+          link
         else
           h(name)
         end
