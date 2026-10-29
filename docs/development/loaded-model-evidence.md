@@ -66,7 +66,12 @@ budgets, with no raised caps. Ruby bounds each observed entry and the accumulate
 batch before sending JSON; Rust independently validates and admits the combined
 capture. Publication is never attempted after refusal.
 
-## Integrated adapters
+## Integrated adapters (superseded history)
+
+This section records the earlier 4ac0243/76f7d219 implementation and receipts.
+Its whole-capture append flow is superseded by the current
+[model-only request boundary](#model-only-request-boundary-correction): dispatch
+now passes only context and observation to `model::batch`, not the capture.
 
 Root added `mod model`, the `append_models` dispatch and the model presenter hook
 in `4ac02431a01e7b07e3e66ec1b0a9c5a21d46b06a`, then combined integrated schema-2
@@ -182,7 +187,13 @@ rows but does serialize the model to check its size. These are operating costs,
 not measured performance results. The minimum-cohort source journey now passes; independent review, current
 hosted lanes and settled installed evidence remain substantive outstanding checks.
 
-### Owned capture integration correction
+### Owned capture integration correction (superseded history)
+
+This earlier ownership correction removed a Rust clone but still retransmitted
+the capture through JSON. It is retained to explain its original evidence,
+not as the current adapter contract. The current
+[model-only request boundary](#model-only-request-boundary-correction) replaces
+that request and its former allocation-identity regression.
 
 Root removed the avoidable whole-capture Rust deep clone: append consumes the
 JSON request-owned capture and returns that same allocation with the bounded

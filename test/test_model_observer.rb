@@ -96,4 +96,22 @@ class ThistleModelObserverTest < Minitest::Test
       assert_equal %w[first new_capture], failed.attempts
     end
   end
+
+  def test_polymorphic_option_is_counted_once_and_unknown_options_remain_omitted
+    reflection_type = Struct.new(:name, :macro, :options, :scope, :class_name)
+    [true, false].each do |value|
+      options = { polymorphic: value }
+      reflection = reflection_type.new(:subject, :belongs_to, options, nil, 'Subject')
+      data = observer.send(:observe_association, reflection)
+      assert_equal value, data['polymorphic']
+      assert_equal 0, data['omitted_options']
+      assert_empty data['options']
+      options[:class_name] = 'Subject'
+      options[:unknown] = Object.new
+      data = observer.send(:observe_association, reflection)
+      assert_equal 1, data['omitted_options']
+      assert_equal ['class_name'], data['options'].keys
+      assert_equal value, data['polymorphic']
+    end
+  end
 end

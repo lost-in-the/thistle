@@ -120,6 +120,7 @@ module Thistle
       end
       polymorphic_value = Hash.instance_method(:[]).bind_call(options, :polymorphic)
       polymorphic = exact?(polymorphic_value, NilClass) ? false : boolean(polymorphic_value)
+      separately_represented = Hash.instance_method(:key?).bind_call(options, :polymorphic) ? 1 : 0
       through = label(Hash.instance_method(:[]).bind_call(options, :through))
       explicit_target = Hash.instance_method(:[]).bind_call(options, :class_name)
       # ThroughReflection.class_name can resolve through_reflection.klass. Read
@@ -135,7 +136,7 @@ module Thistle
         'target' => target,
         'polymorphic' => polymorphic, 'through' => through,
         'scope' => exact?(reflection.scope, NilClass) ? 'none' : 'opaque', 'options' => represented,
-        'omitted_options' => Hash.instance_method(:size).bind_call(options) - represented.length })
+        'omitted_options' => Hash.instance_method(:size).bind_call(options) - represented.length - separately_represented })
     end
 
     def exact?(value, klass) = Object.instance_method(:instance_of?).bind_call(value, klass)
