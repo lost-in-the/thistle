@@ -102,7 +102,8 @@ plugin is absent, and times out after 5 seconds. See the
 [Brain decision](decisions.md#agent-context-entire-brain).
 
 A worktree with neither `.entire/settings.json` nor
-`.entire/settings.local.json` reports `not set up` and captures nothing. The
+`.entire/settings.local.json` reports `not set up` and captures nothing, and
+either file can set `enabled: false`, which reports `Disabled`. The
 local file alone enables Entire's settings, but a branch older than this
 configuration also lacks the committed Claude Code and Codex hooks, so agent
 sessions there are not captured until a merge brings them in. `entire import` covers
