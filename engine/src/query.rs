@@ -119,6 +119,7 @@ fn search_with_work(reader: &Reader, q: &Query<'_>, budget: &Arc<Budget>, mut wo
     let mut source_searched = 0;
     let mut source_eligible = 0;
     let mut source_matches_omitted = 0;
+    let mut source_matches_without_span = 0;
     let mut source_unavailable = 0;
     fn emit(results: &mut Vec<Value>, total: &mut usize, limit: usize, make: impl FnOnce() -> Value) {
         *total += 1;
@@ -195,7 +196,13 @@ fn search_with_work(reader: &Reader, q: &Query<'_>, budget: &Arc<Budget>, mut wo
                             let end = start + q.text.len();
                             // Line counting has a separate linear pass, charged to
                             // the same operation budget, never an offset array.
-                            if work < end { partial = true; break; }
+                            if work < end {
+                                total += 1;
+                                source_searched += 1;
+                                source_matches_without_span += 1;
+                                partial = true;
+                                break;
+                            }
                             work -= end;
                             let from = content.as_bytes()[..start].iter().filter(|b| **b == b'\n').count() + 1;
                             let to = from + content.as_bytes()[start..end].iter().filter(|b| **b == b'\n').count();
@@ -217,6 +224,7 @@ fn search_with_work(reader: &Reader, q: &Query<'_>, budget: &Arc<Budget>, mut wo
         "search_coverage":{"source_files_searched":source_searched,"source_files_unavailable":source_unavailable,
             "source_files_eligible":source_eligible, "source_files_not_searched":source_eligible - source_searched,
             "source_matching_files_omitted":source_matches_omitted, "occurrences":"first_per_file",
+            "source_matches_without_span":source_matches_without_span,
             "metadata_fields_omitted":metadata_omitted,"work_remaining":work},
         "semantics":"literal; ASCII case-insensitive, other UTF-8 bytes exact; one first source match per file; names are candidates, not runtime bindings"}))
 }
@@ -346,6 +354,26 @@ mod tests {
         assert_eq!(result["search_coverage"]["source_matching_files_omitted"], 1);
         assert_eq!(result["search_coverage"]["source_files_searched"], 2);
         assert_eq!(result["search_coverage"]["source_files_not_searched"], 0);
+    }
+    #[test]
+    fn confirmed_match_survives_exhausted_span_budget_in_coverage() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut data = capture();
+        let content = "aaz";
+        data["files"] = json!(["a.rb", "b.rb"].map(|path| json!({"path":path,
+            "content":content,"sha256":schema::digest(content.as_bytes()),"bytes":content.len(),"encoding":"UTF-8"})));
+        crate::store::publish(dir.path(), &data).unwrap();
+        let reader = Reader::open(dir.path(), None).unwrap();
+        let input = json!({"query":"az","domain":"source"});
+        let result = search_with_work(&reader, &Query::parse(&input).unwrap(), &Budget::new(1024 * 1024), 4).unwrap();
+        assert_eq!(result["status"], "partial");
+        assert_eq!(result["total_matches"], 1);
+        assert_eq!(result["total_is_lower_bound"], true);
+        assert_eq!(result["results"], json!([]));
+        assert_eq!(result["search_coverage"]["source_matches_without_span"], 1);
+        assert_eq!(result["search_coverage"]["source_matching_files_omitted"], 0);
+        assert_eq!(result["search_coverage"]["source_files_searched"], 1);
+        assert_eq!(result["search_coverage"]["source_files_not_searched"], 1);
     }
     #[test]
     fn malformed_query_limits_and_domains_refuse() {

@@ -38,8 +38,8 @@ Ordering is metadata facts by ID, then manifest file metadata by path, then sour
 files by path. `limit` is an integer from 1 to 500. `total_matches` counts known
 matches, `truncated` means known matches exceed the result limit, and
 `search_coverage` separately counts eligible source files, files searched, files
-not searched, source matches omitted by the result limit, and first-occurrence
-semantics. `total_is_lower_bound` distinguishes an incomplete scan from an exact total.
+not searched, source matches omitted by the result limit, confirmed matches
+without a displayed span due to work exhaustion, and first-occurrence semantics. `total_is_lower_bound` distinguishes an incomplete scan from an exact total.
 `status: partial` covers budget exhaustion, omitted fields or unavailable/corrupt
 source. Search completeness does not imply complete capture coverage; consult the
 same generation's manifest and Check. No empty partial result establishes absence.
@@ -198,3 +198,35 @@ fails before this correction and passes afterward for the legacy full-fact shape
 and all three explicit filter selectors. The separate generation-precondition
 case also passes. No evaluator/policy change or blind rerun is used; a changed
 candidate and its new exact-pair run must establish installed acceptance.
+
+## Confirmed hits and generated navigation at work/request limits
+
+Finding 4415726856 is corrected by counting an already confirmed literal match
+before the line-span pass refuses. That file counts as searched, and a separate
+`source_matches_without_span` count records the known but undisplayed match;
+it is neither an unknown unsearched file nor a result-limit omission. Remaining
+files stay unsearched and the response stays partial/lower-bound. A four-unit
+fixture finds the first of two matching files but cannot afford its span, and
+checks these distinctions without changing work budgets.
+
+Finding 4415761545 is corrected for every View-generated navigation URL. If
+adding the pinned generation/selector would exceed the unchanged query cap,
+links retain the pinned identity and omit search context with a visible notice.
+The existing Find form still retains the full query/filters for narrowing; Back
+is another explicit return path. Ordinary links preserve context. The near-limit-prefix
+regression follows every generated query URL, checks its bound/generation and
+HTTP 200, and verifies both the notice and retained form value. No cache, token
+service, query compression or cap increase is introduced.
+
+The current candidate also includes integrated diagnostic main 1c713d3. Prior
+6fc806a installed run 40923739928 passed both cohorts, including the packaged
+Find journey; it keeps that exact identity. The changed runtime/base requires
+its own affected source and exact-pair checks.
+
+Current-base correction source checks passed: one offline rootless native run
+completed 54 tests with zero failures, plus host reader-double Map requests
+5/94 and presenter tests 3/24. Native input was copied/read-only, two CPUs,
+2 GiB/no swap, 256 PIDs, 600/630-second limits and 8 MiB output cap; actual child
+temp was private disk-backed storage. Invocation time including fresh compile
+was 24.97 seconds, not user-job performance evidence. Changed-pair acceptance
+and current-head routed checks remain required.

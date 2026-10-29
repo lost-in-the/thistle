@@ -36,11 +36,12 @@ module Thistle
         coverage = result.fetch('search_coverage', {})
         if coverage.key?('source_files_not_searched')
           body << "<p class=\"ui\">Captured files searched: #{h(coverage['source_files_searched'])}; not searched: #{h(coverage['source_files_not_searched'])}. Matching source files omitted by result limit: #{h(coverage['source_matching_files_omitted'])}. Each source row is the first occurrence in that file.</p>"
+          body << "<p class=\"ui\">Confirmed source matches without a displayed span (work budget): #{h(coverage.fetch('source_matches_without_span', 0))}.</p>"
         end
         body << '<p class="ui">Name matches identify candidates; they do not establish runtime dispatch.</p>'
         rows = result.fetch('results').map { |match| row(match, block_given? ? yield(match) : nil) }.join
         if rows.empty?
-          body << '<p class="notice ui">No matches returned. Check capture coverage before concluding code is absent.</p>'
+          body << '<p class="notice ui">No result rows returned. Check capture and search coverage before concluding code is absent.</p>'
         else
           body << '<table><caption>Search results</caption><thead><tr><th>Match</th><th>Origin</th><th>File</th><th>Snippet</th></tr></thead><tbody>'
           body << rows << '</tbody></table>'

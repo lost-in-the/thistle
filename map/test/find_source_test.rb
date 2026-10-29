@@ -91,6 +91,24 @@ class FindSourceTest < Minitest::Test
     assert_equal 400, request(app, '/source', query: "generation=#{GENERATION}&path=..%2Fsecret").first
     assert_equal 404, request(app, '/source', query: "generation=#{GENERATION}&path=absent.rb").first
   end
+
+  def test_near_limit_search_keeps_navigation_valid_and_explains_context_fallback
+    prefix = 'x' * 4015
+    query = URI.encode_www_form('q' => 'x', 'prefix' => prefix)
+    assert_operator query.bytesize, :<=, Thistle::Map::App::MAX_QUERY_BYTES
+    app = make_app(FileReader.new)
+    status, _, html = request(app, '/', query: query)
+    assert_equal 200, status
+    assert_includes html, 'Search context exceeds the navigation link budget'
+    assert_includes html, "value=\"#{prefix}\""
+    html.scan(/href="([^"]+)"/).flatten.each do |href|
+      target = URI.parse(CGI.unescapeHTML(href))
+      next unless target.query
+      assert_operator target.query.bytesize, :<=, Thistle::Map::App::MAX_QUERY_BYTES
+      assert_equal GENERATION, URI.decode_www_form(target.query).to_h['generation']
+      assert_equal 200, request(app, target.path, query: target.query).first
+    end
+  end
   def test_file_source_caps_and_identity_fail_closed_with_cleanup
     reader = FileReader.new
     def reader.source_file(path)

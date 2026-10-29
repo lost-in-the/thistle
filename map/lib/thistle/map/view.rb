@@ -306,7 +306,12 @@ module Thistle
           params.delete('file')
         end
         params.delete('path')
-        "#{@mount}#{path}?#{URI.encode_www_form(params)}"
+        query = URI.encode_www_form(params)
+        if query.bytesize > FindPresenter::MAX_QUERY_BYTES
+          @navigation_context_omitted = true
+          query = URI.encode_www_form(params.reject { |key, _| FindPresenter::SEARCH_FIELDS.include?(key) })
+        end
+        "#{@mount}#{path}?#{query}"
       end
 
       def layout(title, body, fact: nil)
@@ -315,6 +320,9 @@ module Thistle
         source_link = selected ? nav_link('Source', '/source', title, 's', selected['id']) : '<span class="disabled">Source <small>Choose a result</small></span>'
         source_link = nav_link('Source', '/source', title, 's') if file_source
         links_link = selected ? nav_link('Links', '/links', title, 'g', selected['id']) : '<span class="disabled">Links <small>Choose a result</small></span>'
+        brand_url = url('/')
+        navigation = nav_link('Find', '/', title, 'f') + source_link + links_link + nav_link('Check', '/check', title, nil)
+        context_notice = @navigation_context_omitted ? '<p class="notice ui">Search context exceeds the navigation link budget. Narrow the query or filters in the Find form to retain them in links; Back returns to the previous page.</p>' : ''
         <<~HTML
           <!doctype html>
           <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -323,15 +331,16 @@ module Thistle
           <link rel="stylesheet" href="#{h(@mount)}/assets/map.css">
           <script src="#{h(@mount)}/assets/map.js" defer></script></head>
           <body><a class="skip" href="#main">Skip to evidence</a><div class="wm thistle-workbench" id="workbench" tabindex="-1">
-          <header class="app-header"><a class="brand" href="#{h(url('/'))}">Thistle <span>Map</span></a>
+          <header class="app-header"><a class="brand" href="#{h(brand_url)}">Thistle <span>Map</span></a>
           <form method="get" action="#{h(@mount)}/" class="find-form"><label for="find-query">Find code</label>
           <input type="search" name="q" id="find-query" value="#{h(@params.fetch('q', ''))}" maxlength="256" placeholder="Literal source, name or metadata" autocomplete="off">
           <label for="find-domain">Domain</label><select name="domain" id="find-domain">#{%w[all source metadata].map { |value| "<option value=\"#{value}\"#{' selected' if @params.fetch('domain', 'all') == value}>#{value}</option>" }.join}</select>
           <label for="find-kind">Kind</label><input name="kind" id="find-kind" value="#{h(@params['kind'])}" placeholder="Any kind">
           <label for="find-prefix">Path prefix</label><input name="prefix" id="find-prefix" value="#{h(@params['prefix'])}" placeholder="Any captured path">
           <input type="hidden" name="generation" value="#{h(@generation)}"><button class="btn primary" type="submit">Find</button></form></header>
-          <nav aria-label="Evidence views">#{nav_link('Find', '/', title, 'f')}#{source_link}#{links_link}#{nav_link('Check', '/check', title, nil)}</nav>
+          <nav aria-label="Evidence views">#{navigation}</nav>
           <main id="main" tabindex="-1"><p class="capture ui">Saved capture <code>#{h(@generation[0, 12])}</code> · live freshness not checked</p>
+          #{context_notice}
           #{body}</main>
           <footer><label class="shortcut-setting ui" hidden><input id="letter-shortcuts" type="checkbox"> Use letter shortcuts</label>
           <p class="ui" id="shortcut-help">Optional: F Find, S Source, G Links, J/K results. Keys act only within this workbench and never while entering text.</p>
