@@ -257,7 +257,7 @@ Brain's index and memories stay on the machine. Fact distillation, through the
 setup backfill or the watcher, runs the configured agent CLI and so sends session
 content to that CLI's model provider. The documented default is therefore
 `entire brain setup --no-backfill --no-daemon`; distillation is an explicit
-opt-in per machine. The owner's macOS machine opted in on 2026-10-29.
+opt-in per machine. The owner's development machines opted in on 2026-10-29.
 
 Operating cost, measured on one macOS machine: the agent guide adds about 1.3k
 tokens per session, and the Claude Code pre-edit hook ran in 140 to 270 ms per
