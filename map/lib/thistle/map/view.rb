@@ -2,6 +2,7 @@
 
 require 'erb'
 require 'json'
+require 'digest'
 require 'uri'
 require_relative 'highlighter'
 
@@ -110,9 +111,10 @@ module Thistle
         else
           visible = links.slice((page - 1) * PAGE_SIZE, PAGE_SIZE)
           structured = visible.any? { |link| plain?(link, Hash) && plain?(link['attributes'], Hash) && link['attributes'].key?('thistle_call') }
-          file_bytes = call_file_bytes(fact) if structured
+          file = call_file(fact) if structured
+          source_info = call_source_info(fact, file) if file && file['bytes'] <= MAX_SOURCE_BYTES
           rows = visible.map do |link|
-            detail = call_detail(link, fact, file_bytes)
+            detail = call_detail(link, fact, file, source_info)
             "<tr><td>#{h(link.fetch('relation'))}</td><td>#{h(link.fetch('target'))}#{detail}</td><td>#{h(link.fetch('resolution'))}</td></tr>"
           end.join
           body += table('Captured links', %w[Relation Target Evidence], rows)
@@ -139,9 +141,8 @@ module Thistle
 
       private
 
-      # Custom readers own source/position integrity, like the native reader.
-      # Check display shapes and bounds without loading source on Links pages.
-      def call_detail(link, fact, file_bytes)
+      # Custom readers remain trusted adapters; display checks also validate positions.
+      def call_detail(link, fact, file, source_info)
         return '' unless link['relation'] == 'calls'
         attrs = link['attributes']
         data = plain?(attrs, Hash) ? attrs['thistle_call'] : nil
@@ -149,7 +150,8 @@ module Thistle
         fallback = '<br>Receiver details unavailable'
         return fallback unless call_object?(data, %w[call_location receiver receiver_location safe_navigation version]) &&
           plain?(data['version'], Integer) && data['version'] == 1 && link['resolution'] == 'unresolved' &&
-          [true, false].include?(data['safe_navigation']) && fact['evidence'] == 'static' && file_bytes
+          [true, false].include?(data['safe_navigation']) && fact['evidence'] == 'static' && file
+        file_bytes = file['bytes']
         receiver = data['receiver']
         return fallback unless call_object?(receiver, %w[kind name omitted_limit]) && [true, false].include?(receiver['omitted_limit'])
         kind, name, omitted = receiver.values_at('kind', 'name', 'omitted_limit')
@@ -170,9 +172,12 @@ module Thistle
         label = labels.fetch(kind)
         label += omitted ? ' — name omitted (limit)' : " #{name}" if named
         label += ' · safe navigation' if data['safe_navigation']
-        if file_bytes > MAX_SOURCE_BYTES || call_loc['end_line'] > MAX_SOURCE_LINES
+        if file_bytes > MAX_SOURCE_BYTES || (source_info && source_info[:over_limit])
           return "<br>#{h(label)} · Source exceeds web display limits; use the Thistle source command."
         end
+        return fallback unless source_info && valid_source_location?(call_loc, source_info) &&
+          (receiver_loc.nil? || valid_source_location?(receiver_loc, source_info)) &&
+          call_loc['start_line'] <= source_info[:rendered_lines]
         grouped = %w[implicit self].include?(kind) || (named && !omitted)
         anchor = "#{url('/source', 'id' => fact.fetch('id'))}#L#{call_loc['start_line']}"
         "<br>#{h(label)} · <a href=\"#{h(anchor)}\">#{grouped ? 'Representative source' : 'Source'}</a>"
@@ -183,7 +188,7 @@ module Thistle
           value.keys.all? { |key| plain?(key, String) && fields.include?(key) }
       end
 
-      def call_file_bytes(fact)
+      def call_file(fact)
         path = fact['path']
         return nil unless constraint_string_valid?(path) && path.bytesize <= 4_096
         manifest = @reader.manifest
@@ -192,7 +197,35 @@ module Thistle
         return nil unless plain?(files, Array) && files.length <= 10_000
         file = files.find { |entry| plain?(entry, Hash) && plain?(entry['path'], String) && entry['path'] == path }
         bytes = file && file['bytes']
-        bytes if plain?(bytes, Integer) && bytes >= 0 && bytes <= 4_194_304
+        file if plain?(bytes, Integer) && bytes >= 0 && bytes <= 4_194_304
+      end
+
+      # One bounded source read and newline index per structured Links page.
+      def call_source_info(fact, file)
+        result = @reader.source(fact.fetch('id'))
+        return nil unless plain?(result, Hash) && result['generation'] == @generation && result['fact'] == fact
+        content = result['content']
+        return nil unless plain?(content, String) && content.bytesize == file['bytes'] && content.bytesize <= MAX_SOURCE_BYTES && content.encoding == Encoding::UTF_8 && content.valid_encoding?
+        digest = result['sha256']
+        return nil unless plain?(digest, String) && digest == file['sha256'] && Digest::SHA256.hexdigest(content) == digest
+        offsets = []
+        content.each_byte.with_index do |byte, index|
+          next unless byte == 10
+          return { over_limit: true } if offsets.length == MAX_SOURCE_LINES
+          offsets << index
+        end
+        { offsets: offsets, rendered_lines: offsets.length + (content.end_with?("\n") ? 0 : 1) }
+      rescue Thistle::Error
+        nil
+      end
+
+      def valid_source_location?(location, info)
+        offsets = info[:offsets]
+        %w[start end].all? do |edge|
+          byte = location["#{edge}_byte"]
+          line = offsets.bsearch_index { |offset| offset >= byte } || offsets.length
+          location["#{edge}_line"] == line + 1
+        end
       end
 
       def valid_call_location?(location, file_bytes)

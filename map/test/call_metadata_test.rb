@@ -5,31 +5,87 @@ require_relative 'test_helper'
 class MapCallMetadataTest < Minitest::Test
   include MapTestSupport
 
-  def test_call_anchors_respect_known_source_display_limits_without_loading_source
-    [[Thistle::Map::View::MAX_SOURCE_BYTES, 2, true],
-      [Thistle::Map::View::MAX_SOURCE_BYTES + 1, 2, false],
-      [30_000, Thistle::Map::View::MAX_SOURCE_LINES + 1, false]].each do |bytes, line, anchored|
-      location = { 'start_line' => line, 'end_line' => line, 'start_byte' => bytes - 6, 'end_byte' => bytes }
+  def test_call_anchors_respect_source_byte_limit
+    [Thistle::Map::View::MAX_SOURCE_BYTES, Thistle::Map::View::MAX_SOURCE_BYTES + 1].each do |bytes|
+      content = 'self' + 'x' * (bytes - 4)
+      location = { 'start_line' => 1, 'end_line' => 1, 'start_byte' => 0, 'end_byte' => 4 }
       fact = { 'id' => FACT_ID, 'name' => 'Demo', 'kind' => 'method', 'evidence' => 'static',
         'path' => 'demo.rb', 'location' => location, 'attributes' => {} }
       metadata = { 'version' => 1, 'safe_navigation' => false, 'call_location' => location,
         'receiver_location' => location, 'receiver' => { 'kind' => 'self', 'name' => nil, 'omitted_limit' => false } }
       link = { 'relation' => 'calls', 'target' => 'render', 'resolution' => 'unresolved',
         'attributes' => { 'thistle_call' => metadata } }
-      reader = Reader.new(facts: [fact], links: [link])
-      reader.manifest['files'] = [{ 'path' => 'demo.rb', 'bytes' => bytes }]
-      reader.define_singleton_method(:source) { |_| raise 'Links must not load source' }
-      status, _, body = request(make_app(reader), '/links', query: URI.encode_www_form('id' => FACT_ID))
-      assert_equal 200, status
+      reader = Reader.new(facts: [fact], links: [link], content: content)
+      reader.manifest['files'] = [{ 'path' => 'demo.rb', 'bytes' => bytes, 'sha256' => Digest::SHA256.hexdigest(content) }]
+      calls = 0
+      reader.define_singleton_method(:source) { |id| calls += 1; super(id) }
+      body = request(make_app(reader), '/links', query: URI.encode_www_form('id' => FACT_ID)).last
       assert_includes body, '<br>self ·'
-      if anchored
-        assert_includes body, "#L#{line}"
-        refute_includes body, 'Source exceeds web display limits'
+      if bytes == Thistle::Map::View::MAX_SOURCE_BYTES
+        assert_equal 1, calls
+        assert_includes body, '#L1'
       else
-        refute_includes body, "#L#{line}"
-        assert_includes body, 'Source exceeds web display limits; use the Thistle source command.'
+        assert_equal 0, calls
+        refute_includes body, '#L1'
+        assert_includes body, 'Source exceeds web display limits'
       end
     end
+  end
+
+  def test_total_newline_budget_and_line_byte_correspondence
+    location = { 'start_line' => 1, 'end_line' => 1, 'start_byte' => 0, 'end_byte' => 4 }
+    fact = { 'id' => FACT_ID, 'name' => 'Demo', 'kind' => 'method', 'evidence' => 'static',
+      'path' => 'demo.rb', 'location' => location, 'attributes' => {} }
+    metadata = { 'version' => 1, 'safe_navigation' => false, 'call_location' => location,
+      'receiver_location' => location, 'receiver' => { 'kind' => 'self', 'name' => nil, 'omitted_limit' => false } }
+    link = { 'relation' => 'calls', 'target' => 'render', 'resolution' => 'unresolved',
+      'attributes' => { 'thistle_call' => metadata } }
+    [10_000, 10_001].each do |count|
+      content = 'self' + "\n" * count
+      reader = Reader.new(facts: [fact], links: [link, link], content: content)
+      reader.manifest['files'] = [{ 'path' => 'demo.rb', 'bytes' => content.bytesize, 'sha256' => Digest::SHA256.hexdigest(content) }]
+      calls = 0
+      reader.define_singleton_method(:source) { |id| calls += 1; super(id) }
+      body = request(make_app(reader), '/links', query: URI.encode_www_form('id' => FACT_ID)).last
+      assert_equal 1, calls
+      if count == 10_000
+        assert_includes body, '#L1'
+      else
+        refute_includes body, '#L1'
+        assert_includes body, 'Source exceeds web display limits'
+      end
+    end
+    bad = metadata.merge('call_location' => location.merge('start_line' => 2, 'end_line' => 2))
+    reader = Reader.new(facts: [fact], links: [link.merge('attributes' => { 'thistle_call' => bad })], content: 'self')
+    reader.manifest['files'] = [{ 'path' => 'demo.rb', 'bytes' => 4, 'sha256' => Digest::SHA256.hexdigest('self') }]
+    body = request(make_app(reader), '/links', query: URI.encode_www_form('id' => FACT_ID)).last
+    assert_includes body, 'Receiver details unavailable'
+    refute_includes body, '#L2'
+  end
+
+  def test_source_identity_and_newline_byte_boundaries
+    content = "abc\ndef"
+    location = { 'start_line' => 1, 'end_line' => 2, 'start_byte' => 3, 'end_byte' => 4 }
+    fact = { 'id' => FACT_ID, 'name' => 'Demo', 'kind' => 'method', 'evidence' => 'static',
+      'path' => 'demo.rb', 'location' => location, 'attributes' => {} }
+    metadata = { 'version' => 1, 'safe_navigation' => false, 'call_location' => location,
+      'receiver_location' => location, 'receiver' => { 'kind' => 'self', 'name' => nil, 'omitted_limit' => false } }
+    link = { 'relation' => 'calls', 'target' => 'render', 'resolution' => 'unresolved',
+      'attributes' => { 'thistle_call' => metadata } }
+    reader = Reader.new(facts: [fact], links: [link], content: content)
+    reader.manifest['files'] = [{ 'path' => 'demo.rb', 'bytes' => content.bytesize, 'sha256' => Digest::SHA256.hexdigest(content) }]
+    query = URI.encode_www_form('id' => FACT_ID)
+    assert_includes request(make_app(reader), '/links', query: query).last, '#L1'
+    reader.define_singleton_method(:source) { |id| super(id).merge('generation' => 'wrong') }
+    body = request(make_app(reader), '/links', query: query).last
+    assert_includes body, 'Receiver details unavailable'
+    refute_includes body, '#L1'
+  end
+
+  def test_legacy_links_do_not_load_source
+    reader = Reader.new
+    reader.define_singleton_method(:source) { |_| raise 'unexpected source read' }
+    assert_equal 200, request(make_app(reader), '/links', query: URI.encode_www_form('id' => FACT_ID)).first
   end
 
   def test_spoofed_metadata_types_do_not_format_objects_or_create_anchors
