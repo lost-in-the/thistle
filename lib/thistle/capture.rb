@@ -56,6 +56,12 @@ module Thistle
         result["producer"]["rails_version"] = runtime.fetch("rails_version")
         result["producer"]["ruby_version"] = RUBY_VERSION
         result["producer"]["ruby_engine"] = RUBY_ENGINE
+        require_relative "model_observer"
+        observations = ModelObserver.new(
+          limits: effective.merge(max_facts: effective[:max_facts] - result.fetch("facts").length),
+          evidence_budget: MAX_EVIDENCE_BYTES - JSON.generate(result.fetch("facts")).bytesize
+        ).call
+        result = Native.call("op" => "append_models", "capture" => result, "observation" => observations)
       end
       raise LimitError, "Capture exceeds max_facts" if result["facts"].length > effective[:max_facts]
       raise LimitError, "Capture exceeds max_diagnostics" if result["diagnostics"].length > effective[:max_diagnostics]
