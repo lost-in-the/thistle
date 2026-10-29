@@ -28,7 +28,8 @@ Both gems now declare Ruby >=3.4. The Gemfile reads the primary Rails requiremen
 from the policy; an explicit `THISTLE_RAILS_VERSION` still selects a deliberate
 test cohort. Exact patches make a run's intended inputs clear. Per-run locks and
 manifests record actual resolution; this does not promise reproducible archives.
-Linux remains the implementation's actual platform restriction.
+The current source-development routes are Linux and macOS; platform evidence
+and remaining limits are recorded in the macOS/Linux decision below.
 
 PRs ordinarily use primary. Workflow, dependency, policy and Ruby/native-boundary
 changes also test minimum. Main runs primary plus the separate minimum job;
