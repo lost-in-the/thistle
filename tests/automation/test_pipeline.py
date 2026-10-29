@@ -225,6 +225,7 @@ class RequiredTests(unittest.TestCase):
             }},
             "metadata": {"result": "success"},
             "product": {"result": result},
+            "macos": {"result": result},
         }
 
     def test_selected_product_requires_success(self):
@@ -233,6 +234,15 @@ class RequiredTests(unittest.TestCase):
         for result in ["skipped", "cancelled", "failure", None]:
             with self.subTest(result=result):
                 self.assertTrue(pipeline.required_results(self.needs(result=result)))
+
+    def test_macos_failure_or_missing_lane_cannot_be_hidden_by_linux_success(self):
+        for result in ["skipped", "cancelled", "failure", None]:
+            needs = self.needs()
+            needs["macos"]["result"] = result
+            self.assertTrue(pipeline.required_results(needs))
+        needs = self.needs()
+        del needs["macos"]
+        self.assertTrue(pipeline.required_results(needs))
 
     def test_missing_or_duplicate_minimum_and_extra_package_builds_fail(self):
         for roles in (["primary"], ["primary", "primary"], ["minimum", "primary"], []):
@@ -473,7 +483,7 @@ class WorkflowBoundaryTests(unittest.TestCase):
         required_job = workflow.split("  required:\n", 1)[1]
         self.assertIn("name: CI / required", required_job)
         self.assertIn("if: always()", required_job)
-        self.assertIn("needs: [plan, metadata, product]", required_job)
+        self.assertIn("needs: [plan, metadata, product, macos]", required_job)
         self.assertNotRegex(required_job, r"(?m)^\s*continue-on-error:")
         product_job = workflow.split("  product:\n", 1)[1].split("  required:\n", 1)[0]
         self.assertIn("fail-fast: false", product_job)

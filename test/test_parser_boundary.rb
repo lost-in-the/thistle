@@ -5,6 +5,7 @@ require "tmpdir"
 require "json"
 require "rbconfig"
 require "timeout"
+require_relative "support/process_limits"
 
 # A parser crash must remain in a disposable process rather than take down the
 # test controller. These regressions cover concrete failures found while the
@@ -36,8 +37,7 @@ class ThistleParserBoundaryTest < Minitest::Test
         stderr = File.join(directory, "stderr.txt")
         pid = Process.spawn(
           RbConfig.ruby, "-I", File.expand_path("../lib", __dir__), "-e", PROGRAM, directory, mode,
-          out: stdout, err: stderr, rlimit_core: 0, rlimit_cpu: [10, 10],
-          rlimit_as: [2 * 1024 * 1024 * 1024, 2 * 1024 * 1024 * 1024]
+          out: stdout, err: stderr, **ThistleTestProcess::LIMITS
         )
         begin
           _pid, status = Timeout.timeout(15) { Process.waitpid2(pid) }
