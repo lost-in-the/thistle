@@ -133,7 +133,13 @@ module Thistle
       def links
         fact = @reader.fact(@params.fetch('id'))
         direction = @params.fetch('direction', 'outgoing')
-        references = @reader.references(fact.fetch('id'), direction: direction) if @reader.respond_to?(:references)
+        references_limited = false
+        references = begin
+          @reader.references(fact.fetch('id'), direction: direction) if @reader.respond_to?(:references)
+        rescue Thistle::LimitExceeded
+          references_limited = true
+          nil
+        end
         links = direction == 'incoming' ? [] : @reader.links(fact.fetch('id'))
         page = @params.fetch('page', '1').to_i
         pages = [(links.length.to_f / PAGE_SIZE).ceil, 1].max
@@ -143,6 +149,8 @@ module Thistle
         body += "<p><a href=\"#{h(url('/links', 'direction' => 'outgoing'))}\">Outgoing references</a> · <a href=\"#{h(url('/links', 'direction' => 'incoming'))}\">Incoming references</a></p>"
         body += if references
                   ReferencesPresenter.new(generation: @generation, mount: @mount).render(references)
+                elsif references_limited
+                  '<p class="notice ui">Reference selection reached resource limits; no reference result was returned.</p>'
                 else
                   '<p class="notice ui">Recorded-reference navigation is unavailable with this Reader.</p>'
                 end

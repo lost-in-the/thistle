@@ -88,6 +88,9 @@ Map keeps its access checks, 4,096-byte query limit, escaping, keyboard focus an
 no-JavaScript links. Reference candidate links contain only validated native IDs
 and the pinned generation; they do not need to retain Find filters to identify the
 destination. Source still verifies the captured bytes under the existing limits.
+If reference admission reaches a resource limit, Map reports the unavailable
+selection and preserves existing outgoing details; invalid snapshots and
+generation mismatches still refuse.
 
 ## Review and validation boundary
 

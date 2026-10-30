@@ -18,6 +18,10 @@ class ThistleReferencesPresenterTest < Minitest::Test
     assert_includes html, 'No captured source'
     assert_includes html, 'additional input was not searched'
     assert_includes html, 'Capture partial'
+    result['relationships'][0]['detail_omitted'] = true
+    omitted = presenter.render(result)
+    assert_includes omitted, "origin's Links page"
+    refute_includes omitted, 'outgoing details remain below'
     result['relationships'] = []
     assert_includes presenter.render(result), 'does not establish that the model has no references'
     result['generation'] = 'c' * 64
