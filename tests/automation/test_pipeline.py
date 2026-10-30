@@ -125,17 +125,43 @@ class GitFixture(unittest.TestCase):
         self.write("engine/src/store.rs", "independent rename fixture\n" * 5)
         return self.commit()
 
-    def route(self, base, event_name="pull_request", lane="ci"):
+    def route(self, base, event_name="pull_request", lane="ci", full=False):
         event = Path(self.temp.name) / "event.json"
-        event.write_text(json.dumps({"pull_request": {"base": {"sha": base}}, "before": base}))
+        event.write_text(json.dumps({"pull_request": {"base": {"sha": base}}, "before": base,
+                                     "merge_group": {"base_sha": base}}))
         output = Path(self.temp.name) / "plan.json"
-        args = argparse.Namespace(source=self.root, event=event, event_name=event_name, full=False, output=output, lane=lane)
-        with patch.dict(os.environ, {"GITHUB_EVENT_NAME": event_name}, clear=True), contextlib.redirect_stdout(io.StringIO()):
+        args = argparse.Namespace(source=self.root, event=event, event_name=event_name, full=full, output=output, lane=lane)
+        github_output = Path(self.temp.name) / "github-output"
+        github_output.write_text("")
+        with patch.dict(os.environ, {"GITHUB_EVENT_NAME": event_name, "GITHUB_OUTPUT": str(github_output)}, clear=True), contextlib.redirect_stdout(io.StringIO()):
             pipeline.plan(args)
-        return json.loads(output.read_text())
+        result = json.loads(output.read_text())
+        emitted = dict(line.split("=", 1) for line in github_output.read_text().splitlines())
+        self.assertEqual(json.loads(emitted["macos_runners"]), result["macos_runners"])
+        return result
 
 
 class GitPlanTests(GitFixture):
+    def test_macos_event_selection_preserves_linux_cohorts(self):
+        base = self.source_commit()
+        for path, roles in [("engine/src/store.rs", ["primary"]),
+                            (".github/workflows/ci.yml", ["primary", "minimum"]),
+                            (pipeline.POLICY_PATH, ["primary", "minimum"])]:
+            self.write(path, json.dumps(POLICY, indent=2) if path == pipeline.POLICY_PATH else "changed\n")
+            self.commit()
+            with self.subTest(path=path):
+                pr = self.route(base)
+                self.assertTrue(pr["product"])
+                self.assertEqual(pr["macos_runners"], ["macos-15"])
+                self.assertEqual(pr["matrix"], pipeline.cohort_matrix(POLICY, roles, True))
+            base = self.git("rev-parse", "HEAD")
+        for event in ("push", "workflow_dispatch", "merge_group"):
+            with self.subTest(event=event):
+                result = self.route(base, event)
+                self.assertTrue(result["product"])
+                self.assertEqual(result["macos_runners"], ["macos-15", "macos-15-intel"])
+        self.assertEqual(self.route(base, full=True)["macos_runners"], ["macos-15", "macos-15-intel"])
+
     def test_pure_rust_pr_uses_primary_and_manual_runs_both(self):
         base = self.source_commit()
         self.write("engine/src/store.rs", "changed\n")
@@ -212,8 +238,12 @@ class GitPlanTests(GitFixture):
         base = self.source_commit()
         self.write("README.md", "changed\n")
         self.commit()
-        self.assertFalse(self.route(base)["product"])
-        self.assertTrue(self.route(base, "push")["product"])
+        pr = self.route(base)
+        main = self.route(base, "push")
+        self.assertFalse(pr["product"])
+        self.assertTrue(main["product"])
+        self.assertEqual(pr["macos_runners"], ["macos-15"])
+        self.assertEqual(main["macos_runners"], ["macos-15", "macos-15-intel"])
 
 
 class RequiredTests(unittest.TestCase):
@@ -243,6 +273,14 @@ class RequiredTests(unittest.TestCase):
         needs = self.needs()
         del needs["macos"]
         self.assertTrue(pipeline.required_results(needs))
+
+    def test_docs_only_intentionally_skips_macos_but_does_not_hide_failure(self):
+        needs = self.needs("skipped", "false")
+        self.assertEqual(pipeline.required_results(needs), [])
+        for result in ("failure", "cancelled", None):
+            with self.subTest(result=result):
+                needs["macos"]["result"] = result
+                self.assertTrue(pipeline.required_results(needs))
 
     def test_missing_or_duplicate_minimum_and_extra_package_builds_fail(self):
         for roles in (["primary"], ["primary", "primary"], ["minimum", "primary"], []):
@@ -408,6 +446,21 @@ class ManifestTests(GitFixture):
 
 
 class WorkflowBoundaryTests(unittest.TestCase):
+    def test_macos_consumes_exact_planned_runners_without_waiving_selected_work(self):
+        workflow = (ROOT / ".github/workflows/ci.yml").read_text()
+        plan_job = workflow.split("  plan:\n", 1)[1].split("  metadata:\n", 1)[0]
+        self.assertIn("macos_runners: ${{ steps.plan.outputs.macos_runners }}", plan_job)
+        macos_job = workflow.split("  macos:\n", 1)[1].split("  required:\n", 1)[0]
+        self.assertIn("if: needs.plan.outputs.product == 'true'", macos_job)
+        self.assertIn("fail-fast: false", macos_job)
+        self.assertIn("matrix:\n        runner: ${{ fromJSON(needs.plan.outputs.macos_runners) }}", macos_job)
+        self.assertIn("runs-on: ${{ matrix.runner }}", macos_job)
+        self.assertEqual(len(re.findall(r"(?m)^\s*runner:", macos_job)), 1)
+        self.assertNotIn("macos-15", macos_job)
+        self.assertNotRegex(macos_job, r"(?m)^\s*(?:include|exclude|continue-on-error):")
+        self.assertIn("permissions:\n  contents: read\n", workflow)
+        self.assertNotRegex(workflow, r"(?m)^\s*persist-credentials:\s*(?!false$)\S+")
+
     def assert_reviewed_reference(self, use, registry):
         action, separator, revision = use.partition("@")
         self.assertEqual(separator, "@")

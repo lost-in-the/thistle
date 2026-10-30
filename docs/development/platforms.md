@@ -136,8 +136,11 @@ deadlines but do not claim a process memory ceiling. The Docker command supplies
 a whole-container memory limit. Broader hostile-parser and crash-durability
 qualification remains separate; passing tests does not establish power-loss recovery.
 
-CI requires primary-cohort source/installed checks on Apple Silicon and Intel
-macOS for product changes, alongside the existing selected Linux cohorts.
-Missing, failed or cancelled macOS jobs fail the aggregate required check.
+Ordinary product PRs require primary-cohort source/installed checks on Apple
+Silicon macOS (`macos-15`), alongside the existing selected Linux cohorts. Main
+pushes, explicit full/manual CI and merge groups select both Apple Silicon and
+Intel (`macos-15-intel`). Docs-only PRs intentionally skip product/platform work;
+docs-only main pushes still select both architectures. Missing, failed, cancelled
+or unexpectedly skipped selected macOS work fails the aggregate required check.
 Historical Linux candidate/evaluator artifacts keep their existing formats and
 scope; new platform receipts do not relabel them.

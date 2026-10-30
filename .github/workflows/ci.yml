@@ -29,6 +29,7 @@ jobs:
       map: ${{ steps.plan.outputs.map }}
       product: ${{ steps.plan.outputs.product }}
       matrix: ${{ steps.plan.outputs.matrix }}
+      macos_runners: ${{ steps.plan.outputs.macos_runners }}
       minimum_required: ${{ steps.plan.outputs.minimum_required }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -91,7 +92,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runner: [macos-15, macos-15-intel]
+        runner: ${{ fromJSON(needs.plan.outputs.macos_runners) }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 25
     env:

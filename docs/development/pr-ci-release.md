@@ -124,13 +124,17 @@ Ordinary product PRs use the primary. Changes to policy, workflows, dependencies
 or Ruby/native integration boundaries exercise both; a failure in either selected
 row fails **`CI / required`**. Notes-only changes avoid native builds.
 
-Product changes also require the primary Ruby/Rails cohort on Apple Silicon
-(`macos-15`) and Intel (`macos-15-intel`) macOS. Those jobs run source and fresh
-installed contracts through the [platform workflow](platforms.md); their failure,
-cancellation or absence fails the same aggregate. Their development receipts are
-separate from the existing Linux candidate/evaluator artifact contract. Notes-only
-changes skip both platform product lanes. This extends development feedback, not
-the independently accepted launch support matrix.
+Ordinary product PRs also require the primary Ruby/Rails cohort on Apple Silicon
+(`macos-15`) macOS. Main pushes, explicit full/manual CI and merge groups retain
+both Apple Silicon and Intel (`macos-15-intel`). The planner records the selected
+runners in `macos_runners`; the macOS matrix consumes that output directly.
+Those jobs run source and fresh installed contracts through the
+[platform workflow](platforms.md); failure, cancellation, absence or an unexpected
+skip of selected macOS work fails the same aggregate. Their development receipts
+are separate from the existing Linux candidate/evaluator artifact contract.
+Notes-only PRs skip product/platform work; notes-only main pushes retain broad
+coverage, including both macOS architectures. This selection policy does not
+qualify the independently accepted launch support matrix.
 
 Main runs primary in `Thistle CI` and minimum in **`Compatibility`**, without
 duplicating primary. Weekly/manual compatibility and manually dispatched full CI

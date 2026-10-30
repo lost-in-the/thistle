@@ -506,6 +506,29 @@ precompiled distribution or independent launch qualification. Darwin cannot enfo
 the existing RLIMIT_AS test bound: retain CPU/wall limits and state that difference
 rather than silently treating the Linux memory guard as tested there.
 
+## macOS PR versus main selection — 2026-10-30
+
+[LOS-60](https://linear.app/lost-in-the/issue/LOS-60) records the owner's direction
+to move Intel tests to main CI instead of ordinary PRs. This narrowly supersedes
+the every-product-PR architecture selection in the 2026-10-29 decision above;
+its historical evidence and platform limitations retain their original scope.
+Product PRs require Apple Silicon (`macos-15`); main pushes, explicit full/manual
+CI and merge groups retain Apple Silicon and Intel (`macos-15-intel`). Docs-only
+PRs still skip product work, while docs-only main pushes exercise both.
+
+Reuse the existing event-aware Python planner to emit one runner list and the
+native GitHub Actions
+[`fromJSON` matrix output](https://docs.github.com/en/actions/reference/workflows-and-actions/expressions#fromjson)
+to consume it. A native event expression would avoid an output but obscure the
+selection from the retained plan and its existing routing tests; a second runner
+policy framework would add duplicate authority and maintenance cost. The small
+output adds no dependency or extra job. Selected macOS work remains required by
+the always-run aggregate, with fail-fast disabled and no failure waiver.
+Linux cohorts, product commands, release/qualification support and branch rules
+retain their existing policy. Review this selection if owner direction or the
+declared development coverage changes. No hosted time saving or launch
+qualification is claimed.
+
 ## Registered save callback storage boundary — 2026-10-29
 
 The Rails 8.1.4 adapter observes the registered save chain without dispatching a
