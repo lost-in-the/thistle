@@ -362,11 +362,11 @@ impl Capture {
         let errors: Vec<_> = parsed.errors().take(self.limit("max_diagnostics") + 1).collect();
         if errors.len() > self.limit("max_diagnostics") { return Err(CoreError::limit("Capture exceeds max_diagnostics")); }
         let file_position = json!({"start_line":1, "end_line":lines.file_end_line(content), "start_byte":0, "end_byte":content.len()});
-        self.add_fact(FactKind::File, path, path, file_position, json!({
+        let file_index = self.add_fact(FactKind::File, path, path, file_position, json!({
             "sha256":digest, "bytes":content.len(), "language":"ruby", "parse_status":if errors.is_empty() { "valid" } else { "invalid" }
         }))?;
         let extracted = if errors.is_empty() {
-            self.extract(parsed.node(), path, &lines)
+            self.extract(parsed.node(), path, &lines, file_index)
         } else {
             self.declarations_partial = true;
             errors.iter().try_for_each(|error| {
@@ -385,8 +385,11 @@ impl Capture {
         Ok(())
     }
 
-    fn extract<'pr>(&mut self, root: Node<'pr>, path: &str, lines: &LineIndex) -> Result<()> {
-        let initial = Rc::new(Scope { owner:"Object".to_owned(), namespace:None, singleton:false, current:None, dynamic:false });
+    fn extract<'pr>(&mut self, root: Node<'pr>, path: &str, lines: &LineIndex, file_index: usize) -> Result<()> {
+        // Otherwise ownerless calls belong to the already admitted source file.
+        // Class/module/method scopes replace this lexical origin; blocks retain
+        // it without proving dynamic self, declarations or execution.
+        let initial = Rc::new(Scope { owner:"Object".to_owned(), namespace:None, singleton:false, current:Some(file_index), dynamic:false });
         // Preserve the historical LIFO encounter order: diagnostic groups and
         // admission/refusal boundaries depend on more than the final fact sort.
         let mut pending = vec![(root, initial)];
@@ -775,6 +778,10 @@ impl LineIndex {
                "start_byte":location.start_offset(),"end_byte":location.end_offset()})
     }
 }
+
+#[cfg(test)]
+#[path = "capture_origins_tests.rs"]
+mod origins_tests;
 
 #[cfg(test)]
 mod tests {
