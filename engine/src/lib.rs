@@ -20,6 +20,11 @@ struct Registry { next: u64, readers: HashMap<u64, Arc<store::Reader>> }
 static READERS: OnceLock<Mutex<Registry>> = OnceLock::new();
 static PROCESS: AtomicU32 = AtomicU32::new(0);
 
+// Public-capture fixtures share its process-wide permit; ordinary unit tests
+// keep independent Readers and can otherwise run concurrently.
+#[cfg(test)]
+static CAPTURE_FIXTURE_LOCK: Mutex<()> = Mutex::new(());
+
 fn registry() -> &'static Mutex<Registry> {
     READERS.get_or_init(|| Mutex::new(Registry { next: 1, readers: HashMap::new() }))
 }

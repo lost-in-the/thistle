@@ -75,6 +75,9 @@ pub(crate) fn select(reader: &Reader, query: &Query<'_>) -> Result<Value> {
 
 pub(crate) fn select_scoped(reader: &Reader, query: &Query<'_>, mut shared: Option<&mut crate::model_brief::RequestWork>) -> Result<Value> {
     let anchor = reader.stored_fact(query.id)?;
+    // Mandatory envelope admission precedes optional scans. A spent scan
+    // allowance must not discard an already collected bounded prefix.
+    let anchor_identity = identity(anchor, shared.as_deref_mut())?;
     let anchor_label = candidate_name(anchor);
     let mut work = Work { comparisons: 0, bytes: 0 };
     let mut rows = Vec::new();
@@ -112,10 +115,15 @@ pub(crate) fn select_scoped(reader: &Reader, query: &Query<'_>, mut shared: Opti
             let mut row = json!({"origin":null,"link":null,"detail_omitted":detail_omitted,
                 "match_basis":if query.incoming { "label_match_binding_unknown" } else { "recorded_outgoing_binding_unknown" },
                 "candidate_label":target,"candidates":[],"candidate_matches":0,"candidate_search_complete":false});
-            row["origin"] = identity(fact, shared.as_deref_mut())?;
+            row["origin"] = match identity(fact, shared.as_deref_mut()) {
+                Ok(value) => value,
+                Err(error) if shared.is_some() && error.code == "limit_exceeded" => { omitted += 1; complete = false; break 'facts; },
+                Err(error) => return Err(error),
+            };
             row["link"] = detail;
             if query.incoming {
-                row["candidates"] = json!([identity(anchor, shared.as_deref_mut())?]);
+                if let Some(shared) = shared.as_deref_mut() { shared.metadata(&anchor_identity, 2)?; }
+                row["candidates"] = Value::Array(vec![anchor_identity.clone()]);
                 row["candidate_matches"] = json!(1);
                 // This is the selected label match, not a unique global candidate.
             }
@@ -138,7 +146,11 @@ pub(crate) fn select_scoped(reader: &Reader, query: &Query<'_>, mut shared: Opti
                 if !equal { continue; }
                 row["candidate_matches"] = json!(row["candidate_matches"].as_u64().unwrap() + 1);
                 if row["candidates"].as_array().unwrap().len() == MAX_CANDIDATES { continue; }
-                let candidate = identity(fact, shared.as_deref_mut())?;
+                let candidate = match identity(fact, shared.as_deref_mut()) {
+                    Ok(value) => value,
+                    Err(error) if shared.is_some() && error.code == "limit_exceeded" => { candidates_complete = false; break 'candidates; },
+                    Err(error) => return Err(error),
+                };
                 let bytes = schema::encoded_bytes(&candidate, 32 * 1024)?;
                 if bytes > MAX_OUTPUT.saturating_sub(output_bytes) { continue; }
                 output_bytes += bytes;
@@ -151,7 +163,7 @@ pub(crate) fn select_scoped(reader: &Reader, query: &Query<'_>, mut shared: Opti
     let coverage = schema::array(&reader.manifest, "coverage")?;
     let capture_scan_complete = coverage.len() <= MAX_COVERAGE;
     let partial = !capture_scan_complete || coverage.iter().take(MAX_COVERAGE).any(|entry| entry["status"] != "complete");
-    let mut response = json!({"generation":reader.generation,"anchor":identity(anchor, shared.as_deref_mut())?,
+    let mut response = json!({"generation":reader.generation,"anchor":null,
         "direction":if query.incoming {"incoming"} else {"outgoing"},"limit":query.limit,
         "coverage":{"capture_partial":partial,"capture_families":coverage.len(),"capture_scan_complete":capture_scan_complete,
             "scan_complete":complete,"facts_scanned":scanned_facts,"links_scanned":scanned_links,
@@ -161,6 +173,7 @@ pub(crate) fn select_scoped(reader: &Reader, query: &Query<'_>, mut shared: Opti
             "budgets":{"facts":MAX_FACTS,"links":MAX_LINKS,"comparisons":MAX_COMPARISONS,
                 "label_bytes":MAX_LABEL_BYTES,"capture_families":MAX_COVERAGE,"output_bytes":MAX_OUTPUT,"candidates_per_relationship":MAX_CANDIDATES}},
         "semantics":"Recorded relationship groups, not textual occurrence counts. Label matches do not establish canonical identity or runtime dispatch."});
+    response["anchor"] = anchor_identity;
     response["relationships"] = Value::Array(rows);
     if let Some(shared) = shared.as_deref_mut() { shared.metadata(&response, 2)?; }
     Ok(response)

@@ -1,13 +1,22 @@
 use super::*;
 
+static FIXTURE: std::sync::OnceLock<(Value, String)> = std::sync::OnceLock::new();
+
 fn fixture() -> (tempfile::TempDir, Reader, String, Value) {
-    let root = tempfile::tempdir().unwrap();
-    std::fs::write(root.path().join("records.rb"), "class Item; def visit; Order.find; end; end\n").unwrap();
-    let mut capture = crate::capture::capture(root.path(), &json!({})).unwrap();
-    let observation: Value = serde_json::from_str(include_str!("../tests/fixtures/models.json")).unwrap();
-    let mut batch = crate::model::batch(&json!({"limits":{"max_facts":100000,"max_links":100000,"max_entries":100000,"max_diagnostics":100},"facts":0,"links":0,"diagnostics":0,"fact_bytes":2}), &observation).unwrap();
-    let id = batch["facts"][0]["id"].as_str().unwrap().to_owned();
-    capture["facts"].as_array_mut().unwrap().append(batch["facts"].as_array_mut().unwrap());
+    let (capture, id) = FIXTURE.get_or_init(|| {
+        let root = tempfile::tempdir().unwrap();
+        std::fs::write(root.path().join("records.rb"), "class Item; def visit; Order.find; end; end\n").unwrap();
+        let mut capture = {
+            let _guard = crate::CAPTURE_FIXTURE_LOCK.lock().unwrap();
+            crate::capture::capture(root.path(), &json!({})).unwrap()
+        };
+        let observation: Value = serde_json::from_str(include_str!("../tests/fixtures/models.json")).unwrap();
+        let mut batch = crate::model::batch(&json!({"limits":{"max_facts":100000,"max_links":100000,"max_entries":100000,"max_diagnostics":100},"facts":0,"links":0,"diagnostics":0,"fact_bytes":2}), &observation).unwrap();
+        let id = batch["facts"][0]["id"].as_str().unwrap().to_owned();
+        capture["facts"].as_array_mut().unwrap().append(batch["facts"].as_array_mut().unwrap());
+        (capture, id)
+    });
+    let (capture, id) = (capture.clone(), id.clone());
     let store = tempfile::tempdir().unwrap();
     crate::store::publish(store.path(), &capture).unwrap();
     let reader = Reader::open(store.path(), None).unwrap();
@@ -83,6 +92,43 @@ fn scoped_reference_default_matches_standalone_without_extra_incoming_expansion(
         assert_eq!(references::select_scoped(&reader,&query,Some(&mut work)).unwrap(),standalone);
         assert!(work.facts>0);
         if direction == "incoming" { assert_eq!(standalone["coverage"]["candidate_facts_scanned"],0); }
+    }
+}
+
+#[test]
+fn exhausted_reference_scans_retain_the_admitted_prefix_and_envelope() {
+    let (_store, reader, id, _) = fixture();
+    let root_index = reader.facts.iter().position(|fact| fact["id"] == id).unwrap();
+    // The fixture's model self/base label precedes its static Order.find call.
+    assert!(root_index + 1 < reader.facts.len());
+    for direction in ["incoming", "outgoing"] {
+        let parameters = json!({"id":id,"direction":direction,"limit":1});
+        let query = references::Query::parse(&parameters).unwrap();
+        let allowance = if direction == "incoming" { root_index + 3 } else { 5 };
+        let mut work = RequestWork { facts:FACTS-allowance, ..RequestWork::default() };
+        let result = references::select_scoped(&reader, &query, Some(&mut work)).unwrap();
+        assert_eq!(work.facts, FACTS);
+        assert_eq!(result["anchor"]["id"], id);
+        assert_eq!(result["generation"], reader.generation);
+        let rows = result["relationships"].as_array().unwrap();
+        assert_eq!(rows.len(), 1, "{direction}");
+        assert_eq!(rows[0]["origin"]["id"], id);
+        assert_eq!(rows[0]["link"]["target"], "Order");
+        if direction == "incoming" {
+            assert_eq!(result["coverage"]["scan_complete"], false);
+            assert_eq!(result["coverage"]["not_searched"], true);
+            assert_eq!(result["coverage"]["known_matches"], 1);
+        } else {
+            assert_eq!(result["coverage"]["candidate_search_complete"], false);
+            assert_eq!(rows[0]["candidate_search_complete"], false);
+            let mut shared = RequestWork { facts:FACTS-allowance, ..RequestWork::default() };
+            let parameters = json!({"id":id,"limit":1,"max_bytes":32768});
+            let brief_query = Query::parse(&parameters).unwrap();
+            let family = reference_family(&reader, &brief_query, direction, &mut shared).unwrap();
+            assert_eq!(family["items"].as_array().unwrap().len(), 1);
+            assert_eq!(family["coverage"]["candidate_search_complete"], false);
+            assert_eq!(family["unsearched"], true);
+        }
     }
 }
 

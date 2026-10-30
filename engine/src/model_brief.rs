@@ -157,10 +157,14 @@ fn reference_family(reader: &Reader, query: &Query<'_>, direction: &str, work: &
     let parameters = references::Query::parse(&parameters)?;
     match references::select_scoped(reader, &parameters, Some(work)) {
         Ok(mut result) => {
-            out["status"] = json!(if result["coverage"]["scan_complete"] == true { "searched" } else { "not_searched" });
+            // Incoming intentionally has no global candidate search. Outgoing
+            // prefix rows still require that search's incompleteness notice.
+            let complete = result["coverage"]["scan_complete"] == true &&
+                (direction == "incoming" || result["coverage"]["candidate_search_complete"] == true);
+            out["status"] = json!(if complete { "searched" } else { "not_searched" });
             out["reason"] = json!("recorded_labels_binding_unknown");
             out["known_omitted"] = result["coverage"]["known_omitted"].clone();
-            out["unsearched"] = result["coverage"]["not_searched"].clone();
+            out["unsearched"] = json!(!complete);
             out["coverage"] = result["coverage"].take(); out["items"] = result["relationships"].take();
         },
         Err(error) => limited(error, &mut out)?,
