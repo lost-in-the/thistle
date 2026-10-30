@@ -34,12 +34,14 @@ fn publish_with_reader_budget(path: &Path, capture: &Value, reader_budget: usize
         }.map_err(|error| if error.code == "limit_exceeded" { CoreError::limit("Facts exceed snapshot size limit") } else { error })?
     };
     if facts_bytes.len() > schema::MAX_FACTS_BYTES { return Err(CoreError::limit("Facts exceed snapshot size limit")); }
-    let mut files = schema::array(capture, "files")?.clone();
+    // Borrow validated files; copying every source body only to drop it
+    // from the manifest metadata doubled the inventory's transient footprint.
+    let mut files: Vec<&Value> = schema::array(capture, "files")?.iter().collect();
     files.sort_by(|a, b| a["path"].as_str().cmp(&b["path"].as_str()));
     let metadata: Vec<Value> = files.iter().map(|file| {
-        let mut entry = file.clone();
-        entry.as_object_mut().expect("validated file").remove("content");
-        entry
+        Value::Object(file.as_object().expect("validated file").iter()
+            .filter(|(key, _)| key.as_str() != "content")
+            .map(|(key, value)| (key.clone(), value.clone())).collect())
     }).collect();
     let mut manifest = json!({
         "schema_version": schema::capture_version(capture)?,
@@ -60,7 +62,7 @@ fn publish_with_reader_budget(path: &Path, capture: &Value, reader_budget: usize
     let _lock = root.lock()?;
     let blobs = root.child("blobs", true)?;
     let generations = root.child("generations", true)?;
-    for file in &files {
+    for file in files {
         let hash = schema::string(file, "sha256")?;
         let content = schema::string(file, "content")?.as_bytes();
         match blobs.read(hash, schema::MAX_SOURCE) {
@@ -196,7 +198,12 @@ impl Reader {
         let mut method_counts = crate::method_lookup::Counts::default();
         for (index, fact) in facts.iter().enumerate() {
             method_counts.record(fact)?;
-            if let Some(path) = fact["path"].as_str() { by_file.entry(path.to_string()).or_default().push(index); }
+            if let Some(path) = fact["path"].as_str() {
+                match by_file.get_mut(path) {
+                    Some(indices) => indices.push(index),
+                    None => { by_file.insert(path.to_string(), vec![index]); }
+                }
+            }
         }
         let blobs = root.child("blobs", false)?;
         let (search, weight) = search_cache(&facts, facts_bytes.len(), manifest_bytes.len())?;
@@ -267,13 +274,18 @@ impl Reader {
         let normalized = query.trim().to_lowercase();
         let words: Vec<&str> = normalized.split_whitespace().collect();
         if words.len() > 16 { return Err(CoreError::input("Find supports at most 16 terms")); }
-        let mut matches: Vec<(usize, &Value)> = self.facts.iter().zip(&self.search).filter_map(|(fact, record)| {
-            let id_match = fact["id"].as_str() == Some(query);
-            if id_match || words.iter().all(|word| record.text.contains(word)) {
-                let rank = if id_match || record.name == normalized { 0 } else if record.name.starts_with(&normalized) { 1 } else { 2 };
-                Some((rank, fact))
-            } else { None }
-        }).collect();
+        // Identity lookup replaces one string comparison per fact. Keep the
+        // compact rank/fact pair rather than retaining two extra sort keys
+        // for every match, including matches omitted from the output.
+        let identity = self.by_id.get(query).copied();
+        let mut matches: Vec<(usize, &Value)> = self.facts.iter().zip(&self.search).enumerate()
+            .filter_map(|(index, (fact, record))| {
+                let id_match = identity == Some(index);
+                if id_match || words.iter().all(|word| record.text.contains(word)) {
+                    let rank = if id_match || record.name == normalized { 0 } else if record.name.starts_with(&normalized) { 1 } else { 2 };
+                    Some((rank, fact))
+                } else { None }
+            }).collect();
         matches.sort_by(|a, b| (a.0, a.1["name"].as_str(), a.1["id"].as_str()).cmp(&(b.0, b.1["name"].as_str(), b.1["id"].as_str())));
         let total = matches.len();
         let results: Vec<Value> = matches.into_iter().take(limit)
