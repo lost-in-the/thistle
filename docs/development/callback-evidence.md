@@ -280,3 +280,128 @@ The 18 compiler warnings identify codec APIs not yet consumed by production;
 Phase B must connect those APIs. They were not suppressed. No Ruby/Map runtime,
 installed callback journey or exact-package acceptance follows from this native
 receipt. Historical failures retain their original identities and scopes.
+
+## Source-supported potential effects (LOS-62)
+
+`reader.callback_effects(registry_id, limit: 50)` explains a selected saved
+`rails_save_callbacks` fact ID in the Reader's pinned generation. The integer
+limit is 1–200. A model label is never used to join registry facts. Responses carry
+the exact registry ID, saved model label, generation, registry status and callback
+position/kind/filter/effective owner/inheritance/registered conditions. A callback
+ID is `registry_id:position`, meaningful only together with this generation.
+Conditions remain references, never boolean results. Registered metadata,
+source-supported potential behavior and observed execution are separate evidence
+families; execution is unknown.
+
+A supported filter needs an observed method owner, method name and relative
+source path/start line. The native selector scans captured static instance-method
+declarations once, grouped by exact effective owner/method name. It requires one
+unique declaration, `singleton: false`, lexical name resolution, the exact
+`owner#method` name, matching path/start line and a nonempty complete span.
+Duplicates (including another declaration at a different location) stop binding.
+A provisional candidate from an incomplete uniqueness scan cannot bind. Inherited
+filters use their effective owner, which may differ from both the model label
+and the superclass registration. Name-only, unresolved/unknown owner, stale or
+mismatched descriptors, singleton methods, procs and opaque references remain
+unknown with explicit reasons.
+
+Even a match is labelled **descriptor-matched captured declaration**, with
+**runtime/source coherence unknown**. The saved descriptor and matching source
+coordinates do not prove that these bytes were VM-loaded or that live method
+identity/dispatch agrees. No loaded-byte equality proof exists in this format.
+
+The first supported operation is a **potential enqueue-style request**: an
+existing representative `calls` link whose selector is exactly `perform_later`
+and whose recognized typed metadata records a non-omitted constant receiver.
+The response displays concrete `receiver.perform_later`, captured file path,
+SHA-256/length, method/call/receiver half-open byte and line spans, and at most
+512 bytes of supporting call source. A shortened excerpt is explicit; full source
+remains available through the pinned Reader. The existing source loader verifies
+the blob's digest/length and the schema validates all selected method/call/receiver
+coordinates against actual saved UTF-8 bytes before effects are returned. Calls
+and receivers must also lie inside their containing declaration/call spans.
+A missing blob is unavailable; corrupt bytes/positions and other integrity/path
+errors refuse and never become benign missing evidence.
+
+Constant identity, ActiveJob ancestry, runtime dispatch, condition/branch
+satisfaction, invocation, job delivery and execution are **unknown**. This is
+not an observed enqueue. There is no constant resolution, alias expansion,
+call graph, argument/value extraction, AST traversal, parsing, execution or live
+filesystem fallback. Existing first-representative call deduplication is preserved;
+these groups are non-exhaustive, and lexical occurrence is not execution order.
+`no_supported_match` concerns only the searched recorded declaration and supported
+operation; it never establishes no possible effect, including when the registry
+or capture is partial/unavailable.
+
+Each request holds a 32 MiB transient reservation from the existing aggregate
+query budget through native response serialization. It retains only borrowed
+identities and bounded results, with no persistent index/cache. Caps are 200
+attempted callback rows, 20,000 fact visits (including anchor admission and selected-method validation/analysis), 50,000
+link visits, 32 MiB compared label bytes, 16 attempted files, 256 KiB per file,
+1 MiB charged expanded source and 128 KiB encoded returned output. Each selected
+method's links are charged twice: schema validation and effect inspection,
+including nonmatches. File attempts and declared expansion bytes are charged
+before reading, including failures; each unique selected file is read at most
+once. Oversized files consume attempts without expansion. Row metadata is capped
+at 8 KiB before copying, at most eight potential effects are displayed per method,
+and returned row payloads share 96 KiB, leaving envelope headroom. Omitted metadata,
+output rows/effects, row limits, incomplete uniqueness searches and source/link
+budgets are explicit. Unknown unsearched matches are never counted as zero.
+
+For F visited facts, C selected descriptors (at most 200), M manifest files,
+S charged source bytes and L admitted links, work is O(F log C + C² + 16M + S + L
++ returned bytes). Descriptor search uses a charged binary search, rather than
+C full-fact scans. Per-file schema validation batches methods and constructs one
+newline index. Peak scratch consists of O(C) borrowed groups and bounded result
+Values, one at-most-256-KiB expanded file and its byte-offset newline index,
+selected row output and ordinary JSON/FFI copies, all admitted under the 32 MiB
+reservation. This is conservative accounting, not a measured RSS, speed or
+headroom claim. Existing per-request source and query limits remain unchanged.
+
+Map invokes the optional API in its existing callback Source fallback and escapes
+all text/excerpts. Supporting source links pin generation/path. Older Readers or
+an older native engine's exact unknown-operation refusal show unavailable;
+resource refusal shows its limit. Other failures, including invalid snapshots
+and generation/registry mismatches, propagate. Existing hint-only links also
+preserve integrity refusals. No View/app, authorization or lifecycle changes are
+required. The actual installed consumer assertion is additive preparation;
+source tests and syntax checks cannot establish settled installed-package
+acceptance. Root owns review, integration and exact-pair checks; Leah owns
+applicable acceptance. All 17 launch capabilities remain unqualified.
+
+### LOS-62 focused development receipt
+
+The final source check passed 10 native tests, 10 Core tests / 69 assertions
+(saved primitive, observer and callback publication), and 12 Map tests / 134
+assertions (presenter, real callback journey and fresh consumer). There were no
+failures/errors/skips in those final groups. The additive installed-consumer hunk
+passed syntax checking only; no installed package acceptance is claimed.
+Ruby 3.4.12, Rails 8.1.4, Rouge 4.6.1 and Rust/Cargo 1.90.0 ran offline in image
+`f377fb86ef51f1b4b31787dc58131ad453fe306e58b36296f29e76a98487c520`.
+Final loaded native SHA-256:
+`9a8a2dc5b57d8cdeb1db11486c2f52669423ecb64fe9b7a7a5c668c3a059926c`.
+Final copied-input manifest SHA-256:
+`f58fbe64c5c6d457e5ec51459e2924415a397d440f0aee8745b56d976c064312`.
+Final log SHA-256:
+`9b6c03cb388bc8233b0ddbf801a6af69c3905ac833d87db2a00c8d3d6ae7fec6`.
+
+All attempts shared one 600-second child / 630-second outer window, completing
+at 416.04 seconds from the initial start, with an 8 MiB combined log ceiling.
+The child verified 2 CPU, 2 GiB memory, zero swap, 256 PIDs, no network,
+read-only copied inputs and private disk-backed HOME/TMP. No dedicated backing
+quota was configured; availability was recorded without a headroom claim.
+Input invariance was checked; containers and private build/input/HOME/TMP copies
+were released, retaining private immutable archives/receipts only.
+
+Two earlier failures remain preserved: the input copier initially excluded four
+legitimate vendored `cc/src/target` files (no compilation/tests), then concurrent
+native test fixture captures hit the engine's single-capture admission (9 passed,
+1 failed; dependent work stopped). The fixture now shares one synchronized real
+Prism capture. Their log SHA-256 identities are respectively
+`7c8209bbf7b87833595863427606d3f255e0954d96634c10d0ab5703f528b6ce`
+and `f96171c2f9c39638c9fca46a73de4fc7bf4443e57221319f97ff1bd01466f2fb`.
+A passing intermediate source was rechecked after self-review removed repeated
+per-method file line counting and redundant JSON result copies. Its earlier
+native identity is not relabelled as the final native above. Self-review also
+charged selected-method validation/analysis to the fact budget. Root's substantive
+review, affected CI and settled installed-package evidence remain outstanding.

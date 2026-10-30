@@ -584,3 +584,25 @@ bytes require their own affected installed evidence; all 17 launch requirements
 remain unqualified. Reconsider the lists for a concrete supported offline job,
 new public contract, changed upstream build/license requirement, or measured
 usability/churn cost that warrants separating mixed user/history documents.
+
+## Reuse captured calls for callback potential effects — LOS-62
+
+Use the maintained Prism producer's existing method descriptors and representative
+typed calls, the borrowed `SemanticLinkView` decoder and the Reader/schema's
+saved-byte verification. Alternatives were parsing callback macros, reparsing
+method bodies, adding an effect graph or observing callbacks by execution. Those
+would add parser/graph/lifecycle authority and maintenance while still failing to
+prove effective runtime dispatch or source coherence. The selected bounded query
+answers one useful operation (`constant.perform_later`) without a dependency,
+schema or observer change. Rust owns matching/analysis; Ruby only forwards and
+Map renders escaped evidence.
+
+The operating cost is one bounded O(F log C) declaration scan plus O(C²) descriptor
+and path grouping, at most 16 manifest scans, one read/validation per selected
+source file and two charged visits per admitted link. A 32 MiB aggregate scratch
+reservation, 128 KiB output ceiling and explicit unknown/omitted reasons bound
+request work without a retained index. See [the exact contract](callback-evidence.md#source-supported-potential-effects-los-62)
+for all caps and source/dispatch limitations. No performance/RSS improvement is
+claimed. Reconsider only for another independently specified effect form or
+observed exact-artifact workload evidence that justifies another bounded
+representation; expanding runtime observation or schema needs its own scope.

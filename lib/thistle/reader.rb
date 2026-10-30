@@ -85,6 +85,10 @@ module Thistle
       request("references", "id" => id, "direction" => direction, "limit" => limit)
     end
 
+    def callback_effects(id, limit: 50)
+      request("callback_effects", "id" => id, "limit" => limit)
+    end
+
     def check
       request("check")
     end

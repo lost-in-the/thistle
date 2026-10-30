@@ -27,6 +27,12 @@ module CallbackFixture
     def allowed? = raise('symbol condition executed')
   end
 
+  # This class is deliberately not an ActiveJob subclass. The syntax supports a
+  # potential request only; no callback body, condition or job runs in capture.
+  class DeliveryJob
+    def self.perform_later(*) = raise('job request executed')
+  end
+
   class Child < Parent
     skip_callback :save, :before, :removed
     before_save :first, prepend: true
@@ -34,7 +40,10 @@ module CallbackFixture
     before_save BODY, if: [CONDITION, OPAQUE]
     before_save OPAQUE
     # Method implementation differs from the inherited registered filter.
-    def parent_stamp = raise('effective override executed')
+    def parent_stamp
+      raise 'effective override executed'
+      CallbackFixture::DeliveryJob.perform_later if allowed?
+    end
     def first = raise('prepended body executed')
     def wrap = raise('around body executed')
   end
