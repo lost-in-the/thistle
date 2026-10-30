@@ -210,3 +210,109 @@ fn pinned_cursor_survives_current_change_and_inflight_reader_survives_close() {
     let result=run(&reopened,4,"outgoing",50).unwrap();
     assert_eq!(result["cost"]["recorded_directory"]["built_this_request"],true);
 }
+
+fn constant_call(name: &str, metadata_version: u64) -> Value {
+    let location = json!({"start_byte":0,"end_byte":6,"start_line":1,"end_line":1});
+    let extension = if metadata_version == 1 {
+        json!({"version":1,"receiver":{"kind":"constant","name":name,"omitted_limit":false},
+            "safe_navigation":false,"call_location":location,"receiver_location":location})
+    } else {
+        json!({"version":2,"data":["constant",name,false,false,[0,6,1,1],[0,6,1,1]]})
+    };
+    json!({"relation":"calls","target":"build","resolution":"unresolved",
+        "attributes":{"thistle_call":extension}})
+}
+fn rooted_fixture(version: u64, metadata_version: u64) -> Value {
+    let mut data = fixture(version);
+    data["files"] = json!([{"path":"a.rb","bytes":6,"sha256":schema::digest(b"::User"),"content":"::User","encoding":"UTF-8"}]);
+    data["facts"] = json!([fact(1,"User",json!([])), fact(2,"Admin::User",json!([])),
+        fact(3,"Plain",json!([constant_call("User",metadata_version)])),
+        fact(4,"Rooted",json!([constant_call("::User",metadata_version)])),
+        fact(5,"Other::Nested",json!([constant_call("::User",metadata_version)])),
+        fact(6,"Namespaced",json!([constant_call("::Admin::User",metadata_version)])),
+        fact(7,"RelativeNamespaced",json!([constant_call("Admin::User",metadata_version)])),
+        fact(8,"User",json!([]))]);
+    for index in 2..7 { data["facts"][index]["path"] = json!("a.rb"); }
+    data
+}
+#[test]
+fn recognized_rooted_receivers_share_incoming_outgoing_and_candidate_pages() {
+    for (version, metadata) in [(1,1),(2,1),(2,2),(3,2)] {
+        let temp = tempfile::tempdir().unwrap();
+        let data = rooted_fixture(version,metadata);
+        let saved = store::publish(temp.path(),&data).unwrap();
+        let reader = Reader::open(temp.path(),None).unwrap();
+        let mut request = json!({"id":format!("{:064x}",1),"direction":"incoming","limit":1});
+        let mut origins = Vec::new();
+        for _ in 0..4 {
+            let page = select(&reader,&Query::parse(&request).unwrap()).unwrap();
+            for row in page["relationships"].as_array().unwrap() {
+                origins.push(row["origin"]["name"].as_str().unwrap().to_owned());
+                assert_eq!(row["match_basis"],"label_match_binding_unknown");
+                assert_eq!(row["candidate_search_complete"],false);
+            }
+            if page["next_cursor"].is_null() { break; }
+            request["cursor"] = page["next_cursor"].clone();
+        }
+        assert_eq!(origins,vec!["Plain","Rooted","Other::Nested"]);
+        let rooted = run(&reader,4,"outgoing",1).unwrap();
+        let row = &rooted["relationships"][0];
+        assert_eq!(row["candidate_label"],"::User");
+        assert_eq!(row["link"],data["facts"][3]["links"][0]);
+        assert_eq!(row["candidate_matches"],2);
+        assert_eq!(row["candidates"][0]["id"],format!("{:064x}",1));
+        let mut candidates = json!({"id":format!("{:064x}",4),"candidate_link":0,"limit":1});
+        let first = select(&reader,&Query::parse(&candidates).unwrap()).unwrap();
+        assert_eq!(first["candidate_status"],"ambiguous");
+        assert!(first["next_cursor"].is_string());
+        let mut changed = data.clone(); changed["facts"][0]["name"] = json!("Changed");
+        store::publish(temp.path(),&changed).unwrap();
+        let reopened = Reader::open(temp.path(),saved["generation"].as_str()).unwrap();
+        candidates["cursor"] = first["next_cursor"].clone();
+        let last = select(&reopened,&Query::parse(&candidates).unwrap()).unwrap();
+        assert_eq!(last["generation"],saved["generation"]);
+        assert_eq!(last["candidate_matches"],2);
+        assert_eq!(last["candidates"][0]["id"],format!("{:064x}",8));
+        assert!(last["next_cursor"].is_null());
+        let namespaced = run(&reopened,2,"incoming",50).unwrap();
+        assert_eq!(namespaced["relationships"].as_array().unwrap().len(),2);
+        assert_eq!(run(&reopened,6,"outgoing",1).unwrap()["relationships"][0]["candidates"][0]["name"],"Admin::User");
+    }
+}
+#[test]
+fn opaque_and_nonconstant_labels_never_gain_root_normalization() {
+    for version in 1..=3 {
+        let temp = tempfile::tempdir().unwrap();
+        let mut data = rooted_fixture(version,2);
+        let mut opaque = constant_call("::User",2);
+        opaque["target"] = json!("::User");
+        if version > 1 { opaque["attributes"]["thistle_call"]["version"] = json!(99); }
+        let mut local = constant_call("::User",2);
+        local["attributes"]["thistle_call"]["data"][0] = json!("local");
+        data["facts"][3]["links"] = json!([opaque,local,
+            {"relation":"references","target":"::User","resolution":"unresolved"}]);
+        store::publish(temp.path(),&data).unwrap();
+        let reader = Reader::open(temp.path(),None).unwrap();
+        let output = run(&reader,4,"outgoing",50).unwrap();
+        for row in output["relationships"].as_array().unwrap() { assert_eq!(row["candidate_matches"],0); }
+        let incoming = run(&reader,1,"incoming",50).unwrap();
+        assert!(!incoming["relationships"].as_array().unwrap().iter().any(|row| row["origin"]["name"] == "Rooted"));
+        assert_eq!(output["relationships"][0]["link"],data["facts"][3]["links"][0]);
+    }
+}
+#[test]
+fn rooted_comparisons_charge_original_bytes_and_keep_refusals() {
+    let target = Label { original:"::User",key:recorded_domain::constant_label("::User") };
+    let mut work = Work { comparisons:0,bytes:0 };
+    assert_eq!(work.compare_scoped(target,"User",None),Some(true));
+    assert_eq!((work.comparisons,work.bytes),(1,10));
+    let mut work = Work { comparisons:0,bytes:MAX_LABEL_BYTES-9 };
+    assert_eq!(work.compare_scoped(target,"User",None),None);
+    let mut work = Work { comparisons:0,bytes:0 };
+    let mut labels = ScopedLabels { work:&mut work,shared:None,original:target.original };
+    assert_eq!(recorded_domain::LabelWork::compare(&mut labels,"User",target.key).unwrap(),std::cmp::Ordering::Equal);
+    assert_eq!((work.comparisons,work.bytes),(1,10));
+    let mut work = Work { comparisons:MAX_COMPARISONS,bytes:0 };
+    let mut labels = ScopedLabels { work:&mut work,shared:None,original:target.original };
+    assert_eq!(recorded_domain::LabelWork::compare(&mut labels,"User",target.key).unwrap_err().code,"limit_exceeded");
+}
