@@ -15,7 +15,8 @@ module Rails71Fixture
     end
     raise 'Genuine runtime versions required' unless Rails::VERSION::STRING == '7.1.6' && ActiveRecord::VERSION::STRING == '7.1.6'
     raise 'Isolated Mysql2Adapter fixture required' unless database_config.fetch('adapter') == 'mysql2'
-    app = Class.new(Rails::Application).new
+    app = Class.new(Rails::Application).instance
+    raise 'Fixture application registration mismatch' unless app.equal?(Rails.application)
     app.config.root = __dir__
     app.config.eager_load = false
     app.config.secret_key_base = 'rails71-harmless-fixture-only' * 8

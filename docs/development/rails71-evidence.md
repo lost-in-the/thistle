@@ -32,7 +32,7 @@ The framework sources establish these narrow compatibility decisions:
   unset means false there. Overrides and opaque storage stay unknown. Unknown
   abstract status does not trigger schema access.
 * [7.1.6 class_attribute](https://github.com/rails/rails/blob/v7.1.6/activesupport/lib/active_support/core_ext/class/attribute.rb)
-  stores values in generated public reader closures. Compare the effective
+  stores values in generated public reader closures. The effective
   `__callbacks` reader must be a pure captured-value block: only the captured
   argument load and return instructions are accepted, with no sends or branches.
   A fresh probe cannot be compared by identity because 7.1 recompiles declarations.
