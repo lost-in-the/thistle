@@ -100,7 +100,8 @@ Set up each clone once; steps 5 and 6 also repeat in each linked worktree:
 Entire is optional for contributors. The `AGENTS.md` block points agents at
 `.entire/agent-guide.md`, which uses `entire brain` for task context and falls
 back to direct source inspection when Brain is unavailable. Brain itself is
-per machine, and its index and memories stay local. Install the recorded
+per machine, and its index and memories stay local; owner machines share
+memories through `entire brain connect`. Install the recorded
 plugin versions first: `entire plugin install graph --pin v0.6.0 --yes`, then
 `entire plugin install brain --pin v0.4.0 --yes`. Run
 `entire brain setup --no-backfill --no-daemon` by default. Without those flags,

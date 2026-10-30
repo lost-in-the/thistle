@@ -252,17 +252,26 @@ setup creates `CLAUDE.md`, and Claude Code skips `AGENTS.md` whenever a
 
 | Considered approach | Decision |
 |---|---|
-| Brain wired into agent instructions; index and memories local; distillation opt-in | Selected: agents use recorded decisions and history without sending sessions anywhere by default. |
+| Brain wired into agent instructions; index local; distillation and hosted sync opt-in | Selected: agents use recorded decisions and history without sending sessions anywhere by default. |
 | Brain with default backfill and watcher for everyone | Rejected: distillation sends session content to the agent CLI's model provider without an explicit choice. |
 | No Brain; checkpoints and `entire why` only | Rejected: context exists but agents are not told to retrieve it. |
 | Brain without agent instructions | Rejected: setup reports agents as not wired, and agents rarely query it unprompted. |
-| Brain with hosted Brainstore sync | Deferred: sends memories to a hosted service; revisit when cross-machine memory is needed. |
+| Brain with hosted Brainstore sync | Adopted for owner machines: shares memories across machines and on entire.com. Contributors stay local unless they connect. |
 
-Brain's index and memories stay on the machine. Fact distillation, through the
+Brain's index stays on the machine, and its memories stay local unless the
+machine connects to the hosted Brainstore. Fact distillation, through the
 setup backfill or the watcher, runs the configured agent CLI and so sends session
 content to that CLI's model provider. The documented default is therefore
 `entire brain setup --no-backfill --no-daemon`; distillation is an explicit
 opt-in per machine. The owner's development machines opted in on 2026-10-29.
+
+Owner machines also run `entire brain connect`, which syncs distilled memories,
+not transcripts, with the hosted Brainstore at session end, on push and
+periodically. Hosted memories require an authenticated Entire account: on
+2026-10-29 anonymous requests to the memories and sessions APIs returned 401.
+Memories can still name private context such as people, accounts or
+conversation links; retract one with `entire brain memories retract` rather
+than leave restricted detail in shared memory.
 
 Operating cost, measured on one macOS machine: the agent guide adds about 1.3k
 tokens per session, and the Claude Code pre-edit hook ran in 140 to 270 ms per
@@ -287,7 +296,7 @@ as generated until upstream corrects it; treat query results as lexical.
 
 Reconsider if per-edit latency or session token cost grows materially, if
 upstream Brain fixes the missing-plugin exit or the guide's search description,
-or if cross-machine memory needs hosted sync.
+or if hosted memories become readable beyond authenticated repository access.
 
 ## Maintenance rule
 
