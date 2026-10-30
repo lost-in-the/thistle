@@ -1,6 +1,6 @@
 use super::*;
 
-const SOURCE: &str = "module Example\n  class Record\n    def deliver\n      DeliveryJob.perform_later('<script>') if allowed?\n      raise 'body must not execute'\n      DeliveryJob.perform_later('second representative omitted')\n    end\n    def quiet = raise('not executed')\n    def self.deliver = DeliveryJob.perform_later\n    def heredoc; puts <<~TEXT; end\n      #{DeliveryJob.perform_later}\n    TEXT\n  end\nend\n";
+const SOURCE: &str = "module Example\n  class Record\n    def deliver\n      DeliveryJob.perform_later('<script>') if allowed?\n      raise 'body must not execute'\n      DeliveryJob.perform_later('second representative omitted')\n    end\n    def quiet = raise('not executed')\n    def self.deliver = DeliveryJob.perform_later\n    def heredoc; puts <<~TEXT; end\n      #{DeliveryJob.perform_later}\n    TEXT\n    def other_call = Dangerous.delete_all\n    def similarly_named = DeliveryJob.perform_later!\n    def safe = DeliveryJob&.perform_later\n    def setter; Dangerous.perform_later = 1; end\n  end\nend\n";
 
 static FIXTURE: std::sync::OnceLock<(Value, String)> = std::sync::OnceLock::new();
 fn fixture() -> (Value, String) {
@@ -287,4 +287,48 @@ fn verified_heredoc_call_outside_lexical_method_span_is_unknown_not_corrupt() {
     assert_eq!(explanation(&result)["links_search_complete"], false);
     assert!(explanation(&result)["effects"].as_array().unwrap().is_empty());
     assert_eq!(result["callbacks"][1]["explanation"]["reason"], "opaque_or_incomplete_observed_method_descriptor");
+}
+
+#[test]
+fn published_call_labels_must_be_corroborated_by_saved_source_not_just_coordinates() {
+    let (original, id) = fixture();
+    for (method_name, mutation) in [("other_call", "selector"), ("deliver", "receiver"),
+        ("deliver", "safe_navigation"), ("similarly_named", "selector"), ("setter", "selector")] {
+        let mut capture = original.clone();
+        let target = capture["facts"].as_array_mut().unwrap().iter_mut()
+            .find(|f| f["name"] == format!("Example::Record#{method_name}")).unwrap();
+        let line = target["location"]["start_line"].clone();
+        let link = target["links"].as_array_mut().unwrap().iter_mut()
+            .find(|l| l["target"] == if method_name == "other_call" { "delete_all" }
+                else if method_name == "similarly_named" { "perform_later!" }
+                else if method_name == "setter" { "perform_later=" } else { "perform_later" }).unwrap();
+        match mutation {
+            "selector" => link["target"] = json!("perform_later"),
+            "receiver" => link["attributes"]["thistle_call"]["data"][1] = json!("DifferentJob"),
+            _ => link["attributes"]["thistle_call"]["data"][3] = json!(true),
+        }
+        entry(&mut capture)["filter"]["name"] = json!(method_name);
+        entry(&mut capture)["filter"]["source"]["line"] = line;
+        // These are public publication-boundary mutations, not in-memory Reader
+        // changes: shape/coordinates/Check all pass while the labels disagree.
+        let store = tempfile::tempdir().unwrap();
+        crate::store::publish(store.path(), &capture).unwrap();
+        let reader = Reader::open(store.path(), None).unwrap();
+        assert_eq!(reader.check().unwrap()["integrity"], "verified");
+        let request = json!({"id":id});
+        let result = select(&reader, &Query::parse(&request).unwrap()).unwrap();
+        assert_eq!(explanation(&result)["status"], "unknown", "{method_name}/{mutation}");
+        assert_eq!(explanation(&result)["reason"], "recorded_call_spelling_not_corroborated");
+        assert_eq!(explanation(&result)["links_search_complete"], false);
+        assert!(explanation(&result)["effects"].as_array().unwrap().is_empty());
+    }
+    let mut safe = original;
+    let line = safe["facts"].as_array().unwrap().iter()
+        .find(|f| f["name"] == "Example::Record#safe").unwrap()["location"]["start_line"].clone();
+    entry(&mut safe)["filter"]["name"] = json!("safe");
+    entry(&mut safe)["filter"]["source"]["line"] = line;
+    let result = run(&safe, &id, 50);
+    assert_eq!(explanation(&result)["status"], "supported_potential");
+    assert_eq!(explanation(&result)["effects"][0]["operation"], "DeliveryJob.perform_later");
+    assert_eq!(explanation(&result)["effects"][0]["safe_navigation"], true);
 }

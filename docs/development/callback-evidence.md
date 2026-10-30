@@ -313,6 +313,16 @@ identity/dispatch agrees. No loaded-byte equality proof exists in this format.
 The first supported operation is a **potential enqueue-style request**: an
 existing representative `calls` link whose selector is exactly `perform_later`
 and whose recognized typed metadata records a non-omitted constant receiver.
+Promotion also requires byte corroboration: the recorded receiver must exactly
+match its saved source span at the start of the call, immediately followed by
+`.perform_later` or `&.perform_later` matching the safe-navigation flag, then either the end of the call or an
+immediately following argument/block delimiter (`(` or `{`). Receiver comparisons consume the existing label-byte budget.
+This intentionally narrow spelling check is not a Ruby parser: mismatched labels,
+unsupported receiver/operator/argument formatting (including bare arguments or
+trivia gaps), or exhausted comparison work return
+`unknown` / `recorded_call_spelling_not_corroborated`, never a source-supported
+operation based only on metadata shape/coordinates. It does not resolve constant
+identity, method ownership or runtime dispatch beyond the recorded descriptors.
 The response displays concrete `receiver.perform_later`, captured file path,
 SHA-256/length, method/call/receiver half-open byte and line spans, and at most
 512 bytes of supporting call source. A shortened excerpt is explicit; full source
@@ -416,3 +426,5 @@ After the dated focused receipt above, Root moved positive `perform_later` calls
 The original `bda29fe` hosted run41026998561 passed its Core assertions but failed the fresh Map consumer on Linux and ARM with `cannot load such file -- thistle/map`. Its child process depended on a parent `RUBYLIB` supplied by the focused launcher, while canonical CI passes source paths with parent command-line `-I` flags. Root now passes explicit Core and Map `-I` paths to that fresh child, preserving the no-Rails and saved-generation checks. This repairs the test invocation rather than product dependency/routing policy; the failed run remains retained.
 
 Codex finding4421893675 on `c9d157c` identified the valid discontiguous heredoc layout. Root changed only the explanation guard and added an actual Prism capture/publication/fresh Reader/Check regression. Existing digest, file/line/UTF-8 and receiver-in-call corruption refusals remain intact; no parser/schema/capture change or broader call-ownership inference is introduced. Current-head CI must establish the new regression; earlier passes retain their original source identity.
+
+Codex finding4421948168 on `ec35d0e` showed that publication and Check can accept shape/coordinate-valid call labels differing from the saved text. Root added the bounded receiver/selector byte-corroboration guard and public Store publication→fresh Reader→Check negative mutations for selector, receiver, safe-navigation and selector-suffix mismatches, plus a real safe-navigation positive. No shared schema/capture/parser rule or cap changed; previous source passes retain their exact identity, and current-head CI must execute these regressions.

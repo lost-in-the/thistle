@@ -84,7 +84,7 @@ fn fits_descriptor(group: &Group<'_>, entry: &Value, work: &mut Work) -> Option<
         fact["location"]["start_line"] == filter["source"]["line"] && bounds(fact).is_some())
 }
 
-fn explain(fact: &Value, file: &Value, version: u64, lines: usize) -> Result<Value> {
+fn explain(fact: &Value, file: &Value, version: u64, lines: usize, work: &mut Work) -> Result<Value> {
     // Caller has charged and validated this entire method, including every call
     // and receiver coordinate, against the actual digest-checked saved bytes.
     let content = schema::string(file, "content")?;
@@ -110,6 +110,19 @@ fn explain(fact: &Value, file: &Value, version: u64, lines: usize) -> Result<Val
         // across discontiguous source or claim exhaustive absence.
         if call.location.start_byte < start || call.location.end_byte > end {
             return Ok(unknown("recorded_call_outside_lexical_method_span"));
+        }
+        // Stored metadata has validated shape/coordinates, not lexical labels.
+        // Corroborate this deliberately narrow direct-call spelling against the
+        // saved bytes before promoting it to source-supported potential. Exact
+        // receiver equality also charges these comparisons to the shared cap.
+        let receiver_text = &content[receiver_span.start_byte as usize..receiver_span.end_byte as usize];
+        let tail = &content[receiver_span.end_byte as usize..call.location.end_byte as usize];
+        let prefix = if call.safe_navigation { "&.perform_later" } else { ".perform_later" };
+        let boundary = tail.strip_prefix(prefix).is_some_and(|rest|
+            rest.as_bytes().first().is_none_or(|b| matches!(*b, b'(' | b'{')));
+        if receiver_span.start_byte != call.location.start_byte ||
+            work.compare(receiver_text, receiver) != Some(Ordering::Equal) || !boundary {
+            return Ok(unknown("recorded_call_spelling_not_corroborated"));
         }
         if effects.len() == MAX_EFFECTS { omitted += 1; continue; }
         let text = &content[call.location.start_byte as usize..call.location.end_byte as usize];
@@ -247,7 +260,7 @@ pub(crate) fn select(reader: &Reader, query: &Query<'_>) -> Result<Value> {
         expanded["content"] = Value::String(content);
         schema::stored_facts(admitted.iter().map(|i| groups[*i].candidate.unwrap()), std::slice::from_ref(&expanded), reader.schema_version())
             .map_err(|_| CoreError::snapshot("Callback source positions disagree with captured bytes"))?;
-        for i in admitted { groups[i].result = explain(groups[i].candidate.unwrap(), &expanded, reader.schema_version(), lines)?; }
+        for i in admitted { groups[i].result = explain(groups[i].candidate.unwrap(), &expanded, reader.schema_version(), lines, &mut work)?; }
     }
     let mut rows = Vec::new();
     let mut output_bytes = 0;
