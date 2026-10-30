@@ -3,7 +3,7 @@ use crate::{error::{CoreError, Result}, schema};
 use serde_json::{json, Value};
 use std::path::Path;
 
-const SCOPE: &str = "Registered save chains of already loaded Active Record 8.1.4 descendants in the supplied process";
+const SCOPE: &str = "Registered save chains of already loaded supported Active Record descendants in the supplied process";
 
 // Both runtime families share native admission; publication validates actual facts.
 pub fn batch(context: &Value, observation: &Value) -> Result<Value> {
@@ -16,7 +16,7 @@ pub fn batch(context: &Value, observation: &Value) -> Result<Value> {
     }
     let models = schema::array(observation, "models")?;
     if observation["status"] == "unavailable" && !models.is_empty() ||
-        observation["status"] == "observed" && observation["active_record_version"] != "8.1.4" {
+        observation["status"] == "observed" && !schema::supported_active_record(&observation["active_record_version"]) {
         return Err(CoreError::input("Invalid callback inventory provenance"));
     }
     schema::encoded_bytes(observation, schema::MAX_FACTS_BYTES)?;
@@ -32,7 +32,7 @@ pub fn batch(context: &Value, observation: &Value) -> Result<Value> {
         let object = data.as_object_mut().unwrap();
         object.insert("version".into(), json!(1));
         object.insert("ordinal".into(), json!(ordinal));
-        object.insert("active_record_version".into(), json!("8.1.4"));
+        object.insert("active_record_version".into(), observation["active_record_version"].clone());
         object.insert("coherence".into(), json!("unknown"));
         object.insert("provenance".into(), json!("registered_metadata"));
         let mut count = 0usize;
@@ -156,7 +156,7 @@ pub(crate) fn validate_fact(fact: &Value) -> Result<()> {
     schema::model_object(data, &["name","superclass","save","version","ordinal","active_record_version","coherence","provenance"])?;
     schema::model_label(&data["name"])?;
     schema::model_label(&data["superclass"])?;
-    if data["version"] != 1 || data["ordinal"].as_u64().is_none() || data["active_record_version"] != "8.1.4" ||
+    if data["version"] != 1 || data["ordinal"].as_u64().is_none() || !schema::supported_active_record(&data["active_record_version"]) ||
         data["coherence"] != "unknown" || data["provenance"] != "registered_metadata" || fact["evidence"] != "runtime" ||
         fact["kind"] != "rails_save_callbacks" || !fact["path"].is_null() || !fact["location"].is_null() {
         return Err(CoreError::input("Invalid callback provenance"));

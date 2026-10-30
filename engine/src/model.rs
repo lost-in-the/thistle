@@ -19,7 +19,7 @@ pub fn batch(context: &Value, observation: &Value) -> Result<Value> {
     if observation["status"] == "unavailable" && !models.is_empty() {
         return Err(CoreError::input("Unavailable inventory cannot contain models"));
     }
-    if observation["status"] == "observed" && observation["active_record_version"] != "8.1.4" {
+    if observation["status"] == "observed" && !schema::supported_active_record(&observation["active_record_version"]) {
         return Err(CoreError::input("Unsupported Active Record observation version"));
     }
     admission.ensure_facts(models.len())?;
@@ -278,6 +278,23 @@ mod tests {
         assert_eq!(result["coverage"][1]["status"], "unavailable");
         obs["version"] = json!(99);
         assert!(append(capture(), &obs).is_err());
+    }
+    #[test]
+    fn exact_cohorts_survive_admission_and_publication_without_relabelling() {
+        // Synthetic primitive admission tests, not genuine framework evidence.
+        for version in ["7.1.6", "8.1.4"] {
+            let mut obs = observation(); obs["active_record_version"] = json!(version);
+            let result = append(capture(), &obs).unwrap();
+            assert_eq!(result["producer"]["model_observer"]["active_record_version"], version);
+            assert_eq!(result["facts"][0]["attributes"]["model"]["active_record_version"], version);
+            for unsupported in ["7.1.5", "7.2.4", "8.1.5", "7.1.6-custom"] {
+                obs["active_record_version"] = json!(unsupported);
+                assert!(append(capture(), &obs).is_err());
+                let mut forged = result.clone();
+                forged["facts"][0]["attributes"]["model"]["active_record_version"] = json!(unsupported);
+                assert!(schema::capture(&forged).is_err());
+            }
+        }
     }
     #[test]
     fn counted_json_preserves_escaped_bytes_and_combined_admission_boundary() {
