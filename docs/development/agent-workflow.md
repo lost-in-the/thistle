@@ -167,8 +167,10 @@ action. Reassess substantive updated findings against the current candidate, but
 do not replay an old approval or treat an edited bot summary as a new requirement.
 Older-head feedback can still apply; reconcile it with the current diff.
 
-Retire a watch when its tracked obligations are complete; retain an explicit
-watch for required post-merge checks still outstanding. Do not post a separate
+Retire a watch when its tracked obligations are complete; assign outstanding
+required post-merge checks to a named owner for the next applicable event batch
+or checkpoint under the [Hand off procedure](../../.agents/skills/thistle-hand-off/SKILL.md#pr-watch-ownership),
+recording any native-event wake/access gap and the unaccepted step. Do not post a separate
 "no action needed" update for stale or duplicate events. Keep one current
 checkpoint with decisions and next actions. If notification delivery is outside
 the agent's control, suppress duplicate handling within the task; a new
