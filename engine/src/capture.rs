@@ -147,6 +147,10 @@ fn capture_inner(root: &Path, effective: HashMap<String, usize>) -> Result<Value
         link_keys: HashSet::new(), call_keys: HashMap::new(), inventory_partial: false, declarations_partial: false,
     };
     capture.walk(&directory, "", 0)?;
+    // Prism's ASTs are gone. Release grouping-only keys before expanding the
+    // compact call rows into the public semantic objects. Keeping both expanded
+    // links and a large AST live can exhaust the parser process's address space.
+    capture.materialize_links()?;
     // Sort keys are read once per element. Comparing through string-keyed
     // lookups on every comparison dominated the walk for large inventories.
     let order = sort_order(&capture.files, |file| file["path"].as_str());
@@ -481,7 +485,7 @@ impl Capture {
             let key = (current, target, kind, name, call.is_safe_navigation(), site);
             // Build the link only on admission or when an earlier saved site
             // replaces the current representative of this group.
-            let link = |key: &CallKey| {
+            let link = |key: &CallKey| -> Result<Value> {
                 let receiver_location = receiver.as_ref().map(|node| lines.call_location(&node.location()));
                 let metadata = json!({"version":2, "data":(kind, &key.3, omitted,
                     call.is_safe_navigation(), lines.call_location(&location), receiver_location)});
@@ -492,17 +496,23 @@ impl Capture {
                 link.insert("target".to_owned(), Value::String(key.1.clone()));
                 link.insert("resolution".to_owned(), Value::String("unresolved".to_owned()));
                 link.insert("attributes".to_owned(), Value::Object(attributes));
-                Value::Object(link)
+                // Reuse the existing schema-3 projection, not a second encoder.
+                // Only this compact value is retained while Prism is live.
+                Ok(serde_json::to_value(crate::link_encoding::WireLink::new(
+                    &Value::Object(link), schema::VERSION, "static")?)?)
             };
             if let Some(&index) = self.call_keys.get(&key) {
                 let old = &self.facts[current]["links"][index];
-                if schema::call_metadata(&old["attributes"]["thistle_call"], schema::VERSION)?.expect("captured call").location.start_byte > start as u64 {
-                    self.replace_link(current, index, link(&key))?;
+                if crate::link_encoding::SemanticLinkView::from_wire(old, schema::VERSION, "static")?
+                    .call_metadata().expect("captured call").location.start_byte > start as u64 {
+                    self.replace_link(current, index, link(&key)?)?;
                 }
             } else {
                 let links = self.links.checked_add(1).filter(|n| *n <= self.limit("max_links"))
                     .ok_or_else(|| CoreError::limit("Capture exceeds max_links"))?;
-                let link = link(&key);
+                self.call_keys.try_reserve(1).map_err(|_| CoreError::limit("Capture call index allocation unavailable"))?;
+                self.reserve_link(current)?;
+                let link = link(&key)?;
                 self.charge_link(&link)?;
                 self.links = links;
                 let links = self.facts[current]["links"].as_array_mut().expect("fact links array");
@@ -553,6 +563,8 @@ impl Capture {
         if self.link_keys.contains(&key) { return Ok(()); }
         let links = self.links.checked_add(1).filter(|n| *n <= self.limit("max_links"))
             .ok_or_else(|| CoreError::limit("Capture exceeds max_links"))?;
+        self.link_keys.try_reserve(1).map_err(|_| CoreError::limit("Capture link index allocation unavailable"))?;
+        self.reserve_link(current)?;
         let link = json!({"relation":relation,"target":target,"resolution":"unresolved"});
         self.charge_link(&link)?;
         self.links = links;
@@ -565,8 +577,8 @@ impl Capture {
     // the shared projected charge, refusing before either bytes or link mutate.
     fn replace_link(&mut self, current: usize, index: usize, link: Value) -> Result<()> {
         let old = &self.facts[current]["links"][index];
-        let old_len = schema::encoded_bytes(&crate::link_encoding::WireLink::new(old, schema::VERSION, "static")?, schema::MAX_FACTS_BYTES)?;
-        let new_len = schema::encoded_bytes(&crate::link_encoding::WireLink::new(&link, schema::VERSION, "static")?, schema::MAX_FACTS_BYTES)?;
+        let old_len = Self::link_bytes(old)?;
+        let new_len = Self::link_bytes(&link)?;
         if new_len > old_len { self.charge_evidence(new_len - old_len)?; }
         else { self.evidence_bytes = self.evidence_bytes.checked_sub(old_len - new_len)
             .ok_or_else(|| CoreError::limit("Capture evidence refund underflow"))?; }
@@ -575,8 +587,35 @@ impl Capture {
     }
 
     fn charge_link(&mut self, link: &Value) -> Result<()> {
-        let bytes = schema::encoded_bytes(&crate::link_encoding::WireLink::new(link, schema::VERSION, "static")?, schema::MAX_FACTS_BYTES)?;
+        let bytes = Self::link_bytes(link)?;
         self.charge_evidence(bytes.checked_add(1).ok_or_else(|| CoreError::limit("Capture evidence size overflow"))?)
+    }
+
+    fn link_bytes(link: &Value) -> Result<usize> {
+        if link.is_array() {
+            crate::link_encoding::SemanticLinkView::from_wire(link, schema::VERSION, "static")?;
+            schema::encoded_bytes(link, schema::MAX_FACTS_BYTES)
+        } else {
+            schema::encoded_bytes(&crate::link_encoding::WireLink::new(link, schema::VERSION, "static")?, schema::MAX_FACTS_BYTES)
+        }
+    }
+
+    fn reserve_link(&mut self, current: usize) -> Result<()> {
+        self.facts[current]["links"].as_array_mut().expect("fact links array")
+            .try_reserve(1).map_err(|_| CoreError::limit("Capture link allocation unavailable"))
+    }
+
+    fn materialize_links(&mut self) -> Result<()> {
+        self.call_keys = HashMap::new();
+        self.link_keys = HashSet::new();
+        for fact in &mut self.facts {
+            for link in fact["links"].as_array_mut().expect("fact links array") {
+                if link.is_array() {
+                    *link = crate::link_encoding::SemanticLinkView::from_wire(link, schema::VERSION, "static")?.materialize()?;
+                }
+            }
+        }
+        Ok(())
     }
 
     fn charge_evidence(&mut self, bytes: usize) -> Result<()> {
@@ -816,16 +855,16 @@ mod tests {
         let scope = Scope { owner: "run".into(), namespace: None, singleton: false, current: Some(0), dynamic: false };
         let lines = LineIndex::new(source);
         capture.collect_call(&last, &scope, "a.rb", &lines).unwrap();
-        let later_bytes = schema::encoded_bytes(&crate::link_encoding::WireLink::new(&capture.facts[0]["links"][0], schema::VERSION, "static").unwrap(), schema::MAX_FACTS_BYTES).unwrap();
+        let later_bytes = Capture::link_bytes(&capture.facts[0]["links"][0]).unwrap();
         capture.facts[0]["links"] = json!([]); capture.call_keys.clear(); capture.links = 0;
         capture.evidence_bytes = schema::MAX_FACTS_BYTES - later_bytes - 1;
         capture.collect_call(&last, &scope, "a.rb", &lines).unwrap();
         assert_eq!(capture.evidence_bytes, schema::MAX_FACTS_BYTES);
         capture.collect_call(&first, &scope, "a.rb", &lines).unwrap();
         let earliest = &capture.facts[0]["links"][0];
-        assert_eq!(schema::call_metadata(&earliest["attributes"]["thistle_call"], 2).unwrap().unwrap().location.start_byte, 0);
+        assert_eq!(crate::link_encoding::SemanticLinkView::from_wire(earliest, schema::VERSION, "static").unwrap().call_metadata().unwrap().location.start_byte, 0);
         assert_eq!(capture.links, 1);
-        let early_bytes = schema::encoded_bytes(&crate::link_encoding::WireLink::new(earliest, schema::VERSION, "static").unwrap(), schema::MAX_FACTS_BYTES).unwrap();
+        let early_bytes = Capture::link_bytes(earliest).unwrap();
         assert_eq!(capture.evidence_bytes, schema::MAX_FACTS_BYTES - later_bytes + early_bytes);
         capture.collect_call(&last, &scope, "a.rb", &lines).unwrap();
         assert_eq!(capture.evidence_bytes, schema::MAX_FACTS_BYTES - later_bytes + early_bytes);
