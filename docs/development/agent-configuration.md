@@ -65,13 +65,18 @@ Set up each clone once; steps 5 and 6 also repeat in each linked worktree:
    `entire://.../et/...` repository or migrate; those never forward to GitHub.
 3. Configure the authorized commit identity and signer locally, as above.
 4. Install the per-clone Git hooks: `entire enable --agent claude-code`, then
-   `entire enable --agent codex`. Tracked files must stay unchanged.
+   `entire enable --agent codex`. Tracked files must stay unchanged. Codex loads
+   these project hooks by default only from codex-cli 0.124.0; confirm
+   `codex --version` first.
 5. Owner machines only, with write access to the checkpoint repository: create
    the gitignored `.entire/settings.local.json`. A local `checkpoint_remote` is
    always honored; a committed one is ignored when the push target has another
    owner. Entire reads settings from each worktree's root, so repeat this file
-   and step 6 in every linked worktree; without it, that worktree keeps the
-   committed `push_sessions: false`.
+   and step 6 in every linked worktree whose branch includes this
+   configuration; without it, that worktree keeps the committed
+   `push_sessions: false`. On an older branch, merge first: without the
+   `.entire/.gitignore` rule the file could be committed, and without the agent
+   hooks nothing is captured.
 
    ```json
    {
@@ -91,6 +96,20 @@ Set up each clone once; steps 5 and 6 also repeat in each linked worktree:
    `Automatic checkpoint pushing: disabled (push_sessions=false)` elsewhere.
    `entire doctor` reports no issue except pending Codex hook trust.
 7. Approve the Entire hooks with `/hooks` inside Codex on each machine.
+
+Entire is optional for contributors. The `AGENTS.md` block points agents at
+`.entire/agent-guide.md`, which uses `entire brain` for task context and falls
+back to direct source inspection when Brain is unavailable. Brain itself is
+per machine, and its index and memories stay local. Install the recorded
+plugin versions first: `entire plugin install graph --pin v0.6.0 --yes`, then
+`entire plugin install brain --pin v0.4.0 --yes`. Run
+`entire brain setup --no-backfill --no-daemon` by default. Without those flags,
+setup also starts a backfill that distills up to 25 past sessions per pass and
+installs a watcher that keeps distilling. Distillation spends agent tokens and
+sends session content to the agent CLI's model provider, so enable it only by
+explicit choice. The Claude Code pre-edit hook exits silently when no Brain
+plugin binary is found, and times out after 5 seconds. See the
+[Brain decision](decisions.md#agent-context-entire-brain).
 
 A worktree with neither `.entire/settings.json` nor
 `.entire/settings.local.json` reports `not set up` and captures nothing, and

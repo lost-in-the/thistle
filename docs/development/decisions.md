@@ -240,6 +240,55 @@ read the separate checkpoint repository, or if hook latency or failures
 measurably slow normal Git use. Setup steps are in
 [agent configuration](agent-configuration.md#agent-session-capture-entire).
 
+## Agent context: Entire Brain
+
+Adopt the Entire Brain plugin (**0.4.0**, with entire-graph **0.6.0**) as an
+optional, per-machine memory layer. It indexes code, history, documentation and
+captured sessions, and distills sessions into recalled facts. `AGENTS.md` points
+agents at `.entire/agent-guide.md`, and agents fall back to direct source
+inspection when Brain is unavailable. `CLAUDE.md` imports `AGENTS.md`: Brain
+setup creates `CLAUDE.md`, and Claude Code skips `AGENTS.md` whenever a
+`CLAUDE.md` exists.
+
+| Considered approach | Decision |
+|---|---|
+| Brain wired into agent instructions; index and memories local; distillation opt-in | Selected: agents use recorded decisions and history without sending sessions anywhere by default. |
+| Brain with default backfill and watcher for everyone | Rejected: distillation sends session content to the agent CLI's model provider without an explicit choice. |
+| No Brain; checkpoints and `entire why` only | Rejected: context exists but agents are not told to retrieve it. |
+| Brain without agent instructions | Rejected: setup reports agents as not wired, and agents rarely query it unprompted. |
+| Brain with hosted Brainstore sync | Deferred: sends memories to a hosted service; revisit when cross-machine memory is needed. |
+
+Brain's index and memories stay on the machine. Fact distillation, through the
+setup backfill or the watcher, runs the configured agent CLI and so sends session
+content to that CLI's model provider. The documented default is therefore
+`entire brain setup --no-backfill --no-daemon`; distillation is an explicit
+opt-in per machine. The owner's development machines opted in on 2026-10-29.
+
+Operating cost, measured on one macOS machine: the agent guide adds about 1.3k
+tokens per session, and the Claude Code pre-edit hook ran in 140 to 270 ms per
+edit. When opted in, the backfill distills up to 25 sessions per pass, and the
+watcher runs at most one gated distill per 24 hours, both on a low-effort model.
+Brain setup does not modify Git hooks.
+
+The pre-edit hook deviates from the generated command: it prefers the managed,
+pinned plugin binary, falls back to an `entire-brain` on `PATH`, exits silently
+when neither exists, and is bounded by a 5-second timeout. It sets
+`ENTIRE_PLUGIN_DATA_DIR` as Entire's plugin dispatcher does, so both binaries
+read the same facts. Without a terminal, as in a hook, a bare `entire brain`
+call exits 1 when the plugin is missing; interactively, Entire offers to install
+it. A setup rerun was
+verified to keep this command. Limitations: the hook returns context only, not
+`updatedInput`, so its facts cannot change the edit that triggered them; agents
+query `entire brain brief` before editing. Memories are per machine without
+Brainstore. Brain 0.4.0 generates `.entire/agent-guide.md` describing hybrid
+vector search, but its `query` ranks with BM25 only and `--semantic` is a
+compatibility alias. Setup regenerates the guide and reverts edits, so it stays
+as generated until upstream corrects it; treat query results as lexical.
+
+Reconsider if per-edit latency or session token cost grows materially, if
+upstream Brain fixes the missing-plugin exit or the guide's search description,
+or if cross-machine memory needs hosted sync.
+
 ## Maintenance rule
 
 Every tool/version update records upstream maintenance/runtime status, actual
