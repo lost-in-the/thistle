@@ -46,7 +46,17 @@ begin
   raise 'Installed native missing' unless native && File.realpath(native).start_with?(gem_home + File::SEPARATOR)
   native_hash = Digest::SHA256.file(native).hexdigest
   raise 'Producer/consumer native changed' unless native_hash == receipt.fetch('native_sha256')
+  explanation = reader.callback_effects(child.fetch('id'))
+  explained_stamp = explanation.fetch('callbacks').find { |row| row.dig('filter', 'name') == 'parent_stamp' } or raise 'Missing explained inherited filter'
+  potential = explained_stamp.dig('explanation', 'effects', 0) or raise 'Missing source-supported potential effect'
+  raise 'Explanation lost pinned source/owner' unless explanation.fetch('generation') == reader.generation && explained_stamp.dig('explanation', 'method', 'owner') == 'CallbackFixture::Child' && explained_stamp.dig('explanation', 'source', 'sha256') == source.fetch('sha256')
+  raise 'Potential request changed' unless potential.fetch('operation') == 'CallbackFixture::DeliveryJob.perform_later' && explained_stamp.dig('explanation', 'coherence') == 'unknown'
+  call_span = potential.fetch('call_span')
+  raise 'Supporting source span changed' unless source.fetch('content').byteslice(call_span.fetch('start_byte')...call_span.fetch('end_byte')).start_with?('CallbackFixture::DeliveryJob.perform_later')
+  raise 'Opaque callbacks gained effects' unless explanation.fetch('callbacks').any? { |row| row.dig('explanation', 'reason') == 'opaque_or_incomplete_observed_method_descriptor' }
+  raise 'Map potential evidence missing' unless html.include?('Potential save callback effects') && html.include?('CallbackFixture::DeliveryJob.perform_later') && html.include?('No observed enqueue')
   puts JSON.generate('status' => 'passed', 'generation' => reader.generation,
+    'callback_effects' => { 'operation' => potential.fetch('operation'), 'source_sha256' => source.fetch('sha256'), 'coherence' => 'unknown' },
     'current_advanced' => true, 'fresh_consumer_without_rails' => true,
     'callback_id' => child.fetch('id'), 'callback_model_count' => facts.length,
     'fixture_source_sha256' => source.fetch('sha256'), 'native_sha256' => native_hash,

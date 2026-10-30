@@ -116,3 +116,81 @@ class ThistleCallbackPresenterTest < Minitest::Test
     assert_equal ['records.rb'], reader.reads
   end
 end
+
+class ThistleCallbackEffectsPresenterTest < Minitest::Test
+  GENERATION = 'a' * 64
+  REGISTRY = 'b' * 64
+  class EffectsReader
+    attr_reader :generation, :calls
+    def initialize(response: nil, error: nil)
+      @generation, @response, @error, @calls = GENERATION, response, error, []
+    end
+    def callback_effects(id, limit:)
+      @calls << [id, limit]
+      raise @error if @error
+      @response
+    end
+  end
+
+  def fact
+    { 'id' => REGISTRY, 'kind' => 'rails_save_callbacks', 'attributes' => { 'callbacks' => {
+      'version' => 1, 'name' => 'Child', 'active_record_version' => '8.1.4',
+      'save' => { 'status' => 'observed', 'entries' => [] }
+    } } }
+  end
+  def render(reader)
+    Thistle::Map::CallbackPresenter.new(generation: GENERATION, mount: '/map', reader: reader).render(fact)
+  end
+  def response
+    { 'generation' => GENERATION, 'registry_id' => REGISTRY, 'model' => '<script>Child</script>',
+      'registry_status' => 'partial', 'semantics' => 'Potential only; conditions, dispatch and execution unknown.',
+      'callbacks' => [{ 'position' => 0, 'kind' => 'before', 'explanation' => {
+        'binding' => 'descriptor_matched_captured_declaration', 'status' => 'supported_potential', 'reason' => 'recorded call',
+        'method' => { 'name' => 'Child#deliver', 'span' => { 'start_line' => 1 } },
+        'source' => { 'path' => 'records.rb', 'sha256' => 'c' * 64, 'lines' => 2 }, 'known_effects_omitted' => 0,
+        'effects' => [{ 'operation' => 'DeliveryJob.perform_later', 'source_excerpt' => 'DeliveryJob.perform_later("<img src=x>")',
+          'call_span' => { 'start_byte' => 5, 'end_byte' => 50, 'start_line' => 2 } }] } }],
+      'coverage' => { 'capture_partial_or_unknown' => true, 'declaration_scan_complete' => false,
+        'truncated' => true, 'rows_not_searched' => 2, 'rows_metadata_omitted' => 0, 'rows_output_omitted' => 1 } }
+  end
+
+  def test_explanation_invokes_exact_id_and_renders_escaped_pinned_support_and_limits
+    reader = EffectsReader.new(response: response)
+    html = render(reader)
+    assert_equal [[REGISTRY, 200]], reader.calls
+    assert_includes html, 'Potential enqueue-style request'
+    assert_includes html, 'DeliveryJob.perform_later'
+    assert_includes html, '&lt;script&gt;Child&lt;/script&gt;'
+    assert_includes html, '&lt;img src=x&gt;'
+    refute_includes html, '<img '
+    assert_includes html, 'Descriptor-matched captured declaration'
+    assert_includes html, "generation=#{GENERATION}"
+    assert_includes html, "file=#{Digest::SHA256.hexdigest('records.rb')}#L2"
+    assert_includes html, '2 rows not searched'
+    assert_includes html, '1 output rows omitted'
+    assert_includes html, 'Possible effects remain unknown'
+  end
+
+  def test_only_missing_api_and_resource_refusals_become_optional_unavailability
+    assert_includes render(nil), 'Reader callback_effects API unavailable'
+    assert_includes render(EffectsReader.new(error: Thistle::LimitExceeded.new('full'))), 'resource limit'
+    assert_includes render(EffectsReader.new(error: Thistle::InvalidInput.new('Unknown native operation'))), 'native callback_effects API unavailable'
+    [Thistle::InvalidInput.new('bad ID'), Thistle::InvalidSnapshot.new('corrupt'), Thistle::NotFound.new('missing registry'),
+     NoMethodError.new('internal implementation bug')].each do |error|
+      assert_raises(error.class) { render(EffectsReader.new(error: error)) }
+    end
+    bad = response; bad['generation'] = 'd' * 64
+    assert_raises(Thistle::InvalidSnapshot) { render(EffectsReader.new(response: bad)) }
+    bad = response; bad['registry_id'] = 'd' * 64
+    assert_raises(Thistle::InvalidSnapshot) { render(EffectsReader.new(response: bad)) }
+  end
+
+  def test_hint_source_corruption_is_not_swallowed_as_unavailable
+    data = ThistleCallbackPresenterTest.new('unused').fact
+    reader = ThistleCallbackPresenterTest::SavedReader.new
+    def reader.source_file(*) = raise(Thistle::InvalidSnapshot, 'corrupt source')
+    assert_raises(Thistle::InvalidSnapshot) do
+      Thistle::Map::CallbackPresenter.new(generation: GENERATION, reader: reader).render(data)
+    end
+  end
+end

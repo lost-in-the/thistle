@@ -3,6 +3,7 @@ pub mod capture;
 mod fs;
 mod model;
 mod callbacks;
+mod callback_effects;
 mod references;
 mod link_encoding;
 mod schema;
@@ -35,6 +36,7 @@ pub fn dispatch(request: &Value) -> Result<Value> {
 
 fn request_scratch(request: &Value) -> Result<Option<query::Reservation>> {
     let bytes = match request["op"].as_str() {
+        Some("callback_effects") => callback_effects::Query::parse(request)?.scratch(),
         Some("references") => references::Query::parse(request)?.scratch(),
         Some("find_evidence") => query::Query::parse(request)?.scratch()?,
         Some("source_file") => reader(request)?.source_file_scratch(schema::string(request, "file_path")?)?,
@@ -102,6 +104,7 @@ fn dispatch_inner(request: &Value) -> Result<Value> {
         "source_file" => reader(request)?.source_file(schema::string(request, "file_path")?),
         "source" => reader(request)?.source(schema::string(request, "id")?),
         "links" => reader(request)?.links(schema::string(request, "id")?),
+        "callback_effects" => callback_effects::select(&*reader(request)?, &callback_effects::Query::parse(request)?),
         "references" => references::select(&*reader(request)?, &references::Query::parse(request)?),
         "check" => reader(request)?.check(),
         _ => Err(CoreError::input("Unknown native operation")),

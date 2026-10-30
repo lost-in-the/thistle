@@ -22,6 +22,13 @@ module Thistle
 
       def render(fact)
         return '' unless fact['kind'] == 'rails_save_callbacks'
+        explanation = explanation_for(fact)
+        render_registry(fact) + explanation
+      end
+
+      private
+
+      def render_registry(fact)
         data = fact.dig('attributes', 'callbacks')
         return notice('Registered callbacks unavailable: unknown format.') unless data.is_a?(Hash) && data['version'] == 1
         return notice('Callback details exceed the web display budget. Use the Reader fact API for complete evidence.') if JSON.generate(data).bytesize > MAX_BYTES
@@ -56,6 +63,57 @@ module Thistle
       end
 
       private
+
+      def explanation_for(fact)
+        heading = '<section aria-label="Potential save callback effects"><h2>Potential save callback effects</h2>'
+        unless @reader && @reader.respond_to?(:callback_effects)
+          return heading + notice('Source-supported explanation unavailable: Reader callback_effects API unavailable. Possible effects remain unknown.') + '</section>'
+        end
+        raise Thistle::InvalidSnapshot, 'Callback Reader generation mismatch' unless @reader.generation == @generation
+        begin
+          result = @reader.callback_effects(fact.fetch('id'), limit: MAX_ROWS)
+        rescue Thistle::LimitExceeded
+          return heading + notice('Source-supported explanation unavailable: resource limit. Possible effects remain unknown.') + '</section>'
+        rescue Thistle::InvalidInput => error
+          # A newer Ruby facade can be paired with an older native engine. Do
+          # not swallow other parameter, integrity or implementation failures.
+          raise unless error.message == 'Unknown native operation'
+          return heading + notice('Source-supported explanation unavailable: native callback_effects API unavailable. Possible effects remain unknown.') + '</section>'
+        end
+        raise Thistle::InvalidSnapshot, 'Callback explanation generation or registry mismatch' unless result['generation'] == @generation && result['registry_id'] == fact.fetch('id')
+        body = heading + notice(result.fetch('semantics'))
+        body << "<p>Saved model: #{h(result['model'] || 'Anonymous')} · Registry: #{h(result.fetch('registry_status'))} · Observed execution: unknown</p>"
+        result.fetch('callbacks').each do |row|
+          analysis = row.fetch('explanation')
+          body << "<article><h3>Registered position #{h(row.fetch('position'))} · #{h(row['kind'] || 'Unknown')}</h3>"
+          body << "<p>#{h(analysis.fetch('status'))}: #{h(analysis.fetch('reason'))}</p>"
+          if analysis['binding'] == 'descriptor_matched_captured_declaration'
+            method, source = analysis.fetch('method'), analysis.fetch('source')
+            body << "<p>Descriptor-matched captured declaration: #{h(method.fetch('name'))} · #{h(source.fetch('path'))}:#{h(method.fetch('span').fetch('start_line'))} · runtime/source coherence unknown</p>"
+            analysis.fetch('effects').each do |effect|
+              location = effect.fetch('call_span')
+              body << "<p>Potential enqueue-style request: <code>#{h(effect.fetch('operation'))}</code></p>"
+              body << "<pre><code>#{h(effect.fetch('source_excerpt'))}</code></pre>"
+              body << notice('Supporting excerpt shortened; exact call span remains recorded.') if effect['excerpt_truncated']
+              body << "<p>Captured SHA-256 #{h(source.fetch('sha256'))} · call bytes [#{h(location.fetch('start_byte'))}, #{h(location.fetch('end_byte'))})</p>"
+              # Core verified the saved bytes/spans. The established File Source
+              # destination has a separate 10,000-line display ceiling.
+              if source.fetch('lines') <= MAX_SOURCE_LINES && location.fetch('start_line') <= MAX_SOURCE_LINES
+                query = URI.encode_www_form('generation' => @generation, 'file' => Digest::SHA256.hexdigest(source.fetch('path')))
+                body << "<p><a href=\"#{h(@mount)}/source?#{h(query)}#L#{location.fetch('start_line')}\">Supporting captured source (coherence unknown)</a></p>"
+              end
+            end
+            body << notice("Known potential effects omitted: #{analysis.fetch('known_effects_omitted')}") if analysis.fetch('known_effects_omitted').positive?
+          end
+          body << '</article>'
+        end
+        coverage = result.fetch('coverage')
+        if coverage['truncated'] || !coverage['declaration_scan_complete']
+          body << notice("Explanation incomplete: #{coverage.fetch('rows_not_searched')} rows not searched; #{coverage.fetch('rows_metadata_omitted')} metadata rows and #{coverage.fetch('rows_output_omitted')} output rows omitted. Possible effects remain unknown.")
+        end
+        body << notice('Capture is partial or unknown; searched source cannot establish all possible effects.') if coverage['capture_partial_or_unknown']
+        body + '</section>'
+      end
 
       def conditions(entry)
         %w[if unless].map do |polarity|
@@ -111,7 +169,7 @@ module Thistle
           end
         end
         @sources[path] && line <= @sources[path]
-      rescue Thistle::Error
+      rescue Thistle::NotFound, Thistle::LimitExceeded
         false
       end
 
