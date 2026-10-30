@@ -318,8 +318,11 @@ SHA-256/length, method/call/receiver half-open byte and line spans, and at most
 512 bytes of supporting call source. A shortened excerpt is explicit; full source
 remains available through the pinned Reader. The existing source loader verifies
 the blob's digest/length and the schema validates all selected method/call/receiver
-coordinates against actual saved UTF-8 bytes before effects are returned. Calls
-and receivers must also lie inside their containing declaration/call spans.
+coordinates against actual saved UTF-8 bytes before effects are returned. Receivers must lie inside their call spans. This narrow explanation supports
+calls physically inside the matched lexical method span. Prism can validly
+associate heredoc interpolation calls whose bytes follow that method's `end`;
+such a call yields `unknown` with `recorded_call_outside_lexical_method_span`,
+not snapshot corruption or exhaustive absence. Registry evidence remains available.
 A missing blob is unavailable; corrupt bytes/positions and other integrity/path
 errors refuse and never become benign missing evidence.
 
@@ -411,3 +414,5 @@ review, affected CI and settled installed-package evidence remain outstanding.
 After the dated focused receipt above, Root moved positive `perform_later` calls before their unconditional execution-canary raises. The real registered effective override now contains the request before its canary, with registry conditions still unevaluated; the saved-primitive examples retain explicit conditional uncertainty. This avoids using code after a guaranteed raise as the positive potential-effect example. No callback, condition or job was executed. The original 32 focused tests and native hash retain their earlier fixture identity; current composed-head CI and installed checks establish this changed fixture. Composition preserves accepted PR100 Find changes without modifying its query or smoke implementation.
 
 The original `bda29fe` hosted run41026998561 passed its Core assertions but failed the fresh Map consumer on Linux and ARM with `cannot load such file -- thistle/map`. Its child process depended on a parent `RUBYLIB` supplied by the focused launcher, while canonical CI passes source paths with parent command-line `-I` flags. Root now passes explicit Core and Map `-I` paths to that fresh child, preserving the no-Rails and saved-generation checks. This repairs the test invocation rather than product dependency/routing policy; the failed run remains retained.
+
+Codex finding4421893675 on `c9d157c` identified the valid discontiguous heredoc layout. Root changed only the explanation guard and added an actual Prism capture/publication/fresh Reader/Check regression. Existing digest, file/line/UTF-8 and receiver-in-call corruption refusals remain intact; no parser/schema/capture change or broader call-ownership inference is introduced. Current-head CI must establish the new regression; earlier passes retain their original source identity.

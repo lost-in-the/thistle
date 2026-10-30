@@ -98,11 +98,18 @@ fn explain(fact: &Value, file: &Value, version: u64, lines: usize) -> Result<Val
         if call.kind != "constant" || call.omitted { continue; }
         let Some(receiver) = call.name else { continue; };
         let Some(receiver_span) = call.receiver_location else { continue; };
-        if call.location.start_byte < start || call.location.end_byte > end ||
-            call.location.end_byte <= call.location.start_byte ||
+        if call.location.end_byte <= call.location.start_byte ||
             receiver_span.start_byte < call.location.start_byte || receiver_span.end_byte > call.location.end_byte ||
             receiver_span.end_byte <= receiver_span.start_byte {
-            return Err(CoreError::snapshot("Callback call/receiver span disagrees with its captured declaration"));
+            return Err(CoreError::snapshot("Callback call/receiver span disagrees with its captured source"));
+        }
+        // Prism can associate a heredoc interpolation with this method while
+        // its bytes follow the lexical `end`. File coordinates were verified
+        // above; non-containment alone is not snapshot corruption. Keep this
+        // deliberately narrow explanation unknown rather than infer ownership
+        // across discontiguous source or claim exhaustive absence.
+        if call.location.start_byte < start || call.location.end_byte > end {
+            return Ok(unknown("recorded_call_outside_lexical_method_span"));
         }
         if effects.len() == MAX_EFFECTS { omitted += 1; continue; }
         let text = &content[call.location.start_byte as usize..call.location.end_byte as usize];

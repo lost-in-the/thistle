@@ -1,6 +1,6 @@
 use super::*;
 
-const SOURCE: &str = "module Example\n  class Record\n    def deliver\n      DeliveryJob.perform_later('<script>') if allowed?\n      raise 'body must not execute'\n      DeliveryJob.perform_later('second representative omitted')\n    end\n    def quiet = raise('not executed')\n    def self.deliver = DeliveryJob.perform_later\n  end\nend\n";
+const SOURCE: &str = "module Example\n  class Record\n    def deliver\n      DeliveryJob.perform_later('<script>') if allowed?\n      raise 'body must not execute'\n      DeliveryJob.perform_later('second representative omitted')\n    end\n    def quiet = raise('not executed')\n    def self.deliver = DeliveryJob.perform_later\n    def heredoc; puts <<~TEXT; end\n      #{DeliveryJob.perform_later}\n    TEXT\n  end\nend\n";
 
 static FIXTURE: std::sync::OnceLock<(Value, String)> = std::sync::OnceLock::new();
 fn fixture() -> (Value, String) {
@@ -257,4 +257,34 @@ fn only_recognized_non_omitted_constant_receiver_calls_are_effects() {
         let request=json!({"id":id}); let result=select(&reader,&Query::parse(&request).unwrap()).unwrap();
         assert_eq!(explanation(&result)["status"],"no_supported_match","{kind}");
     }
+}
+
+#[test]
+fn verified_heredoc_call_outside_lexical_method_span_is_unknown_not_corrupt() {
+    let (mut capture, id) = fixture();
+    entry(&mut capture)["filter"]["name"] = json!("heredoc");
+    let method = capture["facts"].as_array().unwrap().iter()
+        .find(|f| f["name"] == "Example::Record#heredoc").unwrap();
+    let method_line = method["location"]["start_line"].clone();
+    let call = method["links"].as_array().unwrap().iter().filter_map(|wire| {
+        let view = SemanticLinkView::from_semantic(wire, schema::VERSION, "static").unwrap();
+        (view.target() == "perform_later").then(|| view.call_metadata().unwrap().location)
+    }).next().expect("actual Prism heredoc interpolation call");
+    assert!(call.start_byte > method["location"]["end_byte"].as_u64().unwrap(),
+        "regression must exercise valid discontiguous heredoc coordinates");
+    entry(&mut capture)["filter"]["source"]["line"] = method_line;
+    let store = tempfile::tempdir().unwrap();
+    let manifest = crate::store::publish(store.path(), &capture).unwrap();
+    let reader = Reader::open(store.path(), manifest["generation"].as_str()).unwrap();
+    assert_eq!(reader.check().unwrap()["integrity"], "verified");
+    let request = json!({"id":id});
+    let result = select(&reader, &Query::parse(&request).unwrap()).unwrap();
+    assert_eq!(result["generation"], manifest["generation"]);
+    assert_eq!(result["registry_status"], "observed");
+    assert_eq!(result["callbacks"].as_array().unwrap().len(), 2);
+    assert_eq!(explanation(&result)["status"], "unknown");
+    assert_eq!(explanation(&result)["reason"], "recorded_call_outside_lexical_method_span");
+    assert_eq!(explanation(&result)["links_search_complete"], false);
+    assert!(explanation(&result)["effects"].as_array().unwrap().is_empty());
+    assert_eq!(result["callbacks"][1]["explanation"]["reason"], "opaque_or_incomplete_observed_method_descriptor");
 }
