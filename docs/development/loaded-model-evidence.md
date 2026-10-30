@@ -329,9 +329,9 @@ its chosen anchor is a label match, without outgoing expansion or global candida
 uniqueness. [Callback explanations](callback-evidence.md#source-supported-potential-effects-los-62)
 reuse the exact registry-ID selector, descriptor/source corroboration, inherited
 effective owner, duplicate ambiguity, metadata checks and heredoc uncertainty.
-Registry discovery is one borrowed fact pass comparing the model's recorded label
-with callback-registry labels. It retains at most two identities, reports total
-matches and global scan completeness, and explains only one uniquely found
+Registry discovery uses the optional admitted generation-local name/kind
+directory, retaining at most two summary identities and reporting the full range's
+matches and global scan completeness. It explains only one uniquely found
 complete **label candidate**. Model-to-registry identity binding always stays
 unknown. Multiple/incomplete/anonymous/missing candidates yield explicit
 ambiguous/unavailable/not-searched explanations. Registry positions are not
@@ -347,14 +347,21 @@ separate. `known_omitted: null` means component admission could not establish it
 count. Family status, `unsearched`, component coverage and saved capture status
 remain distinct; empty partial evidence never establishes exhaustive absence.
 An empty family can have recorded items omitted by output limits.
+Each summary family exposes a pinned public follow-up. Columns, associations and
+registry candidates have finite family pages; references and candidate identities
+have their own continuation. See the installed
+[recorded-domain contract](recorded-domain-access.md). Display omissions do not
+permanently hide later saved evidence.
 
-The entire request shares at most 20000 fact visits (including discovery,
-reference-candidate scans and revisits), 50000 links, 100000 label comparisons,
+Each request step shares at most 20000 fact visits (including identity projection
+and revisits), 50000 links, 100000 label comparisons,
 32 MiB compared/hashed label bytes, 16 source attempts and 1 MiB charged source
 bytes, with unchanged 256 KiB per-file cap. Existing component caps remain upper
 bounds (reference labels also retain their 16 MiB component ceiling). Exhaustion
 never starts an independently budgeted selector. Components are consumed and
-moved sequentially. There is no new index, persistent cache, schema or FFI API.
+moved sequentially. The optional Reader-local name-position directory has separate
+construction and retained-capacity admission; there is no persistent index,
+stored schema change or FFI API change.
 One conservative 32 MiB transient reservation uses the existing aggregate
 128 MiB Reader/query budget and stays held through native serialization.
 
@@ -372,7 +379,10 @@ hashing, sorting and retained admission appear once under `cost.method_directory
 `whole_job` adds open, actual build (zero for reuse) and incremental request fact
 visits. Directory construction retains its separate 100000-fact/32 MiB key and
 sort/retention bounds. Fresh Readers rebuild; prior Reader construction is not
-hidden inside the incremental 20000-visit allowance. Evidence order/content/IDs
+hidden inside the incremental 20000-visit allowance. The name directory separately
+reports full-fact/sort/borrowed-key work, reserved capacity and build/reuse status
+under `cost.recorded_directory`; its details and limits are in the continuation
+contract. Evidence order/content/IDs
 stay generation-stable; actual build/reuse cost fields can differ.
 
 Dedicated source tests use a small real Rails producer with explicit raw-schema
