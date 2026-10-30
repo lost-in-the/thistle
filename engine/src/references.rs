@@ -27,8 +27,8 @@ impl<'a> Query<'a> {
     pub(crate) fn scratch(&self) -> usize { 32 * 1024 * 1024 }
 }
 
-fn identity(fact: &Value, work: &mut Work<'_>) -> Result<Value> {
-    if let Some(shared) = work.shared.as_deref_mut() {
+fn identity(fact: &Value, shared: Option<&mut crate::model_brief::RequestWork>) -> Result<Value> {
+    if let Some(shared) = shared {
         if !shared.facts(1) { return Err(CoreError::limit("Reference identity visit unavailable")); }
         for field in ["id", "kind", "name", "path", "location", "evidence"] { shared.metadata(&fact[field], 2)?; }
     }
@@ -53,14 +53,19 @@ fn label<'a>(link: &SemanticLinkView<'a>) -> Option<&'a str> {
     }
     Some(link.target())
 }
-struct Work<'a> { comparisons: usize, bytes: usize, shared: Option<&'a mut crate::model_brief::RequestWork> }
-impl Work<'_> {
+struct Work { comparisons: usize, bytes: usize }
+impl Work {
     fn compare(&mut self, a: &str, b: &str) -> Option<bool> {
         let bytes = a.len().checked_add(b.len())?;
         if self.comparisons == MAX_COMPARISONS || bytes > MAX_LABEL_BYTES.saturating_sub(self.bytes) { return None; }
-        if let Some(shared) = self.shared.as_deref_mut() { if !shared.labels(bytes) { return None; } }
         self.comparisons += 1; self.bytes += bytes;
         Some(a == b)
+    }
+    fn compare_scoped(&mut self, a: &str, b: &str, shared: Option<&mut crate::model_brief::RequestWork>) -> Option<bool> {
+        let bytes = a.len().checked_add(b.len())?;
+        if self.comparisons == MAX_COMPARISONS || bytes > MAX_LABEL_BYTES.saturating_sub(self.bytes) { return None; }
+        if let Some(shared) = shared { if !shared.labels(bytes) { return None; } }
+        self.compare(a, b)
     }
 }
 
@@ -68,10 +73,10 @@ pub(crate) fn select(reader: &Reader, query: &Query<'_>) -> Result<Value> {
     select_scoped(reader, query, None)
 }
 
-pub(crate) fn select_scoped(reader: &Reader, query: &Query<'_>, shared: Option<&mut crate::model_brief::RequestWork>) -> Result<Value> {
+pub(crate) fn select_scoped(reader: &Reader, query: &Query<'_>, mut shared: Option<&mut crate::model_brief::RequestWork>) -> Result<Value> {
     let anchor = reader.stored_fact(query.id)?;
     let anchor_label = candidate_name(anchor);
-    let mut work = Work { comparisons: 0, bytes: 0, shared };
+    let mut work = Work { comparisons: 0, bytes: 0 };
     let mut rows = Vec::new();
     let mut labels = Vec::new(); // borrowed labels only for returned outgoing rows
     let mut scanned_facts = 0;
@@ -83,34 +88,34 @@ pub(crate) fn select_scoped(reader: &Reader, query: &Query<'_>, shared: Option<&
     let facts: &[Value] = if query.incoming { &reader.facts } else { std::slice::from_ref(anchor) };
     'facts: for fact in facts {
         if scanned_facts == MAX_FACTS { complete = false; break; }
-        if let Some(shared) = work.shared.as_deref_mut() { if !shared.facts(1) { complete = false; break; } }
+        if let Some(shared) = shared.as_deref_mut() { if !shared.facts(1) { complete = false; break; } }
         scanned_facts += 1;
         for wire in schema::array(fact, "links")? {
             if scanned_links == MAX_LINKS { complete = false; break 'facts; }
-            if let Some(shared) = work.shared.as_deref_mut() { if !shared.links(1) { complete = false; break 'facts; } }
+            if let Some(shared) = shared.as_deref_mut() { if !shared.links(1) { complete = false; break 'facts; } }
             scanned_links += 1;
             let link = SemanticLinkView::from_wire(wire, reader.schema_version(), schema::string(fact, "evidence")?)?;
             let target = label(&link);
             let accepts = if query.incoming {
                 match (target, anchor_label) {
-                    (Some(a), Some(b)) => match work.compare(a, b) { Some(equal) => equal, None => { complete = false; break 'facts; } },
+                    (Some(a), Some(b)) => match work.compare_scoped(a, b, shared.as_deref_mut()) { Some(equal) => equal, None => { complete = false; break 'facts; } },
                     _ => false,
                 }
             } else { true };
             if !accepts { continue; }
             matched += 1;
             if rows.len() == query.limit { omitted += 1; continue; }
-            if let Some(shared) = work.shared.as_deref_mut() { shared.metadata(&link, 2)?; }
+            if let Some(shared) = shared.as_deref_mut() { shared.metadata(&link, 2)?; }
             let detail_omitted = schema::encoded_bytes(&link, 16 * 1024).is_err();
             let detail = if !detail_omitted { link.materialize()? }
                 else { json!({"relation":link.relation(),"target":link.target(),"resolution":link.resolution()}) };
             let mut row = json!({"origin":null,"link":null,"detail_omitted":detail_omitted,
                 "match_basis":if query.incoming { "label_match_binding_unknown" } else { "recorded_outgoing_binding_unknown" },
                 "candidate_label":target,"candidates":[],"candidate_matches":0,"candidate_search_complete":false});
-            row["origin"] = identity(fact, &mut work)?;
+            row["origin"] = identity(fact, shared.as_deref_mut())?;
             row["link"] = detail;
             if query.incoming {
-                row["candidates"] = json!([identity(anchor, &mut work)?]);
+                row["candidates"] = json!([identity(anchor, shared.as_deref_mut())?]);
                 row["candidate_matches"] = json!(1);
                 // This is the selected label match, not a unique global candidate.
             }
@@ -124,16 +129,16 @@ pub(crate) fn select_scoped(reader: &Reader, query: &Query<'_>, shared: Option<&
     let mut candidates_complete = !query.incoming;
     if !query.incoming && !rows.is_empty() {
         'candidates: for fact in reader.facts.iter().take(MAX_FACTS) {
-            if let Some(shared) = work.shared.as_deref_mut() { if !shared.facts(1) { candidates_complete = false; break; } }
+            if let Some(shared) = shared.as_deref_mut() { if !shared.facts(1) { candidates_complete = false; break; } }
             candidate_facts += 1;
             let Some(name) = candidate_name(fact) else { continue };
             for (row, target) in rows.iter_mut().zip(&labels) {
                 let Some(target) = target else { continue };
-                let equal = match work.compare(name, target) { Some(equal) => equal, None => { candidates_complete = false; break 'candidates; } };
+                let equal = match work.compare_scoped(name, target, shared.as_deref_mut()) { Some(equal) => equal, None => { candidates_complete = false; break 'candidates; } };
                 if !equal { continue; }
                 row["candidate_matches"] = json!(row["candidate_matches"].as_u64().unwrap() + 1);
                 if row["candidates"].as_array().unwrap().len() == MAX_CANDIDATES { continue; }
-                let candidate = identity(fact, &mut work)?;
+                let candidate = identity(fact, shared.as_deref_mut())?;
                 let bytes = schema::encoded_bytes(&candidate, 32 * 1024)?;
                 if bytes > MAX_OUTPUT.saturating_sub(output_bytes) { continue; }
                 output_bytes += bytes;
@@ -146,7 +151,7 @@ pub(crate) fn select_scoped(reader: &Reader, query: &Query<'_>, shared: Option<&
     let coverage = schema::array(&reader.manifest, "coverage")?;
     let capture_scan_complete = coverage.len() <= MAX_COVERAGE;
     let partial = !capture_scan_complete || coverage.iter().take(MAX_COVERAGE).any(|entry| entry["status"] != "complete");
-    let mut response = json!({"generation":reader.generation,"anchor":identity(anchor, &mut work)?,
+    let mut response = json!({"generation":reader.generation,"anchor":identity(anchor, shared.as_deref_mut())?,
         "direction":if query.incoming {"incoming"} else {"outgoing"},"limit":query.limit,
         "coverage":{"capture_partial":partial,"capture_families":coverage.len(),"capture_scan_complete":capture_scan_complete,
             "scan_complete":complete,"facts_scanned":scanned_facts,"links_scanned":scanned_links,
@@ -157,7 +162,7 @@ pub(crate) fn select_scoped(reader: &Reader, query: &Query<'_>, shared: Option<&
                 "label_bytes":MAX_LABEL_BYTES,"capture_families":MAX_COVERAGE,"output_bytes":MAX_OUTPUT,"candidates_per_relationship":MAX_CANDIDATES}},
         "semantics":"Recorded relationship groups, not textual occurrence counts. Label matches do not establish canonical identity or runtime dispatch."});
     response["relationships"] = Value::Array(rows);
-    if let Some(shared) = work.shared.as_deref_mut() { shared.metadata(&response, 2)?; }
+    if let Some(shared) = shared.as_deref_mut() { shared.metadata(&response, 2)?; }
     Ok(response)
 }
 

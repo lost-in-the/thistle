@@ -64,8 +64,6 @@ class ThistleModelBriefTest < Minitest::Test
   def test_real_producer_find_brief_then_source_links_in_fresh_consumer_after_current_changes
     store, generation, newer = self.class.saved
     refute_equal generation, newer
-    refute defined?(Rails)
-    refute defined?(ActiveRecord)
     consumer = <<~'RUBY'
       require 'json'; require 'thistle'
       raise 'Rails loaded' if defined?(Rails) || defined?(ActiveRecord)
@@ -106,6 +104,9 @@ class ThistleModelBriefTest < Minitest::Test
     assert_equal 'registered_metadata', callback.fetch('registry_provenance')
     explanation = callback.fetch('explanation')
     assert_equal 'BriefFixture::Parent', explanation.dig('method', 'owner')
+    expected_method = Digest::SHA256.hexdigest(JSON.generate(['ruby', 'method', 'BriefFixture::Parent#deliver', 'records.rb', SOURCE.index('def deliver'.b)]))
+    assert_equal expected_method, explanation.dig('method', 'id')
+    assert_equal expected_method, saved.dig('source', 'fact', 'id')
     assert_equal Digest::SHA256.hexdigest(SOURCE), explanation.dig('source', 'sha256')
     effect = explanation.fetch('effects').first
     assert_equal 'captured_source_potential', effect.fetch('provenance')
@@ -138,6 +139,16 @@ class ThistleModelBriefTest < Minitest::Test
       assert_operator out.bytesize, :<=, 32768
       assert_includes out, '雪'
       assert_includes out, '\\n'
+      tight_limit = out.bytesize - 1
+      tight, err, status = cli('model-brief', id, '--store', store, '--generation', generation, '--max-bytes', tight_limit.to_s)
+      assert status.success?, err
+      tight_brief = JSON.parse(tight)
+      assert_equal tight.bytesize, tight_brief.dig('usage', 'wire_bytes_including_newline')
+      assert_operator tight.bytesize, :<=, tight_limit
+      assert_operator tight_brief.dig('usage', 'returned_items'), :<, result.dig('usage', 'returned_items')
+      removed = result.dig('usage', 'returned_items') - tight_brief.dig('usage', 'returned_items')
+      assert_equal removed, tight_brief.fetch('families').sum { |name, f| f.fetch('known_omitted') - result.dig('families', name, 'known_omitted') }
+
       small, err, status = cli('model-brief', id, '--store', store, '--generation', generation, '--limit', '1', '--max-bytes', '16000')
       assert status.success?, err
       brief = JSON.parse(small)
@@ -170,7 +181,8 @@ class ThistleModelBriefTest < Minitest::Test
       method = reader.find('BriefFixture::Parent#deliver').find { |f| f['kind'] == 'method' }
       assert_raises(Thistle::InvalidInput) { reader.model_brief(method.fetch('id')) }
       first, second = reader.model_brief(id), reader.model_brief(id)
-      assert_equal first.fetch('families'), second.fetch('families')
+      evidence = ->(brief) { brief.fetch('families').transform_values { |family| family.reject { |key, _| key == 'work' } } }
+      assert_equal evidence.call(first), evidence.call(second)
       assert_equal false, second.dig('cost', 'method_directory', 'built_this_request')
       store, = self.class.saved
       file = reader.manifest.fetch('files').find { |f| f['path'] == 'records.rb' }

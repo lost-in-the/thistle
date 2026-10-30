@@ -28,10 +28,10 @@ impl<'a> Query<'a> {
 
 /// Concrete admission shared by this operation's existing selectors. Units are
 /// visits and encoded bytes processed, not instructions, heap bytes or latency.
-#[derive(Default)]
+#[derive(Default, Clone, Copy)]
 pub(crate) struct RequestWork {
     facts: usize, links: usize, comparisons: usize, label_bytes: usize,
-    files: usize, source_bytes: usize, metadata_bytes: usize,
+    files: usize, source_bytes: usize, metadata_bytes: usize, finishing: bool,
 }
 impl RequestWork {
     pub(crate) fn facts(&mut self, n: usize) -> bool {
@@ -62,9 +62,23 @@ impl RequestWork {
         if n > SOURCE_BYTES.saturating_sub(self.source_bytes) { return false; } self.source_bytes += n; true
     }
     pub(crate) fn metadata(&mut self, value: &impl Serialize, passes: usize) -> Result<usize> {
-        let bytes = schema::encoded_bytes(value, METADATA_BYTES.saturating_sub(self.metadata_bytes) / passes)?;
+        // Keep three MiB for compact final projection/encoding even when a
+        // component runs out. Never spend the final envelope's allowance first.
+        let ceiling = if self.finishing { METADATA_BYTES } else { METADATA_BYTES - 3 * 1024 * 1024 };
+        let bytes = match schema::encoded_bytes(value, ceiling.saturating_sub(self.metadata_bytes) / passes) {
+            Ok(bytes) => bytes,
+            Err(error) => { self.metadata_bytes = self.metadata_bytes.max(ceiling); return Err(error); },
+        };
         self.metadata_bytes += bytes * passes;
         Ok(bytes)
+    }
+    fn since(&self, before: Self) -> Value {
+        let mut delta = *self;
+        delta.facts -= before.facts; delta.links -= before.links;
+        delta.comparisons -= before.comparisons; delta.label_bytes -= before.label_bytes;
+        delta.files -= before.files; delta.source_bytes -= before.source_bytes;
+        delta.metadata_bytes -= before.metadata_bytes;
+        delta.value()
     }
     fn value(&self) -> Value {
         json!({"fact_visits":self.facts,"link_visits":self.links,"label_comparisons":self.comparisons,
@@ -118,7 +132,7 @@ fn registries<'a>(reader: &'a Reader, root: &Value, work: &mut RequestWork) -> R
     out["model_registry_binding"] = json!("unknown");
     out["candidate_matches"] = json!(0); out["scan_complete"] = json!(false);
     let Some(label) = root["attributes"]["model"]["name"].as_str() else { skip(&mut out, "anonymous_model_has_no_label"); return Ok((out, None)); };
-    let mut matches = 0; let mut complete = true; let mut selected = None; let mut items = Vec::new();
+    let mut matches: usize = 0; let mut complete = true; let mut selected = None; let mut items = Vec::new();
     let mut visited = 0;
     for fact in &reader.facts {
         if !work.facts(1) { complete = false; break; } visited += 1;
@@ -145,8 +159,8 @@ fn reference_family(reader: &Reader, query: &Query<'_>, direction: &str, work: &
         Ok(mut result) => {
             out["status"] = json!(if result["coverage"]["scan_complete"] == true { "searched" } else { "not_searched" });
             out["reason"] = json!("recorded_labels_binding_unknown");
-            out["known_omitted"] = result["coverage"]["known_omitted"].take();
-            out["unsearched"] = result["coverage"]["not_searched"].take();
+            out["known_omitted"] = result["coverage"]["known_omitted"].clone();
+            out["unsearched"] = result["coverage"]["not_searched"].clone();
             out["coverage"] = result["coverage"].take(); out["items"] = result["relationships"].take();
         },
         Err(error) => limited(error, &mut out)?,
@@ -180,14 +194,24 @@ fn select_with_work(reader: &Reader, query: &Query<'_>, work: &mut RequestWork) 
     for entry in coverage.iter().take(256) { captured.push(project(entry, &["family", "status"], work)?); }
     response["coverage"] = json!({"capture_partial_or_unknown":coverage.is_empty() || coverage.len() > 256 || captured.iter().any(|v| v["status"] != "complete"),
         "families_not_projected":coverage.len().saturating_sub(256),"families":captured});
+    if work.metadata(&response, 1)? + 1 > query.max_bytes {
+        return Err(CoreError::limit("Mandatory model brief envelope exceeds max_bytes"));
+    }
     // Components are consumed/projected sequentially, never accumulated beside
     // independent full selector outputs. Existing selector admission is shared.
-    response["families"]["columns"] = fields(reader, root, "columns", query.limit, work)?;
-    response["families"]["associations"] = fields(reader, root, "associations", query.limit, work)?;
-    let (registry, candidate) = registries(reader, root, work)?;
+    for name in ["columns", "associations"] {
+        let before = *work;
+        let mut family = fields(reader, root, name, query.limit, work)?;
+        family["work"] = work.since(before);
+        response["families"][name] = family;
+    }
+    let before = *work;
+    let (mut registry, candidate) = registries(reader, root, work)?;
+    registry["work"] = work.since(before);
     response["families"]["registry_candidates"] = registry;
     let mut callbacks = family(&reader.generation, query.id, "registered_metadata_and_captured_source_potential");
     callbacks["model_registry_binding"] = json!("unknown");
+    let before = *work;
     if let Some(id) = candidate {
         callbacks["fact_id"] = json!(id);
         let parameters = json!({"id":id,"limit":query.limit});
@@ -199,14 +223,19 @@ fn select_with_work(reader: &Reader, query: &Query<'_>, work: &mut RequestWork) 
                 callbacks["unsearched"] = json!(result["coverage"]["source_rows_not_searched"] != 0 || result["coverage"]["rows_not_searched"] != 0);
                 response["cost"]["method_directory"] = result["coverage"]["method_directory"].take();
                 result["coverage"].as_object_mut().unwrap().remove("reader_open");
+                result["coverage"].as_object_mut().unwrap().remove("method_directory");
                 callbacks["coverage"] = result["coverage"].take(); callbacks["items"] = result["callbacks"].take();
             },
             Err(error) => limited(error, &mut callbacks)?,
         }
     } else { skip(&mut callbacks, "unique_complete_registry_label_candidate_unavailable"); }
+    callbacks["work"] = work.since(before);
     response["families"]["callbacks"] = callbacks;
     for direction in ["outgoing", "incoming"] {
-        response["families"][direction] = reference_family(reader, query, direction, work)?;
+        let before = *work;
+        let mut family = reference_family(reader, query, direction, work)?;
+        family["work"] = work.since(before);
+        response["families"][direction] = family;
     }
     finish(response, query, work)
 }
@@ -224,6 +253,7 @@ fn costs(response: &mut Value, work: &RequestWork) {
         "directory_retained_bytes":directory["retained_bytes"].as_u64().unwrap_or(0)});
 }
 fn finish(mut response: Value, query: &Query<'_>, work: &mut RequestWork) -> Result<Value> {
+    work.finishing = true;
     // Remove all item arrays once, fit items by encoded size, then move admitted
     // Values back. Avoid repeated whole-response serialize/pop quadratic work.
     let names = ["columns", "associations", "registry_candidates", "callbacks", "outgoing", "incoming"];

@@ -358,9 +358,12 @@ moved sequentially. There is no new index, persistent cache, schema or FFI API.
 One conservative 32 MiB transient reservation uses the existing aggregate
 128 MiB Reader/query budget and stays held through native serialization.
 
+Each family reports its actual admitted component work counters.
 An additional 8 MiB processed-encoded-metadata allowance charges bounded input
 projection/copy, component construction/encoding and final sizing/serialization/
-bridge/Ruby copy passes. Decimal-width convergence uses a declared 64-byte
+bridge/Ruby copy passes. Three MiB are reserved for final projection/encoding,
+so exhausted component metadata admission can still return a compact envelope.
+Decimal-width convergence uses a declared 64-byte
 conservative sizing allowance; these are encoded-byte work units, not exact heap,
 instruction, RSS or timing measurements. Response usage records actual returned
 items and JSON wire bytes. The existing Reader-open five fact passes/admission
@@ -372,7 +375,8 @@ sort/retention bounds. Fresh Readers rebuild; prior Reader construction is not
 hidden inside the incremental 20000-visit allowance. Evidence order/content/IDs
 stay generation-stable; actual build/reuse cost fields can differ.
 
-Dedicated source tests use a small real Rails producer, independent saved
+Dedicated source tests use a small real Rails producer with explicit raw-schema
+test metadata (not database-adapter evidence), independent saved
 identities/source bytes and fresh Rails-free Reader/CLI consumers after CURRENT
 advances. They are development evidence only. Root owns current affected CI,
 review, integration and changed-package installed acceptance; Leah retains
