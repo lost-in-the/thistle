@@ -116,6 +116,7 @@ puts JSON.generate("status" => "passed", "native_sha256" => "fake-native")
 CALLBACK_PRODUCER = r'''
 require "json"
 require "fileutils"
+require "digest"
 fixture, root, store = ARGV
 raise "Callback producer arguments changed" unless ARGV.length == 3
 raise "Callback input inside checkout" if [__FILE__, *ARGV].any? { |p| p.start_with?(ENV.fetch("SOURCE") + "/") }
@@ -125,7 +126,8 @@ module Rails; end
 FileUtils.mkdir_p(store)
 File.write(File.join(store, "producer-pid"), Process.pid.to_s)
 File.write("callback-producer-args.json", JSON.generate(ARGV))
-puts JSON.generate("generation" => "callback-generation", "native_sha256" => "fake-native")
+puts JSON.generate("generation" => "callback-generation", "native_sha256" => "fake-native",
+  "fixture_source_sha256" => Digest::SHA256.file(File.join(fixture, "records.rb")).hexdigest)
 '''
 
 CALLBACK_CONSUMER = r'''
@@ -400,6 +402,8 @@ class InstalledContractTests(unittest.TestCase):
     def test_callback_receipt_refusals_prevent_cli_and_passing_report(self):
         cases = (
             ("producer-native", "producer", CALLBACK_PRODUCER.replace('"fake-native"', '"different-native"')),
+            ("producer-fixture", "producer", CALLBACK_PRODUCER.replace(
+                'Digest::SHA256.file(File.join(fixture, "records.rb")).hexdigest', '"0" * 64')),
             ("consumer-native", "consumer", CALLBACK_CONSUMER.replace('"fake-native"', '"different-native"')),
             ("consumer-status", "consumer", CALLBACK_CONSUMER.replace('"passed"', '"failed"')),
             ("producer-json", "producer", "puts 'invalid receipt'\n"),

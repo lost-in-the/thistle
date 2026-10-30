@@ -154,6 +154,8 @@ Dir.mktmpdir("thistle-installed-", File.realpath(Dir.tmpdir)) do |worker|
         File.join(worker, "installed_callback_producer.rb"), fixture, File.join(worker, "callback-source"), store)
       produced = JSON.parse(File.read(callback_receipt))
       raise "Installed callback producer loaded different native bytes" unless produced.fetch("native_sha256") == observed.fetch("native_sha256")
+      raise "Installed callback producer captured different fixture bytes" unless
+        produced.fetch("fixture_source_sha256") == callback_inputs.fetch("callback-fixture/records.rb")
       receipt = File.join(worker, "callback-producer.json")
       FileUtils.cp(callback_receipt, receipt)
       callback_result = File.join(output, "callback-consumer.json")
