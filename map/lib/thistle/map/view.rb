@@ -131,21 +131,34 @@ module Thistle
       end
 
       def links
-        fact = @reader.fact(@params.fetch('id'))
+        id = @params.fetch('id')
         direction = @params.fetch('direction', 'outgoing')
         references_limited = false
         references = begin
-          @reader.references(fact.fetch('id'), direction: direction) if @reader.respond_to?(:references)
+          @reader.references(id, direction: direction) if @reader.respond_to?(:references)
         rescue Thistle::LimitExceeded
           references_limited = true
           nil
         end
+        # Incoming navigation needs identity only. Reader#fact expands the entire
+        # outgoing link tree, which must not accompany the bounded incoming query.
+        fact = if direction == 'incoming'
+                 if references
+                   anchor = references.fetch('anchor')
+                   unless references.fetch('generation') == @generation && anchor.fetch('id') == id
+                     raise Thistle::InvalidSnapshot, 'References substituted a different anchor'
+                   end
+                   anchor
+                 end
+               else
+                 @reader.fact(id)
+               end
         links = direction == 'incoming' ? [] : @reader.links(fact.fetch('id'))
         page = @params.fetch('page', '1').to_i
         pages = [(links.length.to_f / PAGE_SIZE).ceil, 1].max
         raise Limit, 'This links page does not exist.' if page > pages
 
-        body = "<h1 class=\"t1\">Links for #{h(fact.fetch('name'))}</h1>" + fact_tiles(fact)
+        body = fact ? "<h1 class=\"t1\">Links for #{h(fact.fetch('name'))}</h1>" + fact_tiles(fact) : '<h1 class="t1">Incoming references</h1>'
         body += "<p><a href=\"#{h(url('/links', 'direction' => 'outgoing'))}\">Outgoing references</a> · <a href=\"#{h(url('/links', 'direction' => 'incoming'))}\">Incoming references</a></p>"
         body += if references
                   ReferencesPresenter.new(generation: @generation, mount: @mount).render(references)
@@ -339,8 +352,8 @@ module Thistle
         "#{@mount}#{path}?#{query}"
       end
 
-      def layout(title, body, fact: nil)
-        selected = fact || (@params['id'] && @reader.fact(@params['id']))
+      def layout(title, body, fact: :from_params)
+        selected = fact == :from_params ? (@params['id'] && @reader.fact(@params['id'])) : fact
         file_source = @params['path'] && title == 'Source'
         source_link = selected ? nav_link('Source', '/source', title, 's', selected['id']) : '<span class="disabled">Source <small>Choose a result</small></span>'
         source_link = nav_link('Source', '/source', title, 's') if file_source

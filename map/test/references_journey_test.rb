@@ -74,6 +74,7 @@ class ThistleMapReferencesJourneyTest < Minitest::Test
       begin
         user = reader.find('User').find { |fact| fact['name'] == 'User' && fact['kind'] == 'class' }
         method = reader.find('Order#owner').first
+        candidate_ids = reader.references(method.fetch('id')).fetch('relationships').flat_map { |row| row.fetch('candidates').map { |fact| fact.fetch('id') } }
       ensure
         reader.close
       end
@@ -90,7 +91,11 @@ class ThistleMapReferencesJourneyTest < Minitest::Test
       assert_includes outgoing, '2 known name-match candidates'
       assert_includes outgoing, 'constant User'
       assert_includes outgoing, 'Representative source'
-      source_href = CGI.unescapeHTML(outgoing.scan(/href="([^"]+)"/).flatten.find { |href| href.start_with?('/map/source?') && href.include?('id=') })
+      source_href = outgoing.scan(/href="([^"]+)"/).flatten.map { |href| CGI.unescapeHTML(href) }.find do |href|
+        uri = URI.parse(href)
+        uri.path == '/map/source' && candidate_ids.include?(URI.decode_www_form(uri.query || '').to_h['id'])
+      end
+      refute_nil source_href, 'Map omitted candidate Source navigation'
       File.write(File.join(root, 'models.rb'), "class Replacement; end\n")
       Thistle.capture(root: root, output: store)
       uri = URI.parse(source_href)

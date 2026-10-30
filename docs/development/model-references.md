@@ -90,7 +90,10 @@ and the pinned generation; they do not need to retain Find filters to identify t
 destination. Source still verifies the captured bytes under the existing limits.
 If reference admission reaches a resource limit, Map reports the unavailable
 selection and preserves existing outgoing details; invalid snapshots and
-generation mismatches still refuse.
+generation mismatches still refuse. Incoming views use the query's compact anchor
+and never request the anchor's expanded fact or outgoing links. If the query is
+unavailable or refused, that view shows the limit notice without expanding a
+fallback fact; Source navigation resumes when a bounded identity is available.
 
 ## Review and validation boundary
 
