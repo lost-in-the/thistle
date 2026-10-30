@@ -3,11 +3,11 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 
-pub const VERSION: u64 = 2;
+pub const VERSION: u64 = 3;
 
 pub fn snapshot_version(value: &Value) -> Result<u64> {
     match value.as_u64() {
-        Some(version @ (1 | 2)) => Ok(version),
+        Some(version @ (1 | 2 | 3)) => Ok(version),
         _ => Err(CoreError::input("Unsupported snapshot schema")),
     }
 }
@@ -78,7 +78,19 @@ pub fn files(files: &[Value], with_content: bool) -> Result<()> {
 }
 
 pub fn facts(facts: &[Value], files: &[Value], version: u64) -> Result<()> {
-    if facts.len() > 100_000 { return Err(CoreError::limit("Fact count exceeds 100000")); }
+    validate_facts(facts.iter(), files, version, false)
+}
+
+/// Stored rows are interpreted only through explicit manifest context. Iterators
+/// let Source/Check validate pinned subsets without cloning their link trees.
+pub(crate) fn stored_facts<'a>(facts: impl IntoIterator<Item = &'a Value>, files: &[Value], version: u64) -> Result<()> {
+    validate_facts(facts, files, version, true)
+}
+
+fn validate_facts<'a>(facts: impl IntoIterator<Item = &'a Value>, files: &[Value], version: u64, stored: bool) -> Result<()> {
+    if !matches!(version, 1 | 2 | 3) { return Err(CoreError::input("Unsupported snapshot schema")); }
+    let facts = facts.into_iter();
+    if facts.size_hint().0 > 100_000 { return Err(CoreError::limit("Fact count exceeds 100000")); }
     let by_path: HashMap<&str, &Value> = files.iter().map(|v| (v["path"].as_str().unwrap_or(""), v)).collect();
     let newlines: HashMap<&str, Vec<usize>> = files.iter().filter_map(|file| {
         file["content"].as_str().map(|content| (file["path"].as_str().unwrap_or(""),
@@ -88,6 +100,7 @@ pub fn facts(facts: &[Value], files: &[Value], version: u64) -> Result<()> {
     for fact in facts {
         let id = hash(string(fact, "id")?)?;
         if !ids.insert(id) { return Err(CoreError::input("Duplicate fact identity")); }
+        if ids.len() > 100_000 { return Err(CoreError::limit("Fact count exceeds 100000")); }
         for key in ["kind", "name"] {
             let v = string(fact, key)?;
             if v.is_empty() || v.len() > 4096 { return Err(CoreError::input("Fact name/kind is empty or oversized")); }
@@ -121,34 +134,15 @@ pub fn facts(facts: &[Value], files: &[Value], version: u64) -> Result<()> {
         if fact["kind"] == "rails_model" { model_fact(fact)?; }
         if fact["kind"] == "rails_save_callbacks" { crate::callbacks::validate_fact(fact)?; }
         for link in array(fact, "links")? {
-            for key in ["relation", "target"] {
-                let text = string(link, key)?;
-                if text.is_empty() || text.len() > 4096 { return Err(CoreError::input("Invalid link label or target")); }
-            }
-            if !matches!(link["resolution"].as_str(), Some("resolved") | Some("unresolved")) {
-                return Err(CoreError::input("Link resolution must be explicit"));
-            }
-            if let Some(ext) = link.get("attributes").and_then(|a| a.get("thistle_call")) {
-                if let Some(call) = call_metadata(ext, version)? {
-                    if link["relation"] != "calls" || link["resolution"] != "unresolved" || fact["evidence"] != "static" {
-                        return Err(CoreError::input("Invalid call metadata shape"));
-                    }
-                    let named = matches!(call.kind, "constant" | "local" | "instance_variable");
-                    if !matches!(call.kind, "implicit" | "self" | "constant" | "local" | "instance_variable" | "call" | "literal" | "expression") ||
-                       (named && !(call.omitted && call.name.is_none() || !call.omitted && call.name.is_some_and(|s| !s.is_empty() && s.len() <= 256))) ||
-                       (!named && (call.name.is_some() || call.omitted)) {
-                        return Err(CoreError::input("Invalid call receiver combination"));
-                    }
-                    let file = file.ok_or_else(|| CoreError::input("Call metadata needs captured source"))?;
-                    validate_call_location(call.location, file, &newlines)?;
-                    if call.kind == "implicit" {
-                        if call.safe_navigation || call.receiver_location.is_some() {
-                            return Err(CoreError::input("Implicit receiver has a location or safe navigation"));
-                        }
-                    } else {
-                        validate_call_location(call.receiver_location.ok_or_else(|| CoreError::input("Missing receiver location"))?, file, &newlines)?;
-                    }
-                }
+            let view = if stored {
+                crate::link_encoding::SemanticLinkView::from_wire(link, version, string(fact, "evidence")?)?
+            } else {
+                crate::link_encoding::SemanticLinkView::from_semantic(link, version, string(fact, "evidence")?)?
+            };
+            if let Some(call) = view.call_metadata() {
+                let file = file.ok_or_else(|| CoreError::input("Call metadata needs captured source"))?;
+                validate_call_location(call.location, file, &newlines)?;
+                if let Some(receiver) = call.receiver_location { validate_call_location(receiver, file, &newlines)?; }
             }
         }
     }
@@ -197,30 +191,61 @@ fn exact_keys(value: &Value, keys: &[&str]) -> Result<()> {
 }
 
 pub fn call_metadata(ext: &Value, schema: u64) -> Result<Option<CallMetadata<'_>>> {
-    let compact = match ext.get("version").and_then(Value::as_u64) {
-        Some(1) => false,
-        Some(2) if schema == 2 => true,
-        _ => return Ok(None),
-    };
-    let (kind, name, omitted, safe, location, receiver_location) = if compact {
-        exact_keys(ext, &["version", "data"])?;
-        let data: &[Value; 6] = ext["data"].as_array().and_then(|v| v.as_slice().try_into().ok())
-            .ok_or_else(|| CoreError::input("Compact call data must have six fields"))?;
-        (&data[0], &data[1], &data[2], &data[3], &data[4], &data[5])
-    } else {
-        exact_keys(ext, &["version", "receiver", "safe_navigation", "call_location", "receiver_location"])?;
-        let receiver = &ext["receiver"];
-        exact_keys(receiver, &["kind", "name", "omitted_limit"])?;
-        (&receiver["kind"], &receiver["name"], &receiver["omitted_limit"], &ext["safe_navigation"], &ext["call_location"], &ext["receiver_location"])
-    };
-    Ok(Some(CallMetadata {
+    match ext.get("version").and_then(Value::as_u64) {
+        Some(2) if matches!(schema, 2 | 3) => {
+            // Schema 2 keeps its historical exact-key refusal. Schema 3 can
+            // retain a complete extra-key object, but recognized DATA is strict.
+            if schema == 2 { exact_keys(ext, &["version", "data"])?; }
+            compact_call_metadata(&ext["data"]).map(Some)
+        }
+        Some(1) => {
+            exact_keys(ext, &["version", "receiver", "safe_navigation", "call_location", "receiver_location"])?;
+            let receiver = &ext["receiver"];
+            exact_keys(receiver, &["kind", "name", "omitted_limit"])?;
+            decode_call_fields([&receiver["kind"], &receiver["name"], &receiver["omitted_limit"],
+                &ext["safe_navigation"], &ext["call_location"], &ext["receiver_location"]], false).map(Some)
+        }
+        _ => Ok(None),
+    }
+}
+
+/// Borrow the existing compact-v2 SIX-SLOT DATA value, not an extension wrapper.
+/// Explicit context selection belongs to call_metadata / SemanticLinkView.
+pub(crate) fn compact_call_metadata(data: &Value) -> Result<CallMetadata<'_>> {
+    let data: &[Value; 6] = data.as_array().and_then(|v| v.as_slice().try_into().ok())
+        .ok_or_else(|| CoreError::input("Compact call data must have six fields"))?;
+    decode_call_fields(data.each_ref(), true)
+}
+
+fn decode_call_fields(fields: [&Value; 6], compact: bool) -> Result<CallMetadata<'_>> {
+    let [kind, name, omitted, safe, location, receiver_location] = fields;
+    Ok(CallMetadata {
         kind: kind.as_str().ok_or_else(|| CoreError::input("Invalid receiver kind"))?,
         name: if name.is_null() { None } else { Some(name.as_str().ok_or_else(|| CoreError::input("Invalid receiver name"))?) },
         omitted: omitted.as_bool().ok_or_else(|| CoreError::input("Invalid omitted flag"))?,
         safe_navigation: safe.as_bool().ok_or_else(|| CoreError::input("Invalid safe navigation flag"))?,
         location: CallLocation::decode(location, compact)?,
         receiver_location: if receiver_location.is_null() { None } else { Some(CallLocation::decode(receiver_location, compact)?) },
-    }))
+    })
+}
+
+/// Receiver semantics shared by semantic objects and the borrowed row view.
+/// Captured blob, UTF-8 and line/byte bounds remain full fact validation.
+pub(crate) fn validate_call_shape(call: &CallMetadata<'_>) -> Result<()> {
+    let named = matches!(call.kind, "constant" | "local" | "instance_variable");
+    if !matches!(call.kind, "implicit" | "self" | "constant" | "local" | "instance_variable" | "call" | "literal" | "expression") ||
+       (named && !(call.omitted && call.name.is_none() || !call.omitted && call.name.is_some_and(|s| !s.is_empty() && s.len() <= 256))) ||
+       (!named && (call.name.is_some() || call.omitted)) {
+        return Err(CoreError::input("Invalid call receiver combination"));
+    }
+    if call.kind == "implicit" {
+        if call.safe_navigation || call.receiver_location.is_some() {
+            return Err(CoreError::input("Implicit receiver has a location or safe navigation"));
+        }
+    } else if call.receiver_location.is_none() {
+        return Err(CoreError::input("Missing receiver location"));
+    }
+    Ok(())
 }
 
 fn validate_call_location(location: CallLocation, file: &Value, newlines: &HashMap<&str, Vec<usize>>) -> Result<()> {
@@ -272,20 +297,34 @@ pub(crate) fn diagnostic_occurrences(record: &Value) -> Result<u64> {
 /// Count with the real JSON encoder without retaining another payload. Refuse
 /// during encoding at the supplied budget, including checked accounting overflow.
 pub(crate) fn encoded_bytes<T: serde::Serialize + ?Sized>(value: &T, max: usize) -> Result<usize> {
-    struct Size { bytes: usize, max: usize }
-    impl std::io::Write for Size {
+    Ok(encode_json(value, std::io::sink(), max)?.1)
+}
+
+/// The same bounded serde writer serves counting and retained publication bytes.
+/// It refuses before a write would exceed the single global payload budget.
+pub(crate) fn encoded_vec<T: serde::Serialize + ?Sized>(value: &T, max: usize) -> Result<Vec<u8>> {
+    Ok(encode_json(value, Vec::new(), max)?.0)
+}
+
+fn encode_json<T: serde::Serialize + ?Sized, W: std::io::Write>(value: &T, writer: W, max: usize) -> Result<(W, usize)> {
+    struct Bounded<W> { writer: W, bytes: usize, max: usize, refused: bool }
+    impl<W: std::io::Write> std::io::Write for Bounded<W> {
         fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
-            self.bytes = self.bytes.checked_add(bytes.len())
-                .filter(|n| *n <= self.max)
-                .ok_or_else(|| std::io::Error::other("Encoded JSON byte budget exceeded"))?;
+            let Some(next) = self.bytes.checked_add(bytes.len()).filter(|n| *n <= self.max) else {
+                self.refused = true;
+                return Err(std::io::Error::other("Encoded JSON byte budget exceeded"));
+            };
+            self.writer.write_all(bytes)?;
+            self.bytes = next;
             Ok(bytes.len())
         }
-        fn flush(&mut self) -> std::io::Result<()> { Ok(()) }
+        fn flush(&mut self) -> std::io::Result<()> { self.writer.flush() }
     }
-    let mut size = Size { bytes: 0, max };
-    serde_json::to_writer(&mut size, value)
-        .map_err(|_| CoreError::limit("Encoded JSON exceeds byte budget"))?;
-    Ok(size.bytes)
+    let mut sink = Bounded { writer, bytes: 0, max, refused: false };
+    if let Err(error) = serde_json::to_writer(&mut sink, value) {
+        return Err(if sink.refused { CoreError::limit("Encoded JSON exceeds byte budget") } else { error.into() });
+    }
+    Ok((sink.writer, sink.bytes))
 }
 
 pub(crate) fn diagnostic_bytes<T: serde::Serialize + ?Sized>(value: &T) -> Result<usize> {
@@ -330,6 +369,7 @@ pub fn capture(value: &Value) -> Result<()> {
 /// untrusted; publication independently validates the complete actual capture.
 /// Entries retain the existing per-observation-batch meaning, not source nodes.
 pub(crate) struct ObservationAdmission {
+    version: u64,
     max_facts: usize, max_links: usize, max_entries: usize,
     facts: usize, links: usize, entries: usize, bytes: usize,
     original_facts: usize, original_links: usize, original_bytes: usize,
@@ -337,7 +377,13 @@ pub(crate) struct ObservationAdmission {
 
 impl ObservationAdmission {
     pub(crate) fn new(context: &Value) -> Result<Self> {
-        model_object(context, &["limits", "facts", "links", "diagnostics", "fact_bytes"])?;
+        let version = if let Some(version) = context.get("schema_version") {
+            model_object(context, &["limits", "facts", "links", "diagnostics", "fact_bytes", "schema_version"])?;
+            snapshot_version(version)?
+        } else {
+            model_object(context, &["limits", "facts", "links", "diagnostics", "fact_bytes"])?;
+            1
+        };
         let limits = &context["limits"];
         model_object(limits, &["max_facts", "max_links", "max_entries", "max_diagnostics"])?;
         let limit = |key, ceiling| -> Result<usize> {
@@ -357,7 +403,7 @@ impl ObservationAdmission {
         used("diagnostics", max_diagnostics)?;
         let bytes = used("fact_bytes", MAX_FACTS_BYTES)?;
         if bytes < 2 { return Err(CoreError::input("Fact array byte count must include its brackets")); }
-        Ok(Self { max_facts, max_links, max_entries, facts, links, entries: 0, bytes,
+        Ok(Self { version, max_facts, max_links, max_entries, facts, links, entries: 0, bytes,
             original_facts: facts, original_links: links, original_bytes: bytes })
     }
 
@@ -375,7 +421,7 @@ impl ObservationAdmission {
         let links = self.links.checked_add(array(fact, "links")?.len()).filter(|n| *n <= self.max_links)
             .ok_or_else(|| CoreError::limit("Combined capture exceeds max_links"))?;
         // Existing [] already charged; every appended member needs at most one comma.
-        let bytes = encoded_bytes(fact, MAX_FACTS_BYTES)?.checked_add(1)
+        let bytes = encoded_bytes(&crate::link_encoding::WireFact::new(fact, self.version)?, MAX_FACTS_BYTES)?.checked_add(1)
             .and_then(|n| self.bytes.checked_add(n)).filter(|n| *n <= MAX_FACTS_BYTES)
             .ok_or_else(|| CoreError::limit("Combined capture exceeds 64 MiB fact budget"))?;
         // No counter changes if any part of this fact refuses.

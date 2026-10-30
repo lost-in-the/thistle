@@ -14,7 +14,7 @@ require 'thistle/map'
 
 def stored_call_fields(reader, link)
   data = link.fetch('attributes').fetch('thistle_call')
-  return data unless reader.manifest['schema_version'] == 2 && data['version'] == 2
+  return data unless [2, 3].include?(reader.manifest['schema_version']) && data['version'] == 2
   kind, name, omitted, safe, call, receiver = data.fetch('data')
   location = ->(tuple) { tuple && Hash[%w[start_byte end_byte start_line end_line].zip(tuple)] }
   { 'receiver' => { 'kind' => kind, 'name' => name, 'omitted_limit' => omitted },
@@ -88,8 +88,8 @@ result = Dir.mktmpdir('thistle-map-installed-') do |directory|
   call_fact = call_reader.find('InstalledParcel#note', limit: 10).find { |item| item['name'] == 'InstalledParcel#note' }
   raise 'Installed Find did not return the heredoc owner' unless call_fact
   call = call_reader.links(call_fact.fetch('id')).find { |link| link['relation'] == 'calls' && link['target'] == 'render' }
-  raise 'Installed capture did not retain schema 2 compact metadata' unless call &&
-    call_reader.manifest['schema_version'] == 2 && call.dig('attributes', 'thistle_call', 'version') == 2
+  raise 'Installed schema 3 capture did not retain compact-v2 semantic metadata' unless call &&
+    call_reader.manifest['schema_version'] == 3 && call.dig('attributes', 'thistle_call', 'version') == 2
   data = stored_call_fields(call_reader, call)
   raise 'Installed self receiver was not preserved' unless call && call['resolution'] == 'unresolved' &&
     data && data.dig('receiver', 'kind') == 'self' && data['safe_navigation'] == false

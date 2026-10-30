@@ -1,6 +1,6 @@
 [package]
 name = "thistle-core"
-version = "0.1.0-pre.2"
+version = "0.1.0-pre.3"
 edition = "2021"
 rust-version = "1.90"
 publish = false

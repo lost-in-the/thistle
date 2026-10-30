@@ -3,6 +3,7 @@ pub mod capture;
 mod fs;
 mod model;
 mod callbacks;
+mod link_encoding;
 mod schema;
 mod store;
 mod query;
@@ -88,8 +89,8 @@ fn dispatch_inner(request: &Value) -> Result<Value> {
             let closed = registry.readers.remove(&handle).is_some();
             Ok(json!({"closed":closed}))
         }
-        "facts" => Ok(Value::Array(reader(request)?.facts.clone())),
-        "fact" => Ok(reader(request)?.fact(schema::string(request, "id")?)?.clone()),
+        "facts" => reader(request)?.all_facts(),
+        "fact" => reader(request)?.fact(schema::string(request, "id")?),
         "find" => {
             let limit = match request.get("limit") { None => 50, Some(value) => value.as_u64().ok_or_else(|| CoreError::input("Limit must be an integer"))? };
             if limit > 500 { return Err(CoreError::input("Limit must be between 1 and 500")); }
@@ -98,7 +99,7 @@ fn dispatch_inner(request: &Value) -> Result<Value> {
         "find_evidence" => query::search(&*reader(request)?, &query::Query::parse(request)?),
         "source_file" => reader(request)?.source_file(schema::string(request, "file_path")?),
         "source" => reader(request)?.source(schema::string(request, "id")?),
-        "links" => Ok(reader(request)?.fact(schema::string(request, "id")?)?["links"].clone()),
+        "links" => reader(request)?.links(schema::string(request, "id")?),
         "check" => reader(request)?.check(),
         _ => Err(CoreError::input("Unknown native operation")),
     }
