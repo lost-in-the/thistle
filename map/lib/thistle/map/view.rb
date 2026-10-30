@@ -158,7 +158,7 @@ module Thistle
         pages = [(links.length.to_f / PAGE_SIZE).ceil, 1].max
         raise Limit, 'This links page does not exist.' if page > pages
 
-        body = fact ? "<h1 class=\"t1\">Links for #{h(fact.fetch('name'))}</h1>" + fact_tiles(fact) : '<h1 class="t1">Incoming references</h1>'
+        body = fact ? "<h1 class=\"t1\">Links for #{h(fact.fetch('name'))}</h1>" + fact_tiles(fact, details: direction != 'incoming') : '<h1 class="t1">Incoming references</h1>'
         body += "<p><a href=\"#{h(url('/links', 'direction' => 'outgoing'))}\">Outgoing references</a> · <a href=\"#{h(url('/links', 'direction' => 'incoming'))}\">Incoming references</a></p>"
         body += if references
                   ReferencesPresenter.new(generation: @generation, mount: @mount).render(references)
@@ -393,20 +393,23 @@ module Thistle
         "<a href=\"#{h(url(path, id ? { 'id' => id } : {}))}\"#{attrs}>#{label}</a>"
       end
 
-      def fact_tiles(fact)
+      def fact_tiles(fact, details: true)
         tiles = [
           ['Identity', [['Kind', fact['kind']], ['Evidence', fact['evidence']]]],
           ['Source', [['File', fact['path'] || 'Unavailable'], ['Line', fact.dig('location', 'start_line') || 'Unavailable']]]
         ]
-        if fact['kind'] == 'route'
+        if details && fact['kind'] == 'route'
           tiles << ['Route conditions', [['Observed conditions', constraint_summary(fact)],
             ['Meaning', 'Route presence does not prove a request will match.']]]
         end
-        '<div class="facts">' + tiles.map do |eyebrow, rows|
+        identity = '<div class="facts">' + tiles.map do |eyebrow, rows|
           klass = eyebrow == 'Route conditions' ? ' class="route-conditions"' : ''
           "<div#{klass}><span class=\"eyebrow\">#{h(eyebrow)}</span><dl>" +
             rows.map { |label, value| "<dt>#{h(label)}</dt><dd>#{h(value)}</dd>" }.join + '</dl></div>'
-        end.join + '</div>' + ModelPresenter.render(fact) +
+        end.join + '</div>'
+        return identity + '<p class="notice ui">Detailed fact evidence was not loaded for this incoming view. Open Source or Outgoing references to inspect it.</p>' unless details
+
+        identity + ModelPresenter.render(fact) +
           CallbackPresenter.new(generation: @generation, reader: @reader, mount: @mount).render(fact)
       end
 

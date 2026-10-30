@@ -206,8 +206,30 @@ result = Dir.mktmpdir('thistle-map-installed-') do |directory|
     incoming_status, _, body = model_app.call(env.merge('PATH_INFO' => '/links', 'QUERY_STRING' => incoming_query))
     incoming_html = body.each.to_a.join
     raise 'Installed incoming Map view failed' unless incoming_status == 200 && incoming_html.include?('ModelFixture::Order') &&
-      incoming_html.include?('binding unknown') && incoming_html.include?(model_generation)
+      incoming_html.include?('binding unknown') && incoming_html.include?(model_generation) &&
+      incoming_html.include?('Additional candidates not searched') &&
+      incoming_html.include?('Detailed fact evidence was not loaded') && !incoming_html.include?('unknown format')
+    limited = model_reader.references(order.fetch('id'), limit: 1)
+    raise 'Installed reference omission was confused with unsearched input' unless
+      limited.dig('coverage', 'known_matches') == 2 && limited.dig('coverage', 'known_omitted') == 1 &&
+      limited.dig('coverage', 'not_searched') == false && limited.dig('coverage', 'capture_partial') == true &&
+      limited.dig('coverage', 'budgets', 'facts') == 20_000
+    limited_html = Thistle::Map::ReferencesPresenter.new(generation: model_generation, mount: '').render(limited)
+    raise 'Installed reference omission display lost its scope' unless limited_html.include?('1 known omitted') &&
+      limited_html.include?('Relationship scan complete within this capture') && limited_html.include?('Capture partial')
+    method_fact = model_reader.find('business_method').find { |row| row['kind'] == 'method' }
+    raise 'Installed no-match fixture method missing' unless method_fact
+    empty = model_reader.references(method_fact.fetch('id'), direction: 'incoming')
+    raise 'Installed no-match result lost searched/capture scope' unless empty.fetch('relationships').empty? &&
+      empty.dig('coverage', 'scan_complete') && empty.dig('coverage', 'capture_partial') && !empty.dig('coverage', 'not_searched')
+    empty_query = URI.encode_www_form('id' => method_fact.fetch('id'), 'generation' => model_generation, 'direction' => 'incoming')
+    empty_status, _, body = model_app.call(env.merge('PATH_INFO' => '/links', 'QUERY_STRING' => empty_query))
+    empty_html = body.each.to_a.join
+    raise 'Installed no-match display overclaimed absence' unless empty_status == 200 &&
+      empty_html.include?('No matching recorded relationships found in the searched evidence') &&
+      empty_html.include?('This does not establish that the model has no references') && empty_html.include?('Capture partial')
     references_journey = { 'generation' => model_generation, 'outgoing' => outgoing, 'incoming' => incoming,
+      'limited' => limited, 'no_match' => empty, 'no_match_status' => empty_status,
       'static_source_id' => static_item.fetch('id'), 'source_sha256' => produced.fetch('fixture_source_sha256'),
       'source_status' => source_status, 'incoming_status' => incoming_status,
       'current_advanced' => true, 'fresh_consumer_without_rails' => true }

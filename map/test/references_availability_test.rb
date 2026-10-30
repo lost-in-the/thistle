@@ -41,6 +41,24 @@ class ThistleReferencesAvailabilityTest < Minitest::Test
     assert_includes html, 'unavailable with this Reader'
   end
 
+  def test_incoming_runtime_anchors_explain_unloaded_details_without_invalid_metadata_notices
+    %w[rails_model rails_save_callbacks].each do |kind|
+      reader = incoming_reader
+      reader.define_singleton_method(:references) do |id, direction:|
+        { 'generation' => generation, 'anchor' => {
+            'id' => id, 'name' => 'Demo', 'kind' => kind, 'evidence' => 'runtime', 'path' => nil, 'location' => nil
+          }, 'direction' => direction, 'relationships' => [],
+          'coverage' => { 'known_matches' => 0, 'known_omitted' => 0, 'scan_complete' => true, 'capture_partial' => true } }
+      end
+      status, _, html = request(make_app(reader), '/links', query: "id=#{FACT_ID}&direction=incoming")
+      assert_equal 200, status
+      assert_includes html, kind
+      assert_includes html, 'Detailed fact evidence was not loaded for this incoming view'
+      refute_includes html, 'unknown format'
+      refute_includes html, 'invalid evidence shape'
+    end
+  end
+
   def test_incoming_rejects_substituted_anchor_identity
     reader = incoming_reader
     def reader.references(*) = { 'generation' => generation, 'anchor' => { 'id' => 'c' * 64 } }

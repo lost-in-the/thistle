@@ -91,9 +91,13 @@ destination. Source still verifies the captured bytes under the existing limits.
 If reference admission reaches a resource limit, Map reports the unavailable
 selection and preserves existing outgoing details; invalid snapshots and
 generation mismatches still refuse. Incoming views use the query's compact anchor
-and never request the anchor's expanded fact or outgoing links. If the query is
-unavailable or refused, that view shows the limit notice without expanding a
-fallback fact; Source navigation resumes when a bounded identity is available.
+and never request the anchor's expanded fact or outgoing links. Detailed model
+and callback metadata is not loaded in this view; the identity tiles say so.
+A resource refusal (`Thistle::LimitExceeded`) shows the limit notice; a Reader
+without the references API shows its unavailable notice. Neither expands a
+fallback fact. Integrity refusals such as `Thistle::InvalidSnapshot` return 422;
+they are not converted into an unavailable result. Source navigation resumes
+when a bounded identity is available.
 
 ## Review and validation boundary
 

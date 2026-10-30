@@ -31,6 +31,8 @@ class PlatformReceiptTests(unittest.TestCase):
             "report.json", "native-observation.json", "installed-inputs.json", "core-fixture-inputs.json",
             "model-producer.json", "model-producer.json.stderr",
             "map-installed-smoke.json", "map-installed-smoke.json.stderr",
+            "callback-inputs.json", "callback-producer.json", "callback-producer.json.stderr",
+            "callback-consumer.json", "callback-consumer.json.stderr",
             "core-tests.log", "core-tests.log.stderr", "installed-cli.log", "installed-cli.log.stderr",
             "development-Gemfile.lock", "consumer-Gemfile.lock", "thistle.gem",
         ):
@@ -111,6 +113,35 @@ File.write("consumer-args.json", JSON.generate(ARGV))
 puts JSON.generate("status" => "passed", "native_sha256" => "fake-native")
 '''
 
+CALLBACK_PRODUCER = r'''
+require "json"
+require "fileutils"
+require "digest"
+fixture, root, store = ARGV
+raise "Callback producer arguments changed" unless ARGV.length == 3
+raise "Callback input inside checkout" if [__FILE__, *ARGV].any? { |p| p.start_with?(ENV.fetch("SOURCE") + "/") }
+raise "Wrong callback fixture" unless File.read(File.join(fixture, "booted_app.rb")) == "# callback boot\n"
+raise "Missing callback records" unless File.read(File.join(fixture, "records.rb")) == "# callback records\n"
+module Rails; end
+FileUtils.mkdir_p(store)
+File.write(File.join(store, "producer-pid"), Process.pid.to_s)
+File.write("callback-producer-args.json", JSON.generate(ARGV))
+puts JSON.generate("generation" => "callback-generation", "native_sha256" => "fake-native",
+  "fixture_source_sha256" => Digest::SHA256.file(File.join(fixture, "records.rb")).hexdigest)
+'''
+
+CALLBACK_CONSUMER = r'''
+require "json"
+raise "Callback consumer arguments changed" unless ARGV.length == 2
+raise "Callback consumer inherited Rails" if defined?(Rails) || defined?(ActiveRecord)
+raise "Callback consumer inside checkout" if [__FILE__, *ARGV].any? { |p| p.start_with?(ENV.fetch("SOURCE") + "/") }
+store, receipt = ARGV
+raise "Callback producer did not exit into a fresh consumer" if File.read(File.join(store, "producer-pid")) == Process.pid.to_s
+raise "Callback receipt changed" unless JSON.parse(File.read(receipt)).fetch("generation") == "callback-generation"
+File.write("callback-consumer-args.json", JSON.generate(ARGV))
+puts JSON.generate("status" => "passed", "native_sha256" => "fake-native")
+'''
+
 
 class InstalledContractTests(unittest.TestCase):
     def setUp(self):
@@ -146,6 +177,29 @@ class InstalledContractTests(unittest.TestCase):
 
     def installed_model(self):
         (self.installed / "lib/thistle/model_observer.rb").write_text("# installed payload\n")
+
+    def callback_inputs(self):
+        inputs = {
+            "test/fixtures/callbacks/booted_app.rb": "# callback boot\n",
+            "test/fixtures/callbacks/records.rb": "# callback records\n",
+            "map/test/installed_callback_producer.rb": CALLBACK_PRODUCER,
+            "map/test/installed_callback_consumer.rb": CALLBACK_CONSUMER,
+        }
+        for name, content in inputs.items():
+            self.write(name, content)
+        return inputs
+
+    def callback_attempt(self, name):
+        # Separate synthetic attempts never inherit another subcase's receipts.
+        self.worker = self.root / ("consumer-" + name)
+        self.output = self.source / "pkg" / name
+        self.installed = self.worker / "bundle/gems/thistle"
+        (self.installed / "lib/thistle").mkdir(parents=True)
+        self.output.mkdir(parents=True)
+        for package in ("core.gem", "map.gem"):
+            (self.output / package).write_text(package)
+        (self.installed / "lib/thistle/callback_observer.rb").write_text("# installed callback payload\n")
+        return self.callback_inputs()
 
     def invoke(self):
         # An outer finite timeout bounds only these harmless synthetic children.
@@ -275,6 +329,96 @@ class InstalledContractTests(unittest.TestCase):
         result = self.invoke()
         self.assert_stopped(result)
         self.assertIn("different native bytes", result.stderr)
+
+    def test_legacy_payload_ignores_callback_source_and_keeps_prior_smoke(self):
+        self.callback_inputs()
+        self.write("lib/thistle/callback_observer.rb", "# source only\n")
+        result = self.invoke()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        report = self.read_json("report.json")
+        self.assertEqual(report["callback_journey"], "not_applicable_to_selected_package")
+        self.assertEqual(report["callback_fixture_inputs"], {})
+        self.assertIsNone(report["callback_producer_receipt_sha256"])
+        self.assertIsNone(report["callback_consumer_receipt_sha256"])
+        self.assertFalse((self.output / "callback-producer.json").exists())
+        self.assertEqual(json.loads((self.worker / "consumer-args.json").read_text()), [])
+
+    def test_callback_payload_runs_separate_journey_without_changing_model_argv(self):
+        source_inputs = self.callback_attempt("success")
+        self.model_inputs()
+        self.installed_model()
+        result = self.invoke()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        for name, args in (
+            ("consumer-args.json", ["model-store", "model-producer.json"]),
+            ("callback-producer-args.json", ["callback-fixture", "callback-source", "callback-store"]),
+            ("callback-consumer-args.json", ["callback-store", "callback-producer.json"]),
+        ):
+            self.assertEqual(json.loads((self.worker / name).read_text()), [str(self.worker / arg) for arg in args])
+        report = self.read_json("report.json")
+        self.assertEqual(report["callback_journey"], "passed")
+        expected = {}
+        for path, content in source_inputs.items():
+            staged = path.replace("test/fixtures/callbacks/", "callback-fixture/").removeprefix("map/test/")
+            expected[staged] = hashlib.sha256(content.encode()).hexdigest()
+        self.assertEqual(report["callback_fixture_inputs"], expected)
+        self.assertEqual(self.read_json("callback-inputs.json"), expected)
+        for key, name in (
+            ("callback_producer_receipt_sha256", "callback-producer.json"),
+            ("callback_consumer_receipt_sha256", "callback-consumer.json"),
+        ):
+            self.assertEqual(report[key], hashlib.sha256((self.output / name).read_bytes()).hexdigest())
+        self.assertEqual(report["native_sha256"], self.read_json("native-observation.json")["native_sha256"])
+        self.assertEqual(report["consumer_lock_sha256"], hashlib.sha256((self.output / "consumer-Gemfile.lock").read_bytes()).hexdigest())
+        self.assertTrue((self.worker / "cli-ran").exists())
+
+    def test_callback_payload_missing_inputs_stops_before_producer_and_cli(self):
+        for index, missing in enumerate(self.callback_inputs()):
+            with self.subTest(missing=missing):
+                self.callback_attempt("missing-" + str(index))
+                (self.source / missing).unlink()
+                result = self.invoke()
+                self.assert_stopped(result)
+                self.assertFalse((self.output / "callback-producer.json").exists())
+                self.assertFalse((self.output / "callback-consumer.json").exists())
+
+    def test_callback_process_failures_retain_evidence_and_stop_dependents(self):
+        for stage in ("producer", "consumer"):
+            with self.subTest(stage=stage):
+                self.callback_attempt("failed-" + stage)
+                self.write("map/test/installed_callback_" + stage + ".rb",
+                           "puts 'partial callback'; warn 'callback failed'; exit 7\n")
+                result = self.invoke()
+                self.assert_stopped(result)
+                receipt = "callback-" + stage + ".json"
+                self.assertEqual((self.output / receipt).read_text(), "partial callback\n")
+                self.assertEqual((self.output / (receipt + ".stderr")).read_text(), "callback failed\n")
+                self.assertEqual(len(self.read_json("callback-inputs.json")), 4)
+                if stage == "producer":
+                    self.assertFalse((self.output / "callback-consumer.json").exists())
+                else:
+                    self.assertEqual(self.read_json("callback-producer.json")["generation"], "callback-generation")
+
+    def test_callback_receipt_refusals_prevent_cli_and_passing_report(self):
+        cases = (
+            ("producer-native", "producer", CALLBACK_PRODUCER.replace('"fake-native"', '"different-native"')),
+            ("producer-fixture", "producer", CALLBACK_PRODUCER.replace(
+                'Digest::SHA256.file(File.join(fixture, "records.rb")).hexdigest', '"0" * 64')),
+            ("consumer-native", "consumer", CALLBACK_CONSUMER.replace('"fake-native"', '"different-native"')),
+            ("consumer-status", "consumer", CALLBACK_CONSUMER.replace('"passed"', '"failed"')),
+            ("producer-json", "producer", "puts 'invalid receipt'\n"),
+            ("consumer-json", "consumer", "puts 'invalid receipt'\n"),
+            ("input-change", "consumer", CALLBACK_CONSUMER + '\nFile.write(__FILE__, "changed")\n'),
+        )
+        for name, stage, code in cases:
+            with self.subTest(name=name):
+                self.callback_attempt(name)
+                self.write("map/test/installed_callback_" + stage + ".rb", code)
+                result = self.invoke()
+                self.assert_stopped(result)
+                self.assertTrue((self.output / ("callback-" + stage + ".json")).exists())
+                if stage == "producer":
+                    self.assertFalse((self.output / "callback-consumer.json").exists())
 
 
 if __name__ == "__main__":
