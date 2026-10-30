@@ -692,11 +692,13 @@ impl Capture {
         // Only known recoverable classes coalesce. Compare ALL fields
         // except the count, preserving future reason/location/provenance fields.
         // A bounded scan avoids a second retained key/map and its memory budget.
+        // Exact provenance has at most one group; start at the newest group to
+        // favor repeated sites from the current file without changing its index.
         let grouped = (record["code"] == "dynamic_scope" && matches!(record["message"].as_str(),
             Some(DECLARATION_SCOPE_MESSAGE) | Some(MIXIN_SCOPE_MESSAGE))) ||
             (record["code"] == "constant_path_unavailable" && record["message"] == CONSTANT_PATH_MESSAGE);
         let existing = if grouped {
-            self.diagnostics.iter().position(|prior| {
+            self.diagnostics.iter().rposition(|prior| {
                 let (Some(a), Some(b)) = (prior.as_object(), record.as_object()) else { return false; };
                 a.len() == b.len() && a.iter().all(|(key, value)| key == "occurrences" || b.get(key) == Some(value))
             })

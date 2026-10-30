@@ -53,8 +53,10 @@ bounded path depth). Dynamic, oversized or unsupported-depth labels report
 unavailable with a diagnostic and conservative partial coverage; actual inner
 expressions still traverse. Repeated unavailable sites with identical full
 provenance coalesce into one group with an explicit occurrence count. Different
-paths remain separate and existing diagnostic group/occurrence/byte ceilings
-still refuse; no ceiling is increased.
+source-file paths remain separate; different constant labels in the same file
+share a group when all other diagnostic fields match. Existing group and byte
+ceilings still refuse, and occurrence totals use checked overflow rather than a
+separate occurrence ceiling. No ceiling is increased.
 
 ## Before/after known answers
 

@@ -87,7 +87,11 @@ class ThistleConstantOccurrencesTest < Minitest::Test
         syntax = meta.fetch('syntax')
         assert_equal syntax, bytes.fetch(path).byteslice(location[0]...location[1])
         assert_equal syntax.start_with?('::'), meta.fetch('rooted')
-        assert_equal(path == 'sites.rb' ? 'Workshop::Screen' : nil, meta.fetch('lexical_scope'))
+        if path == 'sites.rb'
+          assert_equal 'Workshop::Screen', meta.fetch('lexical_scope')
+        else
+          assert_nil meta.fetch('lexical_scope')
+        end
         assert_equal generation, reader.source(row.dig('origin', 'id')).fetch('generation')
         [path, location[2], row.dig('link', 'target'), meta.fetch('role'), row.dig('origin', 'name')]
       end
