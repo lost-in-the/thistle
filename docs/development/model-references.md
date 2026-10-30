@@ -26,8 +26,11 @@ The response has `generation`, a compact `anchor` identity, `direction`, `limit`
 `relationships`, `coverage` and a semantics explanation. Each relationship has
 its compact origin, semantic link, any detail omission, candidate label, bounded
 candidate identities, known candidate matches and candidate-search completeness.
-The query borrows stored facts and uses the schema-aware `SemanticLinkView`;
-it does not call `all_facts`, retain another dataset, or build a query index.
+The query borrows stored facts and uses the schema-aware `SemanticLinkView`.
+Exact candidate lookup uses an optional admitted Reader-local directory of fact
+positions, without copying labels or retaining another link dataset. See the
+[recorded-domain continuation contract](recorded-domain-access.md) for public
+Reader/CLI paging, global candidate counts and separate construction costs.
 
 An outgoing relationship is a recorded link on the selected fact. Incoming
 relationships match a recorded target label to the selected fact's full name.
@@ -49,18 +52,23 @@ This path does not infer associations that capture never recorded.
 ## Bounded work and evidence
 
 Relationships follow stored stable-ID order, then the recorded link order.
-Candidates follow the same stable fact order. There is no pagination cursor or
-hidden whole-dataset fallback; increase the result limit for a larger prefix.
+Candidate pages follow exact label, kind and saved fact position. Public Reader
+and CLI calls return a generation/query-bound `next_cursor`; following it from
+the beginning exhausts the selected recorded domain. Counts and completeness
+refer to the remaining cursor domain, not the application or earlier pages.
+Map currently renders its bounded page; no Map pagination UI is claimed here.
 
 Each request admits a 32 MiB transient reservation through the existing aggregate
 Reader/query budget, held through native response serialization. It scans at most
 20,000 facts and 50,000 links, performs at most 100,000 label comparisons and
-charges at most 16 MiB of compared label bytes. Outgoing candidate discovery shares
-the comparison/byte budgets and visits at most 20,000 facts once, comparing only
-the returned relationships. At most four candidate identities are emitted per
-relationship. This bounded nested comparison avoids a retained index and its
-invalidation/accounting cost; wide result limits can exhaust candidate search
-before all facts are examined.
+charges at most 16 MiB of compared label bytes. These are per-step limits;
+continuation resumes at saved fact/link positions instead of rescanning the
+consumed prefix. Outgoing candidate lookup shares comparison/byte admission and
+uses exact global directory ranges before reporting uniqueness or ambiguity.
+At most four candidate identities are emitted per relationship; pinned candidate
+pages expose the rest. Directory construction, capacity reservation, reuse and
+rebuilding on a fresh Reader are separate full-domain costs, never hidden in the
+incremental scan allowance. Resource refusal remains explicit.
 
 Selected relationship/candidate payloads share a 2 MiB encoded budget (the small
 envelope and counters are additional). Individual link detail is capped at 16 KiB;

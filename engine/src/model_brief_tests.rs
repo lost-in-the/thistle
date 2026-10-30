@@ -106,10 +106,12 @@ fn exhausted_reference_scans_retain_the_admitted_prefix_and_envelope() {
     for direction in ["incoming", "outgoing"] {
         let parameters = json!({"id":id,"direction":direction,"limit":1});
         let query = references::Query::parse(&parameters).unwrap();
-        let allowance = if direction == "incoming" { root_index + 3 } else { 5 };
+        // The directory charges the returned identity, not a linear candidate
+        // prefix. Outgoing needs anchor + origin visit/identity + one candidate.
+        let allowance = if direction == "incoming" { root_index + 3 } else { 4 };
         let mut work = RequestWork { facts:FACTS-allowance, ..RequestWork::default() };
         let result = references::select_scoped(&reader, &query, Some(&mut work)).unwrap();
-        assert_eq!(work.facts, FACTS);
+        assert_eq!(work.facts, FACTS, "{direction}");
         assert_eq!(result["anchor"]["id"], id);
         assert_eq!(result["generation"], reader.generation);
         let rows = result["relationships"].as_array().unwrap();
