@@ -129,4 +129,16 @@ class ThistleModelObserverTest < Minitest::Test
       assert_equal value, data['polymorphic']
     end
   end
+
+  def test_unknown_abstract_status_does_not_attempt_schema_reads
+    model = model_for(SchemaPool.new, table: 'unknown')
+    calls = []
+    model.define_singleton_method(:abstract_class?) { nil }
+    model.define_singleton_method(:connection_pool) { calls << :pool; raise 'unknown model schema accessed' }
+    data = observer.send(:observe, model)
+    assert_nil data['abstract']
+    assert_equal 'unavailable', data.dig('columns', 'status')
+    assert_equal 'observed', data.dig('associations', 'status')
+    assert_empty calls
+  end
 end
