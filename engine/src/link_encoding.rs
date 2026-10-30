@@ -24,6 +24,39 @@ pub(crate) struct SemanticLinkView<'a> {
     target: &'a str,
     resolution: &'a str,
     call: Option<schema::CallMetadata<'a>>,
+    constant: Option<schema::ConstantMetadata<'a>>,
+}
+
+#[cfg(test)]
+mod constant_occurrence_tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn only_schema_three_recognizes_static_unresolved_object_occurrences() {
+        let link = json!({"relation":"references_constant","target":"::User","resolution":"unresolved",
+            "attributes":{"thistle_constant":{"version":1,"syntax":"::User","rooted":true,
+                "lexical_scope":"Shop","role":"argument","location":[0,6,1,1]}}});
+        let view = SemanticLinkView::from_semantic(&link, 3, "static").unwrap();
+        assert!(view.constant_metadata().is_some());
+        assert!(view.call_metadata().is_none());
+        assert_eq!(view.materialize().unwrap(), link);
+        assert!(view.compact_parts(3).is_none()); // never tag 0
+        for version in 1..=2 {
+            assert!(SemanticLinkView::from_semantic(&link, version, "static").unwrap().constant_metadata().is_none());
+        }
+        for (key, value) in [("relation", json!("calls")), ("resolution", json!("resolved")), ("target", json!("User"))] {
+            let mut bad = link.clone(); bad[key] = value;
+            assert!(SemanticLinkView::from_semantic(&bad, 3, "static").is_err());
+        }
+        assert!(SemanticLinkView::from_semantic(&link, 3, "runtime").is_err());
+        let mut both = link.clone();
+        both["attributes"]["thistle_call"] = json!({"version":2,"data":["constant","User",false,false,[0,6,1,1],[0,6,1,1]]});
+        assert!(SemanticLinkView::from_semantic(&both, 3, "static").is_err());
+        let mut opaque = link.clone(); opaque["attributes"]["thistle_constant"] = json!({"version":8,"future":[]});
+        assert!(SemanticLinkView::from_semantic(&opaque, 3, "runtime").unwrap().constant_metadata().is_none());
+        assert_eq!(SemanticLinkView::from_semantic(&opaque, 3, "runtime").unwrap().materialize().unwrap(), opaque);
+    }
 }
 
 fn context(version: u64, evidence: &str) -> Result<()> {
@@ -60,6 +93,14 @@ impl<'a> SemanticLinkView<'a> {
         }
         let call = link.get("attributes").and_then(|attrs| attrs.get("thistle_call"))
             .map(|ext| schema::call_metadata(ext, version)).transpose()?.flatten();
+        let constant = link.get("attributes").and_then(|attrs| attrs.get("thistle_constant"))
+            .map(|ext| schema::constant_metadata(ext, version)).transpose()?.flatten();
+        if let Some(constant) = &constant {
+            if link["relation"] != "references_constant" || resolution != "unresolved" || evidence != "static" || call.is_some() {
+                return Err(CoreError::input("Invalid constant occurrence context"));
+            }
+            schema::validate_constant_target(constant, schema::string(link, "target")?)?;
+        }
         if let Some(call) = &call {
             if link["relation"] != "calls" || resolution != "unresolved" || evidence != "static" {
                 return Err(CoreError::input("Invalid call metadata shape"));
@@ -67,7 +108,7 @@ impl<'a> SemanticLinkView<'a> {
             schema::validate_call_shape(call)?;
         }
         Ok(Self { representation: Representation::Object(link), relation: schema::string(link, "relation")?,
-            target: schema::string(link, "target")?, resolution, call })
+            target: schema::string(link, "target")?, resolution, call, constant })
     }
 
     pub(crate) fn from_wire(link: &'a Value, version: u64, evidence: &str) -> Result<Self> {
@@ -86,13 +127,14 @@ impl<'a> SemanticLinkView<'a> {
         schema::validate_call_shape(&call)?;
         Ok(Self { representation: Representation::Call { target: &row[1], data: &row[2] },
             relation: "calls", target: row[1].as_str().expect("validated target"),
-            resolution: "unresolved", call: Some(call) })
+            resolution: "unresolved", call: Some(call), constant: None })
     }
 
     pub(crate) fn relation(&self) -> &'a str { self.relation }
     pub(crate) fn target(&self) -> &'a str { self.target }
     pub(crate) fn resolution(&self) -> &'a str { self.resolution }
     pub(crate) fn call_metadata(&self) -> Option<&schema::CallMetadata<'a>> { self.call.as_ref() }
+    pub(crate) fn constant_metadata(&self) -> Option<&schema::ConstantMetadata<'a>> { self.constant.as_ref() }
 
     fn compact_parts(&self, version: u64) -> Option<(&'a Value, &'a Value)> {
         if version != 3 || self.call.is_none() { return None; }
