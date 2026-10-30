@@ -35,6 +35,8 @@ class ThistleParserBoundaryTest < Minitest::Test
         File.write(File.join(directory, "probe.rb"), source)
         stdout = File.join(directory, "stdout.txt")
         stderr = File.join(directory, "stderr.txt")
+        started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+        children_before = Process.times
         pid = Process.spawn(
           RbConfig.ruby, "-I", File.expand_path("../lib", __dir__), "-e", PROGRAM, directory, mode,
           out: stdout, err: stderr, **ThistleTestProcess::LIMITS
@@ -46,7 +48,21 @@ class ThistleParserBoundaryTest < Minitest::Test
           Process.waitpid(pid) rescue nil
           flunk "Native parser did not finish within the external deadline (#{mode})"
         end
-        assert status.success?, "Native parser process failed (#{mode}): #{File.read(stderr, 2_000)}"
+        unless status.success?
+          children_after = Process.times
+          # These deltas cover all children reaped by this controller in the
+          # interval; they are not isolated per-process resource measurements.
+          failure = JSON.generate(
+            "wait_status" => status.to_i, "exitstatus" => status.exitstatus,
+            "termsig" => status.termsig, "coredump" => status.coredump?,
+            "wall_seconds" => Process.clock_gettime(Process::CLOCK_MONOTONIC) - started,
+            "waited_children_user_seconds" => children_after.cutime - children_before.cutime,
+            "waited_children_system_seconds" => children_after.cstime - children_before.cstime,
+            "stdout_prefix" => File.binread(stdout, 2_000).force_encoding(Encoding::UTF_8).scrub,
+            "stderr_prefix" => File.binread(stderr, 2_000).force_encoding(Encoding::UTF_8).scrub
+          )
+        end
+        assert status.success?, "Native parser process failed (#{mode}): #{failure}"
         result = JSON.parse(File.read(stdout))
         if result["status"] == "refused"
           assert_equal "limit_exceeded", result["code"]
