@@ -35,6 +35,10 @@ with the same credentials is not an enforcement boundary.
    integration scope after the base moves. Do not let a stale approval or a prior
    head's report silently qualify new code.
 6. **Close the bounded work.** Link the integrated commit and exact evidence.
+   Name the owner of outstanding required post-merge main checks and keep the
+   result unaccepted while those checks remain queued or inconclusive. Use the
+   [watch/handoff procedure](../../.agents/skills/thistle-hand-off/SKILL.md#pr-watch-ownership)
+   to identify exactly which step is blocked; disjoint source work may continue.
    Keep broader capability, experiment, and release decisions separate.
 
 Use closing references only when the PR actually completes that work issue.
