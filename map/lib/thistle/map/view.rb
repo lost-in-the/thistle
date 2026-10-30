@@ -409,8 +409,136 @@ module Thistle
         end.join + '</div>'
         return identity + '<p class="notice ui">Detailed fact evidence was not loaded for this incoming view. Open Source or Outgoing references to inspect it.</p>' unless details
 
-        identity + ModelPresenter.render(fact) +
+        identity + model_brief(fact) + ModelPresenter.render(fact) +
           CallbackPresenter.new(generation: @generation, reader: @reader, mount: @mount).render(fact)
+      end
+
+      # Rust selects every item and its evidence. Map only renders the bounded
+      # summary on the already pinned Reader; incoming identity-only views skip it.
+      def model_brief(fact)
+        return '' unless fact['kind'] == 'rails_model'
+        heading = '<section aria-label="Saved model investigation"><h2>Saved model investigation</h2>'
+        unless @reader.respond_to?(:model_brief)
+          return heading + '<p class="notice ui">Model brief unavailable with this Reader. Possible relationships and effects remain unknown.</p></section>'
+        end
+        raise Thistle::InvalidSnapshot, 'Model brief Reader generation mismatch' unless @reader.generation == @generation
+
+        result = @reader.model_brief(fact.fetch('id'), limit: 8, max_bytes: 32768)
+        unless result['version'] == 1 && result['generation'] == @generation && result.dig('root', 'id') == fact['id'] &&
+            result.dig('root', 'kind') == 'rails_model' &&
+            result.fetch('families').values.all? { |family| family['generation'] == @generation }
+          raise Thistle::InvalidSnapshot, 'Model brief identity does not match this view'
+        end
+        body = heading + "<p class=\"notice ui\">#{h(result.fetch('uncertainty'))}</p>"
+        body << '<p>Recorded declarations, registered callbacks and source-supported potential are separate evidence. Execution, conditions, runtime/source coherence and model-to-registry binding remain unknown. Columns are recorded declarations; no live database was consulted by this view.</p>'
+        coverage = result.fetch('coverage')
+        body << "<p>Capture partial or unknown: #{h(brief_value(coverage['capture_partial_or_unknown']))}. Coverage families not projected: #{h(brief_value(coverage['families_not_projected']))}.</p>"
+        body << "<p>Brief limit: #{h(result.dig('limits', 'items_per_family'))} items per family; returned #{h(result.dig('usage', 'returned_items'))} items. Empty or shortened results do not establish absence.</p>"
+        labels = { 'columns' => 'Recorded columns', 'associations' => 'Recorded associations',
+          'registry_candidates' => 'Callback registry label candidates', 'callbacks' => 'Registered callbacks and potential requests',
+          'outgoing' => 'Outgoing recorded relationships', 'incoming' => 'Incoming recorded relationships' }
+        labels.each do |name, label|
+          family = result.fetch('families').fetch(name)
+          body << "<section aria-label=\"#{h(label)}\"><h3>#{h(label)}</h3>"
+          body << "<p>Status: #{h(family.fetch('status'))} · #{h(family.fetch('reason'))}. Provenance: #{h(family.fetch('provenance'))}. "
+          body << "Known omitted: #{h(brief_value(family['known_omitted']))}; unsearched: #{h(brief_value(family['unsearched']))}; output truncated: #{h(brief_value(family.fetch('output_truncated', false)))}.</p>"
+          items = family.fetch('items')
+          if items.empty?
+            body << '<p>No items returned in this brief family. Check status, capture coverage and omissions before inferring absence.</p>'
+          elsif name == 'columns' || name == 'associations'
+            fields = name == 'columns' ? %w[name type null] : %w[name macro target polymorphic status]
+            rows = items.map { |item| '<tr>' + fields.map { |key| "<td>#{h(brief_value(item[key]))}</td>" }.join + '</tr>' }.join
+            headings = name == 'columns' ? ['Name', 'Recorded type', 'Allows null'] : ['Name', 'Macro', 'Target label', 'Polymorphic', 'Binding evidence']
+            body << table(label, headings, rows)
+          else
+            items.each do |item|
+              body << case name
+                      when 'registry_candidates' then "<p>#{brief_identity(item)}</p>"
+                      when 'callbacks' then brief_callback(item)
+                      else brief_relationship(item)
+                      end
+            end
+          end
+          body << brief_followup(family['followup'])
+          # Preserve component scan completeness, unknown counts, binding and
+          # continuation/cost metadata without interpreting them as new semantics.
+          metadata = family.reject { |key, _| key == 'items' }
+          body << "<details><summary>#{h(label)} coverage and limits</summary><pre class=\"check-data\">#{h(JSON.pretty_generate(metadata))}</pre></details></section>"
+        end
+        body << "<details><summary>Brief capture coverage and request budgets</summary><pre class=\"check-data\">#{h(JSON.pretty_generate(result.reject { |key, _| key == 'families' }))}</pre></details>"
+        body + '</section>'
+      rescue Thistle::LimitExceeded
+        heading + '<p class="notice ui">Model brief reached resource limits; no brief was returned. Relationships and potential effects remain unknown.</p></section>'
+      rescue Thistle::InvalidInput => error
+        raise unless error.message == 'Unknown native operation'
+        heading + '<p class="notice ui">Native model brief API unavailable. Relationships and potential effects remain unknown.</p></section>'
+      end
+
+      def brief_value(value)
+        value.nil? ? 'Unknown' : value.is_a?(Hash) || value.is_a?(Array) ? JSON.generate(value) : value.to_s
+      end
+
+      def brief_identity(identity)
+        id = identity.fetch('id')
+        raise Thistle::InvalidSnapshot, 'Invalid brief evidence ID' unless /\A[0-9a-f]{64}\z/.match?(id)
+        "#{h(identity.fetch('name'))} #{h([identity['kind'], identity['evidence']].compact.join('; '))} · " \
+          "<a href=\"#{h(url('/source', 'id' => id))}\">Source for #{h(identity.fetch('name'))}</a> · " \
+          "<a href=\"#{h(url('/links', 'id' => id, 'direction' => 'outgoing'))}\">Links for #{h(identity.fetch('name'))}</a>"
+      end
+
+      def brief_relationship(item)
+        link = item.fetch('link')
+        body = "<article><h4>#{h(link['relation'])}: #{h(link['target'])}</h4><p>#{brief_identity(item.fetch('origin'))}</p>"
+        body << "<p>#{h(item.fetch('match_basis'))} · resolution: #{h(link['resolution'])}. Candidate matches: #{h(brief_value(item['candidate_matches']))}; candidate search complete: #{h(brief_value(item['candidate_search_complete']))}; detail omitted: #{h(brief_value(item['detail_omitted']))}. Labels do not establish runtime binding.</p>"
+        item.fetch('candidates').each { |candidate| body << "<p>Label candidate: #{brief_identity(candidate)}</p>" }
+        body + brief_item_details('Saved relationship evidence', item) + '</article>'
+      end
+
+      def brief_callback(item)
+        analysis = item.fetch('explanation')
+        body = "<article><h4>Registered position #{h(item.fetch('position'))} · #{h(item['kind'])}</h4>"
+        body << "<p>Registry evidence: #{h(item.fetch('registry_provenance'))}; inherited: #{h(brief_value(item['inherited']))}. Position is not execution order.</p>"
+        body << "<p>Filter: #{h(brief_value(item['filter']))}. Conditions (not evaluated): if #{h(brief_value(item['if']))}; unless #{h(brief_value(item['unless']))}.</p>"
+        body << "<p>Source explanation: #{h(analysis.fetch('status'))} · #{h(analysis.fetch('reason'))}; binding: #{h(analysis.fetch('binding'))}; links search complete: #{h(brief_value(analysis['links_search_complete']))}.</p>"
+        if analysis['method']
+          body << "<p>Captured declaration: #{brief_identity(analysis.fetch('method'))}</p>"
+        end
+        analysis.fetch('effects').each do |effect|
+          body << "<p>Source-supported potential request: <code>#{h(effect.fetch('operation'))}</code> · #{h(effect.fetch('provenance'))}. Invocation and delivery unknown.</p>"
+          body << "<pre><code>#{h(effect.fetch('source_excerpt'))}</code></pre>"
+          body << '<p>Supporting excerpt shortened; exact saved span remains recorded.</p>' if effect['excerpt_truncated']
+          source, span = analysis.fetch('source'), effect.fetch('call_span')
+          body << "<p>Saved file: #{h(source.fetch('path'))}; SHA-256: #{h(source.fetch('sha256'))}; call bytes [#{h(span.fetch('start_byte'))}, #{h(span.fetch('end_byte'))}).</p>"
+          if source.fetch('lines') <= MAX_SOURCE_LINES && span.fetch('start_line') <= MAX_SOURCE_LINES
+            anchor = url('/source', 'id' => analysis.fetch('method').fetch('id')) + "#L#{Integer(span.fetch('start_line'))}"
+            body << "<p><a href=\"#{h(anchor)}\">Supporting captured source at line #{h(span.fetch('start_line'))} (coherence unknown)</a></p>"
+          else
+            body << '<p>Supporting source exceeds the web line budget. Use the pinned Reader Source API for the complete file.</p>'
+          end
+        end
+        body << "<p>Known potential effects omitted: #{h(brief_value(analysis['known_effects_omitted']))}; effects non-exhaustive: #{h(brief_value(analysis['effects_non_exhaustive']))}.</p>"
+        body + brief_item_details('Saved callback evidence', item) + '</article>'
+      end
+
+      def brief_item_details(label, item)
+        "<details><summary>#{h(label)}</summary><pre class=\"check-data\">#{h(JSON.pretty_generate(item))}</pre></details>"
+      end
+
+      def brief_followup(followup)
+        return '' unless followup
+        raise Thistle::InvalidSnapshot, 'Model brief follow-up generation mismatch' unless followup['generation'] == @generation
+        operation, id = followup.values_at('operation', 'id')
+        raise Thistle::InvalidSnapshot, 'Invalid brief follow-up ID' unless /\A[0-9a-f]{64}\z/.match?(id)
+        case operation
+        when 'references'
+          "<p><a href=\"#{h(url('/links', 'id' => id, 'direction' => followup.fetch('direction')))}\">Inspect #{h(followup.fetch('direction'))} relationships in Links</a></p>"
+        when 'callback_effects'
+          "<p><a href=\"#{h(url('/links', 'id' => id, 'direction' => 'outgoing'))}\">Inspect registered callback evidence in Links</a></p>"
+        when 'model_brief'
+          command = "thistle model-brief #{id} --store STORE --generation #{@generation} --family #{followup.fetch('family')}"
+          "<p>Continue the recorded family with the matching Reader/CLI: <code>#{h(command)}</code>. Replace STORE with your saved store. Continuation requires a Core version supporting family pages.</p>"
+        else ''
+        end
       end
 
       def constraint_summary(fact)
