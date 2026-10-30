@@ -197,7 +197,12 @@ impl Reader {
         let mut method_counts = crate::method_lookup::Counts::default();
         for (index, fact) in facts.iter().enumerate() {
             method_counts.record(fact)?;
-            if let Some(path) = fact["path"].as_str() { by_file.entry(path.to_string()).or_default().push(index); }
+            if let Some(path) = fact["path"].as_str() {
+                match by_file.get_mut(path) {
+                    Some(indices) => indices.push(index),
+                    None => { by_file.insert(path.to_string(), vec![index]); }
+                }
+            }
         }
         let blobs = root.child("blobs", false)?;
         let (search, weight) = search_cache(&facts, facts_bytes.len(), manifest_bytes.len())?;

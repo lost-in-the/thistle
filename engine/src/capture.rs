@@ -64,6 +64,9 @@ struct Capture {
     limits: HashMap<String, usize>,
     files: Vec<Value>,
     facts: Vec<Value>,
+    /// Kind of each fact by index, so scope checks on every node do not
+    /// search the fact object.
+    kinds: Vec<FactKind>,
     diagnostics: Vec<Value>,
     diagnostic_bytes: usize,
     diagnostic_occurrences: u64,
@@ -76,6 +79,15 @@ struct Capture {
     call_keys: HashMap<CallKey, usize>,
     inventory_partial: bool,
     declarations_partial: bool,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum FactKind { File, Class, Module, Method }
+
+impl FactKind {
+    fn label(self) -> &'static str {
+        match self { Self::File => "file", Self::Class => "class", Self::Module => "module", Self::Method => "method" }
+    }
 }
 
 struct CapturePermit;
@@ -130,7 +142,7 @@ fn capture_inner(root: &Path, effective: HashMap<String, usize>) -> Result<Value
     let directory = open_root(&canonical)?;
     let mut capture = Capture {
         limits: effective,
-        files: Vec::new(), facts: Vec::new(), diagnostics: Vec::new(), diagnostic_bytes: 2, diagnostic_occurrences: 0,
+        files: Vec::new(), facts: Vec::new(), kinds: Vec::new(), diagnostics: Vec::new(), diagnostic_bytes: 2, diagnostic_occurrences: 0,
         entries: 0, total_bytes: 0, nodes: 0, links: 0, evidence_bytes: 2,
         link_keys: HashSet::new(), call_keys: HashMap::new(), inventory_partial: false, declarations_partial: false,
     };
@@ -328,7 +340,7 @@ impl Capture {
         let digest = schema::digest(content);
         if path.ends_with(".rs") {
             let lines = LineIndex::new(content);
-            self.add_fact("file", path, path, json!({
+            self.add_fact(FactKind::File, path, path, json!({
                 "start_line":1, "end_line":lines.file_end_line(content), "start_byte":0, "end_byte":content.len()
             }), json!({"sha256":digest,"bytes":content.len(),"language":"rust","parse_status":"not_parsed"}))?;
             self.files.push(file_record(path, digest, text));
@@ -349,7 +361,7 @@ impl Capture {
         let errors: Vec<_> = parsed.errors().take(self.limit("max_diagnostics") + 1).collect();
         if errors.len() > self.limit("max_diagnostics") { return Err(CoreError::limit("Capture exceeds max_diagnostics")); }
         let file_position = json!({"start_line":1, "end_line":lines.file_end_line(content), "start_byte":0, "end_byte":content.len()});
-        self.add_fact("file", path, path, file_position, json!({
+        self.add_fact(FactKind::File, path, path, file_position, json!({
             "sha256":digest, "bytes":content.len(), "language":"ruby", "parse_status":if errors.is_empty() { "valid" } else { "invalid" }
         }))?;
         let extracted = if errors.is_empty() {
@@ -374,6 +386,9 @@ impl Capture {
 
     fn extract<'pr>(&mut self, root: Node<'pr>, path: &str, lines: &LineIndex) -> Result<()> {
         let initial = Rc::new(Scope { owner:"Object".to_owned(), namespace:None, singleton:false, current:None, dynamic:false });
+        // Children are pushed in source order and the pushed run is reversed,
+        // so the stack visits sites in source order. The earliest site of a
+        // call group is then admitted first instead of replacing later ones.
         let mut pending = vec![(root, initial)];
         while let Some((node, scope)) = pending.pop() {
             self.nodes += 1;
@@ -382,7 +397,7 @@ impl Capture {
                 if scope.dynamic || scope.singleton { self.uncertain_scope(path)?; continue; }
                 let raw = constant_expression(&class.constant_path());
                 let (name, resolution) = declaration_name(&raw, scope.namespace.as_deref());
-                let index = self.add_fact("class", &name, path, lines.location(&class.location()), json!({
+                let index = self.add_fact(FactKind::Class, &name, path, lines.location(&class.location()), json!({
                     "declaration_name":raw, "lexical_scope":scope.namespace.iter().collect::<Vec<_>>(), "name_resolution":resolution
                 }))?;
                 if let Some(parent) = class.superclass() { self.add_link(index, "inherits", parent.location().as_slice(), path)?; }
@@ -392,7 +407,7 @@ impl Capture {
                 if scope.dynamic || scope.singleton { self.uncertain_scope(path)?; continue; }
                 let raw = constant_expression(&module.constant_path());
                 let (name, resolution) = declaration_name(&raw, scope.namespace.as_deref());
-                let index = self.add_fact("module", &name, path, lines.location(&module.location()), json!({
+                let index = self.add_fact(FactKind::Module, &name, path, lines.location(&module.location()), json!({
                     "declaration_name":raw, "lexical_scope":scope.namespace.iter().collect::<Vec<_>>(), "name_resolution":resolution
                 }))?;
                 let next = Rc::new(Scope { owner:name.clone(), namespace:Some(name), singleton:false, current:Some(index), dynamic:false });
@@ -410,7 +425,7 @@ impl Capture {
                 let method_name = text(method.name().as_slice());
                 let name = format!("{owner}{}{method_name}", if singleton { "." } else { "#" });
                 let parameters = method.parameters().map(|parameters| text(parameters.location().as_slice()));
-                let index = self.add_fact("method", &name, path, lines.location(&method.location()), json!({
+                let index = self.add_fact(FactKind::Method, &name, path, lines.location(&method.location()), json!({
                     "owner":owner, "singleton":singleton, "method_name":method_name,
                     "name_resolution":resolution, "lexical_scope":scope.namespace.iter().collect::<Vec<_>>(), "parameters_source":parameters
                 }))?;
@@ -423,10 +438,14 @@ impl Capture {
                 } else { self.uncertain_scope(path)?; }
             } else if node.as_block_node().is_some() || node.as_lambda_node().is_some() {
                 let next = Rc::new(Scope { dynamic:true, ..(*scope).clone() });
+                let mark = pending.len();
                 children::for_each_child(&node, |child| pending.push((child, Rc::clone(&next))));
+                pending[mark..].reverse();
             } else {
                 if let Some(call) = node.as_call_node() { self.collect_call(&call, &scope, path, lines)?; }
+                let mark = pending.len();
                 children::for_each_child(&node, |child| pending.push((child, Rc::clone(&scope))));
+                pending[mark..].reverse();
             }
         }
         Ok(())
@@ -438,7 +457,7 @@ impl Capture {
         if method_name.as_slice().len() > 4096 { return Err(CoreError::limit("Call method exceeds 4096 bytes")); }
         let name = text(method_name.as_slice());
         let receiver_is_self = call.receiver().map_or(true, |receiver| receiver.as_self_node().is_some());
-        let namespace = matches!(self.facts[current]["kind"].as_str(), Some("class") | Some("module"));
+        let namespace = matches!(self.kinds[current], FactKind::Class | FactKind::Module);
         if (scope.dynamic || scope.singleton) && receiver_is_self && namespace && matches!(name.as_str(), "include" | "extend" | "prepend") {
             self.declarations_partial = true;
             return self.diagnostic("dynamic_scope", MIXIN_SCOPE_MESSAGE, path);
@@ -496,16 +515,17 @@ impl Capture {
         Ok(())
     }
 
-    fn add_fact(&mut self, kind: &str, name: &str, path: &str, position: Value, attributes: Value) -> Result<usize> {
+    fn add_fact(&mut self, kind: FactKind, name: &str, path: &str, position: Value, attributes: Value) -> Result<usize> {
+        let label = kind.label();
         if self.facts.len() >= self.limit("max_facts") { return Err(CoreError::limit("Capture exceeds max_facts")); }
         if name.is_empty() || name.len() > 4_096 { return Err(CoreError::limit("Declaration name is empty or exceeds 4096 bytes")); }
         // The same compact JSON array as before, serialized without an
         // intermediate tree; fact identities are stable.
-        let identity = serde_json::to_vec(&("ruby", kind, name, path, &position["start_byte"]))?;
+        let identity = serde_json::to_vec(&("ruby", label, name, path, &position["start_byte"]))?;
         let index = self.facts.len();
         let mut fact = serde_json::Map::new();
         fact.insert("id".to_owned(), Value::String(schema::digest(&identity)));
-        fact.insert("kind".to_owned(), Value::String(kind.to_owned()));
+        fact.insert("kind".to_owned(), Value::String(label.to_owned()));
         fact.insert("name".to_owned(), Value::String(name.to_owned()));
         fact.insert("path".to_owned(), Value::String(path.to_owned()));
         fact.insert("location".to_owned(), position);
@@ -516,11 +536,12 @@ impl Capture {
         self.charge_evidence(schema::encoded_bytes(&crate::link_encoding::WireFact::new(&fact, schema::VERSION)?, schema::MAX_FACTS_BYTES)?
             .checked_add(1).ok_or_else(|| CoreError::limit("Capture evidence size overflow"))?)?;
         self.facts.push(fact);
+        self.kinds.push(kind);
         Ok(index)
     }
 
     fn in_method(&self, scope: &Scope) -> bool {
-        scope.current.is_some_and(|index| self.facts[index]["kind"] == "method")
+        scope.current.is_some_and(|index| self.kinds[index] == FactKind::Method)
     }
 
     fn add_link(&mut self, current: usize, relation: &str, target: &[u8], path: &str) -> Result<()> {
@@ -772,7 +793,7 @@ mod tests {
     fn empty_capture() -> Capture {
         Capture {
             limits: effective_limits(&json!({})).unwrap(),
-            files: vec![], facts: vec![], diagnostics: vec![], diagnostic_bytes: 2, diagnostic_occurrences: 0,
+            files: vec![], facts: vec![], kinds: vec![], diagnostics: vec![], diagnostic_bytes: 2, diagnostic_occurrences: 0,
             entries: 0, total_bytes: 0, nodes: 0, links: 0, evidence_bytes: 2,
             link_keys: HashSet::new(), call_keys: HashMap::new(), inventory_partial: false, declarations_partial: false,
         }
@@ -788,7 +809,7 @@ mod tests {
         let first = calls[0].as_call_node().unwrap();
         let last = calls[1].as_call_node().unwrap();
         let mut capture = empty_capture();
-        capture.add_fact("method", "run", "a.rb", Value::Null, json!({})).unwrap();
+        capture.add_fact(FactKind::Method, "run", "a.rb", Value::Null, json!({})).unwrap();
         let scope = Scope { owner: "run".into(), namespace: None, singleton: false, current: Some(0), dynamic: false };
         let lines = LineIndex::new(source);
         capture.collect_call(&last, &scope, "a.rb", &lines).unwrap();
@@ -811,7 +832,7 @@ mod tests {
     #[test]
     fn projected_replacement_and_append_refuse_before_mutating_capture_state() {
         let mut capture = empty_capture();
-        capture.add_fact("method", "run", "a.rb", Value::Null, json!({})).unwrap();
+        capture.add_fact(FactKind::Method, "run", "a.rb", Value::Null, json!({})).unwrap();
         let old = json!({"relation":"calls","target":"héllo\"\\","resolution":"unresolved",
             "attributes":{"thistle_call":{"version":2,"data":["implicit",null,false,false,[0,5,1,1],null]}}});
         let mut bigger = old.clone();

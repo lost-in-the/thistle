@@ -5,7 +5,7 @@ use crate::store::{self, Reader};
 fn empty(limits: Value) -> Capture {
     Capture {
         limits: effective_limits(&limits).unwrap(),
-        files: vec![], facts: vec![], diagnostics: vec![],
+        files: vec![], facts: vec![], kinds: vec![], diagnostics: vec![],
         diagnostic_bytes: 2, diagnostic_occurrences: 0,
         entries: 0, total_bytes: 0, nodes: 0, links: 0, evidence_bytes: 2,
         link_keys: HashSet::new(), call_keys: HashMap::new(),
