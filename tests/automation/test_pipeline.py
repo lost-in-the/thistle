@@ -45,6 +45,42 @@ class RoutingTests(unittest.TestCase):
         self.assertTrue(pipeline.classify(["docs/probe.py"], ALL_FILES)["product"])
         self.assertTrue(pipeline.classify(["changelog/check.py"], ALL_FILES)["product"])
 
+    def test_named_skill_instructions_skip_product_and_minimum(self):
+        for root in (".agents", ".claude"):
+            for name in ("plan", "build", "review", "check", "hand-off"):
+                path = f"{root}/skills/thistle-{name}/SKILL.md"
+                with self.subTest(path=path):
+                    self.assertFalse(pipeline.classify([path], ALL_FILES)["product"])
+                    self.assertFalse(pipeline.needs_minimum([path]))
+
+    def test_other_agent_files_keep_product_and_minimum_checks(self):
+        for path in (
+            ".agents/skills/thistle-review/scripts/check.py",
+            ".agents/skills/thistle-review/references/example.md",
+            ".agents/skills/thistle-review/examples/input.json",
+            ".agents/skills/thistle-review/SKILL.py",
+            ".agents/skills/thistle-unknown/SKILL.md",
+            ".claude/skills/thistle-review/scripts/check.sh",
+            ".claude/skills/thistle-review/references/example.md",
+            ".claude/skills/thistle-review/SKILL.md.js",
+            ".claude/agents/reviewer.md", ".codex/agents/reviewer.toml",
+            ".claude/settings.json", ".codex/hooks.json",
+            ".claude/workflows/review.js", ".agents/README.md",
+        ):
+            with self.subTest(path=path):
+                result = pipeline.classify([path], ALL_FILES)
+                self.assertTrue(result["core"] and result["map"])
+                self.assertTrue(pipeline.needs_minimum([path]))
+
+    def test_skill_instructions_do_not_hide_other_changes_or_full_mode(self):
+        path = ".agents/skills/thistle-review/SKILL.md"
+        mixed = [path, ".claude/settings.json"]
+        result = pipeline.classify(mixed, ALL_FILES)
+        self.assertTrue(result["core"] and result["map"])
+        self.assertTrue(pipeline.needs_minimum(mixed))
+        full = pipeline.classify([path], ALL_FILES, force=True)
+        self.assertTrue(full["core"] and full["map"])
+
     def test_main_full_mode_runs_all_checks_even_for_docs(self):
         result = pipeline.classify(["docs/guide.md"], ALL_FILES, force=True)
         self.assertTrue(result["core"] and result["map"])
@@ -142,6 +178,39 @@ class GitFixture(unittest.TestCase):
 
 
 class GitPlanTests(GitFixture):
+    def test_skill_instructions_skip_pr_product_but_main_keeps_full_platforms(self):
+        base = self.source_commit()
+        self.write(".agents/skills/thistle-review/SKILL.md", "Review the current contract.\n")
+        self.write(".claude/skills/thistle-review/SKILL.md", "Read the shared review skill.\n")
+        self.commit()
+        pr = self.route(base)
+        main = self.route(base, "push")
+        self.assertFalse(pr["product"])
+        self.assertFalse(pr["minimum_required"])
+        self.assertTrue(main["core"] and main["map"])
+        self.assertEqual(main["macos_runners"], ["macos-15", "macos-15-intel"])
+
+    def test_rename_between_workflow_and_skill_instruction_keeps_product_checks(self):
+        script = ".claude/workflows/review.js"
+        instruction = ".claude/skills/thistle-review/SKILL.md"
+        self.write(script, "unchanged rename fixture\n" * 5)
+        base = self.source_commit()
+        (self.root / instruction).parent.mkdir(parents=True)
+        self.git("mv", script, instruction)
+        middle = self.commit()
+        for previous, source, target in (
+            (base, script, instruction), (middle, instruction, script),
+        ):
+            if previous == middle:
+                self.git("mv", source, target)
+                self.commit()
+            with self.subTest(source=source, target=target):
+                result = self.route(previous)
+                self.assertIn(source, result["paths"])
+                self.assertIn(target, result["paths"])
+                self.assertTrue(result["core"] and result["map"])
+                self.assertTrue(result["minimum_required"])
+
     def test_macos_event_selection_preserves_linux_cohorts(self):
         base = self.source_commit()
         for path, roles in [("engine/src/store.rs", ["primary"]),
