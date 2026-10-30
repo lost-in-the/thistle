@@ -1,9 +1,58 @@
 # frozen_string_literal: true
 require_relative 'test_helper'
 require 'cgi'
+require_relative '../../test/fixtures/find_models'
 
 class FindSourceTest < Minitest::Test
   include MapTestSupport
+  def test_saved_model_find_to_model_and_reference_source_after_current_advances
+    Dir.mktmpdir('map-find-models') do |dir|
+      root, store = File.join(dir, 'source'), File.join(dir, 'store')
+      first = SavedFindModels.publish(root: root, store: store)
+      File.write(File.join(root, 'order.rb'), "class Replacement; end\n")
+      refute_equal first.fetch('generation'), Thistle.capture(root: root, output: store).fetch('generation')
+      reader = Thistle::Reader.new(store, generation: first.fetch('generation'))
+      begin
+        payment_id = reader.find('Payment').find { |fact| fact['kind'] == 'class' }.fetch('id')
+      ensure
+        reader.close
+      end
+      app = Thistle::Map::App.new(store: store)
+      %w[state payments].each do |query|
+        status, _, html = request(app, '/', query: URI.encode_www_form(
+          'q' => query, 'domain' => 'metadata', 'kind' => 'rails_model', 'generation' => first.fetch('generation')))
+        assert_equal 200, status
+        family = query == 'state' ? 'columns' : 'associations'
+        assert_includes html, "attributes.model.#{family}.entries[].name"
+        assert_includes html, 'Saved model inventory: partial'
+        links = html.scan(/data-result-link href="([^"]+)"/).flatten
+        assert_equal 2, links.length
+        source = URI.parse(CGI.unescapeHTML(links.first))
+        params = URI.decode_www_form(source.query).to_h
+        assert_equal first.fetch('generation'), params.fetch('generation')
+        status, _, model = request(app, source.path, query: source.query)
+        assert_equal 200, status
+        assert_includes model, 'No file or line was captured'
+        assert_includes model, 'payments'
+        assert_includes model, 'unknown'
+        status, _, references = request(app, '/links', query: URI.encode_www_form(params.slice('generation', 'id')))
+        assert_equal 200, status
+        assert_includes references, 'Payment'
+        assert_includes references, 'binding unknown'
+        destination = references.scan(/href="([^"]+)"/).flatten.map { |href| URI.parse(CGI.unescapeHTML(href)) }.find do |uri|
+          uri.path == '/source' && uri.query && URI.decode_www_form(uri.query).to_h['id'] == payment_id
+        end
+        refute_nil destination
+        assert_equal first.fetch('generation'), URI.decode_www_form(destination.query).to_h.fetch('generation')
+        status, _, saved_source = request(app, destination.path, query: destination.query)
+        assert_equal 200, status
+        displayed = CGI.unescapeHTML(saved_source.gsub(/<[^>]+>/, ''))
+        assert_includes displayed, 'class Payment'
+        refute_includes displayed, 'class Replacement'
+      end
+    end
+  end
+
   class FileReader < MapTestSupport::Reader
     attr_reader :closed, :queries
     CONTENT = "# é\n<script>literal</script>\n"

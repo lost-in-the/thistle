@@ -34,6 +34,16 @@ module Thistle
         body << '<p class="notice ui">Results were truncated. Narrow the search.</p>' if result.fetch('truncated')
         body << '<p class="ui">Literal text; ASCII case-insensitive, other Unicode exact. Source returns the first match per captured file. Kind file selects source hits. Capture coverage is separate from search completeness.</p>'
         coverage = result.fetch('search_coverage', {})
+        if coverage.key?('metadata_facts_not_searched')
+          body << "<p class=\"ui\">Metadata facts searched: #{h(coverage['metadata_facts_searched'])}; not searched: #{h(coverage['metadata_facts_not_searched'])}. Allowed fields omitted: #{h(coverage['metadata_fields_omitted'])}. Each metadata row is the first matching field in that fact.</p>"
+        end
+        if (models = coverage['model_capture_families']) && models['inventory'] != 'not_searched'
+          body << "<p class=\"notice ui\">Saved model inventory: #{h(models['inventory'])}. Search completeness does not establish complete model capture. No match concerns searched saved names only.</p>"
+          %w[columns associations].each do |family|
+            counts = models.fetch(family)
+            body << "<p class=\"ui\">Captured model #{h(family)} in eligible facts: observed #{h(counts['observed'])}; unavailable #{h(counts['unavailable'])}; unknown #{h(counts['unknown'])}. Observed empty metadata differs from unavailable metadata.</p>"
+          end
+        end
         if coverage.key?('source_files_not_searched')
           body << "<p class=\"ui\">Captured files searched: #{h(coverage['source_files_searched'])}; not searched: #{h(coverage['source_files_not_searched'])}. Matching source files omitted by result limit: #{h(coverage['source_matching_files_omitted'])}. Each source row is the first occurrence in that file.</p>"
           body << "<p class=\"ui\">Confirmed source matches without a displayed span (work budget): #{h(coverage.fetch('source_matches_without_span', 0))}.</p>"
@@ -82,7 +92,8 @@ module Thistle
         else
           h(name)
         end
-        "<tr><td>#{title}</td><td>#{h(origin)}#{match['field'] ? " · #{h(match['field'])}" : ''}</td><td>#{h(path || 'Source unavailable')}</td><td><code>#{h(match['snippet'] || '')}</code>#{detail ? "<p>#{h(detail)}</p>" : ''}</td></tr>"
+        entry = match.key?('entry_index') ? " · entry #{h(match['entry_index'])}: #{h(match['entry_name'])}" : ''
+        "<tr><td>#{title}</td><td>#{h(origin)}#{match['field'] ? " · #{h(match['field'])}" : ''}#{entry}</td><td>#{h(path || 'Source unavailable')}</td><td><code>#{h(match['snippet'] || '')}</code>#{detail ? "<p>#{h(detail)}</p>" : ''}</td></tr>"
       end
 
       def h(value)

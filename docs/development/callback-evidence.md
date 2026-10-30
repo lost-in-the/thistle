@@ -405,3 +405,7 @@ per-method file line counting and redundant JSON result copies. Its earlier
 native identity is not relabelled as the final native above. Self-review also
 charged selected-method validation/analysis to the fact budget. Root's substantive
 review, affected CI and settled installed-package evidence remain outstanding.
+
+### Root integration fixture correction
+
+After the dated focused receipt above, Root moved positive `perform_later` calls before their unconditional execution-canary raises. The real registered effective override now contains the request before its canary, with registry conditions still unevaluated; the saved-primitive examples retain explicit conditional uncertainty. This avoids using code after a guaranteed raise as the positive potential-effect example. No callback, condition or job was executed. The original 32 focused tests and native hash retain their earlier fixture identity; current composed-head CI and installed checks establish this changed fixture. Composition preserves accepted PR100 Find changes without modifying its query or smoke implementation.

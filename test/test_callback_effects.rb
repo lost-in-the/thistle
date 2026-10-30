@@ -13,8 +13,8 @@ class ThistleCallbackEffectsTest < Minitest::Test
     module Saved
       class Record
         def deliver
-          raise 'callback body executed'
           DeliveryJob.perform_later('<script>') if allowed?
+          raise 'callback body executed'
         end
         def allowed? = raise('condition executed')
       end

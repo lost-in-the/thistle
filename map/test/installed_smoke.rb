@@ -169,6 +169,32 @@ result = Dir.mktmpdir('thistle-map-installed-') do |directory|
       html.include?('ModelFixture::Order') && html.include?('items') && html.include?('payments') && html.include?('unknown')
   end
 
+  # Find the existing producer's saved column/association after CURRENT advanced,
+  # then use fresh Map Readers to follow that exact model and its references.
+  { 'state' => 'columns', 'payments' => 'associations' }.each do |name, family|
+    found = model_reader.search_evidence(name, domain: 'metadata', kind: 'rails_model')
+    hit = found.fetch('results').find { |row| row['fact_id'] == order.fetch('id') }
+    raise 'Installed model Find lost exact saved entry' unless found.fetch('generation') == model_generation && hit &&
+      hit['field'] == "attributes.model.#{family}.entries[].name" && hit['entry_name'] == name && hit['path'].nil? &&
+      model.fetch(family).fetch('entries').fetch(hit.fetch('entry_index')).fetch('name') == name
+    find_query = URI.encode_www_form('q' => name, 'domain' => 'metadata', 'kind' => 'rails_model', 'generation' => model_generation)
+    find_status, _, body = model_app.call(env.merge('PATH_INFO' => '/', 'QUERY_STRING' => find_query))
+    find_html = body.each.to_a.join
+    raise 'Installed Find hid model capture coverage' unless find_status == 200 && find_html.include?('Saved model inventory: partial')
+    selected = find_html.scan(/data-result-link href="([^"]+)"/).flatten.map { |href| URI.parse(CGI.unescapeHTML(href)) }.find do |uri|
+      URI.decode_www_form(uri.query).to_h['id'] == order.fetch('id')
+    end
+    raise 'Installed Find model link missing or unpinned' unless selected && URI.decode_www_form(selected.query).to_h['generation'] == model_generation
+    selected_status, _, body = model_app.call(env.merge('PATH_INFO' => selected.path, 'QUERY_STRING' => selected.query))
+    selected_html = body.each.to_a.join
+    raise 'Installed Find model Source invented live source' unless selected_status == 200 && selected_html.include?('No file or line was captured') && selected_html.include?('payments')
+    links_uri = selected_html.scan(/href="([^"]+)"/).flatten.map { |href| URI.parse(CGI.unescapeHTML(href)) }.find { |uri| uri.path == '/links' }
+    raise 'Installed Find model Links missing or unpinned' unless links_uri && URI.decode_www_form(links_uri.query).to_h['generation'] == model_generation
+    links_status, _, body = model_app.call(env.merge('PATH_INFO' => links_uri.path, 'QUERY_STRING' => links_uri.query))
+    links_html = body.each.to_a.join
+    raise 'Installed Find references lost saved labels' unless links_status == 200 && links_html.include?('ModelFixture::Payment') && links_html.include?('binding unknown')
+  end
+
   # Use the saved real-model observation in this fresh consumer. Older selected
   # packages retain their original contract; new Readers must prove references.
   references_journey = nil

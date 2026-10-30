@@ -41,8 +41,8 @@ module CallbackFixture
     before_save OPAQUE
     # Method implementation differs from the inherited registered filter.
     def parent_stamp
+      CallbackFixture::DeliveryJob.perform_later
       raise 'effective override executed'
-      CallbackFixture::DeliveryJob.perform_later if allowed?
     end
     def first = raise('prepended body executed')
     def wrap = raise('around body executed')

@@ -103,6 +103,33 @@ fn snippet(text: &str, start: usize) -> &str {
     &text[start..end]
 }
 
+// Fixed paths only. Borrow accepted names; never traverse defaults/options or
+// allocate a per-model field list. One result per fact keeps legacy precedence.
+fn model_names(fact: &Value) -> impl Iterator<Item = (&'static str, usize, &Value)> {
+    [
+        ("columns", "attributes.model.columns.entries[].name"),
+        ("associations", "attributes.model.associations.entries[].name"),
+    ].into_iter().filter(move |_| fact["kind"] == "rails_model").flat_map(move |(family, field)| {
+        fact["attributes"]["model"][family]["entries"].as_array().into_iter()
+            .flatten().enumerate().map(move |(index, entry)| (field, index, &entry["name"]))
+    })
+}
+
+#[derive(Default)]
+struct ModelCoverage { observed: usize, unavailable: usize, unknown: usize }
+impl ModelCoverage {
+    fn record(&mut self, status: Option<&str>) {
+        match status {
+            Some("observed") => self.observed += 1,
+            Some("unavailable") => self.unavailable += 1,
+            _ => self.unknown += 1,
+        }
+    }
+    fn value(&self) -> Value {
+        json!({"observed":self.observed,"unavailable":self.unavailable,"unknown":self.unknown})
+    }
+}
+
 pub(crate) fn search(reader: &Reader, q: &Query<'_>) -> Result<Value> {
     search_with_budget(reader, q, budget())
 }
@@ -116,6 +143,15 @@ fn search_with_work(reader: &Reader, q: &Query<'_>, budget: &Arc<Budget>, mut wo
     let mut total = 0;
     let mut partial = false;
     let mut metadata_omitted = 0;
+    let mut metadata_eligible = 0;
+    let mut metadata_searched = 0;
+    let mut columns = ModelCoverage::default();
+    let mut associations = ModelCoverage::default();
+    let model_inventory = if q.domain == "source" { "not_searched" } else {
+        reader.manifest["coverage"].as_array().filter(|rows| rows.len() <= 256)
+            .and_then(|rows| rows.iter().find(|row| row["family"] == "rails_models"))
+            .and_then(|row| row["status"].as_str()).unwrap_or("unknown")
+    };
     let mut source_searched = 0;
     let mut source_eligible = 0;
     let mut source_matches_omitted = 0;
@@ -128,6 +164,16 @@ fn search_with_work(reader: &Reader, q: &Query<'_>, budget: &Arc<Budget>, mut wo
     if q.domain != "source" {
         let mut facts: Vec<&Value> = reader.facts.iter().collect();
         facts.sort_unstable_by(|a,b| a["id"].as_str().cmp(&b["id"].as_str()));
+        // Constant work per fact/family, even when comparison work runs out.
+        // These are capture statuses, not a claim that entries were searched.
+        for fact in &facts {
+            if !q.accepts(fact["kind"].as_str().unwrap(), fact["path"].as_str()) { continue; }
+            metadata_eligible += 1;
+            if fact["kind"] == "rails_model" {
+                columns.record(fact["attributes"]["model"]["columns"]["status"].as_str());
+                associations.record(fact["attributes"]["model"]["associations"]["status"].as_str());
+            }
+        }
         'facts: for fact in facts {
             let path = fact["path"].as_str();
             if !q.accepts(fact["kind"].as_str().unwrap(), path) { continue; }
@@ -137,20 +183,35 @@ fn search_with_work(reader: &Reader, q: &Query<'_>, budget: &Arc<Budget>, mut wo
                 .into_iter().filter(|_| fact["kind"] == "route").map(|key| (key, &attrs[key]));
             let status = std::iter::once(("route_constraints.status", &attrs["route_constraints"]["status"]))
                 .filter(|_| fact["kind"] == "route");
-            for (field, value) in identity.chain(route).chain(status) {
+            let ordinary = identity.chain(route).chain(status).map(|(field, value)| (field, None, value));
+            let model = model_names(fact).map(|(field, index, value)| (field, Some(index), value));
+            for (field, entry, value) in ordinary.chain(model) {
+                // Charge field/entry visits, including short or omitted strings
+                // for which the literal matcher needs no byte comparisons.
+                let Some(remaining) = work.checked_sub(1) else { partial = true; break 'facts; };
+                work = remaining;
                 let Some(text) = value.as_str() else { continue; };
                 if text.len() > FIELD_BYTES { metadata_omitted += 1; partial = true; continue; }
                 match literal(text, q.text, &mut work) {
                     Ok(Some(start)) => {
-                        emit(&mut results, &mut total, q.limit, || json!({"origin":"metadata", "field":field, "fact_id":fact["id"],
+                        emit(&mut results, &mut total, q.limit, || {
+                            let mut hit = json!({"origin":"metadata", "field":field, "fact_id":fact["id"],
                             "name":fact["name"], "kind":fact["kind"], "path":path,
-                            "snippet":snippet(text, start), "span":null}));
+                            "snippet":snippet(text, start), "span":null});
+                            if let Some(index) = entry {
+                                hit["entry_index"] = json!(index);
+                                hit["entry_name"] = json!(text);
+                            }
+                            hit
+                        });
+                        metadata_searched += 1;
                         continue 'facts;
                     },
                     Ok(None) => {},
                     Err(_) => { partial = true; break 'facts; }
                 }
             }
+            metadata_searched += 1;
         }
     }
     if q.domain != "source" && q.kind.is_none_or(|kind| kind == "file") {
@@ -225,6 +286,9 @@ fn search_with_work(reader: &Reader, q: &Query<'_>, budget: &Arc<Budget>, mut wo
             "source_files_eligible":source_eligible, "source_files_not_searched":source_eligible - source_searched,
             "source_matching_files_omitted":source_matches_omitted, "occurrences":"first_per_file",
             "source_matches_without_span":source_matches_without_span,
+            "metadata_facts_eligible":metadata_eligible,"metadata_facts_searched":metadata_searched,
+            "metadata_facts_not_searched":metadata_eligible - metadata_searched,
+            "model_capture_families":{"inventory":model_inventory,"columns":columns.value(),"associations":associations.value()},
             "metadata_fields_omitted":metadata_omitted,"work_remaining":work},
         "semantics":"literal; ASCII case-insensitive, other UTF-8 bytes exact; one first source match per file; names are candidates, not runtime bindings"}))
 }
@@ -257,6 +321,129 @@ mod tests {
                 "evidence":"runtime","attributes":{"controller":"metadata_only","private":"secret_only","route_constraints":{"status":"observed"}},"links":[]}]})
     }
     fn run(reader: &Reader, input: Value) -> Value { search(reader, &Query::parse(&input).unwrap()).unwrap() }
+    fn model_capture(observation: &Value) -> Value {
+        let mut data = capture();
+        data["files"] = json!([]);
+        let added = crate::model::batch(&json!({"limits":{"max_facts":100,"max_links":100,
+            "max_entries":100,"max_diagnostics":10},"facts":0,"links":0,"diagnostics":0,"fact_bytes":2}), observation).unwrap();
+        data["facts"] = added["facts"].clone();
+        data["coverage"] = added["coverage"].clone();
+        data["producer"]["model_observer"] = added["model_observer"].clone();
+        data
+    }
+    fn models() -> Value { serde_json::from_str(include_str!("../tests/fixtures/models.json")).unwrap() }
+    #[test]
+    fn model_names_are_allowlisted_borrowed_first_entries_with_saved_identity() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut observation = models();
+        observation["models"][0]["associations"]["entries"][1]["target"] = json!("ForbiddenTargetCanary");
+        let data = model_capture(&observation);
+        let first = crate::store::publish(dir.path(), &data).unwrap();
+        let reader = Reader::open(dir.path(), None).unwrap();
+        for (query, field, index) in [("STATE", "columns", 0), ("payments", "associations", 1)] {
+            let result = run(&reader, json!({"query":query,"domain":"metadata","kind":"rails_model"}));
+            let hit = &result["results"][0];
+            assert_eq!(result["status"], "complete");
+            assert_eq!(hit["fact_id"], data["facts"][0]["id"]);
+            assert_eq!(hit["field"], format!("attributes.model.{field}.entries[].name"));
+            assert_eq!(hit["entry_index"], index);
+            assert_eq!(hit["entry_name"], observation["models"][0][field]["entries"][index]["name"]);
+            assert!(hit["path"].is_null());
+            assert_eq!(result["generation"], first["generation"]);
+        }
+        // Neither a literal default nor target/table/type labels enter search.
+        for query in ["new", "ForbiddenTargetCanary", "ApplicationRecord", "orders", "varchar"] {
+            assert_eq!(run(&reader, json!({"query":query,"domain":"metadata"}))["total_matches"], 0, "{query}");
+        }
+        assert_eq!(run(&reader, json!({"query":"state","domain":"source"}))["total_matches"], 0);
+        assert_eq!(run(&reader, json!({"query":"state","path_prefix":"app/"}))["total_matches"], 0);
+        assert_eq!(run(&reader, json!({"query":"Order"}))["results"][0]["field"], "name");
+        let names: Vec<_> = model_names(&data["facts"][0]).collect();
+        assert!(std::ptr::eq(names[0].2, &data["facts"][0]["attributes"]["model"]["columns"]["entries"][0]["name"]));
+    }
+    #[test]
+    fn ambiguous_model_results_and_work_omissions_are_distinct() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut observation = models();
+        let second = observation["models"][0].clone();
+        observation["models"].as_array_mut().unwrap().push(second);
+        let data = model_capture(&observation);
+        crate::store::publish(dir.path(), &data).unwrap();
+        let reader = Reader::open(dir.path(), None).unwrap();
+        let input = json!({"query":"state","domain":"metadata","limit":1});
+        let full = run(&reader, input.clone());
+        assert_eq!(full["total_matches"], 2);
+        assert_eq!(full["truncated"], true);
+        assert_eq!(full["total_is_lower_bound"], false);
+        assert_eq!(full["search_coverage"]["metadata_facts_not_searched"], 0);
+        let all = run(&reader, json!({"query":"state","domain":"metadata"}));
+        let rows = all["results"].as_array().unwrap();
+        assert!(rows[0]["fact_id"].as_str() < rows[1]["fact_id"].as_str());
+        assert_eq!(rows[0]["name"], rows[1]["name"]);
+        // Exactly enough work to confirm the first representative, none for
+        // the second fact. No known omitted result may be invented.
+        let used = MAX_WORK - all["search_coverage"]["work_remaining"].as_u64().unwrap() as usize;
+        let limited = search_with_work(&reader, &Query::parse(&input).unwrap(), budget(), used / 2).unwrap();
+        assert_eq!(limited["total_matches"], 1);
+        assert_eq!(limited["truncated"], false);
+        assert_eq!(limited["total_is_lower_bound"], true);
+        assert_eq!(limited["search_coverage"]["metadata_facts_not_searched"], 1);
+    }
+    #[test]
+    fn empty_model_families_keep_capture_uncertainty_separate_from_scan() {
+        for status in ["observed", "unavailable"] {
+            let dir = tempfile::tempdir().unwrap();
+            let mut observation = models();
+            observation["models"][0]["columns"] = json!({"status":status,"entries":[]});
+            let data = model_capture(&observation);
+            crate::store::publish(dir.path(), &data).unwrap();
+            let reader = Reader::open(dir.path(), None).unwrap();
+            let result = run(&reader, json!({"query":"absent-column","domain":"metadata"}));
+            assert_eq!(result["total_matches"], 0);
+            assert_eq!(result["status"], "complete");
+            assert_eq!(result["search_coverage"]["model_capture_families"]["inventory"], "partial");
+            assert_eq!(result["search_coverage"]["model_capture_families"]["columns"][status], 1);
+            assert_eq!(result["search_coverage"]["metadata_facts_not_searched"], 0);
+        }
+        let missing = json!({"kind":"rails_model","attributes":{}});
+        assert_eq!(model_names(&missing).count(), 0);
+        let mut coverage = ModelCoverage::default();
+        coverage.record(missing["attributes"]["model"]["columns"]["status"].as_str());
+        assert_eq!(coverage.value()["unknown"], 1);
+        let dir = tempfile::tempdir().unwrap();
+        let mut observation = models();
+        observation["status"] = json!("unavailable");
+        observation["models"] = json!([]);
+        crate::store::publish(dir.path(), &model_capture(&observation)).unwrap();
+        let reader = Reader::open(dir.path(), None).unwrap();
+        let result = run(&reader, json!({"query":"state","domain":"metadata"}));
+        assert_eq!(result["total_matches"], 0);
+        assert_eq!(result["search_coverage"]["model_capture_families"]["inventory"], "unavailable");
+    }
+    #[test]
+    fn short_entries_still_cost_work_and_oversized_fields_remain_omitted() {
+        let dir = tempfile::tempdir().unwrap();
+        let data = model_capture(&models());
+        crate::store::publish(dir.path(), &data).unwrap();
+        let reader = Reader::open(dir.path(), None).unwrap();
+        let input = json!({"query":"x".repeat(256),"domain":"metadata"});
+        // Four identity visits, one column and two associations. None is long
+        // enough for a byte comparison, but entry scanning is never free.
+        let result = search_with_work(&reader, &Query::parse(&input).unwrap(), budget(), 6).unwrap();
+        assert_eq!(result["status"], "partial");
+        assert_eq!(result["search_coverage"]["metadata_facts_not_searched"], 1);
+        assert_eq!(run(&reader, input)["search_coverage"]["work_remaining"], MAX_WORK - 7);
+        let dir = tempfile::tempdir().unwrap();
+        let mut data = capture();
+        data["files"] = json!([]);
+        data["facts"][0]["attributes"]["controller"] = json!("x".repeat(FIELD_BYTES + 1));
+        crate::store::publish(dir.path(), &data).unwrap();
+        let reader = Reader::open(dir.path(), None).unwrap();
+        let result = run(&reader, json!({"query":"not-in-saved-evidence","domain":"metadata"}));
+        assert_eq!(result["status"], "partial");
+        assert_eq!(result["search_coverage"]["metadata_fields_omitted"], 1);
+        assert_eq!(result["search_coverage"]["model_capture_families"]["inventory"], "unknown");
+    }
     #[test]
     fn source_metadata_filters_offsets_and_pinned_file_without_owner() {
         let dir = tempfile::tempdir().unwrap();

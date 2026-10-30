@@ -5,8 +5,55 @@ require 'fileutils'
 require 'stringio'
 require 'thistle'
 require 'thistle/cli'
+require_relative 'fixtures/find_models'
 
 class FindEvidenceTest < Minitest::Test
+  def test_saved_model_names_and_references_survive_current_replacement
+    Dir.mktmpdir('find-model-evidence') do |dir|
+      root, store = File.join(dir, 'source'), File.join(dir, 'store')
+      first = SavedFindModels.publish(root: root, store: store)
+      File.write(File.join(root, 'order.rb'), "class Replacement; end\n")
+      current = Thistle.capture(root: root, output: store)
+      refute_equal first.fetch('generation'), current.fetch('generation')
+      # A fresh consumer opens the saved generation after CURRENT advances.
+      reader = Thistle::Reader.new(store, generation: first.fetch('generation'))
+      begin
+        %w[state payments].each do |query|
+          result = reader.search_evidence(query.upcase, domain: 'metadata', kind: 'rails_model')
+          assert_equal first.fetch('generation'), result.fetch('generation')
+          assert_equal 'complete', result.fetch('status')
+          assert_equal 2, result.fetch('total_matches')
+          ids = result.fetch('results').map { |hit| hit.fetch('fact_id') }
+          assert_equal ids.sort.uniq, ids
+          result.fetch('results').each do |hit|
+            family = query == 'state' ? 'columns' : 'associations'
+            assert_equal "attributes.model.#{family}.entries[].name", hit.fetch('field')
+            assert_equal query, hit.fetch('entry_name')
+            fact = reader.fact(hit.fetch('fact_id'))
+            assert_equal query, fact.dig('attributes', 'model', family, 'entries', hit.fetch('entry_index'), 'name')
+            assert_nil hit['path']
+            assert_equal 'unknown', fact.dig('attributes', 'model', 'coherence')
+            assert_raises(Thistle::Error) { reader.source(hit.fetch('fact_id')) }
+            references = reader.references(hit.fetch('fact_id'))
+            assert_equal first.fetch('generation'), references.fetch('generation')
+            assert references.fetch('relationships').any? { |row| row['candidate_label'] == 'Payment' }
+          end
+          limited = reader.search_evidence(query, domain: 'metadata', kind: 'rails_model', limit: 1)
+          assert limited.fetch('truncated')
+          refute limited.fetch('total_is_lower_bound')
+        end
+        assert_empty reader.search_evidence('varchar', domain: 'metadata').fetch('results')
+        assert_empty reader.search_evidence('new', domain: 'metadata').fetch('results')
+        assert_empty reader.search_evidence('state', domain: 'source').fetch('results')
+        assert_equal 'partial', reader.search_evidence('absent-column', domain: 'metadata').dig('search_coverage', 'model_capture_families', 'inventory')
+        assert_equal 2, reader.find('Order').count { |fact| fact['kind'] == 'rails_model' }
+      ensure
+        reader.close
+      end
+      assert_raises(Thistle::Error) { reader.search_evidence('state') }
+    end
+  end
+
   def test_cli_find_preserves_facts_and_explicitly_selects_evidence_search
     original = Thistle::Reader.method(:new)
     fake = Object.new

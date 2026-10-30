@@ -1,6 +1,6 @@
 use super::*;
 
-const SOURCE: &str = "module Example\n  class Record\n    def deliver\n      raise 'body must not execute'\n      DeliveryJob.perform_later('<script>') if allowed?\n      DeliveryJob.perform_later('second representative omitted')\n    end\n    def quiet = raise('not executed')\n    def self.deliver = DeliveryJob.perform_later\n  end\nend\n";
+const SOURCE: &str = "module Example\n  class Record\n    def deliver\n      DeliveryJob.perform_later('<script>') if allowed?\n      raise 'body must not execute'\n      DeliveryJob.perform_later('second representative omitted')\n    end\n    def quiet = raise('not executed')\n    def self.deliver = DeliveryJob.perform_later\n  end\nend\n";
 
 static FIXTURE: std::sync::OnceLock<(Value, String)> = std::sync::OnceLock::new();
 fn fixture() -> (Value, String) {
@@ -56,7 +56,7 @@ fn real_prism_known_answer_is_source_potential_with_exact_spans_and_effective_ow
     for (key, expected) in [("call_span", "DeliveryJob.perform_later('<script>')"), ("receiver_span", "DeliveryJob")] {
         let loc = &effect[key];
         assert_eq!(&SOURCE[loc["start_byte"].as_u64().unwrap() as usize..loc["end_byte"].as_u64().unwrap() as usize], expected);
-        assert_eq!(loc["start_line"], 5);
+        assert_eq!(loc["start_line"], 4);
     }
     assert_eq!(result["callbacks"][1]["explanation"]["reason"], "opaque_or_incomplete_observed_method_descriptor");
     assert!(result["semantics"].as_str().unwrap().contains("No observed enqueue"));
