@@ -197,7 +197,7 @@ fn family_page(reader: &Reader, query: &Query<'_>, root: &Value, work: &mut Requ
             items.push(item);
         }
         out["items"]=Value::Array(items); out["recorded_items"]=json!(entries.len()); out["status"]=data["status"].clone();
-        out["unsearched"]=json!(false); out
+        out["reason"]=json!("recorded_family_status"); out["unsearched"]=json!(false); out
     };
     if family["unsearched"]==true && family["reason"]!="anonymous_model_has_no_label" {
         return Err(CoreError::limit("Family discovery admission unavailable"));

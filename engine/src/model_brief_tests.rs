@@ -179,6 +179,8 @@ fn brief_summary_followups_exhaust_family_without_losing_display_omissions() {
     let mut request=json!({"id":id,"family":"associations","limit":1});
     let first=select(&reader,&Query::parse(&request).unwrap()).unwrap();
     assert_eq!(first["result"]["items"][0]["name"],"items");
+    assert_eq!(first["result"]["reason"],"recorded_family_status");
+    assert_eq!(first["result"]["unsearched"],false);
     assert_eq!(first["page_complete"],false);
     request["cursor"]=first["next_cursor"].clone();
     let second=select(&reader,&Query::parse(&request).unwrap()).unwrap();
@@ -187,4 +189,8 @@ fn brief_summary_followups_exhaust_family_without_losing_display_omissions() {
     assert!(second["capture_partial_or_unknown"].as_bool().unwrap());
     request["family"]=json!("columns");
     assert_eq!(select(&reader,&Query::parse(&request).unwrap()).unwrap_err().code,"invalid_input");
+    request.as_object_mut().unwrap().remove("cursor");
+    let columns=select(&reader,&Query::parse(&request).unwrap()).unwrap();
+    assert_eq!(columns["result"]["reason"],"recorded_family_status");
+    assert_eq!(columns["result"]["unsearched"],false);
 }
