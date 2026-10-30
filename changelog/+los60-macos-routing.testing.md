@@ -1,0 +1,1 @@
+Run Apple Silicon macOS development checks on ordinary product PRs; retain Apple Silicon and Intel on main, explicit full/manual CI and merge groups. Selected macOS failures still block the required aggregate.

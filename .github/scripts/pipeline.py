@@ -239,10 +239,11 @@ def plan(args):
         "cohort_policy_sha256": sha256(root / POLICY_PATH),
         "primary": policy["primary"],
         "matrix": cohort_matrix(policy, roles, package_primary=args.lane == "ci"),
+        "macos_runners": ["macos-15", "macos-15-intel"] if full else ["macos-15"],
         "minimum_required": "minimum" in roles,
     })
     write_json(args.output, result)
-    emit_outputs(result, ("mode", "source_sha", "core", "map", "product", "matrix", "minimum_required"))
+    emit_outputs(result, ("mode", "source_sha", "core", "map", "product", "matrix", "macos_runners", "minimum_required"))
     print(json.dumps(result, indent=2))
 
 
