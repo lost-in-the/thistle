@@ -67,6 +67,11 @@ preserve original rooted syntax and follow Source after live bytes and CURRENT
 change. These are pending checks. The producer alone does not complete that
 public journey.
 
+`dynamic_receiver.rb` separately requires two actual CoreModel argument reads
+inside dynamic receiver expressions, with no fabricated `Child` terminal label.
+The unavailable dynamic path remains diagnosed. It must not suppress those
+inner reads merely because an enclosing expression is used as a receiver.
+
 ## Recognition and compatibility
 
 The transferred implementation must recognize this family only in schema 3,

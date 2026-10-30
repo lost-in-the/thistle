@@ -54,6 +54,9 @@ fn label<'a>(link: &SemanticLinkView<'a>) -> Option<Label<'a>> {
         return (call.kind == "constant" && !call.omitted).then_some(call.name).flatten()
             .map(|name| Label { original: name, key: recorded_domain::constant_label(name) });
     }
+    if link.constant_metadata().is_some() {
+        return Some(Label { original: link.target(), key: recorded_domain::constant_label(link.target()) });
+    }
     Some(Label { original: link.target(), key: link.target() })
 }
 struct Work { comparisons: usize, bytes: usize }

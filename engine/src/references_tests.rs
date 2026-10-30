@@ -16,6 +16,86 @@ fn run(reader: &Reader, id: usize, direction: &str, limit: usize) -> Result<Valu
     let request=json!({"id":format!("{id:064x}"),"direction":direction,"limit":limit});
     select(reader, &Query::parse(&request)?)
 }
+
+fn constant_occurrence_fixture(version: u64, extension: u64) -> Value {
+    let mut data = fixture(version);
+    let source = "::User; ::User";
+    data["files"] = json!([{"path":"a.rb","bytes":source.len(),"content":source,"sha256":schema::digest(source.as_bytes()),"encoding":"UTF-8"}]);
+    let mut facts = (1..=6).map(|id| fact(id, "User", json!([]))).collect::<Vec<_>>();
+    facts.push(fact(7, "Other::User", json!([])));
+    let links = [0, 8].map(|start| json!({"relation":"references_constant","target":"::User","resolution":"unresolved",
+        "attributes":{"thistle_constant":{"version":extension,"syntax":"::User","rooted":true,
+            "lexical_scope":null,"role":"value","location":[start,start+6,1,1]}}}));
+    let mut origin = fact(20, "a.rb", json!(links));
+    origin["kind"] = json!("file"); origin["path"] = json!("a.rb");
+    origin["location"] = json!({"start_byte":0,"end_byte":source.len(),"start_line":1,"end_line":1});
+    facts.push(origin); data["facts"] = json!(facts); data
+}
+
+#[test]
+fn constant_occurrence_root_matching_is_context_bound_and_opaque_labels_stay_literal() {
+    for (version, extension, expected) in [(1,1,0), (2,1,0), (3,8,0), (3,1,2)] {
+        let temp = tempfile::tempdir().unwrap();
+        let data = constant_occurrence_fixture(version, extension);
+        store::publish(temp.path(), &data).unwrap();
+        let reader = Reader::open(temp.path(), None).unwrap();
+        assert_eq!(run(&reader,1,"incoming",50).unwrap()["relationships"].as_array().unwrap().len(), expected);
+        assert!(run(&reader,7,"incoming",50).unwrap()["relationships"].as_array().unwrap().is_empty());
+        let outgoing = run(&reader,20,"outgoing",50).unwrap();
+        assert_eq!(outgoing["relationships"][0]["link"], data["facts"][7]["links"][0]);
+        assert_eq!(outgoing["relationships"][0]["candidate_label"], "::User");
+        assert_eq!(outgoing["relationships"][0]["candidate_matches"], if expected == 2 {6} else {0});
+    }
+}
+
+#[test]
+fn distinct_occurrence_pages_and_late_candidates_remain_pinned_after_publication() {
+    let temp = tempfile::tempdir().unwrap();
+    let data = constant_occurrence_fixture(3, 1);
+    let generation = store::publish(temp.path(), &data).unwrap()["generation"].as_str().unwrap().to_owned();
+    let reader = Reader::open(temp.path(), Some(&generation)).unwrap();
+    let first = run(&reader,1,"incoming",1).unwrap();
+    assert!(first["next_cursor"].is_string());
+    let second = select(&reader, &Query::parse(&json!({"id":format!("{:064x}",1),"direction":"incoming","limit":1,"cursor":first["next_cursor"]})).unwrap()).unwrap();
+    assert_eq!(first["relationships"].as_array().unwrap().len(), 1);
+    assert_eq!(second["relationships"].as_array().unwrap().len(), 1);
+    assert_ne!(first["relationships"][0]["link_ordinal"], second["relationships"][0]["link_ordinal"]);
+    assert_eq!(second["coverage"]["scan_complete"], true);
+    let outgoing = run(&reader,20,"outgoing",50).unwrap();
+    assert_eq!(outgoing["relationships"][0]["candidates"].as_array().unwrap().len(), 4);
+    assert_eq!(outgoing["relationships"][0]["candidate_matches"], 6);
+    let mut changed = data; changed["producer"]["changed"] = json!(true);
+    store::publish(temp.path(), &changed).unwrap();
+    let pinned = Reader::open(temp.path(), Some(&generation)).unwrap();
+    let mut cursor = Value::Null; let mut ids = Vec::new();
+    for _ in 0..6 {
+        let page = select(&pinned, &Query::parse(&json!({"id":format!("{:064x}",20),"candidate_link":0,"limit":1,"cursor":cursor})).unwrap()).unwrap();
+        assert_eq!(page["generation"], generation);
+        assert_eq!(page["candidate_status"], "ambiguous");
+        ids.push(page["candidates"][0]["id"].as_str().unwrap().to_owned());
+        cursor = page["next_cursor"].clone();
+    }
+    assert!(cursor.is_null()); ids.sort(); ids.dedup(); assert_eq!(ids.len(), 6);
+    assert_eq!(pinned.source(&format!("{:064x}",20)).unwrap()["content"], "::User; ::User");
+    assert_eq!(run(&pinned,1,"incoming",50).unwrap()["relationships"].as_array().unwrap().len(), 2);
+}
+
+#[test]
+fn constant_occurrence_matching_and_lookup_charge_original_rooted_bytes() {
+    let data = constant_occurrence_fixture(3, 1);
+    let link = &data["facts"][7]["links"][0];
+    let view = SemanticLinkView::from_semantic(link, 3, "static").unwrap();
+    let target = label(&view).unwrap();
+    assert_eq!((target.original, target.key), ("::User", "User"));
+    let mut work = Work { comparisons:0, bytes:MAX_LABEL_BYTES - 9 };
+    assert!(work.compare_scoped(target, "User", None).is_none()); // original6 + name4
+    assert_eq!(work.comparisons, 0);
+    let temp = tempfile::tempdir().unwrap();
+    store::publish(temp.path(), &data).unwrap();
+    let reader = Reader::open(temp.path(), None).unwrap();
+    assert!(lookup(&reader, target, 0, 1, &mut work, None).is_err());
+    assert_eq!(work.comparisons, 0); // kind=None adapter did not charge the shorter key
+}
 #[test]
 fn incoming_outgoing_duplicates_namespace_and_no_source() {
     let temp = tempfile::tempdir().unwrap();

@@ -26,7 +26,9 @@ class ThistleConstantOccurrencesTest < Minitest::Test
     ['sites.rb', 20, 'CoreModel', 'value', 'Workshop::Screen#render'],
     ['file.rb', 1, 'CoreModel', 'value', 'file.rb'],
     ['file.rb', 3, 'CoreModel', 'value', 'file.rb'],
-    ['negative.rb', 3, 'Other::CoreModel', 'value', 'negative.rb']
+    ['negative.rb', 3, 'Other::CoreModel', 'value', 'negative.rb'],
+    ['dynamic_receiver.rb', 1, 'CoreModel', 'argument', 'dynamic_receiver.rb'],
+    ['dynamic_receiver.rb', 2, 'CoreModel', 'argument', 'dynamic_receiver.rb']
   ].freeze
 
   def with_capture
@@ -94,7 +96,7 @@ class ThistleConstantOccurrencesTest < Minitest::Test
       model = reader.find('CoreModel').find { |f| f['name'] == 'CoreModel' && f['kind'] == 'class' }
       incoming, last = pages(reader, model.fetch('id'), direction: 'incoming')
       assert last.dig('coverage', 'scan_complete')
-      assert_equal 11, incoming.count { |r| r.dig('link', 'relation') == 'references_constant' }
+      assert_equal 13, incoming.count { |r| r.dig('link', 'relation') == 'references_constant' }
       refute incoming.any? { |r| r.dig('link', 'target') == 'Other::CoreModel' }
       row = incoming.find { |r| r.dig('link', 'target') == '::CoreModel' }
       origin = row.fetch('origin')

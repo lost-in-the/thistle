@@ -63,6 +63,21 @@ fn declarations_assignments_mixins_and_literal_text_are_not_caller_reads() {
 }
 
 #[test]
+fn dynamic_receiver_inner_reads_survive_without_fabricating_a_terminal_path() {
+    let source = "factory(CoreModel)::Child; (factory(CoreModel)).call; ::Kit :: Button";
+    let data = captured(source, json!({})).unwrap();
+    let links = occurrences(&data);
+    assert_eq!(links.iter().filter(|l| l["target"] == "CoreModel").count(), 2);
+    assert!(!links.iter().any(|l| l["target"] == "Child"));
+    let path = links.iter().find(|l| l["target"] == "::Kit::Button").unwrap();
+    assert_eq!(path["attributes"]["thistle_constant"]["syntax"], "::Kit :: Button");
+    assert_eq!(data["diagnostics"][0]["code"], "constant_path_unavailable");
+    assert_eq!(data["diagnostics"][0]["occurrences"], 1);
+    assert_eq!(captured("factory::A; factory::B", json!({"max_diagnostics":1})).unwrap_err().code, "limit_exceeded");
+    assert_eq!(captured(&format!("C{}", "x".repeat(256)), json!({})).unwrap_err().code, "limit_exceeded");
+}
+
+#[test]
 fn lexical_origins_compose_with_blocks_and_keep_dynamic_refusals() {
     let source = "CoreModel; task { CoreModel }; class Screen; CoreModel; def render; CoreModel; end; wrapper { include Tagged; def hidden; CoreModel; end }; end";
     let data = captured(source, json!({})).unwrap();
