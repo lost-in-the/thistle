@@ -513,7 +513,8 @@ module Thistle
             anchor = url('/source', 'id' => analysis.fetch('method').fetch('id')) + "#L#{Integer(span.fetch('start_line'))}"
             body << "<p><a href=\"#{h(anchor)}\">Supporting captured source at line #{h(span.fetch('start_line'))} (coherence unknown)</a></p>"
           else
-            body << '<p>Supporting source exceeds the web line budget. Use the pinned Reader Source API for the complete file.</p>'
+            command = "thistle source #{analysis.fetch('method').fetch('id')} --store STORE --generation #{@generation}"
+            body << "<p>Supporting source exceeds the web line budget. Use <code>#{h(command)}</code> for the complete captured file; replace STORE with your saved store.</p>"
           end
         end
         body << "<p>Known potential effects omitted: #{h(brief_value(analysis['known_effects_omitted']))}; effects non-exhaustive: #{h(brief_value(analysis['effects_non_exhaustive']))}.</p>"

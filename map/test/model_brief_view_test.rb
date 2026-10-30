@@ -110,12 +110,27 @@ class ModelBriefViewTest < Minitest::Test
     status, _, html = request(make_app(reader), '/links', query: "id=#{FACT_ID}")
     assert_equal 200, status
     assert_includes html, 'no brief was returned'
+    reader.failure = Thistle::InvalidInput.new('Unknown native operation')
+    status, _, html = request(make_app(reader), '/links', query: "id=#{FACT_ID}")
+    assert_equal 200, status
+    assert_includes html, 'Native model brief API unavailable'
     reader.failure = Thistle::InvalidSnapshot.new('corrupt bytes')
     assert_equal 422, request(make_app(reader), '/links', query: "id=#{FACT_ID}").first
     old_reader = Reader.new(facts: [response.fetch('root').merge('attributes' => {})])
     status, _, html = request(make_app(old_reader), '/links', query: "id=#{FACT_ID}")
     assert_equal 200, status
     assert_includes html, 'Model brief unavailable with this Reader'
+  end
+
+  def test_source_over_line_budget_has_an_exact_pinned_command_instead_of_a_dead_anchor
+    data = response
+    explanation = data.dig('families', 'callbacks', 'items', 0, 'explanation')
+    explanation['source']['lines'] = 10_001
+    explanation['effects'][0]['call_span']['start_line'] = 10_001
+    status, _, html = request(make_app(BriefReader.new(data)), '/links', query: "id=#{FACT_ID}")
+    assert_equal 200, status
+    assert_includes html, "thistle source #{METHOD_ID} --store STORE --generation #{GENERATION}"
+    refute_includes html, '#L10001'
   end
 
   def test_incoming_identity_only_view_and_denied_requests_do_not_select_a_brief
