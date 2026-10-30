@@ -25,7 +25,9 @@ class ThistleCallbackEffectsMapTest < Minitest::Test
           reader.close
         end
       RUBY
-      output, error, status = Open3.capture3(RbConfig.ruby, '-e', code, store, saved.fetch('generation'))
+      output, error, status = Open3.capture3(RbConfig.ruby,
+        '-I', File.expand_path('../../lib', __dir__), '-I', File.expand_path('../lib', __dir__),
+        '-e', code, store, saved.fetch('generation'))
       assert status.success?, error
       result = JSON.parse(output)
       explanation = result.fetch('explanation')
