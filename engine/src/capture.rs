@@ -31,6 +31,7 @@ const PARSER_POLICY: &str = "prism-default-guarded";
 const PARSER_STACK_BYTES: usize = 64 * 1024 * 1024;
 const DECLARATION_SCOPE_MESSAGE: &str = "A declaration inside a dynamic block or singleton receiver was not assigned a speculative owner";
 const MIXIN_SCOPE_MESSAGE: &str = "A mixin call in a block or singleton namespace has an unverified owner and was not attached to the ordinary class";
+const CONSTANT_PATH_MESSAGE: &str = "A constant path with an expression parent or beyond the supported label or depth limits has no static target label";
 // Provisional operational traversal ceiling, not a parser or process-memory bound.
 const MAX_NODES_CEILING: usize = 5_000_000;
 static CAPTURE_ACTIVE: AtomicBool = AtomicBool::new(false);
@@ -54,6 +55,19 @@ struct Scope {
     singleton: bool,
     current: Option<usize>,
     dynamic: bool,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ConstantRole { Value, Argument, Predicate, RescueClass, Excluded }
+
+impl ConstantRole {
+    fn label(self) -> &'static str {
+        match self {
+            Self::Value => "value", Self::Argument => "argument",
+            Self::Predicate => "predicate", Self::RescueClass => "rescue_class",
+            Self::Excluded => unreachable!("excluded constants are not recorded"),
+        }
+    }
 }
 
 /// Owning fact, target, receiver kind, receiver name, safe navigation and the
@@ -201,9 +215,11 @@ fn apply_order(values: &mut Vec<Value>, order: Vec<usize>) {
 
 fn call_sort_key(link: &Value) -> (Option<&str>, Option<&str>, Option<&str>, Option<&str>, Option<bool>, Option<u64>, Option<u64>) {
     let call = schema::call_metadata(&link["attributes"]["thistle_call"], schema::VERSION).expect("captured call metadata");
+    let constant = &link["attributes"]["thistle_constant"]["location"];
     (link["relation"].as_str(), link["target"].as_str(), call.as_ref().map(|c| c.kind),
         call.as_ref().and_then(|c| c.name), call.as_ref().map(|c| c.safe_navigation),
-        call.as_ref().map(|c| c.location.start_byte), call.as_ref().map(|c| c.location.end_byte))
+        call.as_ref().map(|c| c.location.start_byte).or_else(|| constant[0].as_u64()),
+        call.as_ref().map(|c| c.location.end_byte).or_else(|| constant[1].as_u64()))
 }
 
 fn open_root(root: &Path) -> Result<File> {
@@ -396,8 +412,8 @@ impl Capture {
         let initial = Rc::new(Scope { owner:"Object".to_owned(), namespace:None, singleton:false, current:Some(file_index), dynamic:false });
         // Preserve the historical LIFO encounter order: diagnostic groups and
         // admission/refusal boundaries depend on more than the final fact sort.
-        let mut pending = vec![(root, initial)];
-        while let Some((node, scope)) = pending.pop() {
+        let mut pending = vec![(root, initial, ConstantRole::Value)];
+        while let Some((node, scope, role)) = pending.pop() {
             self.nodes += 1;
             if self.nodes > self.limit("max_nodes") { return Err(CoreError::limit("Parsed sources exceed max_nodes")); }
             if let Some(class) = node.as_class_node() {
@@ -409,7 +425,7 @@ impl Capture {
                 }))?;
                 if let Some(parent) = class.superclass() { self.add_link(index, "inherits", parent.location().as_slice(), path)?; }
                 let next = Rc::new(Scope { owner:name.clone(), namespace:Some(name), singleton:false, current:Some(index), dynamic:false });
-                if let Some(body) = class.body() { pending.push((body, next)); }
+                if let Some(body) = class.body() { pending.push((body, next, ConstantRole::Value)); }
             } else if let Some(module) = node.as_module_node() {
                 if scope.dynamic || scope.singleton { self.uncertain_scope(path)?; continue; }
                 let raw = constant_expression(&module.constant_path());
@@ -418,7 +434,7 @@ impl Capture {
                     "declaration_name":raw, "lexical_scope":scope.namespace.iter().collect::<Vec<_>>(), "name_resolution":resolution
                 }))?;
                 let next = Rc::new(Scope { owner:name.clone(), namespace:Some(name), singleton:false, current:Some(index), dynamic:false });
-                if let Some(body) = module.body() { pending.push((body, next)); }
+                if let Some(body) = module.body() { pending.push((body, next, ConstantRole::Value)); }
             } else if let Some(method) = node.as_def_node() {
                 if scope.dynamic { self.uncertain_scope(path)?; continue; }
                 let (owner, singleton, resolution) = if let Some(receiver) = method.receiver() {
@@ -437,20 +453,53 @@ impl Capture {
                     "name_resolution":resolution, "lexical_scope":scope.namespace.iter().collect::<Vec<_>>(), "parameters_source":parameters
                 }))?;
                 let next = Rc::new(Scope { current:Some(index), ..(*scope).clone() });
-                if let Some(body) = method.body() { pending.push((body, Rc::clone(&next))); }
-                if let Some(parameters) = method.parameters() { pending.push((parameters.as_node(), next)); }
+                if let Some(body) = method.body() { pending.push((body, Rc::clone(&next), ConstantRole::Value)); }
+                if let Some(parameters) = method.parameters() { pending.push((parameters.as_node(), next, ConstantRole::Value)); }
             } else if let Some(singleton) = node.as_singleton_class_node() {
                 if singleton.expression().as_self_node().is_some() && !scope.dynamic && !scope.singleton && !self.in_method(&scope) {
-                    if let Some(body) = singleton.body() { pending.push((body, Rc::new(Scope { singleton:true, ..(*scope).clone() }))); }
+                    if let Some(body) = singleton.body() { pending.push((body, Rc::new(Scope { singleton:true, ..(*scope).clone() }), ConstantRole::Value)); }
                 } else { self.uncertain_scope(path)?; }
             } else if node.as_block_node().is_some() || node.as_lambda_node().is_some() {
                 let next = Rc::new(Scope { dynamic:true, ..(*scope).clone() });
-                children::for_each_child(&node, |child| pending.push((child, Rc::clone(&next))));
+                children::for_each_child(&node, |child| pending.push((child, Rc::clone(&next), ConstantRole::Value)));
             } else {
                 if let Some(call) = node.as_call_node() { self.collect_call(&call, &scope, path, lines)?; }
-                children::for_each_child(&node, |child| pending.push((child, Rc::clone(&scope))));
+                if role != ConstantRole::Excluded && (node.as_constant_read_node().is_some() || node.as_constant_path_node().is_some()) {
+                    self.collect_constant(&node, &scope, role, path, lines)?;
+                }
+                let mixin = node.as_call_node().is_some_and(|call|
+                    scope.current.is_some_and(|i| matches!(self.kinds[i], FactKind::Class | FactKind::Module)) &&
+                    call.receiver().map_or(true, |receiver| receiver.as_self_node().is_some()) &&
+                    matches!(call.name().as_slice(), b"include" | b"extend" | b"prepend"));
+                children::for_each_child(&node, |child| {
+                    let next_role = constant_child_role(&node, &child, role, mixin);
+                    pending.push((child, Rc::clone(&scope), next_role));
+                });
             }
         }
+        Ok(())
+    }
+
+    fn collect_constant(&mut self, node: &Node<'_>, scope: &Scope, role: ConstantRole, path: &str, lines: &LineIndex) -> Result<()> {
+        let Some(current) = scope.current else { return Ok(()); };
+        let (kind, name, omitted) = classify_receiver(node);
+        if kind != "constant" || omitted {
+            self.declarations_partial = true;
+            return self.diagnostic("constant_path_unavailable", CONSTANT_PATH_MESSAGE, path);
+        }
+        let name = name.expect("named constant syntax");
+        let links = self.links.checked_add(1).filter(|n| *n <= self.limit("max_links"))
+            .ok_or_else(|| CoreError::limit("Capture exceeds max_links"))?;
+        // An occurrence is a distinct source site, never an invented call or a
+        // deduplicated (origin, label) group. Existing call maps are untouched.
+        self.reserve_link(current)?;
+        let link = json!({"relation":"references_constant", "target":name, "resolution":"unresolved",
+            "attributes":{"thistle_constant":{"version":1, "syntax":text(node.location().as_slice()),
+                "rooted":name.starts_with("::"), "lexical_scope":scope.namespace, "role":role.label(),
+                "location":lines.call_location(&node.location())}}});
+        self.charge_link(&link)?;
+        self.links = links;
+        self.facts[current]["links"].as_array_mut().expect("fact links array").push(link);
         Ok(())
     }
 
@@ -640,13 +689,16 @@ impl Capture {
         let total = self.diagnostic_occurrences.checked_add(count)
             .ok_or_else(|| CoreError::limit("Diagnostic occurrence count overflow"))?;
         record["occurrences"] = json!(count);
-        // Only these two known recoverable classes coalesce. Compare ALL fields
+        // Only known recoverable classes coalesce. Compare ALL fields
         // except the count, preserving future reason/location/provenance fields.
         // A bounded scan avoids a second retained key/map and its memory budget.
-        let grouped = record["code"] == "dynamic_scope" && matches!(record["message"].as_str(),
-            Some(DECLARATION_SCOPE_MESSAGE) | Some(MIXIN_SCOPE_MESSAGE));
+        // Exact provenance has at most one group; start at the newest group to
+        // favor repeated sites from the current file without changing its index.
+        let grouped = (record["code"] == "dynamic_scope" && matches!(record["message"].as_str(),
+            Some(DECLARATION_SCOPE_MESSAGE) | Some(MIXIN_SCOPE_MESSAGE))) ||
+            (record["code"] == "constant_path_unavailable" && record["message"] == CONSTANT_PATH_MESSAGE);
         let existing = if grouped {
-            self.diagnostics.iter().position(|prior| {
+            self.diagnostics.iter().rposition(|prior| {
                 let (Some(a), Some(b)) = (prior.as_object(), record.as_object()) else { return false; };
                 a.len() == b.len() && a.iter().all(|(key, value)| key == "occurrences" || b.get(key) == Some(value))
             })
@@ -690,6 +742,9 @@ impl Capture {
               "scope":"Explicit Ruby class, module and method syntax in captured valid source; names are lexical labels",
               "prism_version":PRISM_VERSION, "ruby_syntax_version":RUBY_SYNTAX_VERSION, "parser_policy":PARSER_POLICY,
               "reason":if self.declarations_partial {Some("Some declarations or relationships were unavailable; see diagnostics")} else {None} },
+            { "family":"ruby_constant_occurrences", "status":if self.declarations_partial {"partial"} else {"complete"},
+              "scope":"Maximal static constant reads in admitted lexical bodies; excludes call receivers, declaration names, superclass and mixin labels; no prefix or runtime binding",
+              "reason":if self.declarations_partial {Some("Some lexical bodies or constant labels were unavailable; see diagnostics")} else {None} },
             { "family":"dynamic_resolution", "status":"unavailable", "scope":"Ruby constant lookup, metaprogramming, visibility, dispatch and generated methods",
               "reason":"Static capture does not evaluate application code; relationship targets are unresolved" },
             { "family":"execution_trace", "status":"unavailable", "scope":"Observed execution", "reason":"A syntax relationship is not evidence that a call executed" },
@@ -701,6 +756,49 @@ impl Capture {
               "reason":"Facts are derived from stored bytes. File reads detect ordinary concurrent writes, but capture does not certify a globally immutable tree or currentness after capture" }
         ])
     }
+}
+
+// Keep the generated child visitor and its LIFO scheduling unchanged. Roles
+// describe the immediate syntax edge, not runtime argument/namespace semantics.
+fn constant_child_role(parent: &Node<'_>, child: &Node<'_>, inherited: ConstantRole, mixin: bool) -> ConstantRole {
+    let constant = child.as_constant_read_node().is_some() || child.as_constant_path_node().is_some();
+    if constant && (parent.as_constant_path_node().is_some() || parent.as_constant_path_target_node().is_some()) {
+        return ConstantRole::Excluded; // maximal exact path only; never prefixes/assignment names
+    }
+    let same_site = |node: Node<'_>| node.location().start_offset() == child.location().start_offset() &&
+        node.location().end_offset() == child.location().end_offset();
+    // Prism exposes these assignment targets as ordinary ConstantPathNode
+    // children. Exclude the target edge, not the independent value expression.
+    let target = parent.as_constant_path_write_node().map(|n| n.target().as_node())
+        .or_else(|| parent.as_constant_path_and_write_node().map(|n| n.target().as_node()))
+        .or_else(|| parent.as_constant_path_or_write_node().map(|n| n.target().as_node()))
+        .or_else(|| parent.as_constant_path_operator_write_node().map(|n| n.target().as_node()));
+    if target.is_some_and(same_site) { return ConstantRole::Excluded; }
+    // Setter/index write forms have receiver syntax too, even though this
+    // slice does not invent call links for their read/write operations.
+    let receiver = parent.as_call_node().and_then(|n| n.receiver())
+        .or_else(|| parent.as_call_and_write_node().and_then(|n| n.receiver()))
+        .or_else(|| parent.as_call_or_write_node().and_then(|n| n.receiver()))
+        .or_else(|| parent.as_call_operator_write_node().and_then(|n| n.receiver()))
+        .or_else(|| parent.as_call_target_node().map(|n| n.receiver()))
+        .or_else(|| parent.as_index_and_write_node().and_then(|n| n.receiver()))
+        .or_else(|| parent.as_index_or_write_node().and_then(|n| n.receiver()))
+        .or_else(|| parent.as_index_operator_write_node().and_then(|n| n.receiver()))
+        .or_else(|| parent.as_index_target_node().map(|n| n.receiver()));
+    if receiver.is_some_and(same_site) { return ConstantRole::Excluded; }
+    if parent.as_call_node().is_some() && child.as_arguments_node().is_some() {
+        return if mixin { ConstantRole::Excluded } else { ConstantRole::Argument };
+    }
+    if parent.as_arguments_node().is_some() {
+        return if inherited == ConstantRole::Excluded { inherited } else { ConstantRole::Argument };
+    }
+    if constant && parent.as_rescue_node().is_some() { return ConstantRole::RescueClass; }
+    let predicate = parent.as_if_node().map(|n| n.predicate())
+        .or_else(|| parent.as_unless_node().map(|n| n.predicate()))
+        .or_else(|| parent.as_while_node().map(|n| n.predicate()))
+        .or_else(|| parent.as_until_node().map(|n| n.predicate()));
+    if predicate.is_some_and(same_site) { return ConstantRole::Predicate; }
+    ConstantRole::Value
 }
 
 fn file_record(path: &str, digest: String, content: String) -> Value {
@@ -821,6 +919,10 @@ impl LineIndex {
 #[cfg(test)]
 #[path = "capture_origins_tests.rs"]
 mod origins_tests;
+
+#[cfg(test)]
+#[path = "capture_constant_occurrences_tests.rs"]
+mod constant_occurrences_tests;
 
 #[cfg(test)]
 mod tests {

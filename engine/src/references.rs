@@ -44,13 +44,20 @@ fn identity(fact: &Value, shared: Option<&mut crate::model_brief::RequestWork>) 
     Ok(value)
 }
 use recorded_domain::candidate_name;
-fn label<'a>(link: &SemanticLinkView<'a>) -> Option<&'a str> {
+// Keep display/evidence spelling separate from the borrowed directory key.
+#[derive(Clone, Copy)]
+struct Label<'a> { original: &'a str, key: &'a str }
+fn label<'a>(link: &SemanticLinkView<'a>) -> Option<Label<'a>> {
     if let Some(call) = link.call_metadata() {
         // A method selector is not a class label. Only a recorded constant receiver
         // supplies a candidate label; lexical nesting/runtime dispatch stay unknown.
-        return (call.kind == "constant" && !call.omitted).then_some(call.name).flatten();
+        return (call.kind == "constant" && !call.omitted).then_some(call.name).flatten()
+            .map(|name| Label { original: name, key: recorded_domain::constant_label(name) });
     }
-    Some(link.target())
+    if link.constant_metadata().is_some() {
+        return Some(Label { original: link.target(), key: recorded_domain::constant_label(link.target()) });
+    }
+    Some(Label { original: link.target(), key: link.target() })
 }
 struct Work { comparisons: usize, bytes: usize }
 impl Work {
@@ -59,9 +66,9 @@ impl Work {
         self.charge(a,b,None)?;
         Some(a == b)
     }
-    fn compare_scoped(&mut self, a: &str, b: &str, shared: Option<&mut crate::model_brief::RequestWork>) -> Option<bool> {
-        self.charge(a,b,shared)?;
-        Some(a == b)
+    fn compare_scoped(&mut self, a: Label<'_>, b: &str, shared: Option<&mut crate::model_brief::RequestWork>) -> Option<bool> {
+        self.charge(a.original,b,shared)?;
+        Some(a.key == b)
     }
     fn charge(&mut self, a: &str, b: &str, shared: Option<&mut crate::model_brief::RequestWork>) -> Option<()> {
         let bytes = a.len().checked_add(b.len())?;
@@ -71,18 +78,20 @@ impl Work {
     }
 }
 
-struct ScopedLabels<'a> { work: &'a mut Work, shared: Option<&'a mut crate::model_brief::RequestWork> }
+struct ScopedLabels<'a> { work: &'a mut Work, shared: Option<&'a mut crate::model_brief::RequestWork>, original: &'a str }
 impl recorded_domain::LabelWork for ScopedLabels<'_> {
     fn compare(&mut self, a: &str, b: &str) -> Result<std::cmp::Ordering> {
-        self.work.charge(a, b, self.shared.as_deref_mut())
+        // This adapter is used only for name ranges (kind=None). Charge the
+        // evidence spelling even when b is the shorter constant matching key.
+        self.work.charge(a, self.original, self.shared.as_deref_mut())
             .ok_or_else(|| CoreError::limit("Reference label allowance unavailable"))?;
         Ok(a.cmp(b))
     }
 }
-fn lookup(reader: &Reader, target: &str, offset: usize, limit: usize, work: &mut Work,
+fn lookup(reader: &Reader, target: Label<'_>, offset: usize, limit: usize, work: &mut Work,
     shared: Option<&mut crate::model_brief::RequestWork>) -> Result<(recorded_domain::Page, Value)> {
-    reader.recorded_candidates(target, None, offset, limit,
-        &mut ScopedLabels { work, shared })
+    reader.recorded_candidates(target.key, None, offset, limit,
+        &mut ScopedLabels { work, shared, original: target.original })
 }
 fn capture_coverage(reader: &Reader) -> Result<Value> {
     let coverage=schema::array(&reader.manifest,"coverage")?;
@@ -163,7 +172,7 @@ pub(crate) fn select_scoped(reader: &Reader, query: &Query<'_>, mut shared: Opti
             let detail = if detail_omitted { json!({"relation":link.relation(),"target":link.target(),"resolution":link.resolution()}) } else { link.materialize()? };
             let mut row = json!({"origin":null,"link":detail,"link_ordinal":position.1,"detail_omitted":detail_omitted,
                 "match_basis":if query.incoming {"label_match_binding_unknown"} else {"recorded_outgoing_binding_unknown"},
-                "candidate_label":target,"candidates":[],"candidate_matches":0,"candidate_search_complete":false});
+                "candidate_label":target.map(|label| label.original),"candidates":[],"candidate_matches":0,"candidate_search_complete":false});
             row["origin"] = match identity(fact,shared.as_deref_mut()) {
                 Ok(value)=>value, Err(error) if error.code=="limit_exceeded" && shared.is_some()=>break 'facts, Err(error)=>return Err(error),
             };

@@ -33,15 +33,20 @@ positions, without copying labels or retaining another link dataset. See the
 Reader/CLI paging, global candidate counts and separate construction costs.
 
 An outgoing relationship is a recorded link on the selected fact. Incoming
-relationships match a recorded target label to the selected fact's full name.
-Recognized call metadata instead matches its recorded constant receiver label;
-the method selector is insufficient. Other receiver forms do not establish a
-model candidate. Labels are exact, case-sensitive strings: `Admin::User` does
-not become `User`. Synthetic anonymous model names are not candidate labels.
+relationships match the selected fact's full name against a recorded target's
+matching key. Recognized call metadata uses its non-omitted constant receiver,
+removing exactly one leading `::` for matching while preserving the recorded
+spelling; the method selector is insufficient. Other receiver forms do not
+establish a model candidate, and arbitrary targets retain literal matching.
+Matching is case-sensitive and preserves namespaces: `::Admin::User` matches
+`Admin::User`, never `User`. See the
+[root-qualified receiver contract](https://github.com/lost-in-the/thistle/blob/b46656bcf65d713362e5e42067e638271816aba6/docs/development/root-qualified-references.md)
+for schema boundaries, original-byte accounting and uncertainty. Synthetic
+anonymous model names are not candidate labels.
 Schema 1 unknown metadata remains opaque, including colliding version-2 data;
 schema 2/3 recognized receiver metadata uses the existing decoder.
 
-Candidate IDs are facts in this generation whose full name matches the label.
+Candidate IDs are facts in this generation whose full name matches that key.
 Duplicate static declarations, model metadata and registered-callback observations
 remain separate named candidates; anonymous model/callback display names do not.
 Even one candidate is **name match / binding unknown**. A resolution string never
@@ -52,7 +57,7 @@ This path does not infer associations that capture never recorded.
 ## Bounded work and evidence
 
 Relationships follow stored stable-ID order, then the recorded link order.
-Candidate pages follow exact label, kind and saved fact position. Public Reader
+Candidate pages follow matching key, kind and saved fact position. Public Reader
 and CLI calls return a generation/query-bound `next_cursor`; following it from
 the beginning exhausts the selected recorded domain. Counts and completeness
 refer to the remaining cursor domain, not the application or earlier pages.
