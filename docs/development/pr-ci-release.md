@@ -36,7 +36,10 @@ with the same credentials is not an enforcement boundary.
    head's report silently qualify new code.
 6. **Close the bounded work.** Link the integrated commit and exact evidence.
    Name the owner of outstanding required post-merge main checks and keep the
-   result unaccepted while those checks remain queued or inconclusive. Use the
+   result unaccepted while those checks are queued, missing, cancelled, timed-out,
+   failed or inconclusive. Native PR watch ends on merge or close; reconcile main
+   checks at the next applicable event batch or checkpoint and record any native
+   event wake/access gap. Use the
    [watch/handoff procedure](../../.agents/skills/thistle-hand-off/SKILL.md#pr-watch-ownership)
    to identify exactly which step is blocked; disjoint source work may continue.
    Keep broader capability, experiment, and release decisions separate.

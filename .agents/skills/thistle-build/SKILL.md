@@ -54,6 +54,9 @@ follow native completion delivery rather than polling or overlapping reviewers.
 Missing, failed, skipped or timed-out review is not approval. At the ceiling or
 a persistent technical disagreement, send both positions and evidence to the
 technical integration owner; actual product or authority choices go to the owner.
+The owner's disposition must still satisfy the [review standard](../../../docs/development/pr-ci-release.md#review-standard)
+and [material-correction/scoped-review requirements](../../../docs/development/agent-workflow.md#multi-agent-operation);
+the round ceiling waives neither an open blocker nor a required scoped disposition.
 
 Reuse applicable unchanged evidence with its exact identity and scope; do not
 require a personal rerun merely to repeat it. Changed behavior, artifacts, base
