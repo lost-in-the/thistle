@@ -8,6 +8,7 @@ require_relative 'highlighter'
 require_relative 'model_presenter'
 require_relative 'callback_presenter'
 require_relative 'find_presenter'
+require_relative 'references_presenter'
 
 module Thistle
   module Map
@@ -130,15 +131,46 @@ module Thistle
       end
 
       def links
-        fact = @reader.fact(@params.fetch('id'))
-        links = @reader.links(fact.fetch('id'))
+        id = @params.fetch('id')
+        direction = @params.fetch('direction', 'outgoing')
+        references_limited = false
+        references = begin
+          @reader.references(id, direction: direction) if @reader.respond_to?(:references)
+        rescue Thistle::LimitExceeded
+          references_limited = true
+          nil
+        end
+        # Incoming navigation needs identity only. Reader#fact expands the entire
+        # outgoing link tree, which must not accompany the bounded incoming query.
+        fact = if direction == 'incoming'
+                 if references
+                   anchor = references.fetch('anchor')
+                   unless references.fetch('generation') == @generation && anchor.fetch('id') == id
+                     raise Thistle::InvalidSnapshot, 'References substituted a different anchor'
+                   end
+                   anchor
+                 end
+               else
+                 @reader.fact(id)
+               end
+        links = direction == 'incoming' ? [] : @reader.links(fact.fetch('id'))
         page = @params.fetch('page', '1').to_i
         pages = [(links.length.to_f / PAGE_SIZE).ceil, 1].max
         raise Limit, 'This links page does not exist.' if page > pages
 
-        body = "<h1 class=\"t1\">Links from #{h(fact.fetch('name'))}</h1>" + fact_tiles(fact)
+        body = fact ? "<h1 class=\"t1\">Links for #{h(fact.fetch('name'))}</h1>" + fact_tiles(fact, details: direction != 'incoming') : '<h1 class="t1">Incoming references</h1>'
+        body += "<p><a href=\"#{h(url('/links', 'direction' => 'outgoing'))}\">Outgoing references</a> · <a href=\"#{h(url('/links', 'direction' => 'incoming'))}\">Incoming references</a></p>"
+        body += if references
+                  ReferencesPresenter.new(generation: @generation, mount: @mount).render(references)
+                elsif references_limited
+                  '<p class="notice ui">Reference selection reached resource limits; no reference result was returned.</p>'
+                else
+                  '<p class="notice ui">Recorded-reference navigation is unavailable with this Reader.</p>'
+                end
         body += '<p class="notice ui">Unresolved links are captured labels. They do not prove a runtime call or a resolved target.</p>'
-        if links.empty?
+        if direction == 'incoming'
+          # Incoming results are already selected and bounded by the native reader.
+        elsif links.empty?
           body += '<p class="ui">No links were captured for this fact. This does not prove it has no dependencies.</p>'
         else
           visible = links.slice((page - 1) * PAGE_SIZE, PAGE_SIZE)
@@ -304,6 +336,7 @@ module Thistle
 
       def url(path, extra = {})
         params = @params.reject { |key, _| key == 'page' }.merge('generation' => @generation).merge(extra)
+        params.delete('direction') unless path == '/links'
         params.delete('id') if path == '/'
         if path == '/source' && !params['id'] && params['path']
           params['file'] = FindPresenter.file_reference(params['path'])
@@ -319,8 +352,8 @@ module Thistle
         "#{@mount}#{path}?#{query}"
       end
 
-      def layout(title, body, fact: nil)
-        selected = fact || (@params['id'] && @reader.fact(@params['id']))
+      def layout(title, body, fact: :from_params)
+        selected = fact == :from_params ? (@params['id'] && @reader.fact(@params['id'])) : fact
         file_source = @params['path'] && title == 'Source'
         source_link = selected ? nav_link('Source', '/source', title, 's', selected['id']) : '<span class="disabled">Source <small>Choose a result</small></span>'
         source_link = nav_link('Source', '/source', title, 's') if file_source
@@ -360,20 +393,23 @@ module Thistle
         "<a href=\"#{h(url(path, id ? { 'id' => id } : {}))}\"#{attrs}>#{label}</a>"
       end
 
-      def fact_tiles(fact)
+      def fact_tiles(fact, details: true)
         tiles = [
           ['Identity', [['Kind', fact['kind']], ['Evidence', fact['evidence']]]],
           ['Source', [['File', fact['path'] || 'Unavailable'], ['Line', fact.dig('location', 'start_line') || 'Unavailable']]]
         ]
-        if fact['kind'] == 'route'
+        if details && fact['kind'] == 'route'
           tiles << ['Route conditions', [['Observed conditions', constraint_summary(fact)],
             ['Meaning', 'Route presence does not prove a request will match.']]]
         end
-        '<div class="facts">' + tiles.map do |eyebrow, rows|
+        identity = '<div class="facts">' + tiles.map do |eyebrow, rows|
           klass = eyebrow == 'Route conditions' ? ' class="route-conditions"' : ''
           "<div#{klass}><span class=\"eyebrow\">#{h(eyebrow)}</span><dl>" +
             rows.map { |label, value| "<dt>#{h(label)}</dt><dd>#{h(value)}</dd>" }.join + '</dl></div>'
-        end.join + '</div>' + ModelPresenter.render(fact) +
+        end.join + '</div>'
+        return identity + '<p class="notice ui">Detailed fact evidence was not loaded for this incoming view. Open Source or Outgoing references to inspect it.</p>' unless details
+
+        identity + ModelPresenter.render(fact) +
           CallbackPresenter.new(generation: @generation, reader: @reader, mount: @mount).render(fact)
       end
 

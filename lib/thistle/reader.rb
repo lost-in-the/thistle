@@ -81,6 +81,10 @@ module Thistle
       request("links", "id" => id)
     end
 
+    def references(id, direction: "outgoing", limit: 50)
+      request("references", "id" => id, "direction" => direction, "limit" => limit)
+    end
+
     def check
       request("check")
     end

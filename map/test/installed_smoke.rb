@@ -169,6 +169,73 @@ result = Dir.mktmpdir('thistle-map-installed-') do |directory|
       html.include?('ModelFixture::Order') && html.include?('items') && html.include?('payments') && html.include?('unknown')
   end
 
+  # Use the saved real-model observation in this fresh consumer. Older selected
+  # packages retain their original contract; new Readers must prove references.
+  references_journey = nil
+  if model_reader.respond_to?(:references)
+    item = by_name.fetch('ModelFixture::Item')
+    item_evidence = model_reader.find('ModelFixture::Item').select { |row| row['name'] == 'ModelFixture::Item' }
+    static_item = item_evidence.find { |row| row['kind'] == 'class' }
+    callback_item = item_evidence.find { |row| row['kind'] == 'rails_save_callbacks' }
+    raise 'Captured Item or registered-callback identity missing' unless static_item && callback_item
+    outgoing = model_reader.references(order.fetch('id'))
+    association = outgoing.fetch('relationships').find { |row| row.dig('link', 'attributes', 'association') == 'items' }
+    raise "Installed outgoing references lost ambiguity: #{association&.slice('candidate_label', 'candidate_matches', 'match_basis', 'candidate_search_complete')}" unless association &&
+      outgoing.fetch('generation') == model_generation && association['candidate_label'] == 'ModelFixture::Item' &&
+      association['match_basis'] == 'recorded_outgoing_binding_unknown' && association['candidate_search_complete'] &&
+      association.fetch('candidate_matches') == 3 &&
+      association.fetch('candidates').map { |row| row.fetch('id') }.sort == [item.fetch('id'), static_item.fetch('id'), callback_item.fetch('id')].sort
+    incoming = model_reader.references(item.fetch('id'), direction: 'incoming')
+    raise 'Installed incoming references lost the registered association' unless incoming.fetch('generation') == model_generation &&
+      incoming.fetch('relationships').any? { |row| row.dig('origin', 'id') == order.fetch('id') &&
+        row.dig('link', 'attributes', 'association') == 'items' && row['match_basis'] == 'label_match_binding_unknown' }
+    status, _, body = model_app.call(env.merge('PATH_INFO' => '/links', 'QUERY_STRING' => model_query))
+    reference_html = body.each.to_a.join
+    raise 'Installed reference display lost uncertainty' unless status == 200 && reference_html.include?('binding unknown') &&
+      reference_html.include?('3 known name-match candidates') && reference_html.include?('No captured source')
+    source_uri = reference_html.scan(/href="([^"]+)"/).flatten.map { |href| URI.parse(CGI.unescapeHTML(href)) }.find do |uri|
+      params = URI.decode_www_form(uri.query.to_s).to_h
+      uri.path == '/source' && params['id'] == static_item.fetch('id') && params['generation'] == model_generation
+    end
+    raise 'Installed candidate Source link missing or unpinned' unless source_uri
+    source_status, _, body = model_app.call(env.merge('PATH_INFO' => source_uri.path, 'QUERY_STRING' => source_uri.query))
+    source_html = body.each.to_a.join
+    raise 'Installed reference Source changed captured evidence' unless source_status == 200 && source_html.include?(model_generation) &&
+      model_reader.source(static_item.fetch('id')).fetch('sha256') == produced.fetch('fixture_source_sha256')
+    incoming_query = URI.encode_www_form('id' => item.fetch('id'), 'generation' => model_generation, 'direction' => 'incoming')
+    incoming_status, _, body = model_app.call(env.merge('PATH_INFO' => '/links', 'QUERY_STRING' => incoming_query))
+    incoming_html = body.each.to_a.join
+    raise 'Installed incoming Map view failed' unless incoming_status == 200 && incoming_html.include?('ModelFixture::Order') &&
+      incoming_html.include?('binding unknown') && incoming_html.include?(model_generation) &&
+      incoming_html.include?('Additional candidates not searched') &&
+      incoming_html.include?('Detailed fact evidence was not loaded') && !incoming_html.include?('unknown format')
+    limited = model_reader.references(order.fetch('id'), limit: 1)
+    # Two associations plus the recorded model_base_label are three groups.
+    raise "Installed reference omission was confused with unsearched input: #{limited.fetch('coverage').slice('known_matches', 'known_omitted', 'not_searched', 'capture_partial')}" unless
+      limited.dig('coverage', 'known_matches') == 3 && limited.dig('coverage', 'known_omitted') == 2 &&
+      limited.dig('coverage', 'not_searched') == false && limited.dig('coverage', 'capture_partial') == true &&
+      limited.dig('coverage', 'budgets', 'facts') == 20_000
+    limited_html = Thistle::Map::ReferencesPresenter.new(generation: model_generation, mount: '').render(limited)
+    raise 'Installed reference omission display lost its scope' unless limited_html.include?('2 known omitted') &&
+      limited_html.include?('Relationship scan complete within this capture') && limited_html.include?('Capture partial')
+    method_fact = model_reader.find('business_method').find { |row| row['kind'] == 'method' }
+    raise 'Installed no-match fixture method missing' unless method_fact
+    empty = model_reader.references(method_fact.fetch('id'), direction: 'incoming')
+    raise 'Installed no-match result lost searched/capture scope' unless empty.fetch('relationships').empty? &&
+      empty.dig('coverage', 'scan_complete') && empty.dig('coverage', 'capture_partial') && !empty.dig('coverage', 'not_searched')
+    empty_query = URI.encode_www_form('id' => method_fact.fetch('id'), 'generation' => model_generation, 'direction' => 'incoming')
+    empty_status, _, body = model_app.call(env.merge('PATH_INFO' => '/links', 'QUERY_STRING' => empty_query))
+    empty_html = body.each.to_a.join
+    raise 'Installed no-match display overclaimed absence' unless empty_status == 200 &&
+      empty_html.include?('No matching recorded relationships found in the searched evidence') &&
+      empty_html.include?('This does not establish that the model has no references') && empty_html.include?('Capture partial')
+    references_journey = { 'generation' => model_generation, 'outgoing' => outgoing, 'incoming' => incoming,
+      'limited' => limited, 'no_match' => empty, 'no_match_status' => empty_status,
+      'static_source_id' => static_item.fetch('id'), 'source_sha256' => produced.fetch('fixture_source_sha256'),
+      'source_status' => source_status, 'incoming_status' => incoming_status,
+      'current_advanced' => true, 'fresh_consumer_without_rails' => true }
+  end
+
   # Inspect this exact installed package, without a checkout or a live-app scan.
   packaged_root = File.join(Gem.loaded_specs.fetch('thistle').full_gem_path, 'lib')
   packaged_path = 'thistle/reader.rb'
@@ -224,6 +291,7 @@ result = Dir.mktmpdir('thistle-map-installed-') do |directory|
     'find_journey' => { 'generation' => find_generation, 'path' => packaged_path,
       'span' => hit.fetch('span'), 'source_sha256' => Digest::SHA256.hexdigest(packaged_bytes),
       'status' => found.fetch('status'), 'map_source_status' => file_status, 'current_advanced' => true },
+    'references_journey' => references_journey,
     'woods_installed' => false, 'source_checkout_load_path' => false
   }
 ensure
