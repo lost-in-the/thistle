@@ -210,12 +210,13 @@ result = Dir.mktmpdir('thistle-map-installed-') do |directory|
       incoming_html.include?('Additional candidates not searched') &&
       incoming_html.include?('Detailed fact evidence was not loaded') && !incoming_html.include?('unknown format')
     limited = model_reader.references(order.fetch('id'), limit: 1)
-    raise 'Installed reference omission was confused with unsearched input' unless
-      limited.dig('coverage', 'known_matches') == 2 && limited.dig('coverage', 'known_omitted') == 1 &&
+    # Two associations plus the recorded model_base_label are three groups.
+    raise "Installed reference omission was confused with unsearched input: #{limited.fetch('coverage').slice('known_matches', 'known_omitted', 'not_searched', 'capture_partial')}" unless
+      limited.dig('coverage', 'known_matches') == 3 && limited.dig('coverage', 'known_omitted') == 2 &&
       limited.dig('coverage', 'not_searched') == false && limited.dig('coverage', 'capture_partial') == true &&
       limited.dig('coverage', 'budgets', 'facts') == 20_000
     limited_html = Thistle::Map::ReferencesPresenter.new(generation: model_generation, mount: '').render(limited)
-    raise 'Installed reference omission display lost its scope' unless limited_html.include?('1 known omitted') &&
+    raise 'Installed reference omission display lost its scope' unless limited_html.include?('2 known omitted') &&
       limited_html.include?('Relationship scan complete within this capture') && limited_html.include?('Capture partial')
     method_fact = model_reader.find('business_method').find { |row| row['kind'] == 'method' }
     raise 'Installed no-match fixture method missing' unless method_fact
