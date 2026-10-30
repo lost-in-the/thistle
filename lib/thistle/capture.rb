@@ -34,6 +34,7 @@ module Thistle
 
     def call
       result = Native.call("op" => "capture", "root" => @root, "limits" => @limits)
+      fact_bytes = native_evidence_bytes(result)
       effective = result.fetch("producer").fetch("effective_limits").transform_keys(&:to_sym)
       if @rails
         require_relative "rails_capture"
@@ -44,12 +45,9 @@ module Thistle
           max_links: effective[:max_links] - static_links,
           max_diagnostics: effective[:max_diagnostics] - result.fetch("diagnostics").length
         )
-        static_evidence_bytes = JSON.generate(result.fetch("facts")).bytesize
-        raise LimitError, "Capture fact evidence exceeds the 64 MiB payload budget" if static_evidence_bytes > MAX_EVIDENCE_BYTES
-
         runtime = RailsCapture.new(
           app: @rails, limits: remaining,
-          evidence_budget: MAX_EVIDENCE_BYTES - static_evidence_bytes
+          evidence_budget: MAX_EVIDENCE_BYTES - fact_bytes
         ).call
         result["coverage"].reject! { |entry| entry["family"] == "rails_routes" }
         result["facts"].concat(runtime.fetch("facts"))
@@ -60,11 +58,11 @@ module Thistle
         result["producer"]["ruby_engine"] = RUBY_ENGINE
         require_relative "model_observer"
         # RailsCapture already charged each route plus a conservative comma.
-        # Joining into [] needs one fewer comma; preserve the previous exact
-        # post-route array size without serializing the old static facts again.
+        # Joining into [] needs one fewer comma. Keep the native conservative
+        # projected charge, without serializing any old static facts again.
         route_bytes = runtime.fetch("evidence_bytes")
         route_bytes -= 1 if static_fact_count.zero? && !runtime.fetch("facts").empty?
-        fact_bytes = static_evidence_bytes + route_bytes
+        fact_bytes += route_bytes
         links = static_links + runtime.fetch("facts").sum { |fact| fact.fetch("links").length }
         observations = ModelObserver.new(
           limits: effective.merge(max_facts: effective[:max_facts] - result.fetch("facts").length),
@@ -77,7 +75,8 @@ module Thistle
           limits: effective.merge(max_facts: effective[:max_facts] - result.fetch("facts").length),
           evidence_budget: MAX_EVIDENCE_BYTES - fact_bytes
         ).call
-        append_observations(result, effective, "callback", callbacks, fact_bytes, links)
+        fact_bytes, = append_observations(result, effective, "callback", callbacks, fact_bytes, links)
+        result.fetch("evidence_accounting")["fact_bytes_upper_bound"] = fact_bytes
       end
       raise LimitError, "Capture exceeds max_facts" if result["facts"].length > effective[:max_facts]
       raise LimitError, "Capture exceeds max_diagnostics" if result["diagnostics"].length > effective[:max_diagnostics]
@@ -87,11 +86,28 @@ module Thistle
 
     private
 
+    # Advisory native context only; Store independently validates actual facts.
+    # This path is for this package's explicit schema3 native capture, not legacy
+    # caller publication. No full-static JSON sizing fallback is permitted.
+    def native_evidence_bytes(result)
+      hint = result["evidence_accounting"]
+      unless result["schema_version"].is_a?(Integer) && result["schema_version"] == 3 && hint.is_a?(Hash) &&
+          hint.size == 2 && hint.key?("schema_version") && hint.key?("fact_bytes_upper_bound") &&
+          hint["schema_version"].is_a?(Integer) && hint["schema_version"] == 3 &&
+          hint["fact_bytes_upper_bound"].is_a?(Integer) && hint["fact_bytes_upper_bound"] >= 2
+        raise InvalidInput, "Missing or invalid native schema3 evidence accounting"
+      end
+      bytes = hint.fetch("fact_bytes_upper_bound")
+      raise LimitError, "Capture fact evidence exceeds the 64 MiB payload budget" if bytes > MAX_EVIDENCE_BYTES
+      bytes
+    end
+
     def append_observations(result, effective, family, observation, fact_bytes, links)
       added = Native.call("op" => "#{family}_batch", "observation" => observation, "context" => {
         "limits" => effective.slice(:max_facts, :max_links, :max_entries, :max_diagnostics),
         "facts" => result.fetch("facts").length, "links" => links,
-        "diagnostics" => result.fetch("diagnostics").length, "fact_bytes" => fact_bytes
+        "diagnostics" => result.fetch("diagnostics").length, "fact_bytes" => fact_bytes,
+        "schema_version" => result.fetch("schema_version")
       })
       result.fetch("facts").concat(added.fetch("facts"))
       families = added.fetch("coverage").map { |entry| entry.fetch("family") }
