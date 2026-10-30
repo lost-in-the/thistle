@@ -5,6 +5,12 @@ use std::collections::{HashMap, HashSet};
 
 pub const VERSION: u64 = 3;
 
+// Independently admitted framework layouts. Ruby's observation allowlist is
+// not authority for native publication or fresh-reader validation.
+pub(crate) fn supported_active_record(version: &Value) -> bool {
+    matches!(version.as_str(), Some("7.1.6" | "8.1.4"))
+}
+
 pub fn snapshot_version(value: &Value) -> Result<u64> {
     match value.as_u64() {
         Some(version @ (1 | 2 | 3)) => Ok(version),
@@ -641,7 +647,7 @@ fn model_fields(data: &Value) -> Result<()> {
 fn model_fact(fact: &Value) -> Result<()> {
     model_object(&fact["attributes"], &["model"])?;
     let data = &fact["attributes"]["model"];
-    if data["version"] != 1 || data["ordinal"].as_u64().is_none() || data["active_record_version"] != "8.1.4" ||
+    if data["version"] != 1 || data["ordinal"].as_u64().is_none() || !supported_active_record(&data["active_record_version"]) ||
         data["coherence"] != "unknown" || data["source"] != "unavailable" || fact["evidence"] != "runtime" ||
         !fact["path"].is_null() || !fact["location"].is_null() {
         return Err(CoreError::input("Invalid model provenance"));

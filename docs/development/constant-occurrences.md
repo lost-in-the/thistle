@@ -7,7 +7,10 @@ the recognized-family seams and authorized a normal source merge of PR110 at
 `9c0bb785165b74e1db033a27929ded93f2ae9a60`. That second parent supplies the
 existing root-qualified label/charging adapter; it must not be copied or
 reimplemented on the original base. These are source dependencies, not inherited
-runtime acceptance. This checkpoint and its regressions are **unexecuted**.
+runtime acceptance. Root subsequently composed signed PR111 at
+`6997d8c153ad41086a95e65c92d889bc8331bd16`, retaining its compact-call collector
+and the inherited PR105/109 source. This occurrence checkpoint and its
+regressions are **unexecuted**; parent CI does not establish this joined tuple.
 
 ## Occurrence contract
 
@@ -98,8 +101,12 @@ maximal eligible path once. It allocates one ordinary link/metadata object and
 source-syntax string per admitted nonreceiver site, with no dedup map or copied
 AST. Unlike simple call groups, repeated constant sites add repeated evidence.
 Every append checks `max_links` and charges the existing serialized evidence
-budget before retained state mutates. Stored schema-3 call rows stay compact;
-constant occurrences retain full objects. No memory or speed improvement is
+budget before retained evidence or counters mutate. A fallible link-vector
+reservation precedes the occurrence object's construction and admission. During
+capture, call rows stay compact alongside constant objects; after traversal and
+AST release, calls materialize before public sorting and coverage. Group indices
+stay stable across interleaved constant appends. Stored schema-3 call rows stay
+compact; constant occurrences retain full objects. No memory or speed improvement is
 claimed. Encoded charges are not heap/RSS measurements.
 
 Retained generation size grows with occurrence count and syntax length; current

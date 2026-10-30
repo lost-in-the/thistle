@@ -74,7 +74,7 @@ fn file_call_bytes_and_links_are_admitted_before_mutation() {
     let scope = Scope { owner:"Object".into(), namespace:None, singleton:false, current:Some(index), dynamic:false };
     captured.collect_call(&call, &scope, "body.rb", &lines).unwrap();
     let link = captured.facts[index]["links"][0].clone();
-    let charge = schema::encoded_bytes(&crate::link_encoding::WireLink::new(&link, schema::VERSION, "static").unwrap(), schema::MAX_FACTS_BYTES).unwrap() + 1;
+    let charge = Capture::link_bytes(&link).unwrap() + 1;
     captured.facts[index]["links"] = json!([]);
     captured.call_keys.clear(); captured.links = 0;
     captured.evidence_bytes = schema::MAX_FACTS_BYTES - charge + 1;
@@ -88,9 +88,12 @@ fn file_call_bytes_and_links_are_admitted_before_mutation() {
     captured.collect_call(&call, &scope, "body.rb", &lines).unwrap();
     assert_eq!(captured.evidence_bytes, schema::MAX_FACTS_BYTES);
     // A distinct site/group cannot bypass the link ceiling either.
+    captured.evidence_bytes = 2; // Isolate link admission from the byte refusal.
     captured.limits.insert("max_links".into(), 1);
     let other = ruby_prism::parse(b"Other.call");
-    assert_eq!(captured.extract(other.node(), "body.rb", &LineIndex::new(b"Other.call"), index).unwrap_err().code, "limit_exceeded");
+    let error = captured.extract(other.node(), "body.rb", &LineIndex::new(b"Other.call"), index).unwrap_err();
+    assert_eq!(error.code, "limit_exceeded");
+    assert_eq!(error.message, "Capture exceeds max_links");
     assert_eq!(captured.links, 1);
     assert_eq!(captured.facts[index]["links"][0], link);
 }

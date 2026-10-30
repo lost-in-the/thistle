@@ -94,6 +94,40 @@ fn lexical_origins_compose_with_blocks_and_keep_dynamic_refusals() {
 }
 
 #[test]
+fn constant_objects_keep_call_group_indices_through_materialization() {
+    let source = b"Thing.run; Marker; Thing.run";
+    let parsed = ruby_prism::parse(source);
+    let mut capture = Capture {
+        limits: effective_limits(&json!({})).unwrap(),
+        files: vec![], facts: vec![], kinds: vec![], diagnostics: vec![],
+        diagnostic_bytes: 2, diagnostic_occurrences: 0,
+        entries: 0, total_bytes: 0, nodes: 0, links: 0, evidence_bytes: 2,
+        link_keys: HashSet::new(), call_keys: HashMap::new(),
+        inventory_partial: false, declarations_partial: false,
+    };
+    let index = capture.add_fact(FactKind::File, "body.rb", "body.rb", Value::Null, json!({})).unwrap();
+    capture.extract(parsed.node(), "body.rb", &LineIndex::new(source), index).unwrap();
+    let links = capture.facts[index]["links"].as_array().unwrap();
+    assert_eq!(links.len(), 2);
+    assert_eq!(capture.links, 2);
+    // The later call is admitted first, then the constant object, then the
+    // earlier representative replaces the compact call without shifting it.
+    let call = links.iter().find(|link| link.is_array()).unwrap();
+    let metadata = crate::link_encoding::SemanticLinkView::from_wire(call, schema::VERSION, "static").unwrap();
+    assert_eq!(metadata.call_metadata().unwrap().location.start_byte, 0);
+    let constant = links.iter().find(|link| link["relation"] == "references_constant").unwrap().clone();
+    let charged = capture.evidence_bytes;
+    capture.materialize_links().unwrap();
+    let links = capture.facts[index]["links"].as_array().unwrap();
+    assert!(links.iter().all(Value::is_object));
+    assert!(links.contains(&constant));
+    let call = links.iter().find(|link| link["relation"] == "calls").unwrap();
+    assert_eq!(schema::call_metadata(&call["attributes"]["thistle_call"], schema::VERSION).unwrap().unwrap().location.start_byte, 0);
+    assert_eq!(capture.evidence_bytes, charged);
+    assert!(capture.call_keys.is_empty() && capture.link_keys.is_empty());
+}
+
+#[test]
 fn new_occurrences_use_existing_traversal_link_and_encoded_byte_limits() {
     let data = captured("CoreModel; CoreModel", json!({"max_facts":1,"max_links":2,"max_nodes":4})).unwrap();
     assert_eq!(data["producer"]["visited_nodes"], 4); // program, statements, two reads

@@ -79,6 +79,26 @@ as before; each changed generation retains its additional links under the curren
 store lifecycle. Reader admission, scratch, paging/output and diagnostic limits
 continue to apply. Encoded charges are not a heap/RSS measurement.
 
+During extraction, calls retain the existing schema-3 compact row projection
+instead of expanded semantic JSON objects alongside the Prism AST. Grouping keys
+are released after file traversal, before the public semantic link objects are
+materialized and sorted. This reuses the existing encoder/decoder, preserves
+per-site grouping, public output and encoded charges, and adds no format revision.
+Call/link index and link-vector growth use fallible capacity reservation. This
+reduces simultaneous representations; CPU and peak-memory effects still require
+the unchanged Linux parser-boundary checks, not a source-only performance claim.
+
+Static links also consume the allowance later offered to Rails observation:
+`lib/thistle/capture.rb` passes only `max_links - static_links` to the runtime
+observer. Exhausting that remainder can refuse the whole combined capture, not
+just omit runtime rows. Spec/Rake bodies may therefore crowd out runtime evidence.
+The file-owned `fact`, `links` and `source` follow-ups can materialize the whole
+file link tree under the existing APIs; this change adds no transient reservation
+to those paths. Incoming/model-brief pages may reach their existing work limits
+sooner. These amplification risks remain explicit; no spec-heavy field outcome,
+whole-application completeness, memory headroom or runtime-support claim follows
+from the small source fixtures or a successful cursor traversal.
+
 For the native two-call fixture, the expected single tagged row is
 `[0,"new",["constant","Kit::Button",false,false,[0,15,1,1],[0,11,1,1]]]`.
 Its UTF-8 compact JSON length is 70 bytes; the capture charge includes its
