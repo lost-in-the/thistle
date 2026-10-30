@@ -150,6 +150,23 @@ fn validate_facts<'a>(facts: impl IntoIterator<Item = &'a Value>, files: &[Value
                 validate_call_location(call.location, file, &newlines)?;
                 if let Some(receiver) = call.receiver_location { validate_call_location(receiver, file, &newlines)?; }
             }
+            if let Some(constant) = view.constant_metadata() {
+                let file = file.ok_or_else(|| CoreError::input("Constant occurrence needs captured source"))?;
+                validate_call_location(constant.location, file, &newlines)?;
+                let location = constant.location;
+                let origin = &fact["location"];
+                if origin.is_null() || location.start_byte < origin["start_byte"].as_u64().unwrap() ||
+                    location.end_byte > origin["end_byte"].as_u64().unwrap() ||
+                    location.start_line < origin["start_line"].as_u64().unwrap() ||
+                    location.end_line > origin["end_line"].as_u64().unwrap() {
+                    return Err(CoreError::input("Constant occurrence is outside its owning fact"));
+                }
+                if let Some(content) = file["content"].as_str() {
+                    if content.get(location.start_byte as usize..location.end_byte as usize) != Some(constant.syntax) {
+                        return Err(CoreError::input("Constant occurrence syntax differs from captured source"));
+                    }
+                }
+            }
         }
     }
     Ok(())
@@ -164,6 +181,101 @@ pub struct CallMetadata<'a> {
     pub safe_navigation: bool,
     pub location: CallLocation,
     pub receiver_location: Option<CallLocation>,
+}
+
+/// A publisher's lexical occurrence assertion, borrowed from an ordinary object
+/// link. It does not establish reparsed syntax semantics or runtime binding.
+pub(crate) struct ConstantMetadata<'a> {
+    pub syntax: &'a str,
+    pub rooted: bool,
+    pub location: CallLocation,
+}
+
+pub(crate) fn constant_metadata(ext: &Value, version: u64) -> Result<Option<ConstantMetadata<'_>>> {
+    if version != 3 { return Ok(None); }
+    let extension = ext.get("version").and_then(Value::as_u64)
+        .ok_or_else(|| CoreError::input("Constant extension version must be a nonnegative integer"))?;
+    if extension != 1 { return Ok(None); }
+    exact_keys(ext, &["version", "syntax", "rooted", "lexical_scope", "role", "location"])?;
+    let syntax = string(ext, "syntax")?;
+    let rooted = ext["rooted"].as_bool().ok_or_else(|| CoreError::input("Invalid constant rooted flag"))?;
+    let lexical_scope = if ext["lexical_scope"].is_null() { None } else { Some(string(ext, "lexical_scope")?) };
+    let role = string(ext, "role")?;
+    let location = CallLocation::decode(&ext["location"], true)?;
+    if syntax.is_empty() || syntax.len() > MAX_SOURCE ||
+        location.end_byte.checked_sub(location.start_byte) != Some(syntax.len() as u64) ||
+        rooted != syntax.starts_with("::") ||
+        lexical_scope.is_some_and(|s| s.is_empty() || s.len() > 4096) ||
+        !matches!(role, "argument" | "predicate" | "rescue_class" | "value") {
+        return Err(CoreError::input("Invalid constant occurrence metadata"));
+    }
+    Ok(Some(ConstantMetadata { syntax, rooted, location }))
+}
+
+pub(crate) fn validate_constant_target(constant: &ConstantMetadata<'_>, target: &str) -> Result<()> {
+    let key = target.strip_prefix("::").unwrap_or(target);
+    if target.len() > 256 || constant.rooted != target.starts_with("::") ||
+        key.is_empty() || key.split("::").any(|part| part.is_empty() || part.contains(':')) {
+        return Err(CoreError::input("Constant target and root qualification disagree"));
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod constant_occurrence_tests {
+    use super::*;
+    use serde_json::json;
+
+    fn fixture() -> (Value, Value) {
+        let source = "::User";
+        let file = json!({"path":"a.rb", "bytes":source.len(), "sha256":digest(source.as_bytes()), "content":source, "encoding":"UTF-8"});
+        let fact = json!({"id":"a".repeat(64), "kind":"file", "name":"a.rb", "path":"a.rb", "evidence":"static",
+            "location":{"start_byte":0,"end_byte":6,"start_line":1,"end_line":1},"attributes":{},
+            "links":[{"relation":"references_constant","target":"::User","resolution":"unresolved",
+                "attributes":{"thistle_constant":{"version":1,"syntax":source,"rooted":true,"lexical_scope":null,"role":"value","location":[0,6,1,1]}}}]});
+        (fact, file)
+    }
+
+    #[test]
+    fn recognized_coordinates_source_and_fact_containment_are_required() {
+        let (fact, file) = fixture();
+        facts(&[fact.clone()], &[file.clone()], 3).unwrap();
+        for (pointer, value) in [
+            ("/links/0/attributes/thistle_constant/location", json!([0,6,1,2])),
+            ("/links/0/attributes/thistle_constant/syntax", json!("::Else")),
+            ("/location/start_byte", json!(1)),
+            ("/location", Value::Null),
+            ("/path", Value::Null),
+        ] {
+            let mut changed = fact.clone();
+            *changed.pointer_mut(pointer).unwrap() = value;
+            assert!(facts(&[changed], &[file.clone()], 3).is_err(), "{pointer}");
+        }
+        // Without expanded bytes, numeric and containment validation still run;
+        // Source/Check rechecks exact syntax when saved content is expanded.
+        let mut descriptor = file; descriptor.as_object_mut().unwrap().remove("content");
+        facts(&[fact], &[descriptor], 3).unwrap();
+    }
+
+    #[test]
+    fn closed_metadata_bounds_roles_and_root_assertions_are_validated() {
+        let (fact, _) = fixture();
+        let original = &fact["links"][0]["attributes"]["thistle_constant"];
+        for (key, value) in [("extra", json!(true)), ("rooted", json!(false)),
+            ("lexical_scope", json!("")), ("lexical_scope", json!("x".repeat(4097))),
+            ("role", json!("runtime_binding")), ("location", json!([0,5,1,1])),
+            ("version", json!("1")), ("syntax", json!(""))] {
+            let mut changed = original.clone(); changed[key] = value;
+            assert!(constant_metadata(&changed, 3).is_err(), "{key}");
+        }
+        let metadata = constant_metadata(original, 3).unwrap().unwrap();
+        let oversized = "::x".repeat(100);
+        for target in ["User", "::::User", "::", "::User::", oversized.as_str()] {
+            assert!(validate_constant_target(&metadata, target).is_err());
+        }
+        for version in 1..=2 { assert!(constant_metadata(&Value::Null, version).unwrap().is_none()); }
+        assert!(constant_metadata(&json!({"version":9,"future":true}), 3).unwrap().is_none());
+    }
 }
 
 #[derive(Clone, Copy)]
