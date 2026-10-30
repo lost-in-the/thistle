@@ -237,13 +237,28 @@ result = Dir.mktmpdir('thistle-map-installed-') do |directory|
       incoming_html.include?('Detailed fact evidence was not loaded') && !incoming_html.include?('unknown format')
     limited = model_reader.references(order.fetch('id'), limit: 1)
     # Two associations plus the recorded model_base_label are three groups.
-    raise "Installed reference omission was confused with unsearched input: #{limited.fetch('coverage').slice('known_matches', 'known_omitted', 'not_searched', 'capture_partial')}" unless
-      limited.dig('coverage', 'known_matches') == 3 && limited.dig('coverage', 'known_omitted') == 2 &&
-      limited.dig('coverage', 'not_searched') == false && limited.dig('coverage', 'capture_partial') == true &&
+    # A one-row page leaves the suffix unsearched rather than scanning past it.
+    raise "Installed reference page lost its remaining domain: #{limited.fetch('coverage').slice('known_matches', 'known_omitted', 'not_searched', 'capture_partial')}" unless
+      limited.dig('coverage', 'known_matches') == 1 && limited.dig('coverage', 'known_omitted') == 2 &&
+      limited.dig('coverage', 'not_searched') == true && limited.dig('coverage', 'capture_partial') == true &&
+      limited.fetch('next_cursor') &&
       limited.dig('coverage', 'budgets', 'facts') == 20_000
+    reference_pages = [limited]
+    2.times do
+      cursor = reference_pages.last.fetch('next_cursor')
+      raise 'Installed reference traversal stopped before the saved suffix' unless cursor
+      reference_pages << model_reader.references(order.fetch('id'), limit: 1, cursor: cursor)
+    end
+    pairs = ->(rows) { rows.map { |row| [row.dig('origin', 'id'), row.fetch('link_ordinal')] } }
+    reached = pairs.call(reference_pages.flat_map { |page| page.fetch('relationships') })
+    raise 'Installed reference continuation lost, repeated or substituted a saved group' unless
+      reached.length == 3 && reached.uniq.length == 3 && reached == pairs.call(outgoing.fetch('relationships')) &&
+      reference_pages.all? { |page| page.fetch('generation') == model_generation && page.dig('coverage', 'capture_partial') } &&
+      reference_pages.map { |page| page.dig('coverage', 'known_omitted') } == [2, 1, 0] &&
+      reference_pages.last.dig('coverage', 'scan_complete') && reference_pages.last.fetch('next_cursor').nil?
     limited_html = Thistle::Map::ReferencesPresenter.new(generation: model_generation, mount: '').render(limited)
     raise 'Installed reference omission display lost its scope' unless limited_html.include?('2 known omitted') &&
-      limited_html.include?('Relationship scan complete within this capture') && limited_html.include?('Capture partial')
+      limited_html.include?('Relationship scan incomplete for this page') && limited_html.include?('Capture partial')
     method_fact = model_reader.find('business_method').find { |row| row['kind'] == 'method' }
     raise 'Installed no-match fixture method missing' unless method_fact
     empty = model_reader.references(method_fact.fetch('id'), direction: 'incoming')
@@ -256,7 +271,7 @@ result = Dir.mktmpdir('thistle-map-installed-') do |directory|
       empty_html.include?('No matching recorded relationships found in the searched evidence') &&
       empty_html.include?('This does not establish that the model has no references') && empty_html.include?('Capture partial')
     references_journey = { 'generation' => model_generation, 'outgoing' => outgoing, 'incoming' => incoming,
-      'limited' => limited, 'no_match' => empty, 'no_match_status' => empty_status,
+      'limited' => limited, 'continuation_pages' => reference_pages, 'no_match' => empty, 'no_match_status' => empty_status,
       'static_source_id' => static_item.fetch('id'), 'source_sha256' => produced.fetch('fixture_source_sha256'),
       'source_status' => source_status, 'incoming_status' => incoming_status,
       'current_advanced' => true, 'fresh_consumer_without_rails' => true }

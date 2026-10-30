@@ -17,7 +17,7 @@ from urllib.parse import unquote, urlsplit
 ROOT = Path(__file__).resolve().parents[2]
 CORE_DOCS = tuple("docs/development/" + name + ".md" for name in (
     "platforms", "tagged-call-encoding", "loaded-model-evidence", "callback-evidence",
-    "find-evidence", "route-constraints", "model-references",
+    "find-evidence", "route-constraints", "model-references", "recorded-domain-access",
 ))
 MAP_DOCS = ("docs/MODELS.md", "docs/REUSE.md")
 CORE_INPUTS = (

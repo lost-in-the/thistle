@@ -26,6 +26,10 @@ pub(crate) const MAX_WORK: usize = 32 * 1024 * 1024;
 const INDEX_BYTES: usize = 32 * 1024 * 1024;
 const FIELD_BYTES: usize = 4096;
 
+// Borrow the String allocation, not a fat str plus a cached kind. Two pointers
+// per fact keep the 100,000-fact sort inside the existing 2 MiB scratch base.
+type MetadataFact<'a> = (&'a String, &'a Value);
+
 pub(crate) struct Query<'a> { text: &'a str, pub limit: usize, kind: Option<&'a str>, path: Option<&'a str>, domain: &'a str }
 impl<'a> Query<'a> {
     pub(crate) fn parse(request: &'a Value) -> Result<Self> {
@@ -88,7 +92,11 @@ impl Index {
 // A comparison budget bounds even adversarial repeated-prefix input.
 // Windows whose first byte cannot match cost exactly the one comparison the
 // byte-by-byte scan would have spent on them; they are skipped and charged in
-// bulk, so the match, the remaining work and the exhaustion point are unchanged.
+// bulk, after limiting lookahead to the already admitted comparison allowance.
+fn first_candidate(bytes: impl Iterator<Item = u8>, lower: u8, upper: u8, admitted: usize) -> Option<usize> {
+    bytes.take(admitted).position(|byte| byte == lower || byte == upper)
+}
+
 fn literal(text: &str, query: &str, work: &mut usize) -> Result<Option<usize>> {
     fn charge(work: &mut usize, comparisons: usize) -> Result<()> {
         match work.checked_sub(comparisons) {
@@ -103,9 +111,12 @@ fn literal(text: &str, query: &str, work: &mut usize) -> Result<Option<usize>> {
     let (lower, upper) = (first.to_ascii_lowercase(), first.to_ascii_uppercase());
     let mut start = 0;
     while start <= last_start {
-        let Some(skipped) = text[start..=last_start].iter().position(|byte| *byte == lower || *byte == upper) else {
-            charge(work, last_start - start + 1)?;
-            return Ok(None);
+        if *work == 0 { return Err(CoreError::limit("Find comparison budget exhausted")); }
+        let admitted = (*work).min(last_start - start + 1);
+        let Some(skipped) = first_candidate(text[start..=last_start].iter().copied(), lower, upper, admitted) else {
+            charge(work, admitted)?;
+            start += admitted;
+            continue;
         };
         charge(work, skipped)?;
         start += skipped;
@@ -184,23 +195,26 @@ fn search_with_work(reader: &Reader, q: &Query<'_>, budget: &Arc<Budget>, mut wo
         if results.len() < limit { results.push(make()); }
     }
     if q.domain != "source" {
-        // Validated facts always carry string ids and kinds. Read each once:
-        // string-keyed lookups on every comparison and field visit dominated
-        // the metadata pass for large generations.
-        let mut facts: Vec<(&str, &str, &Value)> = reader.facts.iter()
-            .map(|fact| (fact["id"].as_str().unwrap(), fact["kind"].as_str().unwrap(), fact)).collect();
+        // Cache the borrowed id without enlarging the admitted sort storage.
+        // Kind is read once per pass, rather than again for every field.
+        let mut facts: Vec<MetadataFact<'_>> = reader.facts.iter().map(|fact| {
+            let Value::String(id) = &fact["id"] else { unreachable!("validated fact id") };
+            (id, fact)
+        }).collect();
         facts.sort_unstable_by(|a, b| a.0.cmp(b.0));
         // Constant work per fact/family, even when comparison work runs out.
         // These are capture statuses, not a claim that entries were searched.
-        for (_, kind, fact) in &facts {
+        for (_, fact) in &facts {
+            let kind = fact["kind"].as_str().unwrap();
             if !q.accepts(kind, fact["path"].as_str()) { continue; }
             metadata_eligible += 1;
-            if *kind == "rails_model" {
+            if kind == "rails_model" {
                 columns.record(fact["attributes"]["model"]["columns"]["status"].as_str());
                 associations.record(fact["attributes"]["model"]["associations"]["status"].as_str());
             }
         }
-        'facts: for (_, kind, fact) in facts {
+        'facts: for (_, fact) in facts {
+            let kind = fact["kind"].as_str().unwrap();
             let path = fact["path"].as_str();
             if !q.accepts(kind, path) { continue; }
             let (is_route, is_model) = (kind == "route", kind == "rails_model");
@@ -331,6 +345,40 @@ mod tests {
         let c = b.reserve(40).unwrap();
         drop(a); drop(c);
         assert_eq!(b.used.load(Ordering::Acquire), 0);
+    }
+    #[test]
+    fn maximum_metadata_sort_fits_limit_one_scratch() {
+        let request = json!({"query":"x", "limit":1, "domain":"metadata"});
+        let scratch = Query::parse(&request).unwrap().scratch().unwrap();
+        let b = Budget::new(scratch);
+        let reservation = b.reserve(scratch).unwrap();
+        // Use actual Vec capacity/type layout at the supported fact ceiling.
+        // The previous fat-reference tuple exceeded the sorting allowance.
+        let slots: Vec<MetadataFact<'_>> = Vec::with_capacity(100_000);
+        let sort_bytes = slots.capacity() * std::mem::size_of::<MetadataFact<'_>>();
+        assert!(sort_bytes <= 2 * 1024 * 1024);
+        assert!(sort_bytes + 128 * 1024 <= scratch);
+        assert!(b.reserve(1).is_err());
+        drop(slots);
+        drop(reservation);
+        assert_eq!(b.used.load(Ordering::Acquire), 0);
+    }
+    #[test]
+    fn first_byte_lookahead_visits_only_admitted_prefix() {
+        let text = format!("{}z", "a".repeat(4096));
+        for admitted in [0, 1, 8] {
+            let mut visits = 0;
+            let bytes = text.bytes().inspect(|_| visits += 1);
+            assert_eq!(first_candidate(bytes, b'z', b'Z', admitted), None);
+            assert_eq!(visits, admitted);
+            let mut work = admitted;
+            assert!(literal(&text, "z", &mut work).is_err());
+            assert_eq!(work, 0);
+        }
+        let mut visits = 0;
+        assert_eq!(first_candidate(b"aZignored".iter().copied().inspect(|_| visits += 1), b'z', b'Z', 2), Some(1));
+        assert_eq!(visits, 2);
+        assert_eq!(literal("aaaa", "z", &mut 4).unwrap(), None);
     }
     #[test]
     fn literal_preserves_unicode_bytes_and_bounds_adversarial_work() {

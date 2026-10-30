@@ -17,6 +17,8 @@ class ThistleReferencesPresenterTest < Minitest::Test
     refute_includes html, '<script>'
     assert_includes html, 'No captured source'
     assert_includes html, 'additional input was not searched'
+    assert_includes html, 'Relationship scan incomplete for this page'
+    refute_includes html, 'Scan budget reached'
     assert_includes html, 'Capture partial'
     result['relationships'][0]['detail_omitted'] = true
     omitted = presenter.render(result)

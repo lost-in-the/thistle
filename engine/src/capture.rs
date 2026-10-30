@@ -157,6 +157,7 @@ fn capture_inner(root: &Path, effective: HashMap<String, usize>) -> Result<Value
     apply_order(&mut capture.facts, order);
     for fact in &mut capture.facts {
         if let Some(links) = fact["links"].as_array_mut() {
+            if links.len() < 2 { continue; }
             let order = sort_order(links, call_sort_key);
             apply_order(links, order);
         }
@@ -386,9 +387,8 @@ impl Capture {
 
     fn extract<'pr>(&mut self, root: Node<'pr>, path: &str, lines: &LineIndex) -> Result<()> {
         let initial = Rc::new(Scope { owner:"Object".to_owned(), namespace:None, singleton:false, current:None, dynamic:false });
-        // Children are pushed in source order and the pushed run is reversed,
-        // so the stack visits sites in source order. The earliest site of a
-        // call group is then admitted first instead of replacing later ones.
+        // Preserve the historical LIFO encounter order: diagnostic groups and
+        // admission/refusal boundaries depend on more than the final fact sort.
         let mut pending = vec![(root, initial)];
         while let Some((node, scope)) = pending.pop() {
             self.nodes += 1;
@@ -438,14 +438,10 @@ impl Capture {
                 } else { self.uncertain_scope(path)?; }
             } else if node.as_block_node().is_some() || node.as_lambda_node().is_some() {
                 let next = Rc::new(Scope { dynamic:true, ..(*scope).clone() });
-                let mark = pending.len();
                 children::for_each_child(&node, |child| pending.push((child, Rc::clone(&next))));
-                pending[mark..].reverse();
             } else {
                 if let Some(call) = node.as_call_node() { self.collect_call(&call, &scope, path, lines)?; }
-                let mark = pending.len();
                 children::for_each_child(&node, |child| pending.push((child, Rc::clone(&scope))));
-                pending[mark..].reverse();
             }
         }
         Ok(())
@@ -480,8 +476,8 @@ impl Capture {
             let simple = matches!(kind, "implicit" | "self") || (matches!(kind, "constant" | "local" | "instance_variable") && name.is_some());
             let site = (!simple).then_some((start, end));
             let key = (current, target, kind, name, call.is_safe_navigation(), site);
-            // Build the link only when it is admitted or replaces an earlier
-            // site; a repeated group member otherwise allocates nothing.
+            // Build the link only on admission or when an earlier saved site
+            // replaces the current representative of this group.
             let link = |key: &CallKey| {
                 let receiver_location = receiver.as_ref().map(|node| lines.call_location(&node.location()));
                 let metadata = json!({"version":2, "data":(kind, &key.3, omitted,
