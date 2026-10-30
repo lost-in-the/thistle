@@ -1,0 +1,1 @@
+Model-batch result assembly transfers the completed result vector into the response instead of rebuilding its value tree. Response semantics and limits are unchanged; latency and RSS effects remain unmeasured.

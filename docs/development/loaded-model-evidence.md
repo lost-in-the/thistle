@@ -66,6 +66,14 @@ budgets, with no raised caps. Ruby bounds each observed entry and the accumulate
 batch before sending JSON; Rust independently validates and admits the combined
 capture. Publication is never attempted after refusal.
 
+Model-batch result assembly transfers the completed result vector into the
+response instead of rebuilding its value tree. This removes one traversal and
+reconstruction proportional to the completed facts' nodes and string bytes.
+The initial observation clone, per-fact construction, validation/accounting and
+Ruby/native JSON transport remain. Encoded bytes and limits are unchanged; this
+establishes no measured latency or RSS improvement and no launch qualification.
+The dated receipts below retain their original source and artifact scope.
+
 ## Integrated adapters (superseded history)
 
 This section records the earlier 4ac0243/76f7d219 implementation and receipts.
