@@ -10,8 +10,11 @@ contract and the [review standard](../../../docs/development/pr-ci-release.md#re
 Inspect the actual candidate and raw evidence before adopting the author's
 explanation. Read only relevant specialist material.
 
-1. Verify the diff/base and scope. Trace changed behavior through its callers and
-   consumers; a plausible local implementation can still break the complete job.
+1. Verify the exact head/base, complete diff and scope. The normal initial pass
+   covers the full change; subsequent passes cover changed code and unresolved
+   findings under the [bounded review loop](../thistle-build/SKILL.md#bounded-review-loop).
+   Trace affected callers and consumers; a plausible local implementation can
+   still break the complete job. Do not start additional reviewers or subagents.
 2. Challenge affected costs and boundaries:
    - Rust/C: avoidable clones/materialization, asymptotic work, retained memory,
      locks, handles, error/panic paths, GVL and allocation ownership.
@@ -24,11 +27,18 @@ explanation. Read only relevant specialist material.
 3. Prefer a concrete counterexample or focused reproduction for a finding.
    Separate a defect from an optional improvement; explain the consequence and
    smallest complete remedy. Reject fixes that only move cost elsewhere.
-4. Report each material finding once with location, scenario, evidence, severity
-   rationale and acceptance effect. A clean result is valid; do not manufacture
-   criticism or insist on repeated consensus.
+4. Report each material finding once with a stable ID, location, scenario,
+   evidence, severity rationale and acceptance effect. Preserve IDs and mark prior
+   findings resolved or still open with reasons. A rare path or small repeated
+   cost is not automatically a nit; assess its security, lifecycle and complete-job
+   consequences against the review standard. A clean result is valid; do not
+   manufacture criticism or insist on repeated consensus.
 5. Return unresolved disagreements to the technical owner with evidence. Another
    review round needs changed code, a concrete objection or missing evidence.
+
+Retain applicable unchanged evidence without a ritual personal rerun. Name the
+reviewed identity and any applicability limits; missing or failed required
+evidence cannot become approval. Reviewers never subscribe to PR watches.
 
 Review is read-only unless the assignment separately grants a correction scope.
 A prompt or approval-required mode is not an enforced read-only sandbox. Do not

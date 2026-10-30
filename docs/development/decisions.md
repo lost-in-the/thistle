@@ -630,3 +630,17 @@ per demanded Reader. Recorded counters/capacities are not RSS or speed evidence.
 Reconsider if measured complete open/reopen cost, concurrent retention, or refusal
 rates prevent useful customer outcomes. Keep current capture/query/source limits,
 strict evidence guards and unknown runtime coherence; all17 remain unqualified.
+
+## Native PR events and bounded takeover/review — LOS-70
+
+Reuse native T3 PR events and the existing skills rather than importing `pr-wait`
+or polling; this adds no runtime, dependency or scheduler. The
+[pinned adaptations and MIT notice](attribution/tstack.md) record the selected
+mechanics and alternatives. The operating cost is maintaining small procedures
+against the existing review, signing and delivery gates.
+
+Native PR watch ends on merge/close; the
+[post-merge handoff](../../.agents/skills/thistle-hand-off/SKILL.md#pr-watch-ownership)
+names the outstanding-check owner and explicitly records any native-event wake
+gap without claiming acceptance or blocking disjoint source work. Reconsider
+only for concrete tool-contract or workflow changes.
