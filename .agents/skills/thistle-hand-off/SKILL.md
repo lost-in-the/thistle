@@ -8,9 +8,11 @@ description: Hand off, resume or close a bounded Thistle task with current owner
 Use the [existing claim/checkpoint format](../../../docs/development/agent-workflow.md#claim-protocol)
 and the assigned role. Keep one current checkpoint with historical receipts linked.
 
-1. Read the current issue/PR/head and retained checkpoint once for the event batch.
-   Deduplicate notifications by task/PR, candidate, event identity and update time.
-   Completed watches stay retired unless a new obligation appears.
+1. Reconcile the current issue, PR state/head/base, checks, reviews, evidence
+   identities and retained findings once per event batch under the
+   [canonical notification rule](../../../docs/development/agent-workflow.md#notifications).
+   Keep applicable older-head findings; a new push does not dismiss them.
+   Refresh before a consequential action.
 2. State the customer-visible change or supported result first. Identify source,
    package, installed and qualification evidence separately. Preserve original
    identities and failed attempts; remove cleared blockers from the current summary.
@@ -27,6 +29,56 @@ and the assigned role. Keep one current checkpoint with historical receipts link
    canonical rule, skill or script. Prefer fixing executable failure handling over
    adding repetitive prose. Keep host/account/private values local.
 
+## PR watch ownership
+
+One named owning thread watches each PR across both hosts through native T3
+`watch_pull_request`; children and reviewers never subscribe. Process existing
+findings and actionable checks before watching. Finish any authorized branch
+update/push, reconcile the batch once, then watch and end the turn for native
+events, following the canonical notification rule linked above. Wakeups prompt
+inspection; they grant no approval or artifact acceptance. This procedure reduces
+duplicate handling, not duplicate notifications emitted by T3.
+
+Use no polling loop, bundled watcher fallback, scheduler or new manager layer.
+If native watch access is unavailable, report the gap and hand back the obligation.
+Unwatch on handoff or completion. Native PR watch ends on merge or close. Transfer
+outstanding post-merge main checks to one named owner for reconciliation at the
+next applicable event batch or checkpoint. If native event delivery does not
+cover those checks, record the wake/access gap and the unaccepted step explicitly;
+do not poll, schedule a wakeup or re-establish a merged/closed PR watch.
+
+Required checks that are queued, missing, cancelled, timed-out, failed or
+inconclusive do not establish acceptance, including after merge. Name the
+check/closeout owner and exactly which acceptance, integration or delivery step
+is blocked. Keep disjoint source work moving unless
+an explicit owner sequencing decision prevents it. Follow existing repository gates.
+
+## Takeover or restart
+
+Verify the actual issue, PR, remote head/base, worktree (including uncommitted
+changes), active claims, findings and current customer problem before resuming.
+Treat the retained handoff as context, not proof of current state; record access
+gaps rather than inventing a running task or retrieving restricted history.
+Agree the continuation scope and writer before editing; preserve unrelated work,
+Git authorship, verified contributor credit and applicable evidence identities.
+
+Check whether newer main already solves the problem or changes its architecture
+or ownership. Resolve conceptual conflicts against current intent and newer
+invariants, not just clean conflict markers. Recommend continuation, bounded
+rework or closure with evidence; closure and scope expansion need their existing
+authority. When a rebase is authorized, inspect `git range-diff` and the final diff
+to verify intent, then run only affected checks. Remote reads/fetches and branch
+changes remain within the assignment's tool and access authority.
+
+Rewritten commits require authorized configured signing before push under
+[Build step 6](../thistle-build/SKILL.md) and [AGENTS.md](../../../AGENTS.md).
+Unavailable signing, denial or timeout stops signed delivery; never retry unsigned
+or bypass signing/configuration.
+
+Before any force push, require both an observed remote HEAD and explicit
+force-push authorization; use a lease tied to that exact HEAD. A failed lease
+requires reassessment, never overwrite. Takeover itself grants no force push,
+merge, queue, automerge, publication, or global stop of unrelated work.
+
 Return a concise change, evidence, blocker/decision, next owner/action and available
-work. Include a real access gap if a surface cannot be reconciled. Skip separate
-user-facing updates for stale events or unchanged completed tasks.
+work. Include a real access gap if a surface cannot be reconciled.

@@ -18,7 +18,7 @@ module Thistle
         body = +'<section aria-label="Recorded references"><h2 class="t2">Recorded references</h2>'
         body << '<p class="notice ui">Recorded relationship groups are not macro or textual occurrence counts. Name matches have binding unknown; neither equal labels nor recorded resolution prove runtime dispatch.</p>'
         body << "<p class=\"ui\">#{h(result.fetch('direction'))}: #{coverage.fetch('known_matches')} known matching groups; #{coverage.fetch('known_omitted')} known omitted by result/output limits. "
-        body << (coverage.fetch('scan_complete') ? 'Relationship scan complete within this capture.' : 'Scan budget reached; additional input was not searched.')
+        body << (coverage.fetch('scan_complete') ? 'Relationship scan complete within this capture.' : 'Relationship scan incomplete for this page; additional input was not searched.')
         body << (coverage.fetch('capture_partial') ? ' Capture partial or unavailable; absence cannot prove no references.' : ' Capture coverage is scoped; see Check.')
         body << '</p>'
         if result.fetch('relationships').empty?

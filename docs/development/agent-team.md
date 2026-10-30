@@ -68,17 +68,20 @@ does not establish the installed version or authority on a particular machine.
 - Track named heavy-build/measurement slots per host and provider/account budgets
   separately. T3 wait timeouts do not cancel children or enforce CPU/RSS limits.
   Keep actual process/container limits and release claims after verified completion.
-- Select a second provider for an existing independent-review responsibility when
-  useful. Provide the contract and raw diff/evidence before the author's reasoning.
-  Preserve existing required review gates; provider variety is not a new gate.
+- Use the [bounded review loop](../../.agents/skills/thistle-build/SKILL.md#bounded-review-loop)
+  for one independent reviewer and the
+  [Hand off procedure](../../.agents/skills/thistle-hand-off/SKILL.md#pr-watch-ownership)
+  for one PR-watch owner across hosts. Provider variety is not a new gate.
 
-Claude dynamic workflows may perform bounded fanout inside an assigned Claude task
-when the installed tool surface supports them. Start with read-only review or
-retained-evidence analysis. [Workflow resume/retry behavior](https://code.claude.com/docs/en/workflows)
+For non-review work, Claude dynamic workflows may perform explicitly assigned fanout
+inside an assigned Claude task when the installed tool surface supports them.
+Start with retained-evidence analysis. [Workflow resume/retry behavior](https://code.claude.com/docs/en/workflows)
 can repeat agent work: merges, package dispatches and one-shot measurements need
 explicit replay protection and their existing authority. Preserve failed/null
 worker results as unverified obligations. T3 remains the cross-provider/host
 assignment mechanism; do not create a competing scheduler.
+Selected review/watch/takeover adaptations retain their
+[pinned source and MIT notice](attribution/tstack.md).
 
 ## Start or resume a task
 

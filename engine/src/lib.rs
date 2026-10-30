@@ -7,6 +7,7 @@ mod callback_effects;
 mod method_lookup;
 mod references;
 mod model_brief;
+mod recorded_domain;
 mod link_encoding;
 mod schema;
 mod store;

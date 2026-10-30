@@ -23,8 +23,10 @@ auditors while keeping dependency decisions and technical convergence explicit.
   permitted inputs, checks, resource budget, stopping condition and expected
   handoff. Do not assume inherited conversation or access across machines.
 - Delegate independent implementation and evidence collection. Prepare review and
-  applicable artifact/customer QA alongside coding. Choose provider contrast when
-  available within existing access and privacy authority.
+  applicable artifact/customer QA alongside coding. Use the
+  [bounded review loop](../../../.agents/skills/thistle-build/SKILL.md#bounded-review-loop)
+  and [single PR-watch owner](../../../.agents/skills/thistle-hand-off/SKILL.md#pr-watch-ownership);
+  preserve an explicitly retained review or watch responsibility on handoff.
 - Keep expensive execution within finite host claims. Preserve explicit source-only,
   one-shot and frozen-procedure constraints. Ordinary harmless setup repair follows
   the existing routine-validation allowance rather than a new permission round.

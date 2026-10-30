@@ -81,16 +81,18 @@ module Thistle
       request("links", "id" => id)
     end
 
-    def references(id, direction: "outgoing", limit: 50)
-      request("references", "id" => id, "direction" => direction, "limit" => limit)
+    def references(id, direction: "outgoing", limit: 50, cursor: nil, candidate_link: nil)
+      request("references", "id" => id, "direction" => direction, "limit" => limit,
+        "cursor" => cursor, "candidate_link" => candidate_link)
     end
 
     def callback_effects(id, limit: 50)
       request("callback_effects", "id" => id, "limit" => limit)
     end
 
-    def model_brief(id, limit: 8, max_bytes: 32768)
-      request("model_brief", "id" => id, "limit" => limit, "max_bytes" => max_bytes)
+    def model_brief(id, limit: 8, max_bytes: 32768, family: nil, cursor: nil)
+      request("model_brief", "id" => id, "limit" => limit, "max_bytes" => max_bytes,
+        "family" => family, "cursor" => cursor)
     end
 
     def check

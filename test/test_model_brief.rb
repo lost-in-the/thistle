@@ -183,7 +183,7 @@ class ThistleModelBriefTest < Minitest::Test
       method = reader.find('BriefFixture::Parent#deliver').find { |f| f['kind'] == 'method' }
       assert_raises(Thistle::InvalidInput) { reader.model_brief(method.fetch('id')) }
       first, second = reader.model_brief(id), reader.model_brief(id)
-      evidence = ->(brief) { brief.fetch('families').transform_values { |family| family.reject { |key, _| key == 'work' } } }
+      evidence = ->(brief) { brief.fetch('families').transform_values { |family| family.reject { |key, _| %w[work directory cost].include?(key) } } }
       assert_equal evidence.call(first), evidence.call(second)
       assert_equal false, second.dig('cost', 'method_directory', 'built_this_request')
       store, = self.class.saved
@@ -198,6 +198,35 @@ class ThistleModelBriefTest < Minitest::Test
       end
       reader.close
       assert_raises(Thistle::Error) { reader.model_brief(id) }
+    end
+  end
+
+  def test_family_pages_reach_summary_omissions_with_bounded_wire_and_pinned_cli
+    store, generation, = self.class.saved
+    with_reader do |reader, id|
+      summary = reader.model_brief(id, limit: 1)
+      assert_equal 'model_brief', summary.dig('families', 'associations', 'followup', 'operation')
+      assert_equal generation, summary.dig('families', 'associations', 'followup', 'generation')
+      # This real fixture declares one association and three columns. Paginate
+      # the actually multi-item family; never spawn a CLI with a nil cursor.
+      first = reader.model_brief(id, family: 'columns', limit: 1)
+      names = first.dig('result', 'items').map { |item| item.fetch('name') }
+      cursor = first.fetch('next_cursor')
+      refute_nil cursor
+      2.times do
+        out, err, status = cli('model-brief', id, '--store', store, '--generation', generation,
+          '--family', 'columns', '--limit', '1', '--cursor', cursor)
+        assert status.success?, err
+        page = JSON.parse(out)
+        assert_equal generation, page.fetch('generation')
+        names.concat(page.dig('result', 'items').map { |item| item.fetch('name') })
+        cursor = page.fetch('next_cursor')
+        assert_operator out.bytesize, :<=, 32768
+      end
+      assert_nil cursor
+      assert_equal ['id', 'state', 'note_雪'].sort, names.sort
+      assert_raises(Thistle::InvalidInput) { reader.model_brief(id, family: 'associations', cursor: first.fetch('next_cursor')) }
+      assert_raises(Thistle::LimitExceeded) { reader.model_brief(id, family: 'associations', max_bytes: 1) }
     end
   end
 end

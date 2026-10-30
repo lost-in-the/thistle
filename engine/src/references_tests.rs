@@ -35,7 +35,8 @@ fn incoming_outgoing_duplicates_namespace_and_no_source() {
     assert!(run(&reader,3,"incoming",50).unwrap()["relationships"].as_array().unwrap().is_empty());
     let limited=run(&reader,4,"outgoing",1).unwrap();
     assert_eq!(limited["coverage"]["known_omitted"],1);
-    assert_eq!(limited["coverage"]["not_searched"],false);
+    assert_eq!(limited["coverage"]["not_searched"],true);
+    assert!(limited["next_cursor"].is_string());
 }
 #[test]
 fn explicit_schema_context_opaque_one_and_call_receivers_two_three() {
@@ -70,7 +71,8 @@ fn scan_saturation_and_candidate_limits_are_distinct_from_known_omissions() {
     assert_eq!(incoming["coverage"]["not_searched"],true);
     assert_eq!(incoming["coverage"]["known_omitted"],0);
     let outgoing=run(&reader,4,"outgoing",50).unwrap();
-    assert_eq!(outgoing["coverage"]["candidate_search_complete"],false);
+    assert_eq!(outgoing["coverage"]["candidate_search_complete"],true);
+    assert_eq!(outgoing["relationships"][0]["candidate_matches"],MAX_FACTS-1);
     assert_eq!(outgoing["relationships"][0]["candidates"].as_array().unwrap().len(),4);
 }
 #[test]
@@ -110,11 +112,12 @@ fn anonymous_models_and_work_output_link_and_capture_bounds_stay_explicit() {
     let output=run(&reader,4,"outgoing",500).unwrap();
     assert!(output["relationships"].as_array().unwrap().len()<500);
     assert!(output["coverage"]["known_omitted"].as_u64().unwrap()>0);
-    assert_eq!(output["coverage"]["not_searched"],false);
+    assert_eq!(output["coverage"]["not_searched"],true);
+    assert!(output["next_cursor"].is_string());
     assert!(schema::encoded_bytes(&output,MAX_OUTPUT+64*1024).is_ok());
     reader.facts[3]["links"]=json!(vec![json!({"relation":"references","target":"User","resolution":"unresolved"});MAX_LINKS+1]);
     let limited=run(&reader,4,"outgoing",1).unwrap();
-    assert_eq!(limited["coverage"]["links_scanned"],MAX_LINKS);
+    assert_eq!(limited["coverage"]["links_scanned"],1); // display page stops before scanning the tail
     assert_eq!(limited["coverage"]["not_searched"],true);
     let coverage=json!({"family":"known","status":"complete","scope":"fixture","reason":null});
     reader.manifest["coverage"]=json!(vec![coverage;MAX_COVERAGE+1]);
@@ -151,4 +154,59 @@ fn registered_callback_evidence_keeps_named_ambiguity_without_synthetic_candidat
     assert!(outgoing["relationships"][1]["candidates"].as_array().unwrap().iter().any(|fact| fact["id"] == named["id"]));
     let request = json!({"id":anonymous["id"],"direction":"incoming"});
     assert!(select(&reader, &Query::parse(&request).unwrap()).unwrap()["relationships"].as_array().unwrap().is_empty());
+}
+
+#[test]
+fn positional_pages_cover_links_and_candidates_without_replaying_prefixes() {
+    let temp=tempfile::tempdir().unwrap();
+    let mut data=fixture(3);
+    for id in 5..12 { data["facts"].as_array_mut().unwrap().push(fact(id,"User",json!([]))); }
+    store::publish(temp.path(),&data).unwrap();
+    let reader=Reader::open(temp.path(),None).unwrap();
+    let mut request=json!({"id":format!("{:064x}",4),"limit":1});
+    let first=select(&reader,&Query::parse(&request).unwrap()).unwrap();
+    assert_eq!(first["relationships"][0]["candidate_matches"],9);
+    assert_eq!(first["relationships"][0]["candidate_search_complete"],true);
+    request["cursor"]=first["next_cursor"].clone();
+    let second=select(&reader,&Query::parse(&request).unwrap()).unwrap();
+    assert_eq!(second["relationships"][0]["link_ordinal"],1);
+    assert_eq!(second["coverage"]["links_scanned"],1);
+    assert_eq!(second["next_cursor"],Value::Null);
+    let mut request=json!({"id":format!("{:064x}",4),"candidate_link":0,"limit":2});
+    let mut ids=std::collections::HashSet::new(); let mut cursors=std::collections::HashSet::new();
+    for _ in 0..6 {
+        let page=select(&reader,&Query::parse(&request).unwrap()).unwrap();
+        assert_eq!(page["candidate_status"],"ambiguous");
+        assert_eq!(page["candidate_matches"],9);
+        for candidate in page["candidates"].as_array().unwrap() { assert!(ids.insert(candidate["id"].clone().to_string())); }
+        if page["next_cursor"].is_null() { assert_eq!(ids.len(),9); break; }
+        assert!(cursors.insert(page["next_cursor"].to_string()));
+        request["cursor"]=page["next_cursor"].clone();
+    }
+    assert_eq!(ids.len(),9);
+    // A saved position is never transferable to another generation/query domain.
+    let wrong=json!({"id":format!("{:064x}",1),"direction":"incoming","cursor":first["next_cursor"]});
+    assert_eq!(select(&reader,&Query::parse(&wrong).unwrap()).unwrap_err().code,"invalid_input");
+}
+
+#[test]
+fn pinned_cursor_survives_current_change_and_inflight_reader_survives_close() {
+    let temp=tempfile::tempdir().unwrap();
+    let data=fixture(3); let old=store::publish(temp.path(),&data).unwrap();
+    let opened=crate::dispatch(&json!({"op":"open","path":temp.path()})).unwrap();
+    let handle=opened["handle"].clone();
+    let mut request=json!({"op":"references","handle":handle,"id":format!("{:064x}",4),"limit":1});
+    let first=crate::dispatch(&request).unwrap();
+    let mut changed=data.clone(); changed["facts"][3]["name"]=json!("NewOrder"); store::publish(temp.path(),&changed).unwrap();
+    request["cursor"]=first["next_cursor"].clone();
+    assert_eq!(crate::dispatch(&request).unwrap()["generation"],old["generation"]);
+    // This is the same Arc ownership used by an admitted in-flight native call.
+    let admitted=crate::reader(&request).unwrap();
+    crate::dispatch(&json!({"op":"close","handle":handle})).unwrap();
+    let joined=std::thread::spawn(move || select(&admitted,&Query::parse(&request).unwrap())).join().unwrap().unwrap();
+    assert_eq!(joined["generation"],old["generation"]);
+    assert_eq!(crate::dispatch(&json!({"op":"references","handle":handle,"id":format!("{:064x}",4)})).unwrap_err().code,"closed_reader");
+    let reopened=Reader::open(temp.path(),old["generation"].as_str()).unwrap();
+    let result=run(&reopened,4,"outgoing",50).unwrap();
+    assert_eq!(result["cost"]["recorded_directory"]["built_this_request"],true);
 }
