@@ -42,7 +42,7 @@ An optional `reader_factory` is a trusted adapter, not a sandbox. It must preser
 
 Source, labels and query text are escaped. A strict self-only script/style policy, no inline script, no-referrer and no-store headers apply. Only GET and HEAD are accepted. There is no filesystem path endpoint, command execution endpoint or mutation endpoint.
 
-## Validation
+## Repository validation
 
 From the core project root after installing development dependencies:
 
@@ -52,5 +52,5 @@ bundle exec ruby -Ilib -Imap/lib -e 'Dir["map/test/*_test.rb"].sort.each { |f| r
 
 Tests exercise the actual reader integration, source bytes, generation pinning, malformed queries, source escaping, default and explicit authorization, DNS-rebinding-style Host mismatches, forwarded-header spoofing, read-only methods, bounded source and paged links.
 
-The local browser checks and exact executed version tuple are recorded in `docs/VALIDATION.md` when run. Unit/request checks do not establish accessibility or intended-user usability. Full Map job coverage, the richer investigation workbench, assistive-technology testing, performance qualification and launch parity remain open.
+Installed documentation includes [model presentation](docs/MODELS.md) and [reuse provenance](docs/REUSE.md). The local browser checks and exact executed version tuple remain in the [historical repository validation record](https://github.com/lost-in-the/thistle/blob/f376e6b2ee8024a77d6ed1e0864e23406e8aff27/map/docs/VALIDATION.md). Unit/request checks do not establish accessibility or intended-user usability. Full Map job coverage, the richer investigation workbench, assistive-technology testing, performance qualification and launch parity remain open.
 

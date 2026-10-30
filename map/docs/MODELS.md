@@ -14,5 +14,5 @@ authorization, keyboard focus and no-JavaScript routes remain in use.
 
 This component is new Thistle presentation code using existing Map styles; no
 additional Woods code or assets were copied. Existing attribution remains in
-[REUSE.md](REUSE.md). The [component contract](../../docs/development/loaded-model-evidence.md)
+[REUSE.md](REUSE.md). The [component contract](https://github.com/lost-in-the/thistle/blob/main/docs/development/loaded-model-evidence.md)
 records the required shared-view adapter and outstanding integrated checks.

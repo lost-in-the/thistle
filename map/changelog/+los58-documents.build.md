@@ -1,0 +1,1 @@
+Map source gems retain model presentation and Woods reuse documentation explicitly. Historical validation stays in the repository, with installed links pointing to their package or repository targets.

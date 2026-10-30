@@ -10,7 +10,14 @@ Gem::Specification.new do |spec|
   spec.description = 'Private implementation preview: generation-pinned source, search, links and coverage views.'
   spec.homepage = 'https://github.com/lost-in-the/thistle'
   spec.required_ruby_version = '>= 3.4'
-  spec.files = Dir.chdir(__dir__) { Dir['lib/**/*.rb', 'assets/*', 'docs/*.md', 'docs/*.json', 'examples/*.ru', 'README.md', 'CHANGELOG.md', 'LICENSE*'] }.sort
+  spec.files = Dir.chdir(__dir__) do
+    # Installed presentation contract and required reuse provenance.
+    installed_docs = %w[docs/MODELS.md docs/REUSE.md]
+    installed_docs.each do |path|
+      raise "Missing installed document: #{path}" unless File.file?(path)
+    end
+    Dir['lib/**/*.rb', 'assets/*', 'examples/*.ru', 'README.md', 'CHANGELOG.md', 'LICENSE*'] + installed_docs
+  end.sort
   spec.require_paths = ['lib']
   spec.license = 'Nonstandard'
   spec.metadata['allowed_push_host'] = 'https://invalid.example'

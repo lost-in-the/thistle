@@ -53,7 +53,7 @@ threads, persistent index schema or postings were introduced. This is not a
 performance claim. Reconsider Tantivy when measured complete-user-job evidence
 or richer retrieval justifies those lifecycle costs. The combined index and
 matcher alternatives, costs and reconsideration conditions are recorded in the
-[development decisions](decisions.md#evidence-search-index-and-matcher).
+[development decisions](https://github.com/lost-in-the/thistle/blob/main/docs/development/decisions.md#evidence-search-index-and-matcher).
 
 The first source query builds one corpus per Reader from saved manifest members,
 using descriptor-relative no-follow blob reads and digest/byte-count verification.
