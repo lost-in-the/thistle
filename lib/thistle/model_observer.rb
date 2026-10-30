@@ -1,13 +1,14 @@
 # frozen_string_literal: true
 
 require 'json'
+require_relative 'rails_compatibility'
 
 module Thistle
   # Observes already loaded Active Record classes. Never resolves target constants,
   # creates records, builds relations, or reads effective Ruby attribute defaults.
   class ModelObserver
     VERSION = 1
-    SUPPORTED = ['8.1.4'].freeze
+    SUPPORTED = RailsCompatibility::OBSERVATION_VERSIONS
     OPTIONS = %i[class_name foreign_key primary_key foreign_type as through source source_type inverse_of dependent optional required autosave counter_cache touch].freeze
 
     # JSON's IO generator flushes bounded chunks; retain only their byte count.
@@ -65,9 +66,9 @@ module Thistle
       begin
         data['base_class'] = label(Module.instance_method(:name).bind_call(model.base_class))
         data['superclass'] = label(Module.instance_method(:name).bind_call(Class.instance_method(:superclass).bind_call(model)))
-        data['abstract'] = boolean(model.abstract_class?)
+        data['abstract'] = abstract_status(model)
         data['inheritance_column'] = label(model.inheritance_column)
-        unless data['abstract']
+        if data['abstract'] == false
           pool = model.connection_pool
           # A checkout failure applies to this pool during this capture, including
           # lazy primary-key lookup. Do not retry it for every loaded model.
@@ -82,7 +83,7 @@ module Thistle
             end
             # Raw adapter schema avoids model.columns / column_defaults, whose schema
             # setup can materialize custom attribute types or Ruby default values.
-            columns = pool.schema_cache.columns_hash(data['table'])
+            columns = schema_columns(pool, data['table'])
             data['columns'] = { 'status' => 'observed', 'entries' => columns.values.map { |column| observe_column(column) } }
           end
         end
@@ -106,6 +107,40 @@ module Thistle
     end
 
     def unavailable = { 'status' => 'unavailable', 'entries' => [] }
+
+    def rails71?
+      defined?(ActiveRecord::VERSION::STRING) && ActiveRecord::VERSION::STRING == '7.1.6'
+    end
+
+    # In 7.1.6 the framework predicate returns nil for an unset @abstract_class.
+    # Verify the effective implementation before interpreting that storage; an
+    # application override is unknown and is never called to obtain a boolean.
+    def abstract_status(model)
+      return boolean(model.abstract_class?) unless rails71?
+      singleton = Object.instance_method(:singleton_class).bind_call(model)
+      getter = Module.instance_method(:instance_method).bind_call(singleton, :abstract_class?)
+      return nil unless UnboundMethod.instance_method(:owner).bind_call(getter).equal?(ActiveRecord::Inheritance::ClassMethods)
+      value = Object.instance_method(:instance_variable_get).bind_call(model, :@abstract_class)
+      exact?(value, NilClass) ? false : boolean(value)
+    end
+
+    # 7.1 has connection-bound schema reflection; 8.1 has pool-bound reflection.
+    # with_connection returns only a lease acquired here, including on failure.
+    # These are metadata reads but adapter setup/checkout can have side effects.
+    def schema_columns(pool, table)
+      return pool.schema_cache.columns_hash(table) unless rails71?
+      framework_reader(pool, :with_connection, ActiveRecord::ConnectionAdapters::ConnectionPool).bind_call(pool) do |connection|
+        cache = framework_reader(connection, :schema_cache, ActiveRecord::ConnectionAdapters::AbstractAdapter).bind_call(connection)
+        framework_reader(cache, :columns_hash, ActiveRecord::ConnectionAdapters::BoundSchemaReflection).bind_call(cache, table)
+      end
+    end
+
+    def framework_reader(object, name, owner)
+      singleton = Object.instance_method(:singleton_class).bind_call(object)
+      reader = Module.instance_method(:instance_method).bind_call(singleton, name)
+      raise TypeError unless UnboundMethod.instance_method(:owner).bind_call(reader).equal?(owner)
+      reader
+    end
 
     def count_entry
       @entries += 1

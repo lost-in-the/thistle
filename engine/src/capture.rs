@@ -483,8 +483,8 @@ impl Capture {
             let simple = matches!(kind, "implicit" | "self") || (matches!(kind, "constant" | "local" | "instance_variable") && name.is_some());
             let site = (!simple).then_some((start, end));
             let key = (current, target, kind, name, call.is_safe_navigation(), site);
-            // Build the link only on admission or when an earlier saved site
-            // replaces the current representative of this group.
+            // Build the link only on admission or when the current site
+            // replaces a later saved representative of this group.
             let link = |key: &CallKey| -> Result<Value> {
                 let receiver_location = receiver.as_ref().map(|node| lines.call_location(&node.location()));
                 let metadata = json!({"version":2, "data":(kind, &key.3, omitted,
