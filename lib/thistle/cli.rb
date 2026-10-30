@@ -10,7 +10,8 @@ module Thistle
 
       thistle capture ROOT --output STORE [--max-nodes INTEGER]
       thistle find TEXT --store STORE [--generation ID] [--limit 50] [--domain all|source|metadata] [--kind KIND] [--path PREFIX]
-      thistle model-brief MODEL_ID --store STORE --generation ID [--limit 8] [--max-bytes 32768]
+      thistle model-brief MODEL_ID --store STORE --generation ID [--limit 8] [--max-bytes 32768] [--family columns|associations|registry_candidates] [--cursor TOKEN]
+      thistle references ID --store STORE --generation ID [--direction outgoing|incoming] [--limit 50] [--candidate-link ORDINAL] [--cursor TOKEN]
       thistle source-file PATH --store STORE --generation ID
       thistle source ID --store STORE [--generation ID]
       thistle links ID --store STORE [--generation ID]
@@ -41,7 +42,7 @@ module Thistle
         emit("version" => VERSION, "native" => Native.call("op" => "version"))
         return 0
       end
-      unless %w[capture find source source-file links check model-brief].include?(command)
+      unless %w[capture find source source-file links check model-brief references].include?(command)
         raise InvalidInput, "Unknown action. Use thistle help to see the available actions."
       end
       options = command == "model-brief" ? { limit: 8, max_bytes: 32768 } : { limit: 50 }
@@ -55,6 +56,15 @@ module Thistle
           if command == "model-brief"
             opts.on("--limit INTEGER", Integer) { |value| options[:limit] = value }
             opts.on("--max-bytes INTEGER", Integer) { |value| options[:max_bytes] = value }
+            opts.on("--family NAME") { |value| options[:family] = value }
+          end
+          if %w[model-brief references].include?(command)
+            opts.on("--cursor TOKEN") { |value| options[:cursor] = value }
+          end
+          if command == "references"
+            opts.on("--limit INTEGER", Integer) { |value| options[:limit] = value }
+            opts.on("--direction NAME") { |value| options[:direction] = value }
+            opts.on("--candidate-link INTEGER", Integer) { |value| options[:candidate_link] = value }
           end
           if command == "find"
             opts.on("--limit NUMBER", Integer) { |value| options[:limit] = value }
@@ -73,7 +83,7 @@ module Thistle
         emit(Thistle.capture(root: args.first, output: options[:output], limits: limits))
       else
         raise InvalidInput, "#{command} requires --store STORE" unless options[:store]
-        if %w[source-file model-brief].include?(command) && !options[:generation]
+        if %w[source-file model-brief references].include?(command) && !options[:generation]
           raise InvalidInput, "#{command} requires --generation ID"
         end
         reader = Reader.new(options[:store], generation: options[:generation])
@@ -85,7 +95,8 @@ module Thistle
             else
               reader.search(args.first, limit: options[:limit])
             end
-          when "model-brief" then reader.model_brief(args.first, **options.slice(:limit, :max_bytes))
+          when "model-brief" then reader.model_brief(args.first, **options.slice(:limit, :max_bytes, :family, :cursor))
+          when "references" then reader.references(args.first, **options.slice(:limit, :direction, :candidate_link, :cursor))
           when "source-file" then reader.source_file(args.first)
           when "source" then reader.source(args.first)
           when "links" then { "generation" => reader.generation, "fact_id" => args.first, "links" => reader.links(args.first) }

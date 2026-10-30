@@ -41,7 +41,7 @@ fn projection_pinned_families_wire_usage_and_low_item_budget() {
     assert_eq!(result["usage"]["wire_bytes_including_newline"], schema::canonical(&result).unwrap().len()+1);
     let visits = result["cost"]["incremental_request"]["fact_visits"].as_u64().unwrap();
     assert!(visits < FACTS as u64);
-    assert_eq!(result["cost"]["whole_job"]["fact_visits"], visits + 5*reader.facts.len() as u64);
+    assert_eq!(result["cost"]["whole_job"]["fact_visits"], visits + 6*reader.facts.len() as u64);
     assert!(result["coverage"]["capture_partial_or_unknown"].as_bool().unwrap());
 }
 
@@ -87,9 +87,11 @@ fn scoped_reference_default_matches_standalone_without_extra_incoming_expansion(
     for direction in ["incoming","outgoing"] {
         let parameters = json!({"id":id,"direction":direction});
         let query=references::Query::parse(&parameters).unwrap();
-        let standalone=references::select(&reader,&query).unwrap();
+        let mut standalone=references::select(&reader,&query).unwrap();
         let mut work=RequestWork::default();
-        assert_eq!(references::select_scoped(&reader,&query,Some(&mut work)).unwrap(),standalone);
+        let mut scoped=references::select_scoped(&reader,&query,Some(&mut work)).unwrap();
+        standalone.as_object_mut().unwrap().remove("cost"); scoped.as_object_mut().unwrap().remove("cost");
+        assert_eq!(scoped,standalone);
         assert!(work.facts>0);
         if direction == "incoming" { assert_eq!(standalone["coverage"]["candidate_facts_scanned"],0); }
     }
@@ -119,15 +121,15 @@ fn exhausted_reference_scans_retain_the_admitted_prefix_and_envelope() {
             assert_eq!(result["coverage"]["not_searched"], true);
             assert_eq!(result["coverage"]["known_matches"], 1);
         } else {
-            assert_eq!(result["coverage"]["candidate_search_complete"], false);
-            assert_eq!(rows[0]["candidate_search_complete"], false);
+            assert_eq!(result["coverage"]["candidate_search_complete"], true);
+            assert_eq!(rows[0]["candidate_search_complete"], true);
             let mut shared = RequestWork { facts:FACTS-allowance, ..RequestWork::default() };
             let parameters = json!({"id":id,"limit":1,"max_bytes":32768});
             let brief_query = Query::parse(&parameters).unwrap();
             let family = reference_family(&reader, &brief_query, direction, &mut shared).unwrap();
             assert_eq!(family["items"].as_array().unwrap().len(), 1);
-            assert_eq!(family["coverage"]["candidate_search_complete"], false);
-            assert_eq!(family["unsearched"], true);
+            assert_eq!(family["coverage"]["candidate_search_complete"], true);
+            assert!(family["items"][0]["candidate_followup"].is_object());
         }
     }
 }
@@ -150,7 +152,7 @@ fn registry_label_discovery_keeps_global_ambiguity_incomplete_and_anonymous_dist
     let cb_query=callback_effects::Query::parse(&cb_query).unwrap();
     let plain=callback_effects::select(&single_reader,&cb_query).unwrap();
     assert_eq!(callback_effects::select_scoped(&single_reader,&cb_query,crate::query::budget(),Some(&mut RequestWork::default())).unwrap(),plain);
-    let incomplete=registries(&single_reader,root,&mut RequestWork {facts:FACTS-1,..RequestWork::default()}).unwrap();
+    let incomplete=registries(&single_reader,root,&mut RequestWork {facts:FACTS,..RequestWork::default()}).unwrap();
     assert_eq!(incomplete.0["scan_complete"],false); assert!(incomplete.1.is_none());
     observation["models"].as_array_mut().unwrap().push(json!({"name":"Order","superclass":null,"save":{"status":"unavailable","entries":[]}}));
     let mut batch=crate::callbacks::batch(&context,&observation).unwrap();
@@ -165,4 +167,22 @@ fn registry_label_discovery_keeps_global_ambiguity_incomplete_and_anonymous_dist
     let mut anonymous=reader.stored_fact(&id).unwrap().clone();anonymous["attributes"]["model"]["name"]=Value::Null;
     let result=registries(&reader,&anonymous,&mut RequestWork::default()).unwrap();
     assert_eq!(result.0["reason"],"anonymous_model_has_no_label"); assert!(result.1.is_none());
+}
+
+#[test]
+fn brief_summary_followups_exhaust_family_without_losing_display_omissions() {
+    let (_store,reader,id,_) = fixture();
+    let brief=select(&reader,&Query::parse(&query(&id,1,32768)).unwrap()).unwrap();
+    assert_eq!(brief["families"]["associations"]["followup"]["generation"],reader.generation);
+    let mut request=json!({"id":id,"family":"associations","limit":1});
+    let first=select(&reader,&Query::parse(&request).unwrap()).unwrap();
+    assert_eq!(first["result"]["items"][0]["name"],"items");
+    assert_eq!(first["page_complete"],false);
+    request["cursor"]=first["next_cursor"].clone();
+    let second=select(&reader,&Query::parse(&request).unwrap()).unwrap();
+    assert_eq!(second["result"]["items"][0]["name"],"payments");
+    assert_eq!(second["page_complete"],true); assert_eq!(second["next_cursor"],Value::Null);
+    assert!(second["capture_partial_or_unknown"].as_bool().unwrap());
+    request["family"]=json!("columns");
+    assert_eq!(select(&reader,&Query::parse(&request).unwrap()).unwrap_err().code,"invalid_input");
 }

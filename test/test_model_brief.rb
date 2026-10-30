@@ -183,7 +183,7 @@ class ThistleModelBriefTest < Minitest::Test
       method = reader.find('BriefFixture::Parent#deliver').find { |f| f['kind'] == 'method' }
       assert_raises(Thistle::InvalidInput) { reader.model_brief(method.fetch('id')) }
       first, second = reader.model_brief(id), reader.model_brief(id)
-      evidence = ->(brief) { brief.fetch('families').transform_values { |family| family.reject { |key, _| key == 'work' } } }
+      evidence = ->(brief) { brief.fetch('families').transform_values { |family| family.reject { |key, _| %w[work directory cost].include?(key) } } }
       assert_equal evidence.call(first), evidence.call(second)
       assert_equal false, second.dig('cost', 'method_directory', 'built_this_request')
       store, = self.class.saved
@@ -198,6 +198,27 @@ class ThistleModelBriefTest < Minitest::Test
       end
       reader.close
       assert_raises(Thistle::Error) { reader.model_brief(id) }
+    end
+  end
+
+  def test_family_pages_reach_summary_omissions_with_bounded_wire_and_pinned_cli
+    store, generation, = self.class.saved
+    with_reader do |reader, id|
+      summary = reader.model_brief(id, limit: 1)
+      assert_equal 'model_brief', summary.dig('families', 'associations', 'followup', 'operation')
+      assert_equal generation, summary.dig('families', 'associations', 'followup', 'generation')
+      first = reader.model_brief(id, family: 'associations', limit: 1)
+      out, err, status = cli('model-brief', id, '--store', store, '--generation', generation,
+        '--family', 'associations', '--limit', '1', '--cursor', first.fetch('next_cursor'))
+      assert status.success?, err
+      last = JSON.parse(out)
+      assert_equal generation, last.fetch('generation')
+      assert last.fetch('page_complete')
+      assert_nil last.fetch('next_cursor')
+      assert_equal 2, (first.dig('result', 'items') + last.dig('result', 'items')).map { |item| item.fetch('name') }.uniq.length
+      assert_operator out.bytesize, :<=, 32768
+      assert_raises(Thistle::InvalidInput) { reader.model_brief(id, family: 'columns', cursor: first.fetch('next_cursor')) }
+      assert_raises(Thistle::LimitExceeded) { reader.model_brief(id, family: 'associations', max_bytes: 1) }
     end
   end
 end

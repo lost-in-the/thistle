@@ -149,6 +149,7 @@ pub struct Reader {
     method_counts: crate::method_lookup::Counts,
     method_open_bytes: (usize, usize),
     method_directory: std::sync::Mutex<Option<crate::method_lookup::Directory>>,
+    recorded_directory: std::sync::Mutex<Option<crate::recorded_domain::Directory>>,
     schema_version: u64,
 }
 
@@ -201,7 +202,8 @@ impl Reader {
         let (search, weight) = search_cache(&facts, facts_bytes.len(), manifest_bytes.len())?;
         Ok(Self { manifest, generation, facts, weight, by_id, by_path, by_file, search, blobs,
             source_index: std::sync::Mutex::new(None), admission: None, schema_version: version,
-            method_counts, method_open_bytes: (facts_bytes.len(), manifest_bytes.len()), method_directory: std::sync::Mutex::new(None) })
+            method_counts, method_open_bytes: (facts_bytes.len(), manifest_bytes.len()), method_directory: std::sync::Mutex::new(None),
+            recorded_directory: std::sync::Mutex::new(None) })
     }
 
     pub(crate) fn method_lookup_baseline(&self) -> Value {
@@ -229,6 +231,18 @@ impl Reader {
     pub(crate) fn stored_fact(&self, id: &str) -> Result<&Value> {
         schema::hash(id)?;
         self.by_id.get(id).map(|index| &self.facts[*index]).ok_or_else(|| CoreError::new("not_found", "Fact is absent from this generation"))
+    }
+
+    /// Copy only a bounded page of positions while locked. No I/O or output tree
+    /// construction holds the optional directory mutex.
+    pub(crate) fn recorded_candidates(&self, name: &str, kind: Option<&str>, offset: usize, limit: usize,
+        work: &mut impl crate::recorded_domain::LabelWork) -> Result<(crate::recorded_domain::Page, Value)> {
+        let mut directory = self.recorded_directory.lock()
+            .map_err(|_| CoreError::new("internal_error", "Recorded directory lock unavailable"))?;
+        let built = directory.is_none();
+        if built { *directory = Some(crate::recorded_domain::Directory::build(&self.facts, crate::query::budget())?); }
+        let directory = directory.as_ref().unwrap();
+        Ok((directory.page(&self.facts, name, kind, offset, limit, work)?, directory.stats(built)))
     }
 
     pub(crate) fn schema_version(&self) -> u64 { self.schema_version }
