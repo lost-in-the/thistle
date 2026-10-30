@@ -10,6 +10,7 @@ module Thistle
 
       thistle capture ROOT --output STORE [--max-nodes INTEGER]
       thistle find TEXT --store STORE [--generation ID] [--limit 50] [--domain all|source|metadata] [--kind KIND] [--path PREFIX]
+      thistle model-brief MODEL_ID --store STORE --generation ID [--limit 8] [--max-bytes 32768]
       thistle source-file PATH --store STORE --generation ID
       thistle source ID --store STORE [--generation ID]
       thistle links ID --store STORE [--generation ID]
@@ -40,10 +41,10 @@ module Thistle
         emit("version" => VERSION, "native" => Native.call("op" => "version"))
         return 0
       end
-      unless %w[capture find source source-file links check].include?(command)
+      unless %w[capture find source source-file links check model-brief].include?(command)
         raise InvalidInput, "Unknown action. Use thistle help to see the available actions."
       end
-      options = { limit: 50 }
+      options = command == "model-brief" ? { limit: 8, max_bytes: 32768 } : { limit: 50 }
       parser = OptionParser.new do |opts|
         if command == "capture"
           opts.on("--output PATH") { |value| options[:output] = value }
@@ -51,6 +52,10 @@ module Thistle
         else
           opts.on("--store PATH") { |value| options[:store] = value }
           opts.on("--generation ID") { |value| options[:generation] = value }
+          if command == "model-brief"
+            opts.on("--limit INTEGER", Integer) { |value| options[:limit] = value }
+            opts.on("--max-bytes INTEGER", Integer) { |value| options[:max_bytes] = value }
+          end
           if command == "find"
             opts.on("--limit NUMBER", Integer) { |value| options[:limit] = value }
             opts.on("--domain DOMAIN") { |value| options[:domain] = value }
@@ -68,8 +73,8 @@ module Thistle
         emit(Thistle.capture(root: args.first, output: options[:output], limits: limits))
       else
         raise InvalidInput, "#{command} requires --store STORE" unless options[:store]
-        if command == "source-file" && !options[:generation]
-          raise InvalidInput, "source-file requires --generation ID"
+        if %w[source-file model-brief].include?(command) && !options[:generation]
+          raise InvalidInput, "#{command} requires --generation ID"
         end
         reader = Reader.new(options[:store], generation: options[:generation])
         begin
@@ -80,6 +85,7 @@ module Thistle
             else
               reader.search(args.first, limit: options[:limit])
             end
+          when "model-brief" then reader.model_brief(args.first, **options.slice(:limit, :max_bytes))
           when "source-file" then reader.source_file(args.first)
           when "source" then reader.source(args.first)
           when "links" then { "generation" => reader.generation, "fact_id" => args.first, "links" => reader.links(args.first) }

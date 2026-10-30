@@ -7,7 +7,10 @@ fn fixture() -> (Value, String) {
     let (capture, id) = FIXTURE.get_or_init(|| {
     let root = tempfile::tempdir().unwrap();
     std::fs::write(root.path().join("records.rb"), SOURCE).unwrap();
-    let mut capture = crate::capture::capture(root.path(), &json!({})).unwrap();
+    let mut capture = {
+        let _guard = crate::CAPTURE_FIXTURE_LOCK.lock().unwrap();
+        crate::capture::capture(root.path(), &json!({})).unwrap()
+    };
     let source_root = root.path().to_str().unwrap();
     let observation = json!({"version":1,"active_record_version":"8.1.4","root":source_root,"status":"observed","models":[
         {"name":"Example::Child","superclass":"Example::Record","save":{"status":"observed","entries":[

@@ -89,6 +89,10 @@ module Thistle
       request("callback_effects", "id" => id, "limit" => limit)
     end
 
+    def model_brief(id, limit: 8, max_bytes: 32768)
+      request("model_brief", "id" => id, "limit" => limit, "max_bytes" => max_bytes)
+    end
+
     def check
       request("check")
     end

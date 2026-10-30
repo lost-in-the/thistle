@@ -66,6 +66,7 @@ launch requirement.
 ```sh
 thistle capture ./my-app --output ./my-app/.thistle
 thistle find OrdersController --store ./my-app/.thistle
+thistle model-brief MODEL_ID --store ./my-app/.thistle --generation GENERATION_ID
 thistle source FACT_ID --store ./my-app/.thistle
 thistle links FACT_ID --store ./my-app/.thistle
 thistle check --store ./my-app/.thistle
@@ -127,6 +128,17 @@ byte/line location. Links remain explicitly unresolved unless evidence resolves
 them. `Check` verifies captured bytes; it does not assert live source or Rails
 freshness. Coverage distinguishes unavailable and partial families from empty
 successful results.
+
+For a saved `rails_model` ID selected through Find, `model-brief` returns a bounded
+investigation brief: recorded fields/associations, incoming/outgoing label references
+and registered-callback candidates with source-supported potential requests. Pass
+`--generation` explicitly; `--limit` defaults to 8 per family (1–16), and
+`--max-bytes` defaults to 32768 (at most 65536, including the JSON newline).
+Unknown binding, partial capture, omissions and unsearched evidence remain explicit.
+Follow the returned fact IDs and source anchors using the same generation.
+The [loaded-model contract](docs/development/loaded-model-evidence.md#model-investigation-brief)
+describes its evidence and work limits. Ruby exposes the same operation as
+`reader.model_brief(model_id, limit: 8, max_bytes: 32768)` on its pinned handle.
 
 ## Observe an already booted Rails application
 
