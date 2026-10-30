@@ -196,7 +196,7 @@ fn select_with_budget(reader: &Reader, query: &Query<'_>, budget: &std::sync::Ar
         }
     }
     let mut directory_coverage = json!({"status":"not_requested","built_this_request":false});
-    let mut ranges_complete = true;
+    let mut ranges_complete = scan_complete;
     let mut directory_refused = false;
     if !groups.is_empty() && scan_complete {
         let candidates = reader.with_method_directory(budget, |directory, built| {
