@@ -169,6 +169,49 @@ result = Dir.mktmpdir('thistle-map-installed-') do |directory|
       html.include?('ModelFixture::Order') && html.include?('items') && html.include?('payments') && html.include?('unknown')
   end
 
+  # Use the saved real-model observation in this fresh consumer. Older selected
+  # packages retain their original contract; new Readers must prove references.
+  references_journey = nil
+  if model_reader.respond_to?(:references)
+    item = by_name.fetch('ModelFixture::Item')
+    static_item = model_reader.find('ModelFixture::Item').find do |row|
+      row['kind'] == 'class' && row['name'] == 'ModelFixture::Item'
+    end
+    raise 'Captured Item identity missing' unless static_item
+    outgoing = model_reader.references(order.fetch('id'))
+    association = outgoing.fetch('relationships').find { |row| row.dig('link', 'attributes', 'association') == 'items' }
+    raise 'Installed outgoing references lost ambiguity' unless association &&
+      outgoing.fetch('generation') == model_generation && association['candidate_label'] == 'ModelFixture::Item' &&
+      association['match_basis'] == 'recorded_outgoing_binding_unknown' && association['candidate_search_complete'] &&
+      association.fetch('candidates').map { |row| row.fetch('id') }.sort == [item.fetch('id'), static_item.fetch('id')].sort
+    incoming = model_reader.references(item.fetch('id'), direction: 'incoming')
+    raise 'Installed incoming references lost the registered association' unless incoming.fetch('generation') == model_generation &&
+      incoming.fetch('relationships').any? { |row| row.dig('origin', 'id') == order.fetch('id') &&
+        row.dig('link', 'attributes', 'association') == 'items' && row['match_basis'] == 'label_match_binding_unknown' }
+    status, _, body = model_app.call(env.merge('PATH_INFO' => '/links', 'QUERY_STRING' => model_query))
+    reference_html = body.each.to_a.join
+    raise 'Installed reference display lost uncertainty' unless status == 200 && reference_html.include?('binding unknown') &&
+      reference_html.include?('2 known name-match candidates') && reference_html.include?('No captured source')
+    source_uri = reference_html.scan(/href="([^"]+)"/).flatten.map { |href| URI.parse(CGI.unescapeHTML(href)) }.find do |uri|
+      params = URI.decode_www_form(uri.query.to_s).to_h
+      uri.path == '/source' && params['id'] == static_item.fetch('id') && params['generation'] == model_generation
+    end
+    raise 'Installed candidate Source link missing or unpinned' unless source_uri
+    source_status, _, body = model_app.call(env.merge('PATH_INFO' => source_uri.path, 'QUERY_STRING' => source_uri.query))
+    source_html = body.each.to_a.join
+    raise 'Installed reference Source changed captured evidence' unless source_status == 200 && source_html.include?(model_generation) &&
+      model_reader.source(static_item.fetch('id')).fetch('sha256') == produced.fetch('fixture_source_sha256')
+    incoming_query = URI.encode_www_form('id' => item.fetch('id'), 'generation' => model_generation, 'direction' => 'incoming')
+    incoming_status, _, body = model_app.call(env.merge('PATH_INFO' => '/links', 'QUERY_STRING' => incoming_query))
+    incoming_html = body.each.to_a.join
+    raise 'Installed incoming Map view failed' unless incoming_status == 200 && incoming_html.include?('ModelFixture::Order') &&
+      incoming_html.include?('binding unknown') && incoming_html.include?(model_generation)
+    references_journey = { 'generation' => model_generation, 'outgoing' => outgoing, 'incoming' => incoming,
+      'static_source_id' => static_item.fetch('id'), 'source_sha256' => produced.fetch('fixture_source_sha256'),
+      'source_status' => source_status, 'incoming_status' => incoming_status,
+      'current_advanced' => true, 'fresh_consumer_without_rails' => true }
+  end
+
   # Inspect this exact installed package, without a checkout or a live-app scan.
   packaged_root = File.join(Gem.loaded_specs.fetch('thistle').full_gem_path, 'lib')
   packaged_path = 'thistle/reader.rb'
@@ -224,6 +267,7 @@ result = Dir.mktmpdir('thistle-map-installed-') do |directory|
     'find_journey' => { 'generation' => find_generation, 'path' => packaged_path,
       'span' => hit.fetch('span'), 'source_sha256' => Digest::SHA256.hexdigest(packaged_bytes),
       'status' => found.fetch('status'), 'map_source_status' => file_status, 'current_advanced' => true },
+    'references_journey' => references_journey,
     'woods_installed' => false, 'source_checkout_load_path' => false
   }
 ensure
