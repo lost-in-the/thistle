@@ -509,12 +509,12 @@ module Thistle
           body << '<p>Supporting excerpt shortened; exact saved span remains recorded.</p>' if effect['excerpt_truncated']
           source, span = analysis.fetch('source'), effect.fetch('call_span')
           body << "<p>Saved file: #{h(source.fetch('path'))}; SHA-256: #{h(source.fetch('sha256'))}; call bytes [#{h(span.fetch('start_byte'))}, #{h(span.fetch('end_byte'))}).</p>"
-          if source.fetch('lines') <= MAX_SOURCE_LINES && span.fetch('start_line') <= MAX_SOURCE_LINES
+          if source.fetch('bytes') <= MAX_SOURCE_BYTES && source.fetch('lines') <= MAX_SOURCE_LINES && span.fetch('start_line') <= MAX_SOURCE_LINES
             anchor = url('/source', 'id' => analysis.fetch('method').fetch('id')) + "#L#{Integer(span.fetch('start_line'))}"
             body << "<p><a href=\"#{h(anchor)}\">Supporting captured source at line #{h(span.fetch('start_line'))} (coherence unknown)</a></p>"
           else
             command = "thistle source #{analysis.fetch('method').fetch('id')} --store STORE --generation #{@generation}"
-            body << "<p>Supporting source exceeds the web line budget. Use <code>#{h(command)}</code> for the complete captured file; replace STORE with your saved store.</p>"
+            body << "<p>Supporting source exceeds the web display budget. Use <code>#{h(command)}</code> for the complete captured file; replace STORE with your saved store.</p>"
           end
         end
         body << "<p>Known potential effects omitted: #{h(brief_value(analysis['known_effects_omitted']))}; effects non-exhaustive: #{h(brief_value(analysis['effects_non_exhaustive']))}.</p>"

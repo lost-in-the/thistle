@@ -122,15 +122,27 @@ class ModelBriefViewTest < Minitest::Test
     assert_includes html, 'Model brief unavailable with this Reader'
   end
 
-  def test_source_over_line_budget_has_an_exact_pinned_command_instead_of_a_dead_anchor
+  def test_source_display_budgets_keep_fallback_pinned_and_accept_the_exact_byte_boundary
+    # Synthetic adapter responses exercise the View/destination contract. Current
+    # native callback evidence already caps supported source at 256 KiB.
+    [[{ 'lines' => 10_001 }, 10_001], [{ 'bytes' => 262_145 }, 3]].each do |metadata, line|
+      data = response
+      explanation = data.dig('families', 'callbacks', 'items', 0, 'explanation')
+      explanation['source'].merge!(metadata)
+      explanation['effects'][0]['call_span']['start_line'] = line
+      status, _, html = request(make_app(BriefReader.new(data)), '/links', query: "id=#{FACT_ID}")
+      assert_equal 200, status
+      assert_includes html, 'Supporting source exceeds the web display budget'
+      assert_includes html, "thistle source #{METHOD_ID} --store STORE --generation #{GENERATION}"
+      refute_includes html, "#L#{line}"
+    end
+
     data = response
-    explanation = data.dig('families', 'callbacks', 'items', 0, 'explanation')
-    explanation['source']['lines'] = 10_001
-    explanation['effects'][0]['call_span']['start_line'] = 10_001
+    data.dig('families', 'callbacks', 'items', 0, 'explanation', 'source')['bytes'] = 262_144
     status, _, html = request(make_app(BriefReader.new(data)), '/links', query: "id=#{FACT_ID}")
     assert_equal 200, status
-    assert_includes html, "thistle source #{METHOD_ID} --store STORE --generation #{GENERATION}"
-    refute_includes html, '#L10001'
+    assert_includes html, "href=\"/source?id=#{METHOD_ID}&amp;generation=#{GENERATION}#L3\""
+    refute_includes html, 'Supporting source exceeds the web display budget'
   end
 
   def test_incoming_identity_only_view_and_denied_requests_do_not_select_a_brief

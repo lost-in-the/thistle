@@ -27,7 +27,7 @@ from component scan completeness. All captured strings and JSON are escaped.
 
 Source and Links actions use the returned fact IDs and the page generation,
 including when CURRENT has advanced. Supporting call anchors use the returned
-method ID and call line, within the existing Source line budget; larger files
+method ID and call line, within the existing Source byte and line budgets; larger files
 retain a pinned Reader fallback. No additional source reads or candidate lookup
 are performed by these helpers. Existing authorization, escaping, focus, text/IME,
 optional shortcuts and no-JavaScript links/forms remain the access/interaction
@@ -76,7 +76,7 @@ compilation or setup is implicit in these commands.
 | --- | --- | --- |
 | Presentation, partial/unsearched/omitted evidence, escaping, mount/pinned destinations, refusals and denied requests | `bundle exec ruby -Ilib -Imap/lib map/test/model_brief_view_test.rb` | 60 s |
 | Known-answer `test/fixtures/model_brief/{booted_app,records}.rb`, producer then fresh Rails-free Map consumer, CURRENT advance, exact saved method ID/digest/line, Source-unavailable model, Links, missing generation and denied peer | `bundle exec ruby -Ilib -Imap/lib map/test/model_brief_journey_test.rb` | 180 s |
-| Existing affected model/callback/source/access contracts | `bundle exec ruby -Ilib -Imap/lib -e 'ARGV.each { |f| require File.expand_path(f) }' map/test/model_integration_test.rb map/test/callback_effects_test.rb map/test/find_source_test.rb map/test/rack_contract_test.rb` | 300 s |
+| Existing affected model/callback/source/access contracts | `bundle exec ruby -Ilib -Imap/lib -e 'ARGV.each { require File.expand_path(_1) }' map/test/model_integration_test.rb map/test/callback_effects_test.rb map/test/find_source_test.rb map/test/rack_contract_test.rb` | 300 s |
 
 Intended execution bounds are CPU <=1, memory <=512 MiB and PIDs <=128. These are
 requirements for the later execution envelope, **not observed enforced limits**:
