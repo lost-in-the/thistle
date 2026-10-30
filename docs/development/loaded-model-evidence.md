@@ -296,3 +296,84 @@ Map 41/755 with zero failures/errors/skips. Test-local method-redefinition
 warnings are retained; this is not warning-free execution. Both invocations
 kept the same copied runtime source and resource bounds. Source/installed
 acceptance for the changed signed candidate remains separate.
+
+## Model investigation brief
+
+`Reader#model_brief(id, limit: 8, max_bytes: 32768)` and native `model_brief`
+assemble one bounded saved-model investigation. The literal CLI is:
+
+```sh
+thistle model-brief MODEL_ID --store STORE --generation GENERATION_ID --limit 8 --max-bytes 32768
+```
+
+Select the exact `rails_model` SHA ID through Find. The CLI requires generation
+before opening a Reader; the Ruby facade always uses its existing pinned handle.
+Invalid/wrong-kind/missing IDs, missing generations, closed handles, corrupt saved
+source and admission failures retain structured errors. No CURRENT fallback or
+live Rails access occurs. A fresh consumer needs no Rails application.
+
+The version-1 response has mandatory root identity, generation, capture coverage,
+limits, uncertainty, usage and cost envelopes. Each immutable family envelope
+supplies generation, fact ID and provenance for all its items. Columns project
+only name/type/null. Associations project name/macro/target/polymorphic and an
+explicit recorded-label status. Small model identity fields exclude arbitrary
+attributes, defaults, full facts and complete link arrays. Runtime-only model
+source remains unavailable. Source/Links follow-ups use the supplied fact IDs;
+static identities retain path and byte/line locations, and verified callback
+source also retains digest, file size, method and representative call/receiver
+spans. Only bounded supporting call excerpts are included, never full files.
+
+[References](model-references.md) keep exact origin/candidate IDs, unresolved
+labels, candidate completeness and known omissions. Incoming remains compact:
+its chosen anchor is a label match, without outgoing expansion or global candidate
+uniqueness. [Callback explanations](callback-evidence.md#source-supported-potential-effects-los-62)
+reuse the exact registry-ID selector, descriptor/source corroboration, inherited
+effective owner, duplicate ambiguity, metadata checks and heredoc uncertainty.
+Registry discovery is one borrowed fact pass comparing the model's recorded label
+with callback-registry labels. It retains at most two identities, reports total
+matches and global scan completeness, and explains only one uniquely found
+complete **label candidate**. Model-to-registry identity binding always stays
+unknown. Multiple/incomplete/anonymous/missing candidates yield explicit
+ambiguous/unavailable/not-searched explanations. Registry positions are not
+execution order; potential `perform_later` spelling establishes neither invocation,
+ActiveJob ancestry, runtime dispatch, condition satisfaction nor delivery.
+
+Limits are integers: 1–16 items per family and 1–65536 wire bytes, including the
+CLI newline. A valid mandatory envelope that cannot fit refuses with
+`limit_exceeded`. Items are admitted in columns, associations, registry-candidates,
+callbacks, outgoing, incoming order, preserving each family's deterministic
+ordering. Exact known omissions include item/byte limits; unknown remainder is
+separate. `known_omitted: null` means component admission could not establish its
+count. Family status, `unsearched`, component coverage and saved capture status
+remain distinct; empty partial evidence never establishes exhaustive absence.
+An empty family can have recorded items omitted by output limits.
+
+The entire request shares at most 20000 fact visits (including discovery,
+reference-candidate scans and revisits), 50000 links, 100000 label comparisons,
+32 MiB compared/hashed label bytes, 16 source attempts and 1 MiB charged source
+bytes, with unchanged 256 KiB per-file cap. Existing component caps remain upper
+bounds (reference labels also retain their 16 MiB component ceiling). Exhaustion
+never starts an independently budgeted selector. Components are consumed and
+moved sequentially. There is no new index, persistent cache, schema or FFI API.
+One conservative 32 MiB transient reservation uses the existing aggregate
+128 MiB Reader/query budget and stays held through native serialization.
+
+An additional 8 MiB processed-encoded-metadata allowance charges bounded input
+projection/copy, component construction/encoding and final sizing/serialization/
+bridge/Ruby copy passes. Decimal-width convergence uses a declared 64-byte
+conservative sizing allowance; these are encoded-byte work units, not exact heap,
+instruction, RSS or timing measurements. Response usage records actual returned
+items and JSON wire bytes. The existing Reader-open five fact passes/admission
+appear once under `cost.reader_open`; lazy method-directory build/reuse, key
+hashing, sorting and retained admission appear once under `cost.method_directory`.
+`whole_job` adds open, actual build (zero for reuse) and incremental request fact
+visits. Directory construction retains its separate 100000-fact/32 MiB key and
+sort/retention bounds. Fresh Readers rebuild; prior Reader construction is not
+hidden inside the incremental 20000-visit allowance. Evidence order/content/IDs
+stay generation-stable; actual build/reuse cost fields can differ.
+
+Dedicated source tests use a small real Rails producer, independent saved
+identities/source bytes and fresh Rails-free Reader/CLI consumers after CURRENT
+advances. They are development evidence only. Root owns current affected CI,
+review, integration and changed-package installed acceptance; Leah retains
+applicable acceptance. All launch capabilities remain unqualified.

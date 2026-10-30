@@ -27,31 +27,36 @@ impl<'a> Query<'a> {
 }
 
 #[derive(Default)]
-struct Work { facts: usize, links: usize, label_bytes: usize, files: usize, source_bytes: usize, digest_comparisons: usize, range_visits: usize }
-impl Work {
+struct Work<'a> { shared: Option<&'a mut crate::model_brief::RequestWork>, facts: usize, links: usize, label_bytes: usize, files: usize, source_bytes: usize, digest_comparisons: usize, range_visits: usize }
+impl Work<'_> {
     fn fact(&mut self) -> bool {
         if self.facts == MAX_FACTS { return false; }
+        if let Some(shared) = self.shared.as_deref_mut() { if !shared.facts(1) { return false; } }
         self.facts += 1; true
     }
     fn compare(&mut self, a: &str, b: &str) -> Option<Ordering> {
         let bytes = a.len().checked_add(b.len())?;
         if bytes > MAX_LABEL_BYTES.saturating_sub(self.label_bytes) { return None; }
+        if let Some(shared) = self.shared.as_deref_mut() { if !shared.labels(bytes) { return None; } }
         self.label_bytes += bytes;
         Some(a.cmp(b))
     }
 }
-impl crate::method_lookup::Work for Work {
+impl crate::method_lookup::Work for Work<'_> {
     fn visit(&mut self) -> bool {
         if !self.fact() { return false; }
         self.range_visits += 1; true
     }
     fn bytes(&mut self, bytes: usize) -> bool {
         if bytes > MAX_LABEL_BYTES.saturating_sub(self.label_bytes) { return false; }
+        if let Some(shared) = self.shared.as_deref_mut() { if !shared.label_bytes(bytes) { return false; } }
         self.label_bytes += bytes; true
     }
     fn compare(&mut self, a: &str, b: &str) -> Option<Ordering> { Work::compare(self, a, b) }
     fn compare_digest(&mut self, a: &[u8; 32], b: &[u8; 32]) -> Option<Ordering> {
-        if !crate::method_lookup::Work::bytes(self, 64) { return None; }
+        if 64 > MAX_LABEL_BYTES.saturating_sub(self.label_bytes) { return None; }
+        if let Some(shared) = self.shared.as_deref_mut() { if !shared.labels(64) { return None; } }
+        self.label_bytes += 64;
         self.digest_comparisons += 1; Some(a.cmp(b))
     }
 }
@@ -60,7 +65,7 @@ fn unknown(reason: &str) -> Value {
     json!({"status":"unknown","reason":reason,"binding":"unavailable","effects":[],"links_search_complete":false})
 }
 // Charged binary search over the selected, borrowed callback descriptors.
-fn lookup(groups: &[Group<'_>], owner: &str, name: &str, work: &mut Work) -> Option<std::result::Result<usize, usize>> {
+fn lookup(groups: &[Group<'_>], owner: &str, name: &str, work: &mut Work<'_>) -> Option<std::result::Result<usize, usize>> {
     let (mut lo, mut hi) = (0, groups.len());
     while lo < hi {
         let mid = lo + (hi - lo) / 2;
@@ -93,7 +98,7 @@ fn bounds(fact: &Value) -> Option<(u64, u64)> {
     let end = fact["location"]["end_byte"].as_u64()?;
     (end > start).then_some((start, end))
 }
-fn fits_descriptor(group: &Group<'_>, entry: &Value, work: &mut Work) -> Option<bool> {
+fn fits_descriptor(group: &Group<'_>, entry: &Value, work: &mut Work<'_>) -> Option<bool> {
     let fact = group.candidate?;
     if !work.fact() { return None; }
     let filter = &entry["filter"];
@@ -104,7 +109,7 @@ fn fits_descriptor(group: &Group<'_>, entry: &Value, work: &mut Work) -> Option<
         fact["location"]["start_line"] == filter["source"]["line"] && bounds(fact).is_some())
 }
 
-fn explain(fact: &Value, file: &Value, version: u64, lines: usize, work: &mut Work) -> Result<Value> {
+fn explain(fact: &Value, file: &Value, version: u64, lines: usize, work: &mut Work<'_>) -> Result<Value> {
     // Caller has charged and validated this entire method, including every call
     // and receiver coordinate, against the actual digest-checked saved bytes.
     let content = schema::string(file, "content")?;
@@ -113,6 +118,11 @@ fn explain(fact: &Value, file: &Value, version: u64, lines: usize, work: &mut Wo
     let mut omitted = 0;
     for wire in schema::array(fact, "links")? {
         let link = SemanticLinkView::from_wire(wire, version, "static")?;
+        if let Some(shared) = work.shared.as_deref_mut() {
+            if !shared.labels(link.relation().len() + 5) || !shared.labels(link.target().len() + 13) {
+                return Ok(unknown("label_comparison_budget"));
+            }
+        }
         if link.relation() != "calls" || link.target() != "perform_later" { continue; }
         let Some(call) = link.call_metadata() else { continue; };
         if call.kind != "constant" || call.omitted { continue; }
@@ -172,17 +182,24 @@ pub(crate) fn select(reader: &Reader, query: &Query<'_>) -> Result<Value> {
 }
 
 fn select_with_budget(reader: &Reader, query: &Query<'_>, budget: &std::sync::Arc<crate::query::Budget>) -> Result<Value> {
+    select_scoped(reader, query, budget, None)
+}
+
+pub(crate) fn select_scoped(reader: &Reader, query: &Query<'_>, budget: &std::sync::Arc<crate::query::Budget>,
+    shared: Option<&mut crate::model_brief::RequestWork>) -> Result<Value> {
     let anchor = reader.stored_fact(query.id)?;
     if anchor["kind"] != "rails_save_callbacks" { return Err(CoreError::input("callback_effects requires a rails_save_callbacks fact ID")); }
     let data = &anchor["attributes"]["callbacks"];
     let entries = schema::array(&data["save"], "entries")?;
-    let mut work = Work { facts: 1, ..Work::default() };
+    let mut work = Work { shared, ..Work::default() };
+    if !work.fact() { return Err(CoreError::limit("Callback fact visit allowance unavailable")); }
     let mut groups = Vec::new();
     let mut selected = Vec::new();
     let mut metadata_omitted = 0;
     let mut rows_attempted = 0;
     let mut scan_complete = true;
     for entry in entries.iter().take(query.limit) {
+        if let Some(shared) = work.shared.as_deref_mut() { shared.metadata(entry, 3)?; }
         rows_attempted += 1;
         match schema::encoded_bytes(entry, MAX_METADATA) {
             Ok(_) => {}, Err(e) if e.code == "limit_exceeded" => { metadata_omitted += 1; continue; }, Err(e) => return Err(e),
@@ -257,6 +274,12 @@ fn select_with_budget(reader: &Reader, query: &Query<'_>, budget: &std::sync::Ar
             for i in indexes { groups[i].result = unknown("source_file_attempt_budget"); }
             continue;
         }
+        if let Some(shared) = work.shared.as_deref_mut() {
+            if !shared.source_attempt() {
+                for i in indexes { groups[i].result = unknown("source_file_attempt_budget"); }
+                continue;
+            }
+        }
         work.files += 1; // Missing/oversized/failed attempts are charged too.
         let mut file = None;
         for item in schema::array(&reader.manifest, "files")? {
@@ -273,6 +296,12 @@ fn select_with_budget(reader: &Reader, query: &Query<'_>, budget: &std::sync::Ar
             for i in indexes { groups[i].result = unknown("source_byte_budget"); }
             continue;
         }
+        if let Some(shared) = work.shared.as_deref_mut() {
+            if !shared.source_bytes(bytes) {
+                for i in indexes { groups[i].result = unknown("source_byte_budget"); }
+                continue;
+            }
+        }
         work.source_bytes += bytes;
         let mut admitted = Vec::new();
         for i in indexes {
@@ -286,6 +315,9 @@ fn select_with_budget(reader: &Reader, query: &Query<'_>, budget: &std::sync::Ar
                 groups[i].result = unknown("fact_visit_budget"); continue;
             }
             // The schema and explanation revisit this selected method too.
+            if let Some(shared) = work.shared.as_deref_mut() {
+                if !shared.method(2, count * 2) { groups[i].result = unknown("shared_fact_or_link_visit_budget"); continue; }
+            }
             work.facts += 2;
             work.links += count * 2;
             admitted.push(i);
@@ -310,10 +342,14 @@ fn select_with_budget(reader: &Reader, query: &Query<'_>, budget: &std::sync::Ar
         let explanation = if let Some((owner, name)) = descriptor(entry) {
             match lookup(&groups, owner, name, &mut work) {
                 Some(Ok(at)) if scan_complete && groups[at].result["binding"] == "descriptor_matched_captured_declaration" => {
+                    if let Some(shared) = work.shared.as_deref_mut() { shared.metadata(&groups[at].result, 1)?; }
                     if fits_descriptor(&groups[at], entry, &mut work) == Some(true) { groups[at].result.clone() }
                     else { unknown("observed_descriptor_mismatch_or_label_budget") }
                 },
-                Some(Ok(at)) => groups[at].result.clone(),
+                Some(Ok(at)) => {
+                    if let Some(shared) = work.shared.as_deref_mut() { shared.metadata(&groups[at].result, 1)?; }
+                    groups[at].result.clone()
+                },
                 _ => unknown("declaration_uniqueness_scan_incomplete"),
             }
         } else { unknown("opaque_or_incomplete_observed_method_descriptor") };
@@ -345,6 +381,7 @@ fn select_with_budget(reader: &Reader, query: &Query<'_>, budget: &std::sync::Ar
                 "row_metadata_bytes":MAX_METADATA,"effects_per_method":MAX_EFFECTS}}});
     response["callbacks"] = Value::Array(rows);
     schema::encoded_bytes(&response, MAX_OUTPUT)?;
+    if let Some(shared) = work.shared.as_deref_mut() { shared.metadata(&response, 2)?; }
     Ok(response)
 }
 
