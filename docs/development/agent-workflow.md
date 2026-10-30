@@ -1,10 +1,22 @@
 # Thistle project and agent workflow
 
-The private [Thistle project](https://github.com/orgs/lost-in-the/projects/2)
-connects implementation, evaluation, and delivery work in `lost-in-the/thistle`.
-The issue owns the task contract; the project exposes its position and the next
-decision. Versioned reports own the detailed evidence. Evaluation work can share
-this plan while retaining separate policy and execution authority.
+The [Thistle Linear project](https://linear.app/lost-in-the/project/thistle-9bc9a3494d6d)
+owns active planning, task contracts, priorities, claims, dependencies, and
+acceptance tracking. Use the [migration crosswalk and working handoff](https://linear.app/lost-in-the/document/github-linear-migration-and-working-handoff-ccb79f3278cd)
+to locate the existing Linear issue before starting or creating work.
+
+GitHub remains the home for source, PRs, reviews, CI, original discussions, and
+original evidence. The former GitHub project and imported issue checkpoints are
+historical planning records; do not maintain a second active backlog there.
+Versioned reports own detailed evidence and retain their original identities.
+
+The PM owns Linear issue bodies, states, priorities, assignments, relationships,
+and acceptance tracking. The technical integration owner owns implementation,
+technical reviews, integration, signing, resource claims, and PR summaries.
+Workers record bounded technical claims and evidence on the assigned Linear issue;
+they do not silently take over PM metadata. Leah retains substantive product and
+authority decisions. Evaluation work can share the plan while retaining its
+separate policy and execution authority.
 
 The [mission](../MISSION.md) is the canonical product intent. Use the
 [configuration guide](agent-configuration.md) for shared rules, private values
@@ -14,10 +26,10 @@ and verified instruction-loading boundaries.
 
 | View | Layout | Contents and purpose |
 |---|---|---|
-| Now | Board by Status | Bounded work issues. Exclude capability parents and PR cards so long-lived requirements and code changes do not double-count the work. |
-| Review | Table | Open PRs and their linked work. Inspect the current diff, check evidence, and outstanding decisions. |
-| Launch | Table | The 17 capability parents, acceptance owner, Evidence, affected support scope, and remaining gaps. |
-| Plan | Table | Larger outcomes, targets, and dependencies. Add roadmap dates only when there is an actual planning commitment. |
+| [Now](https://linear.app/lost-in-the/project/thistle-9bc9a3494d6d/view/now-397e64d578dd) | Board by Status | Open bounded work, excluding capability parents. PRs link to their work issue rather than duplicating it as another card. |
+| [Review](https://linear.app/lost-in-the/project/thistle-9bc9a3494d6d/view/review-962863cb10ee) | Work awaiting review or checks | Inspect linked PRs, current diffs, exact evidence, and outstanding decisions. |
+| [Launch](https://linear.app/lost-in-the/project/thistle-9bc9a3494d6d/view/launch-af8a3de0356b) | Capability view | The 17 capability parents, acceptance owner, Evidence, affected support scope, and remaining gaps. |
+| [Plan](https://linear.app/lost-in-the/project/thistle-9bc9a3494d6d/view/plan-7114799aeac7) | List by native milestone | Outcome phases, bounded children, dependencies, and completed history. Add dates only for an actual planning commitment. |
 
 Views reuse the same issues. A separate gem or agent does not need another backlog.
 The evaluator must retain its own repository permissions and policy authority even
@@ -30,29 +42,32 @@ when its issues appear in the same planning project.
 | Status | Backlog, Ready, Doing, Review, Check, Done | Current workflow position; show the main remaining step when work overlaps. |
 | Priority | Urgent, High, Medium, Low | Urgent is a concrete blocking or time-sensitive issue, not a default. |
 | Area | Core, Gem, Map, Eval, Delivery | Primary ownership. Security, performance, and accessibility can cross areas. |
-| Target | Baseline, Trusted checks, First experiment, Preview, Launch | Shared planning target across repositories. Leave future untriaged work unset. |
+| Phase | Capture & read, Explain behavior, Track change, Use & share, Qualify launch | Native project milestone; preferred delivery order with overlap when inputs and ownership permit. |
+| Target | Imported historical classifications | Preserve source classification; do not use it as a second current phase or status field. |
 | Evidence | Needed, Pass, Fail, Unclear, Stale | Primarily capability and release-check issues. Every result needs a linked scope and report. |
 
-Use native assignee, repository, parent/sub-issue, and blocking relationships.
-Reuse an existing organization Priority field where suitable instead of creating
-a duplicate. Use the labels `capability`, `experiment`, and `release-check` to
-identify issue roles, and `security`, `performance`, or `accessibility` for relevant
-concerns. Keep existing useful labels such as `bug`.
+Use native Linear assignee, priority, parent/sub-issue, blocking, and related
+relationships. Parent means containment; blocked-by means an actual prerequisite;
+related links connect shared interfaces or evidence without preventing work.
+Use the labels `capability`, `experiment`, and `release-check` for issue roles,
+and `security`, `performance`, or `accessibility` for relevant concerns.
 
-Issue-form responses populate the issue body. They do not set these project
-fields automatically. The triager or a narrowly scoped metadata worker must set
-the fields and verify that the item is in the intended project.
+GitHub issue forms remain an intake surface. Their historical project binding
+does not make the GitHub board canonical. The PM reconciles intake with an
+existing Linear task or creates one bounded task when necessary, sets its fields,
+and verifies project membership. Link the Linear task from the technical PR.
+Do not duplicate imported issues or infer a claim from an automatically added card.
 
-The forms target `lost-in-the/2`. GitHub applies that binding only when the person
-creating the issue has write access to the project. Auto-add or triage must handle
-other contributors; verify membership instead of assuming the form added it.
+Phases can overlap; they do not create phase-wide completion gates. Security,
+accessibility, resource use, and maintainability apply throughout. Completed
+children and milestone percentages do not qualify a launch capability.
 
 ## Status and acceptance
 
 | Status | Entry condition | What moves it forward |
 |---|---|---|
 | Backlog | Work has been recorded. | Clarify scope, priority, prerequisites, and expected evidence. |
-| Ready | One bounded outcome, clear boundaries, satisfied prerequisites, and a workable check plan. | A real agent/person claims and starts it. |
+| Ready | The Todo queue: one bounded outcome, concrete inputs, clear boundaries, satisfied prerequisites, and a workable check plan. | A real agent/person claims and starts it. |
 | Doing | Active task, branch, ownership, and next checkpoint are recorded. | A reviewable change or result exists. |
 | Review | A reviewer can inspect the relevant diff/result and its evidence. | Findings are resolved or explicitly dispositioned; remaining checks are clear. |
 | Check | Required artifact, integration, evaluation, or acceptance work remains. | The declared acceptance owner records the supported result. |
@@ -102,8 +117,9 @@ owners, or risk boundaries make review easier.
 
 ## Claim protocol
 
-1. Inspect the current issue, dependencies, assignee, comments, linked PRs, and
-   remote branch heads. Search for existing work before creating a duplicate.
+1. Inspect the current Linear issue, dependencies, assignee, comments, linked PRs,
+   and remote branch heads. Use the migration crosswalk for original GitHub issue
+   references and search for existing work before creating a duplicate.
 2. Claim one Ready issue. Record the actual agent task URL or provider/task ID,
    branch, base SHA, owned files/interfaces, reviewer/acceptance owner, and next
    checkpoint. If the task has not started, leave the issue Ready.
@@ -138,8 +154,9 @@ Never invent task links, reviewer approvals, or run results to fill a field. A t
 URL identifies work; it does not establish access to its transcript or live state.
 When another session is inaccessible, coordinate through the canonical issue, PR,
 and remote commits. State the visibility limit and distinguish the last recorded
-claim from an observed running task. If automation lacks project access, update
-the issue and report that metadata gap; do not claim the board was changed.
+claim from an observed running task. If Linear access is unavailable, preserve a
+bounded technical handoff in the linked PR and report the access gap to the PM.
+Do not resume GitHub-board maintenance or claim that Linear was updated.
 
 ## Notifications
 
@@ -219,6 +236,30 @@ does not automatically justify a full review or benchmark campaign; follow the
 existing change routing and required gates. New changes reopen only the affected
 review/check scope, without transferring old acceptance to changed bytes.
 
+## Routine validation within a claim
+
+When delegating ordinary implementation, include the focused harmless checks
+needed for a reviewable handoff in the initial file/resource claim. State the
+runtime and elapsed-time budget, permitted tools and inputs, protected-host
+conflicts, and release condition. A source-only handoff is appropriate when a
+real shared interface or resource prevents useful execution; record that exact
+prerequisite and its next owner.
+
+Within that authorization and budget, a worker may correct a deterministic
+preflight or wrapper setup error and resume the affected harmless checks without
+a new routine manager turn. Preserve each failed attempt and report whether the
+test child actually started. A preflight failure is neither a test pass nor
+evidence that the tested behavior failed. Stop when the budget, input/tool scope,
+or ownership boundary is exceeded; do not retry unchanged commands indefinitely.
+
+An explicit source-only grant, per-attempt limit, frozen procedure, protected
+measurement window, or private-data boundary remains binding until its owner
+changes it. This routine-validation rule does not authorize another fixed
+full-workload attempt, a benchmark campaign, new credentials/dependencies,
+external transmission, security changes, or publication. Do not reinterpret an
+existing one-shot grant; define ordinary validation scopes to include bounded
+setup repair when issuing or revising them.
+
 ## Stateful verification
 
 Before an administrative proof or another stateful verification workflow, inspect the
@@ -277,33 +318,31 @@ evidence and conditions for reconsideration. A temporary compromise also needs
 an owner and an exit condition. Neither silently qualifies a launch requirement.
 Record tooling alternatives and decisions in the [development decisions](decisions.md).
 
-## Work already in progress
+## Current work and original evidence
 
-Use these canonical issue records rather than creating another copy of the
-backlog. The issues hold current acceptance criteria, evidence, claims, and
-dependencies; this table is only an index.
+Use the [Linear project](https://linear.app/lost-in-the/project/thistle-9bc9a3494d6d)
+and [migration crosswalk](https://linear.app/lost-in-the/document/github-linear-migration-and-working-handoff-ccb79f3278cd)
+for current acceptance criteria, claims, dependencies, and next actions. This
+stable capability index does not duplicate the live work queue.
 
-| Record | Canonical issues |
+| Record | Canonical Linear parents |
 |---|---|
-| Gem launch requirements | [L01 / #3](https://github.com/lost-in-the/thistle/issues/3), [L02 / #4](https://github.com/lost-in-the/thistle/issues/4), [L10 / #12](https://github.com/lost-in-the/thistle/issues/12), [L12 / #14](https://github.com/lost-in-the/thistle/issues/14) |
-| Core launch requirements | [L03 / #5](https://github.com/lost-in-the/thistle/issues/5), [L04 / #6](https://github.com/lost-in-the/thistle/issues/6), [L05 / #7](https://github.com/lost-in-the/thistle/issues/7), [L06 / #8](https://github.com/lost-in-the/thistle/issues/8), [L07 / #9](https://github.com/lost-in-the/thistle/issues/9), [L08 / #10](https://github.com/lost-in-the/thistle/issues/10), [L09 / #11](https://github.com/lost-in-the/thistle/issues/11), [L11 / #13](https://github.com/lost-in-the/thistle/issues/13), [L13 / #15](https://github.com/lost-in-the/thistle/issues/15) |
-| Map launch requirements | [L14 / #16](https://github.com/lost-in-the/thistle/issues/16), [L15 / #17](https://github.com/lost-in-the/thistle/issues/17), [L16 / #18](https://github.com/lost-in-the/thistle/issues/18) |
-| Delivery launch requirement | [L17 / #19](https://github.com/lost-in-the/thistle/issues/19) |
-| Hardened baseline integration and post-merge verification | [#20](https://github.com/lost-in-the/thistle/issues/20) |
-| Recorded Experiment 001 result review | [#21](https://github.com/lost-in-the/thistle/issues/21) |
-| Agent, PR, CI, and release workflow | [#22](https://github.com/lost-in-the/thistle/issues/22) |
-| Protected qualification authority | [#23](https://github.com/lost-in-the/thistle/issues/23) |
-| Durable baseline evidence | [#24](https://github.com/lost-in-the/thistle/issues/24) |
-| Exact scoped preview candidate | [#25](https://github.com/lost-in-the/thistle/issues/25) |
+| Gem launch requirements | [L01 / LOS-5](https://linear.app/lost-in-the/issue/LOS-5), [L02 / LOS-6](https://linear.app/lost-in-the/issue/LOS-6), [L10 / LOS-14](https://linear.app/lost-in-the/issue/LOS-14), [L12 / LOS-16](https://linear.app/lost-in-the/issue/LOS-16) |
+| Core launch requirements | [L03 / LOS-7](https://linear.app/lost-in-the/issue/LOS-7), [L04 / LOS-8](https://linear.app/lost-in-the/issue/LOS-8), [L05 / LOS-9](https://linear.app/lost-in-the/issue/LOS-9), [L06 / LOS-10](https://linear.app/lost-in-the/issue/LOS-10), [L07 / LOS-11](https://linear.app/lost-in-the/issue/LOS-11), [L08 / LOS-12](https://linear.app/lost-in-the/issue/LOS-12), [L09 / LOS-13](https://linear.app/lost-in-the/issue/LOS-13), [L11 / LOS-15](https://linear.app/lost-in-the/issue/LOS-15), [L13 / LOS-17](https://linear.app/lost-in-the/issue/LOS-17) |
+| Map launch requirements | [L14 / LOS-18](https://linear.app/lost-in-the/issue/LOS-18), [L15 / LOS-19](https://linear.app/lost-in-the/issue/LOS-19), [L16 / LOS-20](https://linear.app/lost-in-the/issue/LOS-20) |
+| Delivery launch requirement | [L17 / LOS-21](https://linear.app/lost-in-the/issue/LOS-21) |
+| Qualification authority and scoped preview | [LOS-25](https://linear.app/lost-in-the/issue/LOS-25), [LOS-27](https://linear.app/lost-in-the/issue/LOS-27) |
 
-When recording a parent or blocker, save and verify the native relationship as
-well as the evidence link. This index does not assert that a native dependency
-relationship or a running agent exists.
+When recording a parent or blocker, the PM saves and verifies the native
+relationship as well as the evidence link. This index does not assert a running
+agent, current status, or qualification. Original GitHub #references below remain
+historical evidence; use the crosswalk for their active planning records.
 
 Baseline restoration [PR #1](https://github.com/lost-in-the/thistle/pull/1) merged
-into main as `1b65f82ae8b8b693a8d7e8adb052b939b23bd5a9`. Issue #20 records its
-post-merge verification and later candidate evidence; read that issue for its
-current outcome. Source integration and qualification remain separate. Experiment
+into main as `1b65f82ae8b8b693a8d7e8adb052b939b23bd5a9`. Issue #20 retains its
+historical post-merge and candidate evidence; use mapped
+[LOS-22](https://linear.app/lost-in-the/issue/LOS-22) for current planning and
+acceptance. Source integration and qualification remain separate. Experiment
 [PR #2](https://github.com/lost-in-the/thistle/pull/2) merged as
 `b3a2985af3388ac4bc784bccf57d89e0ea569358`, after workflow PR #26 merged as
 `ee247b0017e11dd9f20380e36d13fe8e2645f561`. Issues #21 and #22 completed adoption;
@@ -327,30 +366,27 @@ decision. All launch rows still require their broader acceptance evidence.
 
 ## Project automation
 
-The private organization project uses `lost-in-the/thistle` as its default
-repository and reuses the organization Priority field. Auto-add is enabled for
-open Thistle issues and PRs. Keep new work in Backlog until triaged, and seed
-pre-existing items explicitly. The saved Now board uses
-`is:issue -label:capability -status:Done`; keep the review view filtered to PRs.
-Automatic issue closing and PR-linked transitions to Doing are disabled. A PR
-link must not be interpreted as proof that an agent is running.
-Avoid making a capability Done because a contributing PR
-merged, or marking evidence Pass because an issue was closed.
+Linear is the active workboard. Keep new intake in Backlog until triaged and
+promote only bounded work with satisfied prerequisites to Ready. A linked PR or
+an assignee field alone does not prove that a worker is running. The Now view
+excludes broad capability parents; Review links to the same work and evidence.
 
-Review GitHub's default closed/merged-item automations when configuring the
-project. A merged PR item can become Done; the capability and release-check
-decisions remain explicit. Archive old implementation cards only after their
-evidence and issue links remain available. Retain capability, experiment, and
-release-decision records for inspection.
+A linked PR merge moves its work toward Check; the PM records scoped acceptance
+before Done. Keep parent/sub-issue auto-close and stale-issue auto-close disabled.
+Completed children do not close capability parents automatically. Preserve old
+attempts and accepted evidence, and retire completed watches promptly.
+
+The former GitHub Project 2 configuration is historical. Do not add or reconcile
+cards there as part of routine development. GitHub remains authoritative for
+code, PR state, review, CI, and its original evidence.
 
 Metadata automation may read event data and update bounded fields. It must not
 execute candidate code, interpret issue text as shell commands, or receive
-publication secrets. Project access and underlying repository access are distinct;
-grant only the access needed for the work and keep sensitive evidence restricted.
+publication secrets. Project and repository access remain distinct; use only
+the existing access needed for the work and keep sensitive evidence restricted.
 
 ## References
 
-- [GitHub Projects and views](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects)
-- [Issue dependencies](https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/creating-issue-dependencies)
-- [Built-in project automations](https://docs.github.com/en/issues/planning-and-tracking-with-projects/automating-your-project/using-the-built-in-automations)
-- [Issue-form syntax](https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/syntax-for-issue-forms)
+- [Canonical Linear project](https://linear.app/lost-in-the/project/thistle-9bc9a3494d6d)
+- [Migration receipt, crosswalk, and working handoff](https://linear.app/lost-in-the/document/github-linear-migration-and-working-handoff-ccb79f3278cd)
+- [PR, CI, and release flow](pr-ci-release.md)
