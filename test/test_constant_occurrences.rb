@@ -28,7 +28,21 @@ class ThistleConstantOccurrencesTest < Minitest::Test
     ['file.rb', 3, 'CoreModel', 'value', 'file.rb'],
     ['negative.rb', 3, 'Other::CoreModel', 'value', 'negative.rb'],
     ['dynamic_receiver.rb', 1, 'CoreModel', 'argument', 'dynamic_receiver.rb'],
-    ['dynamic_receiver.rb', 2, 'CoreModel', 'argument', 'dynamic_receiver.rb']
+    ['dynamic_receiver.rb', 2, 'CoreModel', 'argument', 'dynamic_receiver.rb'],
+    ['write_receivers.rb', 1, 'WriteValue', 'value', 'write_receivers.rb'],
+    ['write_receivers.rb', 2, 'WriteValue', 'value', 'write_receivers.rb'],
+    ['write_receivers.rb', 3, 'WriteValue', 'value', 'write_receivers.rb'],
+    ['write_receivers.rb', 4, 'WriteValue', 'value', 'write_receivers.rb'],
+    ['write_receivers.rb', 5, 'WriteKey', 'argument', 'write_receivers.rb'],
+    ['write_receivers.rb', 5, 'WriteValue', 'value', 'write_receivers.rb'],
+    ['write_receivers.rb', 6, 'WriteKey', 'argument', 'write_receivers.rb'],
+    ['write_receivers.rb', 6, 'WriteValue', 'value', 'write_receivers.rb'],
+    ['write_receivers.rb', 7, 'WriteKey', 'argument', 'write_receivers.rb'],
+    ['write_receivers.rb', 7, 'WriteValue', 'value', 'write_receivers.rb'],
+    ['write_receivers.rb', 8, 'WriteKey', 'argument', 'write_receivers.rb'],
+    ['write_receivers.rb', 8, 'WriteValue', 'value', 'write_receivers.rb'],
+    ['write_receivers.rb', 9, 'InnerValue', 'argument', 'write_receivers.rb'],
+    ['write_receivers.rb', 9, 'WriteValue', 'value', 'write_receivers.rb']
   ].freeze
 
   def with_capture

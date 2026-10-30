@@ -52,11 +52,11 @@ fn maximal_paths_distinct_sites_roles_and_receivers_are_not_conflated() {
 
 #[test]
 fn declarations_assignments_mixins_and_literal_text_are_not_caller_reads() {
-    let source = "class Declared < Parent; include Tagged; X = ValueType; end; Outer::Target = OtherValue; \"CoreModel\"; # CoreModel\n";
+    let source = "class Declared < Parent; include Tagged; X = ValueType; end; Outer::Target = OtherValue; Outer::Target ||= OtherValue; Outer::Target &&= OtherValue; Outer::Target += OtherValue; \"CoreModel\"; # CoreModel\n";
     let data = captured(source, json!({})).unwrap();
     let mut labels = occurrences(&data).iter().map(|l| l["target"].as_str().unwrap()).collect::<Vec<_>>();
     labels.sort_unstable();
-    assert_eq!(labels, ["OtherValue", "ValueType"]);
+    assert_eq!(labels, ["OtherValue", "OtherValue", "OtherValue", "OtherValue", "ValueType"]);
     let class = data["facts"].as_array().unwrap().iter().find(|f| f["name"] == "Declared").unwrap();
     assert!(class["links"].as_array().unwrap().iter().any(|l| l["relation"] == "inherits" && l["target"] == "Parent"));
     assert!(class["links"].as_array().unwrap().iter().any(|l| l["relation"] == "includes" && l["target"] == "Tagged"));
@@ -64,17 +64,50 @@ fn declarations_assignments_mixins_and_literal_text_are_not_caller_reads() {
 
 #[test]
 fn dynamic_receiver_inner_reads_survive_without_fabricating_a_terminal_path() {
-    let source = "factory(CoreModel)::Child; (factory(CoreModel)).call; ::Kit :: Button";
+    let source = "factory(CoreModel)::Child; (factory(CoreModel)).call; ::Kit::Button";
     let data = captured(source, json!({})).unwrap();
     let links = occurrences(&data);
     assert_eq!(links.iter().filter(|l| l["target"] == "CoreModel").count(), 2);
     assert!(!links.iter().any(|l| l["target"] == "Child"));
     let path = links.iter().find(|l| l["target"] == "::Kit::Button").unwrap();
-    assert_eq!(path["attributes"]["thistle_constant"]["syntax"], "::Kit :: Button");
+    assert_eq!(path["attributes"]["thistle_constant"]["syntax"], "::Kit::Button");
     assert_eq!(data["diagnostics"][0]["code"], "constant_path_unavailable");
     assert_eq!(data["diagnostics"][0]["occurrences"], 1);
-    assert_eq!(captured("factory::A; factory::B", json!({"max_diagnostics":1})).unwrap_err().code, "limit_exceeded");
-    assert_eq!(captured(&format!("C{}", "x".repeat(256)), json!({})).unwrap_err().code, "limit_exceeded");
+    let unavailable = captured("factory::A; factory::B", json!({"max_diagnostics":1})).unwrap();
+    assert_eq!(unavailable["diagnostics"].as_array().unwrap().len(), 1);
+    assert_eq!(unavailable["diagnostics"][0]["occurrences"], 2);
+    let oversized = captured(&format!("C{}", "x".repeat(256)), json!({})).unwrap();
+    assert!(occurrences(&oversized).is_empty());
+    assert_eq!(oversized["diagnostics"][0]["code"], "constant_path_unavailable");
+    assert_eq!(oversized["diagnostics"][0]["occurrences"], 1);
+    assert!(oversized["coverage"].as_array().unwrap().iter().any(|c|
+        c["family"] == "ruby_constant_occurrences" && c["status"] == "partial"));
+}
+
+#[test]
+fn unavailable_constant_groups_keep_path_provenance_and_existing_limits() {
+    let source = "factory::A; ".repeat(1_001);
+    let data = captured(&source, json!({"max_diagnostics":1})).unwrap();
+    assert_eq!(data["diagnostics"].as_array().unwrap().len(), 1);
+    assert_eq!(data["diagnostics"][0]["occurrences"], 1_001);
+    let root = tempfile::tempdir().unwrap();
+    std::fs::write(root.path().join("a.rb"), "factory::A").unwrap();
+    std::fs::write(root.path().join("b.rb"), "factory::B").unwrap();
+    let error = capture_inner(root.path(), effective_limits(&json!({"max_diagnostics":1})).unwrap()).unwrap_err();
+    assert_eq!(error.code, "limit_exceeded");
+    assert_eq!(error.message, "Capture exceeds max_diagnostics retained groups");
+}
+
+#[test]
+fn setter_and_index_receivers_are_excluded_but_inner_and_value_reads_remain() {
+    let source = "Config.timeout ||= WriteValue; Config.timeout &&= WriteValue; Config.timeout += WriteValue; Config.timeout, other = WriteValue; Config[WriteKey] ||= WriteValue; Config[WriteKey] &&= WriteValue; Config[WriteKey] += WriteValue; Config[WriteKey], other = WriteValue; factory(InnerValue).timeout ||= WriteValue";
+    let data = captured(source, json!({})).unwrap();
+    let links = occurrences(&data);
+    assert!(!links.iter().any(|l| l["target"] == "Config"));
+    assert_eq!(links.iter().filter(|l| l["target"] == "WriteValue").count(), 9);
+    assert_eq!(links.iter().filter(|l| l["target"] == "WriteKey").count(), 4);
+    assert_eq!(links.iter().filter(|l| l["target"] == "InnerValue").count(), 1);
+    assert_eq!(links.len(), 14);
 }
 
 #[test]

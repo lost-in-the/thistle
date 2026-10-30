@@ -31,6 +31,7 @@ const PARSER_POLICY: &str = "prism-default-guarded";
 const PARSER_STACK_BYTES: usize = 64 * 1024 * 1024;
 const DECLARATION_SCOPE_MESSAGE: &str = "A declaration inside a dynamic block or singleton receiver was not assigned a speculative owner";
 const MIXIN_SCOPE_MESSAGE: &str = "A mixin call in a block or singleton namespace has an unverified owner and was not attached to the ordinary class";
+const CONSTANT_PATH_MESSAGE: &str = "A constant path with an expression parent or beyond the supported label or depth limits has no static target label";
 // Provisional operational traversal ceiling, not a parser or process-memory bound.
 const MAX_NODES_CEILING: usize = 5_000_000;
 static CAPTURE_ACTIVE: AtomicBool = AtomicBool::new(false);
@@ -482,11 +483,10 @@ impl Capture {
     fn collect_constant(&mut self, node: &Node<'_>, scope: &Scope, role: ConstantRole, path: &str, lines: &LineIndex) -> Result<()> {
         let Some(current) = scope.current else { return Ok(()); };
         let (kind, name, omitted) = classify_receiver(node);
-        if kind != "constant" {
+        if kind != "constant" || omitted {
             self.declarations_partial = true;
-            return self.diagnostic("constant_path_unavailable", "A constant path with an expression parent or beyond the supported path depth has no static target label", path);
+            return self.diagnostic("constant_path_unavailable", CONSTANT_PATH_MESSAGE, path);
         }
-        if omitted { return Err(CoreError::limit("Constant occurrence label exceeds 256 bytes")); }
         let name = name.expect("named constant syntax");
         let links = self.links.checked_add(1).filter(|n| *n <= self.limit("max_links"))
             .ok_or_else(|| CoreError::limit("Capture exceeds max_links"))?;
@@ -689,11 +689,12 @@ impl Capture {
         let total = self.diagnostic_occurrences.checked_add(count)
             .ok_or_else(|| CoreError::limit("Diagnostic occurrence count overflow"))?;
         record["occurrences"] = json!(count);
-        // Only these two known recoverable classes coalesce. Compare ALL fields
+        // Only known recoverable classes coalesce. Compare ALL fields
         // except the count, preserving future reason/location/provenance fields.
         // A bounded scan avoids a second retained key/map and its memory budget.
-        let grouped = record["code"] == "dynamic_scope" && matches!(record["message"].as_str(),
-            Some(DECLARATION_SCOPE_MESSAGE) | Some(MIXIN_SCOPE_MESSAGE));
+        let grouped = (record["code"] == "dynamic_scope" && matches!(record["message"].as_str(),
+            Some(DECLARATION_SCOPE_MESSAGE) | Some(MIXIN_SCOPE_MESSAGE))) ||
+            (record["code"] == "constant_path_unavailable" && record["message"] == CONSTANT_PATH_MESSAGE);
         let existing = if grouped {
             self.diagnostics.iter().position(|prior| {
                 let (Some(a), Some(b)) = (prior.as_object(), record.as_object()) else { return false; };
@@ -764,9 +765,27 @@ fn constant_child_role(parent: &Node<'_>, child: &Node<'_>, inherited: ConstantR
     }
     let same_site = |node: Node<'_>| node.location().start_offset() == child.location().start_offset() &&
         node.location().end_offset() == child.location().end_offset();
-    if let Some(call) = parent.as_call_node() {
-        if call.receiver().is_some_and(same_site) { return ConstantRole::Excluded; }
-        if child.as_arguments_node().is_some() { return if mixin { ConstantRole::Excluded } else { ConstantRole::Argument }; }
+    // Prism exposes these assignment targets as ordinary ConstantPathNode
+    // children. Exclude the target edge, not the independent value expression.
+    let target = parent.as_constant_path_write_node().map(|n| n.target().as_node())
+        .or_else(|| parent.as_constant_path_and_write_node().map(|n| n.target().as_node()))
+        .or_else(|| parent.as_constant_path_or_write_node().map(|n| n.target().as_node()))
+        .or_else(|| parent.as_constant_path_operator_write_node().map(|n| n.target().as_node()));
+    if target.is_some_and(same_site) { return ConstantRole::Excluded; }
+    // Setter/index write forms have receiver syntax too, even though this
+    // slice does not invent call links for their read/write operations.
+    let receiver = parent.as_call_node().and_then(|n| n.receiver())
+        .or_else(|| parent.as_call_and_write_node().and_then(|n| n.receiver()))
+        .or_else(|| parent.as_call_or_write_node().and_then(|n| n.receiver()))
+        .or_else(|| parent.as_call_operator_write_node().and_then(|n| n.receiver()))
+        .or_else(|| parent.as_call_target_node().map(|n| n.receiver()))
+        .or_else(|| parent.as_index_and_write_node().and_then(|n| n.receiver()))
+        .or_else(|| parent.as_index_or_write_node().and_then(|n| n.receiver()))
+        .or_else(|| parent.as_index_operator_write_node().and_then(|n| n.receiver()))
+        .or_else(|| parent.as_index_target_node().map(|n| n.receiver()));
+    if receiver.is_some_and(same_site) { return ConstantRole::Excluded; }
+    if parent.as_call_node().is_some() && child.as_arguments_node().is_some() {
+        return if mixin { ConstantRole::Excluded } else { ConstantRole::Argument };
     }
     if parent.as_arguments_node().is_some() {
         return if inherited == ConstantRole::Excluded { inherited } else { ConstantRole::Argument };

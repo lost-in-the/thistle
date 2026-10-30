@@ -1,10 +1,12 @@
 # Lexical call origins outside methods
 
 LOS-135 gives otherwise ownerless Ruby call syntax an existing source-file
-origin. This is a source checkpoint based on PR109 commit
-`b7b9eab5404d61984842394d6641edc878ab8509`; using that source does not accept
-PR109. The regressions below are authored and **unexecuted**. No compilation,
-native capture, Ruby test, installed journey or support qualification is claimed.
+origin. Its original source checkpoint was based on PR109 commit
+`b7b9eab5404d61984842394d6641edc878ab8509`. The current source includes PR111's
+signed allocation correction and the integrated PR109 source. The known answers
+below specify the contract; [PR111](https://github.com/lost-in-the/thistle/pull/111)
+records executed checks, exact candidates and artifact-retention limits. Source
+checks do not establish installed, field or support qualification.
 
 ## Ownership contract
 
@@ -81,8 +83,8 @@ continue to apply. Encoded charges are not a heap/RSS measurement.
 
 During extraction, calls retain the existing schema-3 compact row projection
 instead of expanded semantic JSON objects alongside the Prism AST. Grouping keys
-are released after file traversal, before the public semantic link objects are
-materialized and sorted. This reuses the existing encoder/decoder, preserves
+are released after the whole source-tree walk, before the public semantic link
+objects are materialized and sorted. This reuses the existing encoder/decoder, preserves
 per-site grouping, public output and encoded charges, and adds no format revision.
 Call/link index and link-vector growth use fallible capacity reservation. This
 reduces simultaneous representations; CPU and peak-memory effects still require
@@ -112,9 +114,10 @@ Separate direct-boundary assertions require encoded/link refusal before mutation
 Self-review examined scope replacement, no duplicate ownership, LIFO ordering,
 group representative replacement, exact source containment, diagnostic refusal,
 pre-admission charging, generation pinning and downstream retention. No new
-shared seam or extra traversal was needed. Remaining uncertainty is compilation
-and execution of these changed bytes, plus independent review and installed
-artifact applicability; source inspection cannot close those gates.
+shared seam or extra traversal was needed. Current review and executed checks
+retain their exact candidate identities in PR111. Installed artifact applicability
+and field outcomes require their own evidence; source inspection cannot close
+those gates or recover missing retained records.
 
 ## Finite later validation owned by Root
 

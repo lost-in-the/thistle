@@ -10,7 +10,11 @@ reimplemented on the original base. These are source dependencies, not inherited
 runtime acceptance. Root subsequently composed signed PR111 at
 `6997d8c153ad41086a95e65c92d889bc8331bd16`, retaining its compact-call collector
 and the inherited PR105/109 source. This occurrence checkpoint and its
-regressions are **unexecuted**; parent CI does not establish this joined tuple.
+regressions initially had no execution evidence; parent CI does not establish
+this joined tuple. The subsequent normal parent composition includes PR111's
+current-main source at `740a07f59937e9229983a25a3727b339492740a3`. Current checks
+and failed attempts remain recorded in PR112 rather than transferring a parent
+or earlier-candidate result.
 
 ## Occurrence contract
 
@@ -34,17 +38,23 @@ IDs and file digests continue to identify saved evidence.
 Direct static constant call receivers retain only their existing grouped call
 evidence. A dynamic receiver expression can still contain actual constant reads;
 its terminal path suffix is not fabricated into a static constant target.
-Declaration names, assignment targets, superclass and class/module mixin labels,
-strings and comments are excluded. Actual reads within string interpolation are
+Declaration names, assignment targets (including `=`, `||=`, `&&=` and compound
+constant-path writes), superclass and class/module mixin labels, strings and
+comments are excluded. Simple constant receivers of setter/index write forms
+are excluded too, even though this slice does not create call links for those
+operations. Independent index arguments, right-hand values and reads inside a
+dynamic receiver expression remain eligible. Actual reads within string interpolation are
 Ruby expressions. Superclass/mixin raw-label matching is outside this rule;
 this does not claim to fix PR110's F03. Unsupported dynamic declarations keep
 their refusal/diagnostic behavior and their bodies stay unsearched.
 
 The producer reuses the existing bounded constant-label classifier (256 bytes,
-bounded path depth). An oversized admitted label refuses capture. A dynamic or
-unsupported-depth path reports unavailable with a diagnostic and conservative
-partial coverage; actual inner expressions still traverse. No diagnostic or
-capacity ceiling is increased.
+bounded path depth). Dynamic, oversized or unsupported-depth labels report
+unavailable with a diagnostic and conservative partial coverage; actual inner
+expressions still traverse. Repeated unavailable sites with identical full
+provenance coalesce into one group with an explicit occurrence count. Different
+paths remain separate and existing diagnostic group/occurrence/byte ceilings
+still refuse; no ceiling is increased.
 
 ## Before/after known answers
 
@@ -74,6 +84,8 @@ public journey.
 inside dynamic receiver expressions, with no fabricated `Child` terminal label.
 The unavailable dynamic path remains diagnosed. It must not suppress those
 inner reads merely because an enclosing expression is used as a receiver.
+The write-receiver fixture separately pins excluded receiver labels while
+retaining exact independent index, argument and value sites.
 
 ## Recognition and compatibility
 
@@ -137,6 +149,11 @@ declaration negatives, dynamic refusals, LIFO ordering, exact positions, append
 atomicity, original-byte charging, old/opaque compatibility and downstream
 retention. Compilation, behavior, independent review and installed applicability
 remain unverified. Root owns their disposition; all 17 launch rows stay unqualified.
+
+PR112's completed initial source review tracks assignment-edge and diagnostic
+corrections separately from the Root collector join. Its Map presentation
+follow-up remains in LOS19: generic rows do not yet distinguish occurrence role,
+syntax and line. No completed per-site Map journey is claimed here.
 
 ## Finite later validation
 
