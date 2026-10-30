@@ -9,6 +9,14 @@ pub(crate) fn candidate_name(fact: &Value) -> Option<&str> {
     fact["name"].as_str()
 }
 
+/// Query key for a schema-recognized constant receiver, never an arbitrary target.
+/// Prism's recorded receiver kind owns syntax classification (including Unicode).
+/// Remove one root marker only; preserve every namespace segment and case.
+/// This borrowed slice changes no stored label or directory construction cost.
+pub(crate) fn constant_label(name: &str) -> &str {
+    name.strip_prefix("::").unwrap_or(name)
+}
+
 /// Cursors carry positions only, never a caller-supplied completeness/count claim.
 pub(crate) fn position(cursor: Option<&Value>, generation: &str, scope: &Value) -> Result<(usize, usize)> {
     let Some(cursor) = cursor.filter(|v| !v.is_null()) else { return Ok((0, 0)); };
@@ -123,6 +131,16 @@ mod tests {
         assert_eq!(directory.page(&facts,"Anonymous model 0",None,0,1,&mut Work).unwrap().total,0);
         assert!(directory.page(&facts,"User",None,4,1,&mut Work).is_err());
         drop(directory); assert!(budget.reserve(bytes).is_ok());
+    }
+    #[test]
+    fn constant_keys_preserve_namespace_case_and_non_ascii_spelling() {
+        for (original,key) in [("Widget","Widget"),("::Widget","Widget"),
+            ("::Shop::Widget","Shop::Widget"),("::Étage::Δοκιμή","Étage::Δοκιμή"),
+            ("::::Widget","::Widget")] {
+            assert_eq!(constant_label(original),key);
+        }
+        assert_ne!(constant_label("::Shop::Widget"),"Widget");
+        assert_ne!(constant_label("::Widget"),"widget");
     }
     #[test]
     fn cursor_scope_generation_and_malformed_positions_refuse() {
