@@ -20,6 +20,11 @@ MAP_FILES = ("map/thistle-map.gemspec", "map/lib/thistle/map.rb")
 PACKAGE_FILES = ("README.md", "LICENSE", "THIRD_PARTY.md", "CHANGELOG.md")
 MAP_PACKAGE_FILES = ("map/README.md", "map/CHANGELOG.md", "map/LICENSE.txt", "map/LICENSE.woods-map.txt")
 CORE_ROOTS = ("engine/", "lib/", "ext/", "exe/", "test/", ".cargo/")
+SKILL_INSTRUCTION_FILES = frozenset(
+    f"{root}/skills/thistle-{name}/SKILL.md"
+    for root in (".agents", ".claude")
+    for name in ("plan", "build", "review", "check", "hand-off")
+)
 POLICY_PATH = ".github/ci-policy.json"
 PATCH_VERSION = re.compile(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)")
 
@@ -63,6 +68,10 @@ def parse_changed_paths(raw):
 
 
 def doc_only(path):
+    # Only the named prose entry points; helpers, hooks and unknown agent paths
+    # still select the affected product checks through the fail-closed route.
+    if path in SKILL_INSTRUCTION_FILES:
+        return True
     suffix = PurePosixPath(path).suffix.lower()
     # A script or fixture under docs is still executable/input work.
     return suffix in (".md", ".rst", ".txt") and (

@@ -8,6 +8,11 @@ Follow the canonical [mission](docs/MISSION.md) and the
 [public/private configuration boundary](docs/development/agent-configuration.md).
 Linked policy is read explicitly; a link does not establish runtime autoloading.
 
+For reusable assignments, use the [agent team](docs/development/agent-team.md):
+five role prompts and shared Plan, Build, Review, Check, and Hand off procedures.
+Assign the role and load the needed skill explicitly. The existing workflow owns
+authority; the team pack adds no approval stage or automatic host/provider access.
+
 ## Read before work
 
 1. Read the assigned issue, its dependencies, active claims, linked PRs, and the
