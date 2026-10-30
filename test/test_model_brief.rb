@@ -6,6 +6,7 @@ require 'digest'
 require 'json'
 require 'open3'
 require 'rbconfig'
+require 'rubygems'
 require 'stringio'
 require 'thistle'
 require 'thistle/cli'
@@ -14,7 +15,8 @@ class ThistleModelBriefTest < Minitest::Test
   FIXTURE = File.expand_path('fixtures/model_brief', __dir__)
   SOURCE = File.binread(File.join(FIXTURE, 'records.rb')).freeze
   LIB = File.expand_path('../lib', __dir__)
-  BIN = File.expand_path('../exe/thistle', __dir__)
+  source_cli = File.expand_path('../exe/thistle', __dir__)
+  BIN = File.file?(source_cli) ? source_cli : Gem.bin_path('thistle', 'thistle')
   NAME = 'BriefFixture::Order'
 
   # One real Rails producer in another process. The parent and every consumer
