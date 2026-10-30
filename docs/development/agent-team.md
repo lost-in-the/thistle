@@ -120,7 +120,9 @@ intended runtime.
 1. In each intended installed provider, inspect available skills from the actual
    checkout. [Codex documents `.agents/skills`](https://learn.chatgpt.com/docs/build-skills);
    [T3's Claude provider discovers `.claude/skills`](https://github.com/pingdotgg/t3code/blob/6575ce32508bd7908444241f3719aa33aaf77f90/apps/server/src/provider/Drivers/ClaudeSkills.ts).
-   A personal skill with the same name can override a project entry; verify the path.
+   In Codex, same-name skills remain separate and both may appear in selectors.
+   Verify other providers' collision behavior in the installed runtime. Inspect
+   matching paths and explicitly load the intended canonical file.
 2. Run one harmless read-only assignment by explicit role and skill reference.
    Have it identify the role/procedure files, actual base and ownership boundary.
    Distinguish explicitly supplied instructions from native discovery.
