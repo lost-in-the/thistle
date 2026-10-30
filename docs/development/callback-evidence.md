@@ -482,3 +482,93 @@ The original `bda29fe` hosted run41026998561 passed its Core assertions but fail
 Codex finding4421893675 on `c9d157c` identified the valid discontiguous heredoc layout. Root changed only the explanation guard and added an actual Prism capture/publication/fresh Reader/Check regression. Existing digest, file/line/UTF-8 and receiver-in-call corruption refusals remain intact; no parser/schema/capture change or broader call-ownership inference is introduced. Current-head CI must establish the new regression; earlier passes retain their original source identity.
 
 Codex finding4421948168 on `ec35d0e` showed that publication and Check can accept shape/coordinate-valid call labels differing from the saved text. Root added the bounded receiver/selector byte-corroboration guard and public Store publication→fresh Reader→Check negative mutations for selector, receiver, safe-navigation and selector-suffix mismatches, plus a real safe-navigation positive. No shared schema/capture/parser rule or cap changed; previous source passes retain their exact identity, and current-head CI must execute these regressions.
+
+
+### LOS-64 focused development receipt and remaining correction check
+
+The one authorized focused runtime on source
+`362de3142c31415f3321bcb5ad590ca50e202871`, tree
+`2f24de9893016f1d1581cfffcd558ba903b1063b`, passed 17 native tests,
+4 Core tests / 56 assertions and 12 Map tests / 135 assertions, with no failures,
+errors or skips. The release-note guard passed. The native invocation deliberately
+filtered out 96 unrelated tests; no native-wide repeat or installed package check
+ran. Rust/Cargo 1.90.0, Ruby 3.4.12 and Rouge 4.6.1 ran in offline image
+`f377fb86ef51f1b4b31787dc58131ad453fe306e58b36296f29e76a98487c520`.
+The single attempt completed in 62.85 seconds within the combined 600-second
+child / 630-second outer grant and 8 MiB log ceiling. Cgroups verified 2 CPU,
+2 GiB memory, zero swap and 256 PIDs; source inputs were read-only and HOME/TMP
+were private disk-backed directories. No network, credentials, host-home or
+socket bind was supplied. A dedicated filesystem quota was unavailable; recorded
+global availability is not a quota or headroom result. All 3,722 copied tracked
+inputs were invariant, including the four legitimate vendored cc target files;
+all 3,323 vendor checksum entries passed. The container, source copy, build,
+HOME and TMP directories were removed. The runtime slot is released.
+
+Actual Prism capture, public Store publication and fresh native/public Core
+Readers returned method
+`0ff347492e45986cc1bd8cc868b5614bd7edc3df71166bc9667de2f134cce519`
+at actual sorted ordinal **20,050**, after CURRENT advanced. Saved records.rb
+has SHA-256
+`38d4416d4b1c273ebd0335e22f422f8290c4045c637f82990ef05ebf7d426080`;
+method start byte 34 / line 3, operation `DeliveryJob.perform_later`, call bytes
+[52,89), receiver bytes [52,63), both on line 4. The effective owner remains
+Example::Record and callback model Example::Child. An unresolved duplicate at the
+opposite ID end prevented binding. Missing/restored/corrupt source, mismatched
+labels/descriptors, partial/empty/opaque evidence, heredoc uncertainty, omitted
+rows and unchanged budgets retained their tested distinctions. Forced digest
+collisions, injected local-budget refusal/drop, retry after refusal, simultaneous
+initialization and in-flight close passed without global-budget mutation.
+
+The native known-answer sequence opened three Readers, constructed three
+directories and performed four callback queries (first, reuse, reopen, duplicate).
+The two positive opens each completed five existing fact passes over 20,062 facts;
+the duplicate open completed those passes over 20,063 facts. This is 300,935
+baseline outer fact visits, before the separately counted 60,187 construction
+visits. Existing by-ID and by-file indexing remain baseline work; the single-file
+by-path metadata clone and schema/file/link work are also baseline costs. They
+are not newly covered heap accounting. Each positive open reported 3,724,313
+encoded fact bytes, 2,558 manifest bytes and 5,379,142 existing admission bytes;
+the search-cache admission contribution is 1,652,271 bytes. By-ID/by-file/by-path
+heap costs are not included in that historical encoded/search weight.
+
+Each positive directory hashed 159 eligible key bytes for seven methods, used
+16 fixed-key sort comparisons and retained seven 40-byte slots plus its actual
+80-byte container: 360 charged bytes. The duplicate directory hashed 181 bytes
+for eight methods, used 18 comparisons and retained 400 bytes. The native sequence
+therefore constructed 499 key bytes / 50 comparisons in total; peak concurrent
+directory retention in that fixture was 760 bytes. Each positive callback query
+charged 9 fact visits, 6 link visits, 668 label/fixed-key bytes, 5 digest
+comparisons, one range fact, one file attempt and 573 source bytes. Reuse performs
+those query/source costs again while reporting no new construction. The duplicate
+query charged 3 fact visits, 474 comparison bytes, 5 digest comparisons and two
+range facts, with no source I/O; it proved ambiguity without claiming an exact
+duplicate count or complete range traversal.
+
+The fresh public consumer independently opened two concurrent Readers of the
+same generation and performed three positive callback queries. Each Reader built
+its own 360-byte directory; their combined directory retention was 720 bytes,
+separate from two baseline Reader admissions and one request's 32 MiB scratch.
+Verification additionally exported all 20,062 facts to assert the real ordinal
+and expanded the exact source through `Reader#source`; those audit operations
+are additional work, outside callback lookup counters. After those Readers
+closed, public Core separately published and opened the duplicate generation.
+Counters describe these phases, not a complete CPU/allocation/RSS measurement or
+a speed/storage/headroom improvement.
+
+Self-review then found the **reported container_bytes field** used the stats
+type's size (64) rather than the directory container's actual size (80). The
+reserved totals above were already correct. The current source explicitly names
+Directory in that field and adds a parts-equal-total assertion to the existing
+capacity/drop regression. This narrow reporting correction and assertion have
+source/whitespace review only: the single focused native invocation was already
+used. The earlier runtime and binary remain bound to 362de314, not relabelled as
+current corrected-source acceptance. Root must run the current affected checks,
+review the settled source, and complete exact changed-package applicability and
+installed acceptance; Leah owns applicable acceptance. All17 remain unqualified.
+
+Tested native SHA-256:
+`26c5acd712710c72539833e4f7e81e1951db496870cfae02f0410c602a7934bb`.
+Copied-input manifest SHA-256:
+`f1117b77f58c8d5640ce424c1daf495c1035969b39e7d7e86fec57c20f03a67e`.
+Focused log SHA-256:
+`d0af9ffb72c8add62afb2d516713ffdaad84bb597bfc1b266c715adc67ef1de1`.

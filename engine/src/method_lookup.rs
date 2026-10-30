@@ -155,7 +155,7 @@ impl Stats {
         json!({"status":"complete","built_this_request":self.built,"builds_for_reader":1,
             "facts_visited":self.facts,"eligible_methods":self.methods,"key_bytes":self.key_bytes,
             "sort_comparisons":self.comparisons,"slot_bytes":std::mem::size_of::<Slot>(),
-            "slot_capacity":self.capacity,"container_bytes":std::mem::size_of::<std::sync::Mutex<Option<Self>>>(),
+            "slot_capacity":self.capacity,"container_bytes":std::mem::size_of::<std::sync::Mutex<Option<Directory>>>(),
             "retained_bytes":self.retained_bytes,"budgets":{"facts":MAX_BUILD_FACTS,"key_bytes":MAX_KEY_BYTES,
                 "sort_comparisons":MAX_SORT_COMPARISONS}})
     }

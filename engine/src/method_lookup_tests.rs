@@ -63,6 +63,10 @@ fn capacity_admission_refusal_and_drop_return_the_exact_reservation() {
     drop(held);
     let directory = Directory::build(&facts, counts(&facts), &budget).unwrap();
     assert_eq!(directory.retained_bytes, bytes);
+    let stats = directory.stats(true).value();
+    assert_eq!(stats["retained_bytes"].as_u64().unwrap(),
+        stats["slot_capacity"].as_u64().unwrap() * stats["slot_bytes"].as_u64().unwrap() +
+        stats["container_bytes"].as_u64().unwrap());
     assert!(budget.reserve(1).is_err());
     drop(directory);
     let all = budget.reserve(bytes).unwrap(); drop(all);
