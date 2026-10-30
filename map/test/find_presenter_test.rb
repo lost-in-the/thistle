@@ -4,6 +4,28 @@ require 'minitest/autorun'
 require_relative '../lib/thistle/map/find_presenter'
 
 class FindPresenterTest < Minitest::Test
+  def test_model_entry_and_capture_coverage_are_explicit_and_escaped
+    presenter = Thistle::Map::FindPresenter.new(generation: 'old')
+    families = { 'inventory' => 'partial', 'columns' => { 'observed' => 1, 'unavailable' => 1, 'unknown' => 0 },
+      'associations' => { 'observed' => 2, 'unavailable' => 0, 'unknown' => 0 } }
+    result = { 'generation' => 'old', 'status' => 'complete', 'truncated' => false,
+      'search_coverage' => { 'metadata_facts_searched' => 2, 'metadata_facts_not_searched' => 0,
+        'metadata_fields_omitted' => 0, 'model_capture_families' => families },
+      'results' => [{ 'origin' => 'metadata', 'name' => '<Order>', 'fact_id' => 'abc', 'path' => nil,
+        'field' => 'attributes.model.columns.entries[].name', 'entry_index' => 1, 'entry_name' => '<state>' }] }
+    html = presenter.render(result)
+    assert_includes html, '/source?generation=old&amp;id=abc'
+    assert_includes html, '&lt;Order&gt;'
+    assert_includes html, 'attributes.model.columns.entries[].name · entry 1: &lt;state&gt;'
+    assert_includes html, 'Source unavailable'
+    assert_includes html, 'Saved model inventory: partial'
+    assert_includes html, 'unavailable 1; unknown 0'
+    assert_includes html, 'No match concerns searched saved names only'
+    empty = presenter.render(result.merge('results' => []))
+    assert_includes empty, 'Observed empty metadata differs from unavailable metadata'
+    assert_includes empty, 'No result rows returned'
+  end
+
   def test_escapes_snippet_and_pins_captured_file_and_line
     presenter = Thistle::Map::FindPresenter.new(generation: 'old', mount: '/map')
     html = presenter.render('generation' => 'old', 'status' => 'partial', 'truncated' => true,

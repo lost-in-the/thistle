@@ -31,8 +31,20 @@ The metadata allowlist is fact name, kind, path and ID; for route facts only,
 controller, action, route_path, route_name, verb, source_status, coherence and
 route_constraints.status. Each string is searched only when at most 4096 bytes;
 oversized allowed fields are explicitly omitted. Arbitrary attributes, nested
-private values and model metadata are not searched. Model keys require a separate
-agreed schema. File paths are also captured metadata independent of fact ownership.
+private values are not searched. For `rails_model` only, the additional exact
+allowlist is `attributes.model.columns.entries[].name` and
+`attributes.model.associations.entries[].name`. Defaults, values, targets, tables,
+options and other model attributes are excluded; no recursive traversal or live
+Rails reflection occurs. File paths are also captured metadata independent of
+fact ownership.
+
+Metadata returns one representative match per fact: identity fields first, route
+fields for routes, then saved columns followed by saved associations in recorded
+entry order. Model-name hits add `entry_index` (zero-based) and `entry_name` beside
+the exact allowlisted `field`, saved `fact_id` and generation. Same-name models
+remain separate identities. A runtime-only model keeps its null path and opens
+its saved model view and Links; a name never invents source, coherence or dispatch.
+Legacy name search and unfiltered CLI Find retain their full-fact response.
 
 Ordering is metadata facts by ID, then manifest file metadata by path, then source
 files by path. `limit` is an integer from 1 to 500. `total_matches` counts known
@@ -43,6 +55,29 @@ without a displayed span due to work exhaustion, and first-occurrence semantics.
 `status: partial` covers budget exhaustion, omitted fields or unavailable/corrupt
 source. Search completeness does not imply complete capture coverage; consult the
 same generation's manifest and Check. No empty partial result establishes absence.
+
+`metadata_facts_eligible`, `metadata_facts_searched` and
+`metadata_facts_not_searched` count filtered fact candidates; a confirmed first
+match completes that fact's representative search without scanning later fields.
+`metadata_fields_omitted` counts oversized allowed fields encountered in that
+scan. Known matches beyond the result limit still set `truncated`; unsearched
+facts instead leave a lower-bound total. Every visited field/model entry costs
+one work unit in addition to literal byte comparisons, including short names.
+No model-wide temporary list, clone, serialization, index or cache is added.
+
+`search_coverage.model_capture_families` reports capture evidence separately:
+`inventory` is the pinned `rails_models` coverage status (unknown if missing or
+if more than 256 coverage rows prevent a bounded summary; `not_searched` for
+source-only queries). `columns` and `associations` count eligible model facts
+with observed, unavailable or unknown family status, even if scan work expires.
+These fixed family summaries inspect no entries. The current validated model
+schema permits observed/unavailable families; partial inventory does not become
+complete merely because both families were observed. An observed empty family,
+an unavailable family and missing inventory are different answers. A complete
+empty scan only says no matching saved allowlisted name was found within these
+filters; it cannot establish absence from the application or a partial capture.
+Map displays both kinds of coverage and uses existing generation-pinned Source
+and reference navigation, including the explicit no-source model view.
 
 ## Index and operation costs
 
