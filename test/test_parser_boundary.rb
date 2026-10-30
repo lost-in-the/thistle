@@ -58,8 +58,8 @@ class ThistleParserBoundaryTest < Minitest::Test
             "wall_seconds" => Process.clock_gettime(Process::CLOCK_MONOTONIC) - started,
             "waited_children_user_seconds" => children_after.cutime - children_before.cutime,
             "waited_children_system_seconds" => children_after.cstime - children_before.cstime,
-            "stdout_prefix" => File.binread(stdout, 2_000).force_encoding(Encoding::UTF_8).scrub,
-            "stderr_prefix" => File.binread(stderr, 2_000).force_encoding(Encoding::UTF_8).scrub
+            "stdout_prefix" => (File.binread(stdout, 2_000) || +"").force_encoding(Encoding::UTF_8).scrub,
+            "stderr_prefix" => (File.binread(stderr, 2_000) || +"").force_encoding(Encoding::UTF_8).scrub
           )
         end
         assert status.success?, "Native parser process failed (#{mode}): #{failure}"
