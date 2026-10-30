@@ -136,16 +136,94 @@ fn missing_blob_is_unavailable_but_corruption_and_bad_coordinates_fail_closed() 
 }
 
 #[test]
-fn incomplete_uniqueness_scan_cannot_promote_a_provisional_candidate() {
-    let (capture, id) = fixture();
-    let store = tempfile::tempdir().unwrap(); crate::store::publish(store.path(), &capture).unwrap();
-    let mut reader = Reader::open(store.path(), None).unwrap();
-    let fact = reader.facts.iter().find(|f| f["kind"] == "class").unwrap().clone();
-    reader.facts.extend(std::iter::repeat_n(fact, MAX_FACTS));
-    let input = json!({"id":id}); let result = select(&reader, &Query::parse(&input).unwrap()).unwrap();
-    assert_eq!(result["coverage"]["facts_visited"], MAX_FACTS);
-    assert_eq!(result["coverage"]["declaration_scan_complete"], false);
-    assert_eq!(explanation(&result)["reason"], "declaration_uniqueness_scan_incomplete");
+fn published_beyond_boundary_answer_is_reachable_pinned_and_globally_unique() {
+    let (mut capture, id) = fixture();
+    let expected_id = "0ff347492e45986cc1bd8cc868b5614bd7edc3df71166bc9667de2f134cce519";
+    assert_eq!(method(&mut capture)["id"], expected_id);
+    assert_eq!(method(&mut capture)["location"]["start_byte"], 34);
+    assert_eq!(schema::digest(SOURCE.as_bytes()), "38d4416d4b1c273ebd0335e22f422f8290c4045c637f82990ef05ebf7d426080");
+    for i in 0..20_050 {
+        capture["facts"].as_array_mut().unwrap().push(json!({"id":format!("{i:064x}"),"kind":"class",
+            "name":format!("Neutral{i}"),"path":null,"location":null,"evidence":"static","attributes":{},"links":[]}));
+    }
+    let store = tempfile::tempdir().unwrap();
+    let manifest = crate::store::publish(store.path(), &capture).unwrap();
+    let fresh = Reader::open(store.path(), manifest["generation"].as_str()).unwrap();
+    let ordinal = fresh.facts.iter().position(|f| f["id"] == expected_id).unwrap();
+    assert!(ordinal >= 20_050);
+    let opened = crate::dispatch(&json!({"op":"open","path":store.path().to_str().unwrap(),"generation":manifest["generation"]})).unwrap();
+    let request = json!({"op":"callback_effects","handle":opened["handle"],"id":id});
+    let (mut next, _) = fixture(); next["producer"]["later"] = json!(true);
+    crate::store::publish(store.path(), &next).unwrap();
+    let result = crate::dispatch(&request).unwrap();
+    assert_eq!(result["generation"], manifest["generation"]);
+    assert_eq!(explanation(&result)["method"]["id"], expected_id);
+    assert_eq!(explanation(&result)["effects"][0]["operation"], "DeliveryJob.perform_later");
+    assert_eq!(explanation(&result)["effects"][0]["call_span"], json!({"start_byte":52,"end_byte":89,"start_line":4,"end_line":4}));
+    assert_eq!(result["coverage"]["method_directory"]["facts_visited"], capture["facts"].as_array().unwrap().len());
+    assert_eq!(result["coverage"]["method_directory"]["built_this_request"], true);
+    let repeated = crate::dispatch(&request).unwrap();
+    assert_eq!(repeated["coverage"]["method_directory"]["built_this_request"], false);
+    assert_eq!(repeated["callbacks"], result["callbacks"]);
+    let input = json!({"id":id});
+    let reopened = select(&fresh, &Query::parse(&input).unwrap()).unwrap();
+    assert_eq!(reopened["coverage"]["method_directory"]["built_this_request"], true);
+    assert_eq!(reopened["callbacks"], result["callbacks"]);
+    crate::dispatch(&json!({"op":"close","handle":opened["handle"]})).unwrap();
+    let mut duplicate = method(&mut capture).clone(); duplicate["id"] = json!("f".repeat(64));
+    duplicate["attributes"]["name_resolution"] = json!("unresolved_receiver");
+    duplicate["location"] = Value::Null;
+    capture["facts"].as_array_mut().unwrap().push(duplicate);
+    let ambiguous = run(&capture, &id, 50);
+    assert_eq!(explanation(&ambiguous)["reason"], "ambiguous_duplicate_instance_declarations");
+    assert_eq!(ambiguous["coverage"]["declaration_scan_complete"], true);
+    assert_eq!(ambiguous["coverage"]["candidate_ranges_complete"], false);
+    eprintln!("LOS64_WHOLE {}", json!({"ordinal":ordinal,"reader_opens":3,"demanded_builds":3,
+        "queries":4,"first":result["coverage"],"reuse":repeated["coverage"],"reopen":reopened["coverage"],"duplicate":ambiguous["coverage"]}));
+}
+
+#[test]
+fn refused_initialization_is_optional_retryable_and_does_not_affect_find_or_source() {
+    let (capture, id) = fixture(); let store = tempfile::tempdir().unwrap();
+    crate::store::publish(store.path(), &capture).unwrap();
+    let reader = Reader::open(store.path(), None).unwrap();
+    let request = json!({"id":id}); let query = Query::parse(&request).unwrap();
+    let budget = crate::query::Budget::new(1);
+    let refused = select_with_budget(&reader, &query, &budget).unwrap();
+    assert_eq!(explanation(&refused)["reason"], "method_directory_unavailable");
+    assert_eq!(refused["coverage"]["declaration_scan_complete"], false);
+    assert!(!reader.find("deliver", 10).unwrap()["results"].as_array().unwrap().is_empty());
+    assert_eq!(reader.source_file("records.rb").unwrap()["content"], SOURCE);
+    assert_eq!(select(&reader, &query).unwrap()["coverage"]["method_directory"]["built_this_request"], true);
+    assert!(budget.reserve(1).is_ok());
+}
+
+#[test]
+fn concurrent_initialization_builds_once_and_inflight_close_retains_until_last_arc_drop() {
+    let (capture, id) = fixture(); let store = tempfile::tempdir().unwrap();
+    crate::store::publish(store.path(), &capture).unwrap();
+    let opened = crate::dispatch(&json!({"op":"open","path":store.path().to_str().unwrap()})).unwrap();
+    let retained = crate::reader(&json!({"handle":opened["handle"]})).unwrap();
+    let budget = crate::query::Budget::new(1024 * 1024);
+    let gate = std::sync::Arc::new(std::sync::Barrier::new(3));
+    let mut threads = Vec::new();
+    for _ in 0..2 {
+        let reader = retained.clone(); let budget = budget.clone(); let gate = gate.clone(); let id = id.clone();
+        threads.push(std::thread::spawn(move || {
+            gate.wait();
+            let request = json!({"id":id});
+            select_with_budget(&reader, &Query::parse(&request).unwrap(), &budget).unwrap()
+        }));
+    }
+    crate::dispatch(&json!({"op":"close","handle":opened["handle"]})).unwrap();
+    assert_eq!(crate::dispatch(&json!({"op":"callback_effects","handle":opened["handle"],"id":id})).unwrap_err().code, "closed_reader");
+    gate.wait();
+    let results: Vec<_> = threads.into_iter().map(|t| t.join().unwrap()).collect();
+    assert_eq!(results.iter().filter(|r| r["coverage"]["method_directory"]["built_this_request"] == true).count(), 1);
+    assert_eq!(results[0]["callbacks"], results[1]["callbacks"]);
+    assert!(budget.reserve(1024 * 1024).is_err());
+    drop(retained);
+    assert!(budget.reserve(1024 * 1024).is_ok());
 }
 
 #[test]
@@ -196,43 +274,51 @@ fn request_validation_close_and_shared_reservation_release_are_inherited() {
 
 #[test]
 fn source_attempt_and_expansion_budgets_charge_missing_reads_and_reject_oversize() {
-    let (capture,id)=fixture(); let store=tempfile::tempdir().unwrap();
-    crate::store::publish(store.path(),&capture).unwrap();
-    let mut reader=Reader::open(store.path(),None).unwrap();
-    reader.manifest["files"][0]["bytes"]=json!(MAX_FILE_BYTES+1);
-    let request=json!({"id":id}); let query=Query::parse(&request).unwrap();
-    let result=select(&reader,&query).unwrap();
-    assert_eq!(explanation(&result)["reason"],"source_byte_budget");
-    assert_eq!(result["coverage"]["source_files_attempted"],1);
-    assert_eq!(result["coverage"]["source_bytes_charged"],0);
+    let (mut capture, id) = fixture();
+    let content = format!("{SOURCE}{}", " ".repeat(MAX_FILE_BYTES));
+    capture["files"][0]["content"] = json!(content);
+    capture["files"][0]["bytes"] = json!(content.len());
+    capture["files"][0]["sha256"] = json!(schema::digest(content.as_bytes()));
+    let result = run(&capture, &id, 50);
+    assert_eq!(explanation(&result)["reason"], "source_byte_budget");
+    assert_eq!(result["coverage"]["source_files_attempted"], 1);
+    assert_eq!(result["coverage"]["source_bytes_charged"], 0);
 
-    // Metadata-only test Reader, not a forged accepted artifact. Every attempted
-    // missing source consumes its declared bytes before I/O; the fifth expansion
-    // and seventeenth file attempt cannot disappear from the work accounting.
-    for (file_bytes, expected_attempts, expected_bytes, reason) in [
-        (MAX_FILE_BYTES,16,MAX_SOURCE_BYTES,"source_byte_budget"),
-        (1,16,16,"source_file_attempt_budget")
+    for (file_bytes, expected_bytes, reason) in [
+        (MAX_FILE_BYTES, MAX_SOURCE_BYTES, "source_byte_budget"), (1, 16, "source_file_attempt_budget")
     ] {
-        let mut reader=Reader::open(store.path(),None).unwrap();
-        let template=reader.facts.iter().find(|f| f["name"]=="Example::Record#deliver").unwrap().clone();
-        let registry_index=reader.facts.iter().position(|f| f["kind"]=="rails_save_callbacks").unwrap();
-        let template_entry=reader.facts[registry_index]["attributes"]["callbacks"]["save"]["entries"][0].clone();
-        let mut entries=Vec::new(); let mut files=Vec::new();
+        let (mut capture, id) = fixture();
+        let template = method(&mut capture).clone();
+        let template_entry = entry(&mut capture).clone();
+        capture["facts"].as_array_mut().unwrap().retain(|f| f["kind"] == "rails_save_callbacks");
+        let mut entries = Vec::new(); let mut files = Vec::new();
         for i in 0..18 {
-            let name=format!("deliver{i}"); let path=format!("{i}.rb");
-            let mut fact=template.clone(); fact["id"]=json!(format!("{i:064x}"));
-            fact["name"]=json!(format!("Example::Record#{name}")); fact["attributes"]["method_name"]=json!(name);
-            fact["path"]=json!(path); reader.facts.push(fact);
-            let mut entry=template_entry.clone(); entry["position"]=json!(i); entry["filter"]["name"]=json!(name);
-            entry["filter"]["source"]["path"]=json!(path); entries.push(entry);
-            files.push(json!({"path":path,"sha256":"0".repeat(64),"bytes":file_bytes}));
+            let name = format!("deliver{i}"); let path = format!("{i}.rb");
+            let mut fact = template.clone(); fact["id"] = json!(format!("{i:064x}"));
+            fact["name"] = json!(format!("Example::Record#{name}")); fact["attributes"]["method_name"] = json!(name);
+            fact["path"] = json!(path); fact["links"] = json!([]);
+            fact["location"] = json!({"start_byte":0,"end_byte":1,"start_line":1,"end_line":1});
+            capture["facts"].as_array_mut().unwrap().push(fact);
+            let mut row = template_entry.clone(); row["position"] = json!(i); row["filter"]["name"] = json!(name);
+            row["filter"]["source"] = json!({"path":path,"line":1}); entries.push(row);
+            // Valid public artifacts with actual saved source; remove blobs only
+            // after publication so missing attempts charge declared bytes.
+            let content = format!("x{}", " ".repeat(file_bytes.saturating_sub(1)));
+            files.push(json!({"path":path,"sha256":schema::digest(content.as_bytes()),"bytes":content.len(),"encoding":"UTF-8","content":content}));
         }
-        reader.facts[registry_index]["attributes"]["callbacks"]["save"]["entries"]=json!(entries);
-        reader.manifest["files"]=json!(files);
-        let result=select(&reader,&query).unwrap();
-        assert_eq!(result["coverage"]["source_files_attempted"],expected_attempts);
-        assert_eq!(result["coverage"]["source_bytes_charged"],expected_bytes);
-        assert!(result["callbacks"].as_array().unwrap().iter().any(|r|r["explanation"]["reason"]==reason));
+        let registry = capture["facts"].as_array_mut().unwrap().iter_mut().find(|f| f["kind"] == "rails_save_callbacks").unwrap();
+        registry["attributes"]["callbacks"]["save"]["entries"] = json!(entries);
+        capture["files"] = json!(files);
+        let store = tempfile::tempdir().unwrap();
+        let manifest = crate::store::publish(store.path(), &capture).unwrap();
+        for file in manifest["files"].as_array().unwrap() {
+            let _ = std::fs::remove_file(store.path().join("blobs").join(file["sha256"].as_str().unwrap()));
+        }
+        let reader = Reader::open(store.path(), None).unwrap();
+        let request = json!({"id":id}); let result = select(&reader, &Query::parse(&request).unwrap()).unwrap();
+        assert_eq!(result["coverage"]["source_files_attempted"], 16);
+        assert_eq!(result["coverage"]["source_bytes_charged"], expected_bytes);
+        assert!(result["callbacks"].as_array().unwrap().iter().any(|r| r["explanation"]["reason"] == reason));
     }
 }
 

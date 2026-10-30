@@ -27,8 +27,12 @@ impl<'a> Query<'a> {
 }
 
 #[derive(Default)]
-struct Work { facts: usize, links: usize, label_bytes: usize, files: usize, source_bytes: usize }
+struct Work { facts: usize, links: usize, label_bytes: usize, files: usize, source_bytes: usize, digest_comparisons: usize, range_visits: usize }
 impl Work {
+    fn fact(&mut self) -> bool {
+        if self.facts == MAX_FACTS { return false; }
+        self.facts += 1; true
+    }
     fn compare(&mut self, a: &str, b: &str) -> Option<Ordering> {
         let bytes = a.len().checked_add(b.len())?;
         if bytes > MAX_LABEL_BYTES.saturating_sub(self.label_bytes) { return None; }
@@ -36,11 +40,26 @@ impl Work {
         Some(a.cmp(b))
     }
 }
+impl crate::method_lookup::Work for Work {
+    fn visit(&mut self) -> bool {
+        if !self.fact() { return false; }
+        self.range_visits += 1; true
+    }
+    fn bytes(&mut self, bytes: usize) -> bool {
+        if bytes > MAX_LABEL_BYTES.saturating_sub(self.label_bytes) { return false; }
+        self.label_bytes += bytes; true
+    }
+    fn compare(&mut self, a: &str, b: &str) -> Option<Ordering> { Work::compare(self, a, b) }
+    fn compare_digest(&mut self, a: &[u8; 32], b: &[u8; 32]) -> Option<Ordering> {
+        if !crate::method_lookup::Work::bytes(self, 64) { return None; }
+        self.digest_comparisons += 1; Some(a.cmp(b))
+    }
+}
 struct Group<'a> { owner: &'a str, name: &'a str, count: usize, candidate: Option<&'a Value>, result: Value }
 fn unknown(reason: &str) -> Value {
     json!({"status":"unknown","reason":reason,"binding":"unavailable","effects":[],"links_search_complete":false})
 }
-// Explicit charged binary search: one fact pass, O(F log C), borrowed keys.
+// Charged binary search over the selected, borrowed callback descriptors.
 fn lookup(groups: &[Group<'_>], owner: &str, name: &str, work: &mut Work) -> Option<std::result::Result<usize, usize>> {
     let (mut lo, mut hi) = (0, groups.len());
     while lo < hi {
@@ -76,6 +95,7 @@ fn bounds(fact: &Value) -> Option<(u64, u64)> {
 }
 fn fits_descriptor(group: &Group<'_>, entry: &Value, work: &mut Work) -> Option<bool> {
     let fact = group.candidate?;
+    if !work.fact() { return None; }
     let filter = &entry["filter"];
     let expected = format!("{}#{}", group.owner, group.name);
     Some(fact["attributes"]["singleton"] == false && fact["attributes"]["name_resolution"] == "lexical" &&
@@ -148,6 +168,10 @@ fn explain(fact: &Value, file: &Value, version: u64, lines: usize, work: &mut Wo
 }
 
 pub(crate) fn select(reader: &Reader, query: &Query<'_>) -> Result<Value> {
+    select_with_budget(reader, query, crate::query::budget())
+}
+
+fn select_with_budget(reader: &Reader, query: &Query<'_>, budget: &std::sync::Arc<crate::query::Budget>) -> Result<Value> {
     let anchor = reader.stored_fact(query.id)?;
     if anchor["kind"] != "rails_save_callbacks" { return Err(CoreError::input("callback_effects requires a rails_save_callbacks fact ID")); }
     let data = &anchor["attributes"]["callbacks"];
@@ -171,25 +195,40 @@ pub(crate) fn select(reader: &Reader, query: &Query<'_>) -> Result<Value> {
             }
         }
     }
+    let mut directory_coverage = json!({"status":"not_requested","built_this_request":false});
+    let mut ranges_complete = true;
+    let mut directory_refused = false;
     if !groups.is_empty() && scan_complete {
-        for fact in &reader.facts {
-            if work.facts == MAX_FACTS { scan_complete = false; break; }
-            work.facts += 1;
-            if fact["kind"] != "method" || fact["evidence"] != "static" || fact["attributes"]["singleton"] == true { continue; }
-            let (Some(owner), Some(name)) = (fact["attributes"]["owner"].as_str(), fact["attributes"]["method_name"].as_str()) else { continue; };
-            match lookup(&groups, owner, name, &mut work) {
-                Some(Ok(at)) => { groups[at].count += 1; groups[at].candidate = Some(fact); },
-                Some(Err(_)) => {}, None => { scan_complete = false; break; },
-            }
+        let candidates = reader.with_method_directory(budget, |directory, built| {
+            let candidates: Vec<_> = groups.iter().map(|group|
+                directory.lookup(&reader.facts, group.owner, group.name, &mut work)).collect();
+            (directory.stats(built), candidates)
+        });
+        match candidates {
+            Ok((stats, candidates)) => {
+                directory_coverage = stats.value();
+                for (group, candidate) in groups.iter_mut().zip(candidates) {
+                    scan_complete &= candidate.decided;
+                    ranges_complete &= candidate.range_complete;
+                    group.count = candidate.matches;
+                    group.candidate = candidate.candidate.map(|index| &reader.facts[index]);
+                }
+            },
+            Err(error) if error.code == "limit_exceeded" => {
+                directory_refused = true; scan_complete = false; ranges_complete = false;
+                directory_coverage = json!({"status":"unavailable","built_this_request":false,"reason":error.message});
+            },
+            Err(error) => return Err(error),
         }
     }
     // One source read per unique selected path. Group all methods for the file
     // into one schema validation, avoiding repeated newline indexes/validation.
     let mut paths = Vec::<&str>::new();
     for group in &mut groups {
-        if !scan_complete { group.result = unknown("declaration_uniqueness_scan_incomplete"); continue; }
+        if !scan_complete { group.result = unknown(if directory_refused { "method_directory_unavailable" } else { "declaration_uniqueness_scan_incomplete" }); continue; }
         if group.count > 1 { group.result = unknown("ambiguous_duplicate_instance_declarations"); continue; }
         let Some(fact) = group.candidate else { continue; };
+        if !work.fact() { group.result = unknown("fact_visit_budget"); continue; }
         if fact["attributes"]["singleton"] != false || fact["attributes"]["name_resolution"] != "lexical" || bounds(fact).is_none() {
             group.result = unknown("unsupported_or_incomplete_declaration"); continue;
         }
@@ -211,6 +250,7 @@ pub(crate) fn select(reader: &Reader, query: &Query<'_>) -> Result<Value> {
     for path in paths {
         let indexes: Vec<usize> = groups.iter().enumerate().filter_map(|(i, g)| {
             if g.result["reason"] != "source_not_searched" { return None; }
+            if !work.fact() { return None; }
             (work.compare(g.candidate.unwrap()["path"].as_str().unwrap(), path) == Some(Ordering::Equal)).then_some(i)
         }).collect();
         if work.files == MAX_FILES {
@@ -236,6 +276,7 @@ pub(crate) fn select(reader: &Reader, query: &Query<'_>) -> Result<Value> {
         work.source_bytes += bytes;
         let mut admitted = Vec::new();
         for i in indexes {
+            if !work.fact() { groups[i].result = unknown("fact_visit_budget"); continue; }
             let count = schema::array(groups[i].candidate.unwrap(), "links")?.len();
             // Validation and explanation each visit every link, including misses.
             if count > (MAX_LINKS - work.links) / 2 {
@@ -285,14 +326,17 @@ pub(crate) fn select(reader: &Reader, query: &Query<'_>) -> Result<Value> {
         if bytes > MAX_ROWS_BYTES.saturating_sub(output_bytes) { output_omitted += 1; continue; }
         output_bytes += bytes; rows.push(row);
     }
+    let source_rows_not_searched = rows.iter().filter(|row| row["explanation"]["links_search_complete"] != true).count();
     let coverage = schema::array(&reader.manifest, "coverage")?;
     let capture_unknown = coverage.is_empty() || coverage.len() > 256 || coverage.iter().take(256).any(|c| c["status"] != "complete");
     let mut response = json!({"version":1,"generation":reader.generation,"registry_id":query.id,"model":data["name"],
         "registry_status":data["save"]["status"],"coherence":"unknown","execution":"unknown","limit":query.limit,
         "callbacks":null,"semantics":SEMANTICS,"coverage":{"capture_partial_or_unknown":capture_unknown,
-            "declaration_scan_complete":scan_complete,"facts_visited":work.facts,"links_visited":work.links,
+            "declaration_scan_complete":scan_complete,"candidate_ranges_complete":ranges_complete,
+            "reader_open":reader.method_lookup_baseline(),"method_directory":directory_coverage,"directory_range_visits":work.range_visits,
+            "directory_digest_comparisons":work.digest_comparisons,"facts_visited":work.facts,"links_visited":work.links,
             "compared_label_bytes":work.label_bytes,"source_files_attempted":work.files,"source_bytes_charged":work.source_bytes,
-            "rows_attempted":rows_attempted,"rows_not_searched":entries.len()-rows_attempted,
+            "source_rows_not_searched":source_rows_not_searched,"rows_attempted":rows_attempted,"rows_not_searched":entries.len()-rows_attempted,
             "rows_metadata_omitted":metadata_omitted,"rows_output_omitted":output_omitted,
             "truncated":entries.len()>rows_attempted || metadata_omitted>0 || output_omitted>0,
             "absence":"No supported match in searched recorded evidence does not establish no possible effect",

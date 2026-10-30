@@ -294,8 +294,10 @@ source-supported potential behavior and observed execution are separate evidence
 families; execution is unknown.
 
 A supported filter needs an observed method owner, method name and relative
-source path/start line. The native selector scans captured static instance-method
-declarations once, grouped by exact effective owner/method name. It requires one
+source path/start line. The native selector looks up captured static instance-method declarations in a
+lazy directory owned by this pinned Reader, grouped by exact effective owner/method
+name. The directory covers the complete saved generation, including methods
+beyond the request fact-visit cap. It requires one
 unique declaration, `singleton: false`, lexical name resolution, the exact
 `owner#method` name, matching path/start line and a nonempty complete span.
 Duplicates (including another declaration at a different location) stop binding.
@@ -348,7 +350,8 @@ or capture is partial/unavailable.
 
 Each request holds a 32 MiB transient reservation from the existing aggregate
 query budget through native response serialization. It retains only borrowed
-identities and bounded results, with no persistent index/cache. Caps are 200
+identities and bounded results. The optional method directory has a separate
+retained reservation from the same 128 MiB aggregate admission budget. Caps are 200
 attempted callback rows, 20,000 fact visits (including anchor admission and selected-method validation/analysis), 50,000
 link visits, 32 MiB compared label bytes, 16 attempted files, 256 KiB per file,
 1 MiB charged expanded source and 128 KiB encoded returned output. Each selected
@@ -361,15 +364,66 @@ and returned row payloads share 96 KiB, leaving envelope headroom. Omitted metad
 output rows/effects, row limits, incomplete uniqueness searches and source/link
 budgets are explicit. Unknown unsearched matches are never counted as zero.
 
-For F visited facts, C selected descriptors (at most 200), M manifest files,
-S charged source bytes and L admitted links, work is O(F log C + C² + 16M + S + L
-+ returned bytes). Descriptor search uses a charged binary search, rather than
-C full-fact scans. Per-file schema validation batches methods and constructs one
-newline index. Peak scratch consists of O(C) borrowed groups and bounded result
-Values, one at-most-256-KiB expanded file and its byte-offset newline index,
-selected row output and ordinary JSON/FFI copies, all admitted under the 32 MiB
-reservation. This is conservative accounting, not a measured RSS, speed or
-headroom claim. Existing per-request source and query limits remain unchanged.
+During the existing Reader open-time by-file indexing pass, count eligible
+static methods and owner/method key bytes. Eligibility is exactly static method,
+singleton not true, and string owner/method labels; unresolved or incomplete
+declarations still participate in global duplicate detection. Open still performs
+its existing depth, stored-schema, by-ID, by-file and legacy search-cache fact
+passes. `coverage.reader_open` records each completed pass's fact count, encoded
+facts/manifest bytes, existing admission weight, and eligible inventory. This
+inventory does not improve or complete historical Reader heap accounting.
+
+On first demand each Reader separately reserves actual fixed slot capacity and
+the inline directory/container overhead **before** building. Those bytes are not
+also added to Reader admission weight. A slot retains only a domain-separated,
+length-prefixed SHA-256 owner/method key and its generation-local fact position;
+no label strings, fact/Value/source clones, disk index or global cache are retained.
+Allocation capacity exceeding the reservation refuses before construction. The
+complete build traverses at most the unchanged 100,000 saved-fact ceiling, hashes
+at most 32 MiB eligible key bytes, and sorts fixed keys in place with std's total
+comparator. All actual comparisons are counted; a completed sort exceeding
+6,400,000 comparisons refuses publication without changing comparator behavior.
+Construction is an explicitly reported separate allowance, never free request
+work or an increased query cap. `method_directory` exposes build status,
+`built_this_request`, completed construction facts/key bytes/comparisons, actual
+slot size/capacity, container bytes and total retained reservation. On reuse these
+are provenance totals for the one construction, not work repeated by that request.
+
+Lookup hashes each requested key, binary-searches its digest range, then compares
+actual borrowed owner/method strings. Hash collisions cannot bind evidence. Hash
+input, every fixed-key comparison, range visit, exact label comparison and selected
+method revisit consume the unchanged request fact/label budgets. Two exact matches
+prove ambiguity and stop; no exact duplicate count is claimed. A candidate cannot
+bind until its entire range was searched. `declaration_scan_complete` reports
+whether all selected uniqueness decisions completed (including proved ambiguity);
+`candidate_ranges_complete` separately reports exhaustive range traversal. The
+empty/opaque-only case reports directory `not_requested`. A refused build reports
+`unavailable` and unknown explanation; it does not break Reader/Find/Source.
+Transient refusal is not negatively cached, and source availability is never
+cached. A Reader-owned mutex covers initialization/candidate-position copying;
+it is released before source I/O, validation and response construction. Only a
+complete directory is published. Existing Arc/close/drop ownership releases the
+reservation after the last in-flight Reader reference; CURRENT cannot mutate
+pinned positions. Fresh Readers rebuild, including separate short-lived Map
+Readers. Concurrent Readers retain and charge separate directories.
+
+For F saved facts, H eligible key bytes, D eligible methods and C selected
+callback descriptors, a demanded construction costs O(F + H + D log D). Each query
+then costs O(C log D + visited digest ranges + compared bytes + C² + 16M + S + L
++ returned bytes), with M manifest files, S charged source bytes and L admitted
+links. O(C) candidate positions remain transient under the existing scratch
+reservation. Per-file validation still batches methods and builds one newline
+index. Report each Reader open/build and each query separately across a complete
+job, including reopen and concurrent retention; no cross-Reader amortization is
+implied. Encoded admission, retained capacity and operation counters are distinct
+from heap/RSS, latency and filesystem storage. No improvement in any of those
+metrics is claimed.
+
+Completed candidate lookup never establishes complete capture or searched source.
+`capture_partial_or_unknown`, registry status, row/output omissions and
+`source_rows_not_searched` remain separate, as do per-row link-search completion
+and omitted known effects. Missing, opaque and partial/empty results cannot prove
+absence. All descriptor, spelling, heredoc and integrity guards above remain.
 
 Map invokes the optional API in its existing callback Source fallback and escapes
 all text/excerpts. Supporting source links pin generation/path. Older Readers or
