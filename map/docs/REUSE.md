@@ -1,6 +1,6 @@
 # Woods Map reuse record
 
-Owner authorization was explicit in the Thistle design discussion. Upstream project: [lost-in-the/woods-map](https://github.com/lost-in-the/woods-map), pinned revision `29e7f6ac60bdeb8eee50138c2c87bd7ae21442a9`. Upstream MIT copyright/permission is reproduced in `LICENSE.woods-map.txt`.
+Owner authorization was explicit in the Thistle design discussion. Upstream project: [lost-in-the/woods-map](https://github.com/lost-in-the/woods-map), pinned revision `29e7f6ac60bdeb8eee50138c2c87bd7ae21442a9`. Upstream MIT copyright/permission is reproduced in [LICENSE.woods-map.txt](../LICENSE.woods-map.txt).
 
 | Upstream path | Upstream Git blob | Thistle use |
 |---|---|---|

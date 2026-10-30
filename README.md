@@ -10,9 +10,9 @@ for explicit Rails introspection. This is an early implementation
 milestone of the [reviewed product plan](https://chatgpt.com/space/page_83d1d4a1a4ec81918d7310c21061c4e4).
 It is not yet a launch replacement for Woods and makes no comparative speed claim.
 
-The [mission](docs/MISSION.md) defines the governing product goals. Contributors
-and agents should use the [workflow](docs/development/agent-workflow.md) and
-[portable configuration guide](docs/development/agent-configuration.md).
+The repository [mission](https://github.com/lost-in-the/thistle/blob/main/docs/MISSION.md) defines the governing product goals. Contributors
+and agents should use the [workflow](https://github.com/lost-in-the/thistle/blob/main/docs/development/agent-workflow.md) and
+[portable configuration guide](https://github.com/lost-in-the/thistle/blob/main/docs/development/agent-configuration.md).
 
 The engine handles static capture using Prism's established parser, validates
 fact and source identities, publishes immutable generations, and answers queries.
@@ -29,7 +29,7 @@ This mode does not establish complete Ruby 4.1 language or host support.
 
 Source development supports Linux and macOS with Ruby 3.4 or 4.0 and Rails 8.1 integration. The
 primary and minimum CI pairs, including exact patches, live in
-[`.github/ci-policy.json`](.github/ci-policy.json); the Gemfile reads that same
+[`.github/ci-policy.json`](https://github.com/lost-in-the/thistle/blob/main/.github/ci-policy.json); the Gemfile reads that same
 Rails default. See the [platform setup guide](docs/development/platforms.md) for
 native macOS, Linux, a dedicated Docker environment and installation into a Rails
 application. Both gems require Ruby 3.4 or later. Use Rust 1.90.0, a C compiler,
@@ -38,9 +38,9 @@ locked for offline source-gem builds. Public platform qualification and
 precompiled gems remain launch work; passing these development cohorts does not
 qualify other Ruby/Rails combinations or platforms.
 
-The [CI policy decisions](docs/development/decisions.md) explain the selected
+The [CI policy decisions](https://github.com/lost-in-the/thistle/blob/main/docs/development/decisions.md) explain the selected
 cohorts, their maintenance policy, and the separate historical experiment profile.
-For release notes, use [one fragment per change](docs/development/changelog.md).
+For repository contributions, use [one fragment per change](https://github.com/lost-in-the/thistle/blob/main/docs/development/changelog.md).
 
 ```sh
 bundle install
@@ -54,6 +54,12 @@ If libclang is installed in a nonstandard directory, set `LIBCLANG_PATH` to its
 directory. `THISTLE_CARGO` may identify a specific Cargo executable. Source builds
 must use the locked vendored dependencies; a build that cannot find them fails.
 This development package deliberately refuses public RubyGems publishing.
+
+Installed packages include the platform guide and the tagged-call, loaded-model,
+callback, Find, route-constraint and model-reference contracts in
+`docs/development/`. Contributor policy, the launch ledger and historical
+validation records remain in the repository; these packages do not qualify any
+launch requirement.
 
 ## Inspect source
 
@@ -142,7 +148,7 @@ route is callable without constraints. Static capture never boots Rails itself.
 
 `map/` contains an independent read-only companion gem. It uses Thistle's reader
 API and an approved source-view component from Woods Map. It has no Woods runtime
-dependency. Its README covers local mounting, access boundaries and keyboard use.
+dependency. Its [repository README](https://github.com/lost-in-the/thistle/blob/main/map/README.md) covers local mounting, access boundaries and keyboard use.
 
 ## Trust and lifecycle
 
@@ -170,7 +176,7 @@ Thistle in a fresh process. General fork support is a launch requirement.
 The sibling `thistle-eval/` installs built gems into a fresh gem home and tests them
 outside this source checkout against independently labelled fixtures, mutations,
 and intentionally defective results. Local separation is not a hardened sandbox.
-See `docs/capability-ledger.md` for the broad unqualified launch jobs and the
+See the [repository capability ledger](https://github.com/lost-in-the/thistle/blob/main/docs/capability-ledger.md) for the broad unqualified launch jobs and the
 evaluation/CI documents for external controller requirements.
 
 This milestone is intended to make the architecture executable and reviewable.

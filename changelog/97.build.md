@@ -1,0 +1,1 @@
+Core source gems ship explicit user/build/evidence contracts, including model references; administrative and historical documentation remains in the repository. Vendor inputs, notices and licenses are preserved.

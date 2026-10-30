@@ -42,6 +42,18 @@ Dir.mktmpdir("thistle-installed-", File.realpath(Dir.tmpdir)) do |worker|
     core, map = [core_spec, map_spec].map { |spec| File.join(output, spec.file_name) }
     run.call(ruby, "-S", "gem", "build", "thistle.gemspec", "--output", core, cwd: source)
     run.call(ruby, "-S", "gem", "build", "thistle-map.gemspec", "--output", map, cwd: File.join(source, "map"))
+    # Check actual payloads before staging or installing the already-built pair.
+    require "rubygems/package"
+    {
+      core => %w[docs/development/platforms.md docs/development/tagged-call-encoding.md
+                 docs/development/loaded-model-evidence.md docs/development/callback-evidence.md
+                 docs/development/find-evidence.md docs/development/route-constraints.md
+                 docs/development/model-references.md],
+      map => %w[docs/MODELS.md docs/REUSE.md]
+    }.each do |package, expected|
+      actual = Gem::Package.new(package).contents.select { |path| path.start_with?("docs/") }.sort
+      raise "Installed document manifest differs for #{File.basename(package)}: #{actual.inspect}" unless actual == expected.sort
+    end
     cache = File.join(worker, "vendor/cache")
     FileUtils.mkdir_p(cache)
     FileUtils.cp(dependencies.map(&:cache_file) + [core, map], cache)

@@ -7,7 +7,7 @@ checkouts/build outputs when switching environments.
 
 The current source-build routes are Linux and macOS. Windows, other Unix systems,
 precompiled gems and the complete launch support matrix remain unqualified.
-Exact development Ruby/Rails versions live in [the CI policy](../../.github/ci-policy.json).
+Exact development Ruby/Rails versions live in [the CI policy](https://github.com/lost-in-the/thistle/blob/main/.github/ci-policy.json).
 The minimum is Ruby 3.4; routine tests use Rails 8.1.4. Runtime observation in other
 Rails versions still needs its own evidence. Static capture does not boot Rails.
 
@@ -102,7 +102,7 @@ Use `bundle exec thistle capture ./app --output ./.thistle` for static source, o
 explicitly call `Thistle.capture(root: Rails.root.to_s, output: store, rails: Rails.application)`
 inside a trusted, already booted Rails runner. Loaded application observations use
 that process's authority; they are not an evaluation endpoint or automatic boot.
-See the [Map mounting/access guide](../../map/README.md) before exposing its views.
+See the [Map mounting/access guide](https://github.com/lost-in-the/thistle/blob/main/map/README.md) before exposing its views.
 
 ## Paths and checks
 

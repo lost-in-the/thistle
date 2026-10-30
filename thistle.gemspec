@@ -12,7 +12,20 @@ Gem::Specification.new do |spec|
   spec.license = "Nonstandard"
   spec.required_ruby_version = ">= 3.4"
   spec.metadata = { "allowed_push_host" => "https://unreleased.invalid", "development_status" => "private-milestone" }
-  spec.files = Dir.glob("{lib,exe,ext,engine,docs}/**/*", File::FNM_DOTMATCH).select do |path|
+  # Installed user/build contracts; contributor policy and history stay in Git.
+  installed_docs = %w[
+    docs/development/platforms.md
+    docs/development/tagged-call-encoding.md
+    docs/development/loaded-model-evidence.md
+    docs/development/callback-evidence.md
+    docs/development/find-evidence.md
+    docs/development/route-constraints.md
+    docs/development/model-references.md
+  ]
+  installed_docs.each do |path|
+    raise "Missing installed document: #{path}" unless File.file?(path)
+  end
+  spec.files = Dir.glob("{lib,exe,ext,engine}/**/*", File::FNM_DOTMATCH).select do |path|
     next false unless File.file?(path)
     # Transfer archives and historical evidence are repository documentation,
     # not runtime gem contents. Do not alter the vendored dependency byte set.
@@ -23,7 +36,7 @@ Gem::Specification.new do |spec|
     next true if path.start_with?("engine/vendor/")
     !path.start_with?("engine/target/", "ext/thistle_native/target/") &&
       !path.match?(/\.(?:so|o|bundle|a)\z/) && !%w[Makefile mkmf.log].include?(File.basename(path))
-  end + %w[README.md CHANGELOG.md LICENSE THIRD_PARTY.md rust-toolchain.toml .cargo/config.toml]
+  end + installed_docs + %w[README.md CHANGELOG.md LICENSE THIRD_PARTY.md rust-toolchain.toml .cargo/config.toml]
   spec.bindir = "exe"
   spec.executables = ["thistle"]
   spec.require_paths = ["lib"]

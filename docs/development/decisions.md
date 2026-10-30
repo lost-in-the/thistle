@@ -524,3 +524,40 @@ observer and a method/code identity check per loaded model. It retains no global
 model registry and evaluates no callback bodies or conditions. Reconsider this
 narrow adapter for a new Rails/Ruby implementation or a maintained nonexecuting
 metadata API. Broader Ruby-engine or monkeypatched-framework support is unqualified.
+
+
+## Explicit installed-document lists — LOS-58
+
+Use the existing RubyGems `spec.files` and `Dir` selectors to distribute deliberate
+user/build contracts. Core retains `platforms`, `tagged-call-encoding`,
+`loaded-model-evidence`, `callback-evidence`, `find-evidence`, `route-constraints`
+and `model-references` under `docs/development/`; Map retains `docs/MODELS.md`
+and `docs/REUSE.md`. The Reader/Links/coverage contract added after the LOS-57
+research baseline belongs in the installed set. Missing named documents refuse
+specification loading rather than silently shrinking the package.
+
+Broad document globs silently admit new administrative material; directory-wide
+exclusions would drop useful installed contracts. Git-based selection adds a Git
+requirement without deciding audience; Rake FileList or a custom generator adds
+machinery the existing selectors do not need. Literal lists need deliberate review
+when a new offline contract is added, with a focused disposable selector/link
+regression and an actual-manifest assertion on the install helper's already-built
+pair. No additional package build or runtime dependency is needed for that assertion.
+Existing complete vendor equality checks remain authoritative for vendor bytes.
+
+Keep readmes, changelogs, licenses, third-party notices, all non-document selectors
+and the complete vendored tree, including hidden checksums and legitimate
+`target`/`docs` source paths. Administrative policy, launch requirements, historical
+validation and retired workflow files stay canonical in Git. Repository and
+cross-gem links use explicit URLs; same-package contract links stay local.
+This narrowly supersedes the earlier choice to ship the inert Experiment 001
+workflow as future payload; its repository bytes, selected artifacts, evaluator,
+frozen corpus, receipts and original decision remain unchanged.
+
+Whole retained contracts still include dated evidence and can still cause payload
+churn. This is a distribution/maintenance boundary, with no measured compression,
+capture-byte, timing or RSS benefit and no reproducible-package claim. New package
+bytes require their own affected installed evidence; all 17 launch requirements
+remain unqualified. Reconsider the lists for a concrete supported offline job,
+new public contract, changed upstream build/license requirement, or measured
+usability/churn cost that warrants separating mixed user/history documents.
