@@ -58,9 +58,10 @@ identities and require migration authority. Ruby/CLI normalization would duplica
 Rust semantics and leave other consumers inconsistent. A universal resolver,
 reverse-link index or new dependency adds work and maintenance unrelated to this
 label defect. Reconsider the representation only if a separately scoped outcome
-needs actual resolution or measured whole-job costs justify it. Root owns any
-later shared-decision or package-document reconciliation; this bounded document
-is repository guidance and adds no package-manifest change.
+needs actual resolution or measured whole-job costs justify it. The shared
+[installed model-reference contract](model-references.md) documents the same
+matching key. This bounded document is repository guidance and adds no
+package-manifest change.
 
 ## Authored checks and current limit
 
