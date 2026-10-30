@@ -47,7 +47,7 @@ bundle install
 bundle exec rake test native map
 bundle exec rake installed
 gem build thistle.gemspec
-gem install --local thistle-0.1.0.pre.2.gem
+gem install --local thistle-0.1.0.pre.3.gem
 ```
 
 If libclang is installed in a nonstandard directory, set `LIBCLANG_PATH` to its
@@ -75,21 +75,29 @@ stack or process-memory limit. A limit refusal publishes no new generation.
 New captures record effective limits and visited nodes in their producer metadata;
 older captures do not acquire this metadata retroactively.
 
-New captures use snapshot schema 2 and `producer.call_target_schema: 2`.
-The reader returns stored call metadata without expanding it: `thistle_call`
-is `{version: 2, data: [kind, name, omitted_limit, safe_navigation,
-[start_byte, end_byte, start_line, end_line], receiver_location_or_null]}`.
-The receiver location uses the same four-coordinate tuple. Call targets,
+New captures use snapshot schema 3, with `producer.call_target_schema: 2`
+and `producer.link_encoding_schema: 1`. Capture and Reader APIs return semantic
+call-link objects. Their `thistle_call` extension remains
+`{version: 2, data: [kind, name, omitted_limit, safe_navigation,
+[start_byte, end_byte, start_line, end_line], receiver_location_or_null]}`;
+the receiver location uses the same four-coordinate tuple. On disk, schema 3
+may encode an eligible static unresolved call link as `[0, target, data]`.
+Other links retain their complete objects. The Reader retains stored rows and
+materializes semantic objects only for requested responses. Call targets,
 unresolved labels, grouping and captured source bytes retain their meaning.
-Consumers must use the manifest's `schema_version` to interpret extensions.
-Schema 1 still treats every extension version other than 1 as opaque, including
-compact-looking version 2; schema 2 recognizes strict versions 1 and 2.
+
+Consumers must use the manifest's `schema_version` to interpret stored evidence.
+Schema 1 treats extension versions other than 1 as opaque, including an otherwise
+valid compact-looking version 2. Schema 2 recognizes strict metadata versions 1
+and 2; schema 3 additionally recognizes the tagged storage rows. Producer metadata
+never selects a format. See the [tagged-call contract](docs/development/tagged-call-encoding.md).
 
 Explicit `Store#publish` uses the capture's `schema_version` selector. An absent
-selector means legacy schema 1, preserving legacy generation identity; producer
-metadata never selects a format. Unsupported or malformed selectors are refused.
-New readers retain old generations; old engines refuse schema-2 stores. Use the
-matching Core and Map `0.1.0.pre.2` pair for compact call display.
+selector means legacy schema 1. Explicit schema-1/2 publication keeps its legacy
+representation and generation identity rather than migrating it. Unsupported or
+malformed selectors are refused. New readers retain old generations; engines
+that support only schema 1/2 refuse schema-3 stores. Use the matching Core and Map
+`0.1.0.pre.3` pair for new stores and call display.
 
 Commands return JSON. Errors return structured JSON on stderr and a nonzero exit.
 `thistle help` describes the stable literal action names. Every query identifies

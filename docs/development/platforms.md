@@ -79,20 +79,20 @@ Nothing is published to a registry. Package versions are defined by their gemspe
 
 ```sh
 mkdir -p pkg
-gem build thistle.gemspec --output pkg/thistle-0.1.0.pre.2.gem
-gem install pkg/thistle-0.1.0.pre.2.gem
+gem build thistle.gemspec --output pkg/thistle-0.1.0.pre.3.gem
+gem install pkg/thistle-0.1.0.pre.3.gem
 
 # Optional Map views, paired with the core version above:
-(cd map && gem build thistle-map.gemspec --output ../pkg/thistle-map-0.1.0.pre.2.gem)
-gem install pkg/thistle-map-0.1.0.pre.2.gem
+(cd map && gem build thistle-map.gemspec --output ../pkg/thistle-map-0.1.0.pre.3.gem)
+gem install pkg/thistle-map-0.1.0.pre.3.gem
 ```
 
 Run installation under the destination application's Ruby and native toolchain.
 RubyGems may download missing runtime dependencies such as Rouge.
 For an application managed by Bundler, copy the core artifact (and the matching
 Map artifact, if used) to its `vendor/cache` using those canonical versioned
-filenames, add `gem "thistle", "= 0.1.0.pre.2"` in its development group (and
-optionally `gem "thistle-map", "= 0.1.0.pre.2"`), then run `bundle install` in that
+filenames, add `gem "thistle", "= 0.1.0.pre.3"` in its development group (and
+optionally `gem "thistle-map", "= 0.1.0.pre.3"`), then run `bundle install` in that
 application. Bundler compiles the extension for that application's environment.
 The private publishing restriction remains in place. Do not copy a compiled
 extension from another Ruby or container. The gem's Ruby requirement and an

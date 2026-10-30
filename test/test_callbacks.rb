@@ -18,7 +18,7 @@ class ThistleCallbacksJourneyTest < Minitest::Test
     end
     capture = Thistle::Capture.new(root: File.join(__dir__, 'fixtures/callbacks'), rails: app).call
     assert capture.fetch('facts').any? { |fact| fact['kind'] == 'rails_save_callbacks' }
-    assert_equal 1, fact_arrays, 'Format2 static admission is counted once; runtime must charge appended batches only'
+    assert_equal 0, fact_arrays, 'Schema3 uses native projected accounting; runtime must charge appended batches only'
   ensure
     JSON.define_singleton_method(:generate, original) if original
   end
@@ -54,7 +54,7 @@ class ThistleCallbacksJourneyTest < Minitest::Test
     end
   end
 
-  def test_route_join_accounting_matches_prior_exact_array_boundaries
+  def test_route_join_accounting_preserves_native_counter_and_exact_join_boundaries
     CallbackFixture.boot
     original = Thistle::Native.method(:call)
     contexts = []
@@ -74,7 +74,14 @@ class ThistleCallbacksJourneyTest < Minitest::Test
           app = Struct.new(:routes).new(Struct.new(:routes).new(routes))
           capture = Thistle::Capture.new(root: root, rails: app).call
           preceding = capture.fetch('facts').reject { |fact| %w[rails_model rails_save_callbacks].include?(fact['kind']) }
-          assert_equal JSON.generate(preceding).bytesize, contexts.last.fetch('fact_bytes'),
+          static = preceding.select { |fact| fact['evidence'] == 'static' }
+          runtime = preceding.select { |fact| fact['kind'] == 'route' }
+          # Static facts here have empty links. Native admission keeps one
+          # conservative first separator when that array is nonempty.
+          static_charge = JSON.generate(static).bytesize + (static.empty? ? 0 : 1)
+          route_charge = runtime.sum { |fact| JSON.generate(fact).bytesize + 1 }
+          route_charge -= 1 if static.empty? && !runtime.empty?
+          assert_equal static_charge + route_charge, contexts.last.fetch('fact_bytes'),
             "static=#{with_static}, routes=#{route_count}"
         end
       end

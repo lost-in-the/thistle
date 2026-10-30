@@ -1,4 +1,4 @@
-use crate::{error::{CoreError, Result}, fs::Dir, schema};
+use crate::{error::{CoreError, Result}, fs::Dir, schema, link_encoding};
 use serde_json::{json, Value};
 use std::{collections::HashMap, path::Path, sync::atomic::{AtomicU64, Ordering}};
 
@@ -25,7 +25,13 @@ fn publish_with_reader_budget(path: &Path, capture: &Value, reader_budget: usize
     let facts_bytes = {
         let mut facts: Vec<&Value> = schema::array(capture, "facts")?.iter().collect();
         facts.sort_by(|a, b| a["id"].as_str().cmp(&b["id"].as_str()));
-        serde_json::to_vec(&facts)?
+        let version = schema::capture_version(capture)?;
+        if version == 3 {
+            schema::encoded_vec(&link_encoding::WireFacts::new(&facts, version), schema::MAX_FACTS_BYTES)
+        } else {
+            // Explicit legacy publication retains the original representation.
+            schema::encoded_vec(&facts, schema::MAX_FACTS_BYTES)
+        }.map_err(|error| if error.code == "limit_exceeded" { CoreError::limit("Facts exceed snapshot size limit") } else { error })?
     };
     if facts_bytes.len() > schema::MAX_FACTS_BYTES { return Err(CoreError::limit("Facts exceed snapshot size limit")); }
     let mut files = schema::array(capture, "files")?.clone();
@@ -178,7 +184,7 @@ impl Reader {
         }
         let facts: Vec<Value> = serde_json::from_slice(&facts_bytes).map_err(|_| CoreError::snapshot("Invalid facts JSON"))?;
         for fact in &facts { schema::depth(fact)?; }
-        schema::facts(&facts, files, version)?;
+        schema::stored_facts(&facts, files, version)?;
         if manifest["facts"]["count"].as_u64() != Some(facts.len() as u64) { return Err(CoreError::snapshot("Fact count mismatch")); }
         let by_id = facts.iter().enumerate().map(|(index, value)| (value["id"].as_str().unwrap().to_string(), index)).collect();
         let by_path = files.iter().map(|file| (file["path"].as_str().unwrap().to_string(), file.clone())).collect();
@@ -192,9 +198,23 @@ impl Reader {
             source_index: std::sync::Mutex::new(None), admission: None, schema_version: version })
     }
 
-    pub fn fact(&self, id: &str) -> Result<&Value> {
+    fn stored_fact(&self, id: &str) -> Result<&Value> {
         schema::hash(id)?;
         self.by_id.get(id).map(|index| &self.facts[*index]).ok_or_else(|| CoreError::new("not_found", "Fact is absent from this generation"))
+    }
+
+    pub fn fact(&self, id: &str) -> Result<Value> {
+        link_encoding::materialize_fact(self.stored_fact(id)?, self.schema_version)
+    }
+
+    /// Bulk audit expansion is transient output, never a second retained tree.
+    pub fn all_facts(&self) -> Result<Value> {
+        self.facts.iter().map(|fact| link_encoding::materialize_fact(fact, self.schema_version))
+            .collect::<Result<Vec<_>>>().map(Value::Array)
+    }
+
+    pub fn links(&self, id: &str) -> Result<Value> {
+        link_encoding::materialize_links(self.stored_fact(id)?, self.schema_version)
     }
 
     pub fn find(&self, query: &str, limit: usize) -> Result<Value> {
@@ -212,21 +232,28 @@ impl Reader {
         }).collect();
         matches.sort_by(|a, b| (a.0, a.1["name"].as_str(), a.1["id"].as_str()).cmp(&(b.0, b.1["name"].as_str(), b.1["id"].as_str())));
         let total = matches.len();
-        let results: Vec<&Value> = matches.into_iter().take(limit).map(|(_, value)| value).collect();
-        Ok(json!({"generation": self.generation, "query": query, "limit": limit, "total_matches": total,
-            "truncated": total > limit, "results": results, "coverage": self.manifest["coverage"]}))
+        let results: Vec<Value> = matches.into_iter().take(limit)
+            .map(|(_, value)| link_encoding::materialize_fact(value, self.schema_version)).collect::<Result<_>>()?;
+        let mut response = json!({"generation": self.generation, "query": query, "limit": limit, "total_matches": total,
+            "truncated": total > limit, "coverage": self.manifest["coverage"]});
+        // Move requested output into the envelope; do not serialize/clone its
+        // just-materialized link trees through json! a second time.
+        response["results"] = Value::Array(results);
+        Ok(response)
     }
 
     pub fn source(&self, id: &str) -> Result<Value> {
-        let fact = self.fact(id)?;
+        let fact = self.stored_fact(id)?;
         let path = fact["path"].as_str().ok_or_else(|| CoreError::new("source_unavailable", "This fact has no verified source file"))?;
         let file = self.by_path.get(path).ok_or_else(|| CoreError::snapshot("Fact references missing source metadata"))?;
         let content = self.source_bytes(file)?;
         let mut expanded_file = file.clone();
         expanded_file["content"] = Value::String(content.clone());
-        schema::facts(std::slice::from_ref(fact), &[expanded_file], self.schema_version)
+        schema::stored_facts(std::iter::once(fact), &[expanded_file], self.schema_version)
             .map_err(|_| CoreError::snapshot("Fact source positions disagree with captured bytes"))?;
-        Ok(json!({"generation": self.generation, "fact": fact, "content": content, "sha256": file["sha256"]}))
+        let mut response = json!({"generation": self.generation, "content": content, "sha256": file["sha256"]});
+        response["fact"] = link_encoding::materialize_fact(fact, self.schema_version)?;
+        Ok(response)
     }
 
     pub(crate) fn source_file_scratch(&self, path: &str) -> Result<usize> {
@@ -255,8 +282,8 @@ impl Reader {
         for file in self.by_path.values() {
             let mut expanded = file.clone();
             expanded["content"] = Value::String(self.source_bytes(file)?);
-            let matching: Vec<Value> = self.by_file.get(file["path"].as_str().unwrap()).into_iter().flatten().map(|index| self.facts[*index].clone()).collect();
-            schema::facts(&matching, &[expanded], self.schema_version).map_err(|_| CoreError::snapshot("Fact source positions disagree with captured bytes"))?;
+            let matching = self.by_file.get(file["path"].as_str().unwrap()).into_iter().flatten().map(|index| &self.facts[*index]);
+            schema::stored_facts(matching, &[expanded], self.schema_version).map_err(|_| CoreError::snapshot("Fact source positions disagree with captured bytes"))?;
         }
         Ok(json!({"generation": self.generation, "integrity": "verified", "freshness": "not_checked",
             "files": self.by_path.len(), "facts": self.facts.len(), "coverage": self.manifest["coverage"],
@@ -274,6 +301,147 @@ mod tests {
             "files": [{"path":"app.rb","sha256":schema::digest(content.as_bytes()),"bytes":content.len(),"encoding":"UTF-8","content":content}],
             "facts": [{"id":"b".repeat(64),"kind":"class","name":name,"path":"app.rb","location":null,"evidence":"static","attributes":{},"links":[]}],
             "coverage":[{"family":"ruby","status":"partial","scope":"fixture","reason":"No runtime resolution"}],"diagnostics":[]})
+    }
+
+    fn call_fixture(version: u64) -> Value {
+        let mut data = fixture("First"); data["schema_version"] = json!(version);
+        data["facts"][0]["links"] = json!([{"relation":"calls","target":"héllo\"\\",
+            "resolution":"unresolved","attributes":{"thistle_call":{"version":2,
+            "data":["implicit",null,false,false,[0,5,1,1],null]}}}]);
+        data
+    }
+
+    // Forge an internally hashed generation to exercise wire/source validation,
+    // rather than allowing an unrelated digest failure to explain a refusal.
+    fn forged_generation(path: &Path, manifest: &Value, facts: &[Value], version: u64) -> String {
+        let bytes = serde_json::to_vec(facts).unwrap();
+        let mut manifest = manifest.clone();
+        manifest["schema_version"] = json!(version);
+        manifest["facts"] = json!({"sha256":schema::digest(&bytes),"count":facts.len()});
+        manifest.as_object_mut().unwrap().remove("generation");
+        let generation = schema::digest(&schema::canonical(&manifest).unwrap());
+        manifest["generation"] = json!(generation);
+        let directory = path.join("generations").join(&generation);
+        std::fs::create_dir_all(&directory).unwrap();
+        std::fs::write(directory.join("facts.json"), bytes).unwrap();
+        std::fs::write(directory.join("manifest.json"), schema::canonical(&manifest).unwrap()).unwrap();
+        generation
+    }
+
+    #[test]
+    fn tagged_publication_retains_rows_and_materializes_only_semantic_outputs() {
+        let temp = tempfile::tempdir().unwrap();
+        let mut data = call_fixture(3);
+        let eligible = data["facts"][0]["links"][0].clone();
+        let mut fallback = eligible.clone(); fallback["attributes"]["thistle_call"]["future"] = json!([null,"雪"]);
+        data["facts"][0]["links"].as_array_mut().unwrap().extend([
+            fallback, json!({"relation":"inherits","target":"Base","resolution":"unresolved"})]);
+        // Publication ignores caller hint identities/sizes and counts actual bytes.
+        data["evidence_accounting"] = json!({"schema_version":1,"fact_bytes_upper_bound":0});
+        let manifest = publish(temp.path(), &data).unwrap();
+        let reader = Reader::open(temp.path(), None).unwrap();
+        assert!(reader.facts[0]["links"][0].is_array());
+        assert!(reader.facts[0]["links"][1].is_object());
+        let expected = &data["facts"][0];
+        let id = expected["id"].as_str().unwrap();
+        assert_eq!(reader.fact(id).unwrap(), *expected);
+        assert_eq!(reader.all_facts().unwrap(), data["facts"]);
+        assert_eq!(reader.find("First", 1).unwrap()["results"][0], *expected);
+        assert_eq!(reader.source(id).unwrap()["fact"], *expected);
+        assert_eq!(reader.links(id).unwrap(), expected["links"]);
+        reader.check().unwrap();
+        assert!(reader.facts[0]["links"][0].is_array()); // no expanded retained cache
+        let bytes = std::fs::read(temp.path().join("generations").join(&reader.generation).join("facts.json")).unwrap();
+        assert_eq!(manifest["facts"]["sha256"], schema::digest(&bytes));
+        assert_eq!(schema::encoded_bytes(&link_encoding::WireFact::new(expected, 3).unwrap(), schema::MAX_FACTS_BYTES).unwrap() + 2, bytes.len());
+        let next = publish(temp.path(), &fixture("Second")).unwrap();
+        assert_ne!(next["generation"], manifest["generation"]);
+        let pinned = Reader::open(temp.path(), Some(&reader.generation)).unwrap();
+        assert_eq!(pinned.fact(id).unwrap(), *expected);
+        assert_eq!(pinned.source(id).unwrap()["content"], data["files"][0]["content"]);
+    }
+
+    #[test]
+    fn explicit_legacy_bytes_and_generation_reference_survive_new_schema_current() {
+        let temp = tempfile::tempdir().unwrap();
+        let mut generations = Vec::new();
+        for version in [1,2,3] {
+            let data = call_fixture(version);
+            let manifest = publish(temp.path(), &data).unwrap();
+            let bytes = std::fs::read(temp.path().join("generations").join(manifest["generation"].as_str().unwrap()).join("facts.json")).unwrap();
+            if version != 3 {
+                // Reference the original legacy serializer, without a projection.
+                let reference = serde_json::to_vec(data["facts"].as_array().unwrap()).unwrap();
+                assert_eq!(bytes, reference);
+                let mut expected = manifest.clone(); expected.as_object_mut().unwrap().remove("generation");
+                expected["facts"]["sha256"] = json!(schema::digest(&reference));
+                assert_eq!(manifest["generation"], schema::digest(&schema::canonical(&expected).unwrap()));
+            } else { assert!(serde_json::from_slice::<Value>(&bytes).unwrap()[0]["links"][0].is_array()); }
+            assert_eq!(publish(temp.path(), &data).unwrap(), manifest);
+            generations.push((manifest["generation"].as_str().unwrap().to_owned(), data));
+        }
+        for (generation, data) in generations {
+            let reader = Reader::open(temp.path(), Some(&generation)).unwrap();
+            assert_eq!(reader.all_facts().unwrap(), data["facts"]);
+            reader.check().unwrap();
+        }
+    }
+
+    #[test]
+    fn invalid_tagged_input_refuses_whole_semantic_batch_and_stored_context() {
+        let temp = tempfile::tempdir().unwrap();
+        let data = call_fixture(3);
+        let manifest = publish(temp.path(), &data).unwrap();
+        let reader = Reader::open(temp.path(), None).unwrap();
+        let wire = reader.facts.clone();
+        for version in [1,2] {
+            let generation = forged_generation(temp.path(), &manifest, &wire, version);
+            assert!(Reader::open(temp.path(), Some(&generation)).is_err());
+        }
+        for row in [json!([false,"target",["implicit",null,false,false,[0,5,1,1],null]]),
+            json!([1,"target",[]]), json!([0,"target"]),
+            json!([0,"target",["implicit",null,0,false,[0,5,1,1],null]])] {
+            let mut bad = wire.clone(); bad[0]["links"][0] = row;
+            let generation = forged_generation(temp.path(), &manifest, &bad, 3);
+            assert!(Reader::open(temp.path(), Some(&generation)).is_err());
+        }
+        let mut runtime = wire.clone(); runtime[0]["evidence"] = json!("runtime");
+        let generation = forged_generation(temp.path(), &manifest, &runtime, 3);
+        assert!(Reader::open(temp.path(), Some(&generation)).is_err());
+        let mut semantic = data.clone();
+        let mut invalid_tail = wire[0].clone(); invalid_tail["id"] = json!("c".repeat(64));
+        semantic["facts"].as_array_mut().unwrap().push(invalid_tail);
+        let missing = temp.path().join("not-created");
+        assert!(publish(&missing, &semantic).is_err());
+        assert!(!missing.exists());
+        assert_eq!(Reader::open(temp.path(), None).unwrap().generation, reader.generation);
+    }
+
+    #[test]
+    fn tagged_call_positions_are_checked_against_pinned_source_without_eager_expansion() {
+        let temp = tempfile::tempdir().unwrap();
+        let mut data = call_fixture(3);
+        let content = "é\nhello\n";
+        data["files"][0]["content"] = json!(content);
+        data["files"][0]["bytes"] = json!(content.len());
+        data["files"][0]["sha256"] = json!(schema::digest(content.as_bytes()));
+        data["facts"][0]["links"][0]["attributes"]["thistle_call"]["data"][4] = json!([0,2,1,1]);
+        let manifest = publish(temp.path(), &data).unwrap();
+        for (coordinates, open_fails) in [(json!([0,99999,1,1]),true),
+            (json!([0,2,1,2]),false),(json!([1,2,1,1]),false)] {
+            let mut bad = data["facts"][0].clone();
+            bad["links"][0]["attributes"]["thistle_call"]["data"][4] = coordinates;
+            let wire = serde_json::to_value(link_encoding::WireFact::new(&bad, 3).unwrap()).unwrap();
+            let generation = forged_generation(temp.path(), &manifest, &[wire], 3);
+            let opened = Reader::open(temp.path(), Some(&generation));
+            if open_fails { assert!(opened.is_err()); }
+            else {
+                let reader = opened.unwrap();
+                assert!(reader.facts[0]["links"][0].is_array());
+                assert!(reader.source(bad["id"].as_str().unwrap()).is_err());
+                assert!(reader.check().is_err());
+            }
+        }
     }
     #[test]
     fn saved_diagnostic_groups_and_occurrences_are_checked_at_open_and_check() {
@@ -368,6 +536,9 @@ mod tests {
     #[test]
     fn publication_encoded_size_refusal_preserves_existing_generation() {
         let mut capture = fixture("Escaped");
+        capture["schema_version"] = json!(3);
+        // A forged tiny hint never participates in publication validation/counting.
+        capture["evidence_accounting"] = json!({"schema_version":3,"fact_bytes_upper_bound":2});
         // Each NUL encodes as six bytes: exceed the real limit with ~11 MiB input.
         capture["facts"][0]["attributes"]["payload"] =
             Value::String("\0".repeat(schema::MAX_FACTS_BYTES / 6 + 1));
@@ -489,7 +660,7 @@ mod tests {
             reader.check().unwrap();
         }
         assert_eq!(std::fs::read(temp.path().join("generations").join(old["generation"].as_str().unwrap()).join("facts.json")).unwrap(), old_facts);
-        for version in [Value::Null, json!(true), json!("2"), json!(2.0), json!(0), json!(3), json!(-1)] {
+        for version in [Value::Null, json!(true), json!("2"), json!(2.0), json!(0), json!(4), json!(-1)] {
             current["schema_version"] = version;
             let absent = temp.path().join("must-not-exist");
             assert!(publish(&absent, &current).is_err());

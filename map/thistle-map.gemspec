@@ -14,7 +14,7 @@ Gem::Specification.new do |spec|
   spec.require_paths = ['lib']
   spec.license = 'Nonstandard'
   spec.metadata['allowed_push_host'] = 'https://invalid.example'
-  spec.add_runtime_dependency 'thistle', '= 0.1.0.pre.2'
+  spec.add_runtime_dependency 'thistle', '= 0.1.0.pre.3'
   spec.add_runtime_dependency 'rouge', '>= 4.5', '< 5'
 end
 

@@ -23,7 +23,7 @@ class MapIntegrationTest < Minitest::Test
       assert_equal 2, links.count { |link| link['target'] == 'render' }
       assert_equal 2, links.count { |link| link['target'] == 'same' }
       long = links.find { |link| link['target'] == 'size' }
-      assert_equal 2, old.manifest.fetch('schema_version')
+      assert_equal 3, old.manifest.fetch('schema_version')
       assert_equal 2, long.dig('attributes', 'thistle_call', 'version')
       fields = stored_call_fields(old, long)
       assert_equal 'literal', fields.dig('receiver', 'kind')

@@ -50,7 +50,7 @@ module MapTestSupport
 
   def stored_call_fields(reader, link)
     data = link.fetch('attributes').fetch('thistle_call')
-    if reader.manifest['schema_version'] == 2 && data['version'] == 2
+    if [2, 3].include?(reader.manifest['schema_version']) && data['version'] == 2
       kind, name, omitted, safe, call, receiver = data.fetch('data')
       location = ->(tuple) { tuple && Hash[%w[start_byte end_byte start_line end_line].zip(tuple)] }
       { 'receiver' => { 'kind' => kind, 'name' => name, 'omitted_limit' => omitted },

@@ -163,7 +163,7 @@ class MapCallMetadataTest < Minitest::Test
     end
   end
 
-  def test_compact_calls_require_explicit_schema_two_and_validate_fields
+  def test_compact_calls_require_explicit_schema_two_or_three_and_validate_fields
     content = 'self.render'
     loc = [0, 11, 1, 1]
     fact = { 'id' => FACT_ID, 'name' => 'Demo', 'kind' => 'method', 'evidence' => 'static',
@@ -175,16 +175,18 @@ class MapCallMetadataTest < Minitest::Test
     reader = Reader.new(facts: [fact], links: [link], content: content)
     reader.manifest['files'] = [{ 'path' => 'demo.rb', 'bytes' => content.bytesize, 'sha256' => Digest::SHA256.hexdigest(content) }]
     page = -> { request(make_app(reader), '/links', query: URI.encode_www_form('id' => FACT_ID)).last }
-    [nil, 1, '2'].each do |schema|
+    [nil, 1, '2', '3', 3.0, 4].each do |schema|
       reader.manifest['schema_version'] = schema
       assert_includes page.call, 'Receiver details unavailable'
       refute_includes page.call, '#L1'
     end
-    reader.manifest['schema_version'] = 2
-    html = page.call
-    assert_includes html, 'local &lt;x&gt; · safe navigation'
-    assert_includes html, 'Representative source'
-    assert_includes html, '#L1'
+    [3, 2].each do |schema|
+      reader.manifest['schema_version'] = schema
+      html = page.call
+      assert_includes html, 'local &lt;x&gt; · safe navigation'
+      assert_includes html, 'Representative source'
+      assert_includes html, '#L1'
+    end
     %w[self call literal expression instance_variable].each do |kind|
       name = kind == 'instance_variable' ? '@x' : nil
       tuple.replace([kind, name, false, false, loc, [0, 4, 1, 1]])
@@ -207,6 +209,41 @@ class MapCallMetadataTest < Minitest::Test
       assert_includes html, 'Receiver details unavailable'
       refute_includes html, '#L1'
     end
+  end
+
+  def test_schema_three_extended_call_objects_keep_validated_receiver_details
+    content = 'self.render'
+    fact = { 'id' => FACT_ID, 'name' => 'Demo', 'kind' => 'method', 'evidence' => 'static',
+      'path' => 'demo.rb', 'location' => {}, 'attributes' => {} }
+    opaque = Object.new
+    opaque.define_singleton_method(:to_s) { raise 'unexpected extension formatting' }
+    tuple = ['self', nil, false, false, [0, 11, 1, 1], [0, 4, 1, 1]]
+    metadata = { 'version' => 2, 'data' => tuple, 'future' => opaque }
+    link = { 'relation' => 'calls', 'target' => 'render', 'resolution' => 'unresolved',
+      'attributes' => { 'thistle_call' => metadata } }
+    reader = Reader.new(facts: [fact], links: [link], content: content)
+    reader.manifest['files'] = [{ 'path' => 'demo.rb', 'bytes' => content.bytesize, 'sha256' => Digest::SHA256.hexdigest(content) }]
+    page = -> { request(make_app(reader), '/links', query: URI.encode_www_form('id' => FACT_ID)).last }
+    [nil, 1, 2, '3', 3.0].each do |schema|
+      reader.manifest['schema_version'] = schema
+      assert_includes page.call, 'Receiver details unavailable'
+      refute_includes page.call, '#L1'
+    end
+    reader.manifest['schema_version'] = 3
+    html = page.call
+    assert_includes html, '<br>self ·'
+    assert_includes html, 'Representative source'
+    assert_includes html, '#L1'
+    assert_includes html, "generation=#{GENERATION}"
+    assert_same opaque, metadata['future']
+    assert_same tuple, metadata['data']
+    metadata['data'] = tuple[0...5]
+    assert_includes page.call, 'Receiver details unavailable'
+    refute_includes page.call, '#L1'
+    metadata['data'] = tuple
+    tuple[3] = 'false'
+    assert_includes page.call, 'Receiver details unavailable'
+    refute_includes page.call, '#L1'
   end
 
 end

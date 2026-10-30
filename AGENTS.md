@@ -166,3 +166,8 @@ code; prose instructions do not establish those properties.
 Prepare and review changes autonomously within the assigned scope. Merging,
 publishing, new credentials, and security-sensitive permission changes require
 the applicable owner authorization; existing session authorization still applies.
+
+<!-- entire-agent:begin -->
+Read .entire/agent-guide.md for this repository's workflow, source inspection, and verification guidance.
+@.entire/agent-guide.md
+<!-- entire-agent:end -->
