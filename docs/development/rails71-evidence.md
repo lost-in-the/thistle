@@ -33,8 +33,12 @@ The framework sources establish these narrow compatibility decisions:
   abstract status does not trigger schema access.
 * [7.1.6 class_attribute](https://github.com/rails/rails/blob/v7.1.6/activesupport/lib/active_support/core_ext/class/attribute.rb)
   stores values in generated public reader closures. Compare the effective
-  `__callbacks` instruction sequence with a fresh framework probe before calling
-  it. 8.1.4 keeps its existing private-reader guard. An overridden `_save_callbacks`
+  `__callbacks` reader must be a pure captured-value block: only the captured
+  argument load and return instructions are accepted, with no sends or branches.
+  A fresh probe cannot be compared by identity because 7.1 recompiles declarations.
+  The VM projection of a rejected getter is additional source-inspection work,
+  not a measured heap/RSS bound. 8.1.4 keeps its existing private-reader identity
+  guard. An overridden `_save_callbacks`
   is never called; overridden 7.1 storage becomes unavailable. Unsupported VMs
   without RubyVM instruction sequences also remain unavailable. No callback,
   condition, custom default, association scope or dispatch body is evaluated.
@@ -53,7 +57,8 @@ rejected alternatives. Reconsider these decisions only for a separately reviewed
 actual cohort/layout or a demonstrated guard limitation.
 
 The added work is constant version/owner checks and one schema lease per concrete
-model on 7.1, plus one callback reader-code probe per observer instance. Inventory,
+model on 7.1, plus a getter VM-code projection per 7.1 model or one 8.1 callback
+reader-code probe per observer instance. Inventory,
 column, association and callback work remains bounded by existing fact/entry/byte
 limits; no new process-wide cache or FFI crossing is added. Adapter checkout and
 schema introspection can establish connections, run setup/session statements and
