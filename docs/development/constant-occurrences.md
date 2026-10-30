@@ -105,6 +105,11 @@ claimed. Encoded charges are not heap/RSS measurements.
 Retained generation size grows with occurrence count and syntax length; current
 store lifecycle retains generations until removal. Reader admission, per-request
 scratch/output limits and materialization now include the added ordinary objects.
+Source still expands the complete saved file and validates its associated facts;
+following each occurrence separately can repeat that full-file work. This change
+does not introduce per-occurrence source slicing or eliminate final semantic
+materialization. Source checks compare saved syntax bytes and coordinates, not
+the asserted target's Ruby binding or a reparsed AST.
 Incoming reference scans and shared model-brief work encounter more links; Rails
 combined publication budgets also include these links and bytes, leaving less
 room for runtime observations. An input previously admitted may now refuse or
