@@ -8,6 +8,7 @@ require_relative 'highlighter'
 require_relative 'model_presenter'
 require_relative 'callback_presenter'
 require_relative 'find_presenter'
+require_relative 'references_presenter'
 
 module Thistle
   module Map
@@ -131,14 +132,24 @@ module Thistle
 
       def links
         fact = @reader.fact(@params.fetch('id'))
-        links = @reader.links(fact.fetch('id'))
+        direction = @params.fetch('direction', 'outgoing')
+        references = @reader.references(fact.fetch('id'), direction: direction) if @reader.respond_to?(:references)
+        links = direction == 'incoming' ? [] : @reader.links(fact.fetch('id'))
         page = @params.fetch('page', '1').to_i
         pages = [(links.length.to_f / PAGE_SIZE).ceil, 1].max
         raise Limit, 'This links page does not exist.' if page > pages
 
-        body = "<h1 class=\"t1\">Links from #{h(fact.fetch('name'))}</h1>" + fact_tiles(fact)
+        body = "<h1 class=\"t1\">Links for #{h(fact.fetch('name'))}</h1>" + fact_tiles(fact)
+        body += "<p><a href=\"#{h(url('/links', 'direction' => 'outgoing'))}\">Outgoing references</a> · <a href=\"#{h(url('/links', 'direction' => 'incoming'))}\">Incoming references</a></p>"
+        body += if references
+                  ReferencesPresenter.new(generation: @generation, mount: @mount).render(references)
+                else
+                  '<p class="notice ui">Recorded-reference navigation is unavailable with this Reader.</p>'
+                end
         body += '<p class="notice ui">Unresolved links are captured labels. They do not prove a runtime call or a resolved target.</p>'
-        if links.empty?
+        if direction == 'incoming'
+          # Incoming results are already selected and bounded by the native reader.
+        elsif links.empty?
           body += '<p class="ui">No links were captured for this fact. This does not prove it has no dependencies.</p>'
         else
           visible = links.slice((page - 1) * PAGE_SIZE, PAGE_SIZE)
@@ -304,6 +315,7 @@ module Thistle
 
       def url(path, extra = {})
         params = @params.reject { |key, _| key == 'page' }.merge('generation' => @generation).merge(extra)
+        params.delete('direction') unless path == '/links'
         params.delete('id') if path == '/'
         if path == '/source' && !params['id'] && params['path']
           params['file'] = FindPresenter.file_reference(params['path'])

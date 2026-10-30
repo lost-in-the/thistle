@@ -198,10 +198,12 @@ impl Reader {
             source_index: std::sync::Mutex::new(None), admission: None, schema_version: version })
     }
 
-    fn stored_fact(&self, id: &str) -> Result<&Value> {
+    pub(crate) fn stored_fact(&self, id: &str) -> Result<&Value> {
         schema::hash(id)?;
         self.by_id.get(id).map(|index| &self.facts[*index]).ok_or_else(|| CoreError::new("not_found", "Fact is absent from this generation"))
     }
+
+    pub(crate) fn schema_version(&self) -> u64 { self.schema_version }
 
     pub fn fact(&self, id: &str) -> Result<Value> {
         link_encoding::materialize_fact(self.stored_fact(id)?, self.schema_version)

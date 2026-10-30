@@ -155,12 +155,13 @@ module Thistle
         raise BadRequest, 'Too many query fields.' if pairs.length > 8
 
         pairs.each_with_object({}) do |(key, value), out|
-          raise BadRequest, 'Unknown or repeated query field.' unless %w[q id generation page path file kind prefix domain].include?(key) && !out.key?(key)
+          raise BadRequest, 'Unknown or repeated query field.' unless %w[q id generation page path file kind prefix domain direction].include?(key) && !out.key?(key)
           raise BadRequest, 'Invalid query text.' unless value.valid_encoding? && !value.include?("\0") && !value.include?("\uFFFD")
           raise BadRequest, 'Search text is too long.' if key == 'q' && value.bytesize > 256
           raise BadRequest, 'Invalid evidence identifier.' if %w[id generation file].include?(key) && !DIGEST.match?(value)
           raise BadRequest, 'Invalid page number.' if key == 'page' && !/\A[1-9][0-9]{0,3}\z/.match?(value)
 
+          raise BadRequest, 'Invalid reference direction.' if key == 'direction' && !%w[incoming outgoing].include?(value)
           raise BadRequest, 'Invalid search domain.' if key == 'domain' && !%w[all source metadata].include?(value)
           if key == 'path' && (value.empty? || value.include?('\\') || value.match?(/[[:cntrl:]]/) || value.split('/', -1).any? { |part| ['', '.', '..'].include?(part) })
             raise BadRequest, 'Choose a captured relative file path.'
