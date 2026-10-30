@@ -39,7 +39,8 @@ Schema 1 unknown metadata remains opaque, including colliding version-2 data;
 schema 2/3 recognized receiver metadata uses the existing decoder.
 
 Candidate IDs are facts in this generation whose full name matches the label.
-Duplicate static declarations and runtime observations remain separate candidates.
+Duplicate static declarations, model metadata and registered-callback observations
+remain separate named candidates; anonymous model/callback display names do not.
 Even one candidate is **name match / binding unknown**. A resolution string never
 establishes canonical identity, runtime dispatch, execution or source coherence.
 Recorded link groups are neither macro counts nor textual occurrence counts.

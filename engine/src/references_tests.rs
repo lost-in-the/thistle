@@ -122,3 +122,33 @@ fn anonymous_models_and_work_output_link_and_capture_bounds_stay_explicit() {
     assert_eq!(result["coverage"]["capture_scan_complete"],false);
     assert_eq!(result["coverage"]["capture_partial"],true);
 }
+
+#[test]
+fn registered_callback_evidence_keeps_named_ambiguity_without_synthetic_candidates() {
+    let temp = tempfile::tempdir().unwrap();
+    let mut data = fixture(3);
+    let mut observation: Value = serde_json::from_str(include_str!("../tests/fixtures/callbacks.json")).unwrap();
+    observation["models"][0]["name"] = Value::Null;
+    observation["models"][0]["superclass"] = Value::Null;
+    observation["models"][0]["save"]["entries"] = json!([]);
+    let mut named = observation["models"][0].clone();
+    named["name"] = json!("User");
+    observation["models"].as_array_mut().unwrap().push(named);
+    let context = json!({"schema_version":3,"limits":{"max_facts":100,"max_links":100,"max_entries":100,"max_diagnostics":10},
+        "facts":4,"links":2,"diagnostics":0,"fact_bytes":schema::encoded_bytes(&data["facts"],schema::MAX_FACTS_BYTES).unwrap()});
+    let batch = crate::callbacks::batch(&context, &observation).unwrap();
+    let anonymous = &batch["facts"][0];
+    let named = &batch["facts"][1];
+    data["facts"][3]["links"] = json!([
+        {"relation":"references","target":anonymous["name"],"resolution":"unresolved"},
+        {"relation":"references","target":"User","resolution":"unresolved"}]);
+    data["facts"].as_array_mut().unwrap().extend(batch["facts"].as_array().unwrap().iter().cloned());
+    store::publish(temp.path(), &data).unwrap();
+    let reader = Reader::open(temp.path(), None).unwrap();
+    let outgoing = run(&reader, 4, "outgoing", 50).unwrap();
+    assert_eq!(outgoing["relationships"][0]["candidate_matches"], 0);
+    assert_eq!(outgoing["relationships"][1]["candidate_matches"], 3);
+    assert!(outgoing["relationships"][1]["candidates"].as_array().unwrap().iter().any(|fact| fact["id"] == named["id"]));
+    let request = json!({"id":anonymous["id"],"direction":"incoming"});
+    assert!(select(&reader, &Query::parse(&request).unwrap()).unwrap()["relationships"].as_array().unwrap().is_empty());
+}

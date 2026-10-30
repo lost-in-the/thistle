@@ -37,7 +37,8 @@ fn identity(fact: &Value) -> Result<Value> {
 }
 fn candidate_name(fact: &Value) -> Option<&str> {
     // Synthetic display names for anonymous runtime models are not labels.
-    if fact["kind"] == "rails_model" && fact["attributes"]["model"]["name"].is_null() { return None; }
+    if (fact["kind"] == "rails_model" && fact["attributes"]["model"]["name"].is_null()) ||
+        (fact["kind"] == "rails_save_callbacks" && fact["attributes"]["callbacks"]["name"].is_null()) { return None; }
     fact["name"].as_str()
 }
 fn label<'a>(link: &SemanticLinkView<'a>) -> Option<&'a str> {

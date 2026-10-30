@@ -174,16 +174,17 @@ result = Dir.mktmpdir('thistle-map-installed-') do |directory|
   references_journey = nil
   if model_reader.respond_to?(:references)
     item = by_name.fetch('ModelFixture::Item')
-    static_item = model_reader.find('ModelFixture::Item').find do |row|
-      row['kind'] == 'class' && row['name'] == 'ModelFixture::Item'
-    end
-    raise 'Captured Item identity missing' unless static_item
+    item_evidence = model_reader.find('ModelFixture::Item').select { |row| row['name'] == 'ModelFixture::Item' }
+    static_item = item_evidence.find { |row| row['kind'] == 'class' }
+    callback_item = item_evidence.find { |row| row['kind'] == 'rails_save_callbacks' }
+    raise 'Captured Item or registered-callback identity missing' unless static_item && callback_item
     outgoing = model_reader.references(order.fetch('id'))
     association = outgoing.fetch('relationships').find { |row| row.dig('link', 'attributes', 'association') == 'items' }
-    raise 'Installed outgoing references lost ambiguity' unless association &&
+    raise "Installed outgoing references lost ambiguity: #{association&.slice('candidate_label', 'candidate_matches', 'match_basis', 'candidate_search_complete')}" unless association &&
       outgoing.fetch('generation') == model_generation && association['candidate_label'] == 'ModelFixture::Item' &&
       association['match_basis'] == 'recorded_outgoing_binding_unknown' && association['candidate_search_complete'] &&
-      association.fetch('candidates').map { |row| row.fetch('id') }.sort == [item.fetch('id'), static_item.fetch('id')].sort
+      association.fetch('candidate_matches') == 3 &&
+      association.fetch('candidates').map { |row| row.fetch('id') }.sort == [item.fetch('id'), static_item.fetch('id'), callback_item.fetch('id')].sort
     incoming = model_reader.references(item.fetch('id'), direction: 'incoming')
     raise 'Installed incoming references lost the registered association' unless incoming.fetch('generation') == model_generation &&
       incoming.fetch('relationships').any? { |row| row.dig('origin', 'id') == order.fetch('id') &&
@@ -191,7 +192,7 @@ result = Dir.mktmpdir('thistle-map-installed-') do |directory|
     status, _, body = model_app.call(env.merge('PATH_INFO' => '/links', 'QUERY_STRING' => model_query))
     reference_html = body.each.to_a.join
     raise 'Installed reference display lost uncertainty' unless status == 200 && reference_html.include?('binding unknown') &&
-      reference_html.include?('2 known name-match candidates') && reference_html.include?('No captured source')
+      reference_html.include?('3 known name-match candidates') && reference_html.include?('No captured source')
     source_uri = reference_html.scan(/href="([^"]+)"/).flatten.map { |href| URI.parse(CGI.unescapeHTML(href)) }.find do |uri|
       params = URI.decode_www_form(uri.query.to_s).to_h
       uri.path == '/source' && params['id'] == static_item.fetch('id') && params['generation'] == model_generation
