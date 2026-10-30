@@ -4,6 +4,7 @@ mod fs;
 mod model;
 mod callbacks;
 mod callback_effects;
+mod method_lookup;
 mod references;
 mod link_encoding;
 mod schema;

@@ -111,6 +111,12 @@ module Thistle
         if coverage['truncated'] || !coverage['declaration_scan_complete']
           body << notice("Explanation incomplete: #{coverage.fetch('rows_not_searched')} rows not searched; #{coverage.fetch('rows_metadata_omitted')} metadata rows and #{coverage.fetch('rows_output_omitted')} output rows omitted. Possible effects remain unknown.")
         end
+        if coverage.dig('method_directory', 'status') == 'complete' && coverage['declaration_scan_complete']
+          body << notice('Captured method candidate lookup completed for selected callbacks; original capture coverage is separate.')
+        end
+        if coverage.fetch('source_rows_not_searched', 0).positive?
+          body << notice("Source evidence not searched for #{coverage.fetch('source_rows_not_searched')} returned callbacks; possible effects remain unknown.")
+        end
         body << notice('Capture is partial or unknown; searched source cannot establish all possible effects.') if coverage['capture_partial_or_unknown']
         body + '</section>'
       end

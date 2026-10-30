@@ -146,6 +146,9 @@ pub struct Reader {
     blobs: Dir,
     pub(crate) source_index: std::sync::Mutex<Option<crate::query::Index>>,
     pub(crate) admission: Option<crate::query::Reservation>,
+    method_counts: crate::method_lookup::Counts,
+    method_open_bytes: (usize, usize),
+    method_directory: std::sync::Mutex<Option<crate::method_lookup::Directory>>,
     schema_version: u64,
 }
 
@@ -189,13 +192,38 @@ impl Reader {
         let by_id = facts.iter().enumerate().map(|(index, value)| (value["id"].as_str().unwrap().to_string(), index)).collect();
         let by_path = files.iter().map(|file| (file["path"].as_str().unwrap().to_string(), file.clone())).collect();
         let mut by_file: HashMap<String, Vec<usize>> = HashMap::new();
+        let mut method_counts = crate::method_lookup::Counts::default();
         for (index, fact) in facts.iter().enumerate() {
+            method_counts.record(fact)?;
             if let Some(path) = fact["path"].as_str() { by_file.entry(path.to_string()).or_default().push(index); }
         }
         let blobs = root.child("blobs", false)?;
         let (search, weight) = search_cache(&facts, facts_bytes.len(), manifest_bytes.len())?;
         Ok(Self { manifest, generation, facts, weight, by_id, by_path, by_file, search, blobs,
-            source_index: std::sync::Mutex::new(None), admission: None, schema_version: version })
+            source_index: std::sync::Mutex::new(None), admission: None, schema_version: version,
+            method_counts, method_open_bytes: (facts_bytes.len(), manifest_bytes.len()), method_directory: std::sync::Mutex::new(None) })
+    }
+
+    pub(crate) fn method_lookup_baseline(&self) -> Value {
+        let facts = self.facts.len();
+        json!({"facts":facts,"facts_json_bytes":self.method_open_bytes.0,"manifest_json_bytes":self.method_open_bytes.1,
+            "reader_admission_bytes":self.weight,"eligible_methods":self.method_counts.methods,
+            "eligible_key_bytes":self.method_counts.key_bytes,"completed_open_fact_passes":{
+                "depth":facts,"stored_fact_validation":facts,"by_id":facts,"by_file_and_method_counts":facts,"legacy_search_cache":facts},
+            "accounting":"Existing encoded-data/search admission, not complete heap or RSS; method directory reserved separately"})
+    }
+
+    /// Initialization and candidate-position copying only; callers release this
+    /// lock before source I/O, validation or response construction.
+    pub(crate) fn with_method_directory<T>(&self, budget: &std::sync::Arc<crate::query::Budget>,
+        select: impl FnOnce(&crate::method_lookup::Directory, bool) -> T) -> Result<T> {
+        let mut directory = self.method_directory.lock()
+            .map_err(|_| CoreError::new("internal_error", "Method directory lock unavailable"))?;
+        let built = directory.is_none();
+        if built {
+            *directory = Some(crate::method_lookup::Directory::build(&self.facts, self.method_counts, budget)?);
+        }
+        Ok(select(directory.as_ref().unwrap(), built))
     }
 
     pub(crate) fn stored_fact(&self, id: &str) -> Result<&Value> {

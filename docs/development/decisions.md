@@ -606,3 +606,27 @@ for all caps and source/dispatch limitations. No performance/RSS improvement is
 claimed. Reconsider only for another independently specified effect form or
 observed exact-artifact workload evidence that justifies another bounded
 representation; expanding runtime observation or schema needs its own scope.
+
+
+## Saved callback method positions beyond the all-fact query boundary (LOS-64)
+
+Use a lazy, Reader-owned fixed-key directory of static instance-method fact
+positions. The existing open-time indexing pass counts eligible methods/key bytes;
+first demand separately reserves actual slot/container capacity from the existing
+aggregate admission budget, then explicitly charges complete construction and
+in-place std sorting. Exact borrowed labels still resolve digest collisions;
+incomplete/unresolved declarations still prevent false unique binding. Publish
+only complete directories, retry transient refusal, and release the narrow lock
+before source I/O. Each fresh Reader rebuilds and charges its own retention.
+
+The maintained sha2 crate and std Vec/sort primitives already fit this narrow
+in-memory need; no new dependency or general indexing framework is justified.
+The old bounded scan has the lowest maintenance cost but cannot reach a known
+saved method after ordinal 20,050. Existing by-file lookup misses duplicates in
+other paths. Raising caps or filtering for free hides work; resumable scans add
+uniqueness/session state across short-lived Readers. Fixed digests/positions avoid
+retained label/Value copies at the cost of one full construction and O(D) slots
+per demanded Reader. Recorded counters/capacities are not RSS or speed evidence.
+Reconsider if measured complete open/reopen cost, concurrent retention, or refusal
+rates prevent useful customer outcomes. Keep current capture/query/source limits,
+strict evidence guards and unknown runtime coherence; all17 remain unqualified.

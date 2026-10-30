@@ -171,6 +171,20 @@ class ThistleCallbackEffectsPresenterTest < Minitest::Test
     assert_includes html, 'Possible effects remain unknown'
   end
 
+  def test_complete_candidate_lookup_preserves_capture_partiality_and_unsearched_source
+    result = response
+    result.fetch('coverage').merge!('truncated' => false, 'declaration_scan_complete' => true,
+      'method_directory' => { 'status' => 'complete' }, 'source_rows_not_searched' => 1)
+    html = render(EffectsReader.new(response: result))
+    assert_includes html, 'Captured method candidate lookup completed'
+    assert_includes html, 'original capture coverage is separate'
+    assert_includes html, 'Capture is partial or unknown'
+    assert_includes html, 'Source evidence not searched for 1 returned callbacks'
+    refute_includes html, 'Explanation incomplete:'
+    assert_includes html, "generation=#{GENERATION}"
+    assert_includes html, 'runtime/source coherence unknown'
+  end
+
   def test_only_missing_api_and_resource_refusals_become_optional_unavailability
     assert_includes render(nil), 'Reader callback_effects API unavailable'
     assert_includes render(EffectsReader.new(error: Thistle::LimitExceeded.new('full'))), 'resource limit'
