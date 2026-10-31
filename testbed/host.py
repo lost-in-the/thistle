@@ -475,8 +475,9 @@ class Host:
 
     def host_probe(self, path='/orders/1', expected_generation=None):
         opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-        request = urllib.request.Request(f'http://127.0.0.1:{self.config["host_port"]}{path}',
-                                         headers={'Host': f'localhost:{self.config["host_port"]}'})
+        # Probe the advertised URL as a browser would, without substituting its
+        # Host header. Both Rails and Map must accept this actual loopback host.
+        request = urllib.request.Request(f'http://127.0.0.1:{self.config["host_port"]}{path}')
         with opener.open(request, timeout=3) as response:
             body = response.read(1024 * 1024 + 1)
             require(response.status == 200 and len(body) <= 1024 * 1024, 'Host URL failed')

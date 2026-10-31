@@ -12,7 +12,7 @@ module ReusableHost
     config.eager_load = false
     config.enable_reloading = false
     config.secret_key_base = 'testbed-only-no-user-sessions-' * 4
-    config.hosts = ['localhost']
+    config.hosts = ['localhost', '127.0.0.1']
     config.logger = Logger.new(File::NULL)
     config.active_record.dump_schema_after_migration = false
     config.paths['log'] = '/work/rails.log'

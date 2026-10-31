@@ -50,21 +50,25 @@ selected tuple is checked before candidate execution:
 | Core 0.1.0.pre.3 source gem | `469a6966b0cfb6f5b307fca52af206d8ce32aa5bf53052fda2cf03a7bce4b942` |
 | Actually loaded Core native, 6,124,976 bytes | `4bee13087b17eb7aeb0e7ef606c7c0879d817e309e6acb2a09d520bd4c5f888e` |
 | Original Core gemspec | `34949a0a21a1d1b8f84219d8bdd1b198e9eba5ffb2ced01ef70136b261351a08` |
-| F05 Map from source 40a2809419987b824d5a7abccbd14c666fc249a5 | `3f18336f34cea30361aab62631c0dbe3ebd44f81832a7078259ae04f6fa498ff` |
+| Current F05 Map from source 77c871274de68985a5964d2206b8a637824db97c | `68d1947fbab7e1065b031297af86786fce8a2ba18f1560c8f5fae30383bb57fa` |
 
-That Map row is the **original** supplied binding and keeps its prior evidence.
-Root's subsequent incoming-large-source correction produced distinct Map bytes
-`28fbb1378c5fd98860022c2b5776f4b250bacb276911253a007fea1f62d18216`
-from exact staged source tree `2e9184d8f9fe1af07b465fe849d094a2aef4ce2e`.
-Root reported source26/428 and changed-installed-Map10/183 passing for that
-tuple; those results are parent evidence, not this host's execution. Root's
-signed parent handback is `67f1a4b670b949a65f4fbfaae70c1844fde7d65b`, with
-that exact tree. The example selects this new digest/tree/commit. Before runtime, the private
-`map_candidate` source SHA/tree/digest and matching `artifacts.map.gem` must agree
-with that actual handback. The controller records and
-verifies that explicit selected binding, and the installed check requires F05
-presentation plus its two-site known answers. It never aliases a new package
-to the old digest or changes the protected parent files/PR base itself.
+The example selects signed parent `77c871274de68985a5964d2206b8a637824db97c`,
+tree `acf4db3d5c77e232a0043d2768bb349ba4cda3eb`. It includes both incoming
+source-budget corrections, retaining unknown line eligibility as an explicit
+CLI fallback rather than an unchecked web anchor. Root's current parent checks
+are source26/461 and changed-installed-Map10/216 passing; those are parent
+artifact evidence, **not this Rails host's execution**.
+
+Historical supplied Map `3f18336f34cea30361aab62631c0dbe3ebd44f81832a7078259ae04f6fa498ff`
+belongs to source40a. The intermediate byte-limit correction produced
+Map `28fbb1378c5fd98860022c2b5776f4b250bacb276911253a007fea1f62d18216`
+at source67f/tree2e9184, with source26/428 and installed10/183 checks.
+Keep those original tuples and results separate.
+
+Before runtime, private `map_candidate` SHA/tree/digest and matching
+`artifacts.map.gem` must agree with the actual handback. The controller records
+and verifies this selected binding; installed checks require F05 presentation
+and its two-site known answers. A new package never aliases an old digest.
 
 The operator supplies a **new actual host lock** containing Map and Puma, an
 exact preassembled installed dependency home mounted read-only at `/dependencies`,

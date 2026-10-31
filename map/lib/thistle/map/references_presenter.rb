@@ -32,8 +32,12 @@ module Thistle
           origin, link = row.fetch('origin'), row.fetch('link')
           body << "<article><h3>#{h(link.fetch('relation'))}: #{h(link.fetch('target'))}</h3>"
           body << "<p>Recorded at #{navigation(origin, candidate: false)} · #{source(origin)} · #{h(origin.fetch('evidence'))}; recorded resolution #{h(link.fetch('resolution'))}.</p>"
+          bytes = sizes[origin['path']]
+          # The manifest has bytes, not newline counts. At most 10,000 bytes
+          # proves at most 10,000 lines. Otherwise keep eligibility unknown;
+          # do not expand Source per row or emit a potentially unusable anchor.
           body << @occurrences.render(link, origin: origin, detail_omitted: row.fetch('detail_omitted'),
-            source_bytes: sizes[origin['path']])
+            source_bytes: bytes, line_budget_unknown: bytes.nil? || bytes > ConstantOccurrence::WEB_SOURCE_LINES)
           body << "<p>Link detail omitted by display budget. Follow the recorded origin's Links page for captured details.</p>" if row.fetch('detail_omitted')
           candidates = row.fetch('candidates')
           body << "<p>#{row.fetch('candidate_matches')} known name-match candidates; binding unknown. "

@@ -424,7 +424,8 @@ class LifecycleTest(unittest.TestCase):
             result = self.controller.host_probe()
             request = opener.return_value.open.call_args.args[0]
             self.assertEqual('http://127.0.0.1:19292/orders/1', request.full_url)
-            self.assertEqual('localhost:19292', request.headers['Host'])
+            self.assertEqual('127.0.0.1:19292', request.host)
+            self.assertNotIn('Host', request.headers)
             self.assertEqual('passed', result['status'])
         response = io.BytesIO(b'wrong generation')
         response.status = 200

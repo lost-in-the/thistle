@@ -11,12 +11,15 @@
   },
   "puma_version": "8.0.2",
   "map_candidate": {
-    "source_sha": "67f1a4b670b949a65f4fbfaae70c1844fde7d65b",
-    "source_tree": "2e9184d8f9fe1af07b465fe849d094a2aef4ce2e",
-    "sha256": "28fbb1378c5fd98860022c2b5776f4b250bacb276911253a007fea1f62d18216"
+    "source_sha": "77c871274de68985a5964d2206b8a637824db97c",
+    "source_tree": "acf4db3d5c77e232a0043d2768bb349ba4cda3eb",
+    "sha256": "68d1947fbab7e1065b031297af86786fce8a2ba18f1560c8f5fae30383bb57fa"
   },
   "host_port": 19292,
-  "host_socat": {"path": "/usr/bin/socat", "sha256": "REQUIRED_INSTALLED_HOST_SOCAT_SHA256"},
+  "host_socat": {
+    "path": "/usr/bin/socat",
+    "sha256": "REQUIRED_INSTALLED_HOST_SOCAT_SHA256"
+  },
   "mysql_image": "docker.io/library/mysql@sha256:5cf1e1293ea42e077e6a22114e6773b9aae3bb8f9933a2acd5a9721518ff8f5b",
   "mysqld": "/usr/sbin/mysqld",
   "mysql_data": "/absolute/private/retained-mysql/data",
@@ -33,7 +36,7 @@
     },
     "map.gem": {
       "path": "/absolute/retained/map.gem",
-      "sha256": "28fbb1378c5fd98860022c2b5776f4b250bacb276911253a007fea1f62d18216",
+      "sha256": "68d1947fbab7e1065b031297af86786fce8a2ba18f1560c8f5fae30383bb57fa",
       "size": 0
     },
     "native.so": {
