@@ -72,7 +72,7 @@ class InvestigationAppTest < Minitest::Test
     opened = 0
     app = Thistle::Map::App.new(store: '/unused', reader_factory: ->(*) { opened += 1; raise 'Must not open' })
     invalid = ['', 'selection=', "selection=#{FACT_ID}", "generation=CURRENT", "generation=#{GENERATION}&selection=../file",
-      "#{query}&selection=#{FACT_ID}", query([FACT_ID, FACT_ID]), "#{query}&note=private", "#{query}&q=secret", "#{query}&path=lib/a.rb",
+      "#{query}&selection=#{FACT_ID}", query([FACT_ID, FACT_ID]), "#{query}&note=private", "#{query}&path=lib/a.rb",
       "#{query}&token=bearer", "#{query}&selection=%FF", "#{query}&bad=%ZZ", 'x' * 4097]
     invalid.each do |text|
       status, = request(app, '/investigation', query: text)
@@ -128,8 +128,10 @@ class InvestigationAppTest < Minitest::Test
     app = make_app
     _, _, source = request(app, '/source', query: "id=#{FACT_ID}&generation=#{GENERATION}")
     assert_includes source, 'Collect in investigation'
-    href = source.scan(/href="([^"]+)"/).flatten.map { |value| CGI.unescapeHTML(value) }.find { |value| value.start_with?('/investigation?') && value.include?('selection=' + FACT_ID) }
-    assert_equal({ 'generation' => GENERATION, 'selection' => FACT_ID }, URI.decode_www_form(URI.parse(href).query).to_h)
+    href = source[/<a href="([^"]+)">Collect in investigation<\/a>/, 1]
+    target = URI.parse(CGI.unescapeHTML(href))
+    assert_equal '/source', target.path
+    assert_equal({ 'generation' => GENERATION, 'selection' => FACT_ID, 'id' => FACT_ID }, URI.decode_www_form(target.query).to_h)
     _, _, selected = request(app, '/source', query: "id=#{FACT_ID}&#{query}")
     assert_includes selected, 'Remove from investigation'
     assert_includes selected, "name=\"selection\" value=\"#{FACT_ID}\""

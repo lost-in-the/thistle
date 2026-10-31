@@ -99,7 +99,7 @@ class InvestigationTest < Minitest::Test
 
   def test_escaped_output_growth_and_identity_size_refuse_instead_of_truncating
     assert_raises(Selection::Limit) do
-      Presenter.new(selection: selection(IDS.first(1))).render { |id| identity(id, name: '<' * 33_000) }
+      Presenter.new(selection: selection(IDS.first(1))).render { |id| identity(id, name: '<' * 100_000) }
     end
     calls = 0
     assert_raises(Selection::Limit) do
@@ -163,6 +163,20 @@ class InvestigationTest < Minitest::Test
     end
     evidence = Thistle::Map::InvestigationEvidence.new(reader: reader, selection: selection)
     assert_raises(Selection::Limit) { evidence.fetch(IDS.first) }
+  end
+
+  def test_saved_control_character_name_is_visible_and_collection_remains_removable
+    reader = CompactReader.new(GENERATION) do |id|
+      { 'generation' => GENERATION, 'fact' => compact_identity(id).merge('name' => "Order\t<script>\u0001") }
+    end
+    saved = selection(IDS.first(1))
+    evidence = Thistle::Map::InvestigationEvidence.new(reader: reader, selection: saved)
+    html = Presenter.new(selection: saved).render { |id| evidence.fetch(id) }
+    assert_includes html, 'Order\\u0009&lt;script&gt;\\u0001'
+    assert_includes html, 'Remove Order\\u0009&lt;script&gt;\\u0001 from investigation'
+    refute_includes html, '<script>'
+    href = html.scan(/href="([^"]+)"/).flatten.map { |url| URI.parse(CGI.unescapeHTML(url)) }.last
+    assert_equal '', URI.decode_www_form(href.query).to_h.fetch('selection', '')
   end
 
   def test_total_identity_work_is_at_most_24_indexed_lookups

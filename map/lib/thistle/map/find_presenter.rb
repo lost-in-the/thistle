@@ -3,7 +3,7 @@
 require 'erb'
 require 'uri'
 require 'digest'
-require_relative 'investigation'
+require_relative 'navigation_context'
 
 module Thistle
   module Map
@@ -11,20 +11,18 @@ module Thistle
     # surrounding layout remain the application's responsibility.
     class FindPresenter
       MAX_QUERY_BYTES = Investigation::MAX_QUERY_BYTES
-      SEARCH_FIELDS = %w[q domain kind prefix].freeze
+      SEARCH_FIELDS = NavigationContext::SEARCH_FIELDS
 
       # The generation selects the manifest; this fixed-size key selects its path.
       def self.file_reference(path)
         Digest::SHA256.hexdigest(path)
       end
 
-      def initialize(generation:, mount: '', search: {}, selection: nil)
+      def initialize(generation:, mount: '', search: {}, selection: nil, navigation: nil)
         @generation = generation
-        @mount = mount
-        @search = search.slice(*SEARCH_FIELDS)
-        @selection = selection
         raise ArgumentError, 'Find selection must be normalized investigation state' if selection && !selection.instance_of?(Investigation)
         raise ArgumentError, 'Find selection generation mismatch' if selection && selection.generation != generation
+        @navigation = navigation || NavigationContext.new(generation: generation, mount: mount, params: search, selection: selection)
       end
 
       def render(result)
@@ -70,8 +68,7 @@ module Thistle
         raise ArgumentError, 'Invalid Find origin' unless %w[source metadata].include?(origin)
         path = match['path']
         name = match['name'] || path || 'Source unavailable'
-        params = { 'generation' => @generation }
-        params.merge!(@selection.parameters) if @selection && !@selection.ids.empty?
+        params = {}
         anchor = ''
         if origin == 'source'
           span = match.fetch('span')
@@ -85,15 +82,9 @@ module Thistle
           params['file'] = self.class.file_reference(path)
         end
         title = if params.key?('file') || params.key?('id')
-          query = URI.encode_www_form(params.merge(@search))
-          # A valid Find query can already occupy the entire request budget.
-          # Keep Source usable without emitting an invalid URL or hiding the loss.
-          context_omitted = query.bytesize > MAX_QUERY_BYTES
-          query = URI.encode_www_form(params) if context_omitted
-          raise Investigation::Limit, 'Find destination exceeds the URL budget; no selections were removed.' if query.bytesize > MAX_QUERY_BYTES
-          href = "#{@mount}/source?#{query}#{anchor}"
+          href = @navigation.url('/source', params) + anchor
           link = "<a data-result-link href=\"#{h(href)}\">#{h(name)}</a>"
-          link += '<small>Search context exceeds the link budget; use Back to return to these results.</small>' if context_omitted
+          link += '<small>Search context exceeds the link budget; use Back to return to these results.</small>' if @navigation.search_omitted
           link
         else
           h(name)

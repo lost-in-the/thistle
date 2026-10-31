@@ -49,12 +49,17 @@ module Thistle
           content, type = @assets.fetch(path)
           return finish(env, 200, content, type: type)
         end
-        return finish(env, 404, 'This page does not exist.') unless %w[/ /source /links /check /investigation].include?(path)
+        continuation_path = /\A\/(?:brief\/(?:columns|associations|registry_candidates)|references\/(?:incoming|outgoing))\z/.match?(path)
+        return finish(env, 404, 'This page does not exist.') unless continuation_path || %w[/ /source /links /check /investigation].include?(path)
 
         mount = mount_path(env)
         params = parameters(env.fetch('QUERY_STRING', ''))
-        if path == '/investigation' && (params.keys - %w[generation selection]).any?
-          raise BadRequest, 'Investigation URLs accept only saved generation and fact selections.'
+        if path == '/investigation' && (params.keys - (%w[generation selection] + NavigationContext::SEARCH_FIELDS)).any?
+          raise BadRequest, 'Investigation accepts only saved selection and bounded search context.'
+        end
+        continuation = NavigationContext.continuation(path, params) if continuation_path
+        if !continuation_path && (params.key?('cursor') || params.key?('candidate'))
+          raise BadRequest, 'Continuation controls require a dedicated evidence page.'
         end
         selection = Investigation.from_params(params) if path == '/investigation' || params.key?('selection')
         if (path == '/links' && !params['id']) || (path == '/source' && %w[id path file].count { |key| params.key?(key) } != 1)
@@ -83,13 +88,17 @@ module Thistle
           params.delete('file')
         end
         selection ||= Investigation.new(generation: reader.generation)
-        view = View.new(reader: reader, mount: mount, params: params, selection: selection)
-        content = case path
-                  when '/' then view.find
-                  when '/source' then params['path'] ? view.source_file : view.source
-                  when '/links' then view.links
-                  when '/check' then view.check
-                  when '/investigation' then view.investigation
+        view = View.new(reader: reader, mount: mount, params: params, selection: selection, path: path)
+        content = if continuation
+                    continuation[:family] ? view.brief_page(continuation[:family]) : view.references_page(continuation)
+                  else
+                    case path
+                    when '/' then view.find
+                    when '/source' then params['path'] ? view.source_file : view.source
+                    when '/links' then view.links
+                    when '/check' then view.check
+                    when '/investigation' then view.investigation
+                    end
                   end
         finish(env, 200, content, type: 'text/html; charset=utf-8')
       rescue BadRequest, Investigation::Invalid => e
@@ -158,10 +167,10 @@ module Thistle
         raise BadRequest, 'Malformed query encoding.' if /%(?![0-9a-f]{2})/i.match?(query)
 
         pairs = URI.decode_www_form(query, Encoding::UTF_8)
-        raise BadRequest, 'Too many query fields.' if pairs.length > 9
+        raise BadRequest, 'Too many query fields.' if pairs.length > NavigationContext::MAX_FIELDS
 
         pairs.each_with_object({}) do |(key, value), out|
-          raise BadRequest, 'Unknown or repeated query field.' unless %w[q id generation page path file kind prefix domain direction selection].include?(key) && !out.key?(key)
+          raise BadRequest, 'Unknown or repeated query field.' unless %w[q id generation page path file kind prefix domain direction selection cursor candidate].include?(key) && !out.key?(key)
           raise BadRequest, 'Invalid query text.' unless value.valid_encoding? && !value.include?("\0") && !value.include?("\uFFFD")
           raise BadRequest, 'Search text is too long.' if key == 'q' && value.bytesize > 256
           raise BadRequest, 'Invalid evidence identifier.' if %w[id generation file].include?(key) && !DIGEST.match?(value)

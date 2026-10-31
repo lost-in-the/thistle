@@ -2,17 +2,18 @@
 
 require 'erb'
 require_relative 'investigation'
+require_relative 'navigation_context'
 
 module Thistle
   module Map
     # Renders compact saved identities only. Reader selection belongs to Core.
     class InvestigationPresenter
-      MAX_IDENTITY_BYTES = 32_768
       MAX_OUTPUT_BYTES = 262_144
       MAX_PAGE_BYTES = 327_680
 
-      def initialize(selection:, mount: '')
+      def initialize(selection:, mount: '', navigation: nil)
         @selection, @mount = selection, mount
+        @navigation = navigation || NavigationContext.new(generation: selection.generation, mount: mount, selection: selection)
       end
 
       def render
@@ -28,7 +29,6 @@ module Thistle
           identity = yield(id)
           body << '<li><article>'
           if identity
-            validate_identity!(identity, id)
             body << "<h2 class=\"t2\">#{h(identity.fetch('name'))}</h2><p>#{h(identity.fetch('kind'))} · #{h(identity.fetch('evidence'))} evidence</p>"
             path = identity['path']
             body << "<p>#{h(path || 'No captured file or line')}#{identity.dig('location', 'start_line') ? ":#{h(identity.dig('location', 'start_line'))}" : ''}</p>"
@@ -39,7 +39,8 @@ module Thistle
           else
             body << '<h2 class="t2">Missing selection</h2><p>This fact is absent from the selected saved generation. It remains in the focus URL; no replacement or binding was inferred.</p>'
           end
-          body << "<p class=\"digest\">Fact ID <code>#{h(id)}</code></p><p><a href=\"#{h(@selection.remove(id).url(@mount))}\">Remove #{h(identity ? identity.fetch('name') : id)} from investigation</a></p>"
+          target = @navigation.url('/investigation', selection: @selection.remove(id))
+          body << "<p class=\"digest\">Fact ID <code>#{h(id)}</code></p><p><a href=\"#{h(target)}\">Remove #{h(identity ? identity.fetch('name') : id)} from investigation</a></p>"
           body << '</article></li>'
           raise Investigation::Limit, 'Investigation exceeds its rendered output budget; no partial page was returned.' if body.bytesize > MAX_OUTPUT_BYTES
         end
@@ -52,28 +53,13 @@ module Thistle
       private
 
       def evidence_url(path, params)
-        "#{@mount}#{path}?#{Investigation.query(params)}"
-      end
-
-      def validate_identity!(identity, id)
-        valid = identity.instance_of?(Hash) && identity['id'] == id &&
-          %w[name kind evidence].all? { |key| text?(identity[key]) } &&
-          (identity['path'].nil? || text?(identity['path']))
-        location = identity['location']
-        valid &&= location.nil? || (location.instance_of?(Hash) && %w[start_line end_line].all? do |key|
-          location[key].instance_of?(Integer) && location[key].positive? && location[key] <= 4_194_305
-        end)
-        raise Thistle::InvalidSnapshot, 'Invalid investigation identity' unless valid
-        bytes = %w[id name kind evidence path].sum { |key| identity[key]&.bytesize || 0 }
-        raise Investigation::Limit, 'Investigation identity exceeds the compact display budget.' if bytes > MAX_IDENTITY_BYTES
-      end
-
-      def text?(value)
-        value.instance_of?(String) && value.valid_encoding? && !value.match?(/[[:cntrl:]]/)
+        @navigation.url(path, 'id' => params.fetch('id'))
       end
 
       def h(value)
-        ERB::Util.html_escape(value.to_s)
+        # Saved identity text can legitimately contain controls. Display them
+        # literally without refusing the collection or hiding its Remove links.
+        ERB::Util.html_escape(value.to_s.gsub(/[[:cntrl:]]/) { |char| format('\\u%04x', char.ord) })
       end
     end
   end

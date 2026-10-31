@@ -93,12 +93,9 @@ class FindSourceTest < Minitest::Test
     navigation.scan(/href="([^"]+)"/).flatten.each do |href|
       target = URI.parse(CGI.unescapeHTML(href))
       params = URI.decode_www_form(target.query).to_h
-      if target.path == '/investigation'
-        # The dedicated focus URL is generation + IDs only, never Find text.
-        assert_equal({ 'generation' => GENERATION, 'selection' => '' }, params)
-      else
-        assert_equal context, params.slice(*context.keys)
-      end
+      # Ordinary resume navigation retains search; only the separately labelled
+      # Reopen/share focus URL omits it (covered by NavigationJourneyTest).
+      assert_equal context, params.slice(*context.keys)
       refute params.key?('path')
       assert_equal target.path == '/source', params.key?('file')
       assert_equal 200, request(app, target.path, query: target.query).first
