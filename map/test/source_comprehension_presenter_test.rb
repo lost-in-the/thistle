@@ -22,7 +22,7 @@ class SourceComprehensionPresenterTest < Minitest::Test
         'callers' => { 'operation' => 'references', 'id' => ID, 'generation' => GENERATION, 'direction' => 'incoming' } }] }
   end
 
-  def render(data = projection, sources: nil)
+  def render(data = projection, sources: nil, states: {})
     content = "# header\ndef label\n  '<script>雪</script>'\nend\n"
     sources ||= { ID => { 'fact' => data['contributions'][0]['fact'].dup, 'content' => content,
       'sha256' => Digest::SHA256.hexdigest(content), 'generation' => GENERATION } }
@@ -39,7 +39,7 @@ class SourceComprehensionPresenterTest < Minitest::Test
       destinations << ['typed-continuation', selector]
       '/root-admitted-continuation'
     end
-    Presenter.new(projection: data, sources: sources, navigation: navigation, highlighter: highlighter, continuation_url: continuation_url).render
+    Presenter.new(projection: data, sources: sources, source_states: states, navigation: navigation, highlighter: highlighter, continuation_url: continuation_url).render
   end
 
   def test_code_is_primary_and_physical_lines_and_injected_destinations_are_preserved
@@ -50,6 +50,7 @@ class SourceComprehensionPresenterTest < Minitest::Test
     assert_includes html, '&lt;script&gt;雪&lt;/script&gt;'
     refute_includes html, '<script>'
     assert_operator html.index('class="cv codeview"'), :<, html.index('Ownership, provenance and coverage')
+    assert_operator html.index('class="cv codeview"'), :<, html.index('Owner and method outline')
     assert_includes html, 'href="/from-shared-authority?kept=&quot;q&amp;selection&quot;"'
     assert @destinations.all? { |_, extras| extras.fetch('id') == ID && !extras.key?('generation') }
     assert @destinations.any? { |path, extras| path == '/links' && extras['direction'] == 'incoming' }
@@ -59,10 +60,17 @@ class SourceComprehensionPresenterTest < Minitest::Test
 
   def test_unavailable_source_does_not_become_an_empty_or_effective_file
     html = render(sources: {})
-    assert_includes html, 'source unavailable or not admitted'
+    assert_includes html, 'source unavailable'
     assert_includes html, 'Open exact Source'
     refute_includes html, 'class="cv codeview"'
     assert_includes html, 'not a concatenated effective runtime class'
+  end
+
+  def test_not_admitted_is_distinct_from_missing_source
+    html = render(sources: {}, states: { ID => { 'status' => 'not_admitted', 'reason' => 'Line bound not admitted.' } })
+    assert_includes html, 'source not admitted on this page'
+    refute_includes html, 'Order#label: source unavailable'
+    assert_includes html, 'Line bound not admitted.'
   end
 
   def test_unknown_generation_digest_status_and_oversize_are_refused

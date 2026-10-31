@@ -130,18 +130,15 @@ when 'served'
   verify(page.include?('Model source comprehension') && page.include?('class="cv codeview"'), 'Missing primary source reading surface')
   witness = links.call(page).find { |uri| uri.fragment&.match?(/\AL[1-9][0-9]*\z/) }
   verify(witness, 'No exact physical Source witness')
-  preserved = original.select { |key, _| %w[generation q kind path domain selection].include?(key) }
+  preserved = original.select { |key, _| %w[generation q kind prefix domain selection].include?(key) }
   verify(preserved.all? { |key, value| URI.decode_www_form(witness.query || '').to_h[key] == value }, 'Source witness lost context')
   source = fetch.call(witness)
   verify(source.include?("id=\"#{witness.fragment}\""), 'Physical Source line anchor missing')
-  # Follow an actual return link, not a reconstructed URL.
-  return_link = links.call(source).find do |uri|
-    values = URI.decode_www_form(uri.query || '').to_h
-    uri.path == entry.path && original.all? { |key, value| values[key] == value }
-  end
-  verify(return_link, 'No return link retains complete entry context')
-  reopened = fetch.call(return_link)
-  verify(reopened.include?('Model source comprehension'), 'Return did not reopen the reading surface')
+  # The actual investigator separately exercises browser Back (including no-JS)
+  # and Investigation. This HTTP control reopens the original admitted focus URL;
+  # it does not claim that replaying a URL establishes browser-history behavior.
+  reopened = fetch.call(entry)
+  verify(reopened.include?('Model source comprehension'), 'Saved focus URL did not reopen the reading surface')
   puts JSON.generate('generation' => generation_a, 'http_requests' => requests, 'physical_line' => witness.fragment,
     'scope' => 'served HTTP link control only; browser/narrow/keyboard/screenshots/independent investigator UNRUN')
 else

@@ -1,8 +1,8 @@
 # Read a saved model and its contributions — LOS-147
 
-Status: Core source wiring now includes the public Reader, strict saved-fact
-validation and optional explicit capture context. Map App/View integration remains
-Root-owned and absent from this checkpoint. The installed/served protocol
+Status: source wiring includes the public Reader, strict saved-fact validation,
+optional explicit capture context and Map App/View/navigation integration. The
+author has not executed App/native/framework paths. The installed/served protocol
 and all screenshots/investigator results here are **UNRUN**.
 
 The useful journey is to read a model as written, inspect identified concern and
@@ -17,9 +17,10 @@ precedence stay distinct. Concatenation is never an effective runtime class.
 Reader.source responses. It makes no Reader calls and derives no relationships.
 It reuses the existing `.cvwrap`, `.cv.codeview`, `.source-row`, `.ln`, `.src`,
 `.selected` and token classes, with the existing highlighter injected. Source is
-rendered before the expandable provenance/coverage detail; the short method
-outline is ordinary keyboard-operable HTML. Schema/callback context is composed
-by the shared View after source. No custom renderer framework or JavaScript.
+rendered before the outline and expandable provenance/coverage detail. The short
+method outline is ordinary keyboard-operable HTML. View places explicit existing
+schema/association/callback/reference follow-ups after code without eager all-family
+expansion. No custom renderer framework or JavaScript.
 
 This uses the Field Guide structure already adapted in
 [REUSE.md](REUSE.md): Woods Map revision
@@ -35,21 +36,45 @@ Source witnesses call `/source`, `{id: saved_id}`, then `#Lphysical_line` where
 available. Caller witnesses call `/links`, `{id: saved_id, direction: incoming}`.
 The authority attaches generation/search/investigation. The presenter does not
 copy query keys or reconstruct URLs. An optional `continuation_url:` adapter maps
-the Core's typed selector through a Root-admitted family route. Without it, the
-presenter states that continuation is unavailable instead of inventing a route.
+the Core's typed selector through an admitted family route. View supplies this
+adapter using the shared authority. Without an adapter the standalone presenter
+states that continuation is unavailable instead of inventing a route.
+
+Actual routes are `/comprehension/contributions` and `/comprehension/methods`.
+Destinations carry only ID/cursor; family is in the path. NavigationContext checks
+exact generation/ID/family/cursor scope before App opens a Reader, preserving its
+4096-byte/nine-field bound and atomic search-drop notice. Core alone interprets
+cursor positions. View requests one projection/page (`limit: 8`, `max_bytes: 32768`)
+and validates its envelope/continuation before any Source calls.
+
+With optional ownership coverage present, runtime model Source opens the code-first
+reading surface using compact `fact_identity`, without full fact expansion. Default
+captures without that family keep the existing runtime-model Source behavior.
+Static class Source preserves exact `#L` anchors, adds reading links and moves its
+detail tiles after code. Source, Links, Find and Check remain ordinary links.
 
 Each code block keeps original file bytes and physical line numbers. Local anchors
 include the source fact ID to avoid line collisions across contributions. Missing
 source remains a notice and exact Source follow-up. A descriptor without a saved
 definition remains missing; a lexical incoming reference is not a verified caller.
 
-The presenter admits at most 64 KiB aggregate source bytes, 2000 lines per file,
-16 contribution rows, and 768 KiB body bytes. It verifies source generation, fact
-ID/path/span and SHA-256 before highlighting. It conservatively charges duplicate
-responses and renders a file once. Root must reserve/admit source and HTML envelope
-cost before fetching, and account for highlighter expansion and escaped repeated
-URLs. These are display guards, not latency/RSS evidence. Display refusal keeps
-the Reader continuation/Source path; it must not imply missing evidence.
+`SourceComprehensionSources` matches selected path/hash/size to the pinned manifest,
+reserves against the remaining aggregate 64 KiB **before** Reader.source, and
+deduplicates file reads across at most 16 selected rows. View requests eight. A
+refused read keeps its reservation and is never retried for another row. After
+the bounded response, it verifies exact generation/fact/path/span/digest/byte count,
+then counts physical display lines **before** highlighting or HTML. At most 2000
+aggregate display lines are admitted. An over-line file is wholly `not_admitted`;
+no successful prefix is rendered. Missing captured span is `unavailable`, a distinct
+state. Exact Source follow-ups remain visible.
+
+Current manifests have no declared line count: bytes are pre-read admission;
+lines are post-response display validation. There is no pre-read line proof or
+bytes-plus-one eligibility rule. The presenter separately bounds its body to
+768 KiB, and View allows at most another 64 KiB for its page envelope. Highlighter
+expansion and escaped repeated URLs count toward the output guard. Existing Native
+Source scratch/full fact metadata is Core-owned; these file/display limits are not
+RSS, full native heap or performance claims. Display refusal never implies absence.
 
 ## UNRUN installed and served acceptance protocol
 
@@ -69,7 +94,7 @@ No source-only worker may execute the following protocol.
    their checkout/load paths and without Rails/ActiveRecord loaded. Its consume
    mode opens A explicitly, walks both bounded families, checks physical source
    and ambiguity against the fixture, then closes its Reader. CURRENT must be B.
-3. Root wires the actual admitted route adapter and starts one authorized Map
+3. Root validates the source-wired route adapter and starts one authorized Map
    instance pinned by the ordinary generation-bearing authority. Serve through
    existing access/Host/HEAD/CSP controls, without adding a public endpoint or
    new credentials. Open the model from Find with a literal search/filter and an

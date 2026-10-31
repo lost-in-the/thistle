@@ -12,6 +12,7 @@ module Thistle
     class NavigationContext
       SEARCH_FIELDS = %w[q domain kind prefix].freeze
       FAMILIES = %w[columns associations registry_candidates].freeze
+      COMPREHENSION_FAMILIES = %w[contributions methods].freeze
       MAX_FIELDS = 9
       MAX_CURSOR_BYTES = 512
       attr_reader :search_omitted
@@ -28,6 +29,9 @@ module Thistle
       end
 
       def url(path, extra = {}, selection: @selection, **destination)
+        if path.start_with?('/comprehension/') && !%w[/comprehension/contributions /comprehension/methods].include?(path)
+          raise Investigation::Invalid, 'Unknown source comprehension route.'
+        end
         extra = extra.merge(destination) unless destination.empty?
         controls = @current.merge(extra)
         if extra.key?('id') && extra['id'] != @current['id']
@@ -48,6 +52,7 @@ module Thistle
                         end
                       when '/links' then controls.slice('id', 'direction', 'page')
                       when %r{\A/brief/(?:columns|associations|registry_candidates)\z} then controls.slice('id', 'cursor')
+                      when '/comprehension/contributions', '/comprehension/methods' then controls.slice('id', 'cursor')
                       when '/references/incoming', '/references/outgoing' then controls.slice('id', 'cursor', 'candidate')
                       when '/check' then controls.slice('id')
                       else {}
@@ -84,7 +89,18 @@ module Thistle
 
       # Route names carry family/direction so continuation still fits nine fields.
       def self.continuation(path, params)
-        return nil unless path.start_with?('/brief/', '/references/')
+        return nil unless path.start_with?('/brief/', '/references/', '/comprehension/')
+        if path.start_with?('/comprehension/')
+          family = path.delete_prefix('/comprehension/')
+          unless COMPREHENSION_FAMILIES.include?(family) && (params.keys - (%w[generation id selection cursor] + SEARCH_FIELDS)).empty?
+            raise Investigation::Invalid, 'Unknown source comprehension scope or query field.'
+          end
+          unless Investigation::DIGEST.match?(params['generation'].to_s) && Investigation::DIGEST.match?(params['id'].to_s)
+            raise Investigation::Invalid, 'Source comprehension requires a saved generation and fact ID.'
+          end
+          validate_cursor!(params['cursor'], generation: params['generation'], scope: ['source_comprehension', params['id'], family]) if params.key?('cursor')
+          return { comprehension: family }
+        end
         family = path.delete_prefix('/brief/') if path.start_with?('/brief/')
         direction = path.delete_prefix('/references/') unless family
         valid = family ? FAMILIES.include?(family) : %w[incoming outgoing].include?(direction)

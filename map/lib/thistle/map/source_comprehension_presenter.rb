@@ -26,9 +26,10 @@ module Thistle
       # continuations require an explicitly supplied Root route adapter.
       # sources are independently admitted Reader.source responses; nil means no
       # source was admitted, never an empty source file. No Reader calls here.
-      def initialize(projection:, sources:, navigation:, highlighter:, continuation_url: nil)
+      def initialize(projection:, sources:, navigation:, highlighter:, continuation_url: nil, source_states: {})
         @data, @sources, @navigation, @highlighter = projection, sources, navigation, highlighter
         @continuation_url = continuation_url
+        @source_states = source_states
       end
 
       def render
@@ -38,17 +39,19 @@ module Thistle
         append "<h2 class=\"t2\">Read #{h(@data.fetch('owner'))}</h2>"
         append '<p class="notice ui">Identified contributions. Loaded ownership and saved definitions are separate evidence; source/runtime coherence is unknown.</p>'
         append '<p class="ui">Each code block retains its captured path and physical lines. These blocks are not a concatenated effective runtime class.</p>'
-        outline
         rendered = {}
         @data.fetch('contributions').each do |contribution|
           fact = contribution.fetch('fact')
           source = @sources[fact.fetch('id')]
+          state = @source_states[fact.fetch('id')] || {}
+          next if state['status'] == 'shared_file'
           next if source && rendered[source.fetch('fact').fetch('path')]
           if source
             code(source, contribution)
             rendered[fact.fetch('path')] = true
           else
-            append "<p class=\"notice ui\">#{h(fact.fetch('name'))}: source unavailable or not admitted on this page. "
+            label = state['status'] == 'not_admitted' ? 'source not admitted on this page' : 'source unavailable'
+            append "<p class=\"notice ui\">#{h(fact.fetch('name'))}: #{h(label)}. #{h(state['reason'])} "
             append link('Open exact Source', contribution.fetch('source')) + '</p>'
           end
         end
@@ -56,6 +59,7 @@ module Thistle
         @data.fetch('observed_only').each do |method|
           append "<p class=\"notice ui\">#{h(method.fetch('name'))}: observed method; no saved definition candidate. Source unavailable; source/runtime coherence unknown.</p>"
         end
+        outline
         context
         append '</section>'
         @body
@@ -68,7 +72,7 @@ module Thistle
         rows = @data.fetch('contributions')
         raise InvalidProjection, 'Contribution page exceeds allowance' unless rows.is_a?(Array) && rows.length <= 16
         raise InvalidProjection, 'Missing generation' unless @data['generation'].is_a?(String) && @data['generation'].match?(/\A[0-9a-f]{64}\z/)
-        bytes = 0
+        bytes = lines = 0
         rows.each do |row|
           raise InvalidProjection, 'Unknown contribution status' unless LABELS.key?(row.fetch('status'))
           %w[source callers].each { |key| validate_selector(row.fetch(key)) }
@@ -83,7 +87,8 @@ module Thistle
           raise InvalidProjection, 'Source digest disagrees' unless Digest::SHA256.hexdigest(content) == source.fetch('sha256')
           # Charging duplicate responses conservatively also bounds repeated work.
           bytes += content.bytesize
-          raise InvalidProjection, 'Source reading allowance exceeded' if bytes > MAX_SOURCE_BYTES || content.count("\n") > MAX_LINES
+          lines += content.count("\n") + (content.end_with?("\n") ? 0 : 1)
+          raise InvalidProjection, 'Source reading allowance exceeded' if bytes > MAX_SOURCE_BYTES || lines > MAX_LINES
         end
       end
 
