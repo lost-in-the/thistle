@@ -24,6 +24,23 @@ fn method(id: char, owner: &str, name: &str, line: u64) -> Value {
         "attributes":{"owner":owner,"method_name":name,"singleton":false,"name_resolution":"lexical"}})
 }
 
+// Focused projection adapter; production selection supplies these same borrowed
+// rows/positions after immutable Reader admission. No separate semantics here.
+fn project(generation: &str, model: &Value, ownership: &[&Value], owner: &str,
+    candidates: &[&Value], matches_seen: usize, offset: usize, complete: bool) -> Result<Value> {
+    let observed = (ownership.len()==1).then(|| &ownership[0]["attributes"]["source_comprehension"]["observation"]);
+    let fallback = json!([{"index":0,"name":model["name"],"kind":"class","methods":[]}]);
+    let owners = observed.map_or(&fallback,|data| &data["ancestors"]).as_array().unwrap();
+    let mut work = Work::default();
+    let inventory = Inventory::new(owners,observed,&mut work)?;
+    let selected_owner = owners.iter().find(|row| row["name"]==owner)
+        .ok_or_else(|| CoreError::input("No observed owner candidate"))?;
+    let facts = candidates.iter().map(|fact| (*fact).clone()).collect::<Vec<_>>();
+    let selected = Selected { owner:selected_owner,method:None,row:0,offset,
+        positions:(0..facts.len()).collect(),matches_seen,complete,partial:false,status:"saved_candidates",next:None };
+    project_page(generation,model,ownership,&inventory,&[selected],&facts,&mut work)
+}
+
 #[test]
 fn guarded_observation_admission_retains_identity_and_rejects_forgery() {
     let fact = ownership();
@@ -37,11 +54,26 @@ fn guarded_observation_admission_retains_identity_and_rejects_forgery() {
     assert!(validate_observation(&bad).is_err());
     let mut bad = observation(); bad["effective_methods"].as_array_mut().unwrap().pop();
     assert!(validate_observation(&bad).is_err());
+    let mut bad = observation(); bad["effective_methods"][0]["owner_index"]=Value::Null;
+    assert!(validate_observation(&bad).is_err(),"unknown owner must not retain a hint");
+    let mut bad = observation(); bad["effective_methods"][0]["owner_index"]=json!(2);
+    assert!(validate_observation(&bad).is_err(),"known owner must have the direct row");
     let mut outside = observation();
     outside["ancestors"][0]["methods"][0]["source"]["path"] = json!("/application/secret.rb");
     outside["effective_methods"][0]["source"]["path"] = json!("/application/secret.rb");
     let result = batch(&context(),&json!({"version":1,"models":[outside]}),"/app").unwrap();
     assert!(result["facts"][0]["attributes"]["source_comprehension"]["observation"]["effective_methods"][0]["source"].is_null());
+    // Neither pseudo-locations nor relative paths establish physical provenance.
+    for path in ["(eval at /outside/gem/x.rb:12)","<internal:kernel>","order.rb","/app/../outside.rb","/app//order.rb"] {
+        let mut unsafe_hint = observation();
+        unsafe_hint["ancestors"][0]["methods"][0]["source"]["path"] = json!(path);
+        unsafe_hint["effective_methods"][0]["source"]["path"] = json!(path);
+        let result = batch(&context(),&json!({"version":1,"models":[unsafe_hint]}),"/app").unwrap();
+        let saved = &result["facts"][0];
+        validate_fact(saved).unwrap();
+        assert!(saved["attributes"]["source_comprehension"]["observation"]["ancestors"][0]["methods"][0]["source"].is_null(),"{path}");
+        assert!(saved["attributes"]["source_comprehension"]["observation"]["effective_methods"][0]["source"].is_null(),"{path}");
+    }
 }
 
 #[test]
@@ -162,4 +194,139 @@ fn saved_reader_dispatch_is_pinned_and_refuses_invalid_continuation_without_sour
     assert!(crate::dispatch(&invalid).is_err());
     crate::dispatch(&json!({"op":"close","handle":handle})).unwrap();
     assert_eq!(crate::dispatch(&request).unwrap_err().code,"closed_reader");
+}
+
+fn saved(facts: Vec<Value>, check: impl FnOnce(&Reader)) {
+    let temporary = tempfile::tempdir().unwrap();
+    let capture = json!({"schema_version":3,"root_id":"d".repeat(64),"files":[],"facts":facts,
+        "producer":{},"diagnostics":[],"coverage":[{"family":"source_ownership","status":"partial",
+            "scope":"Synthetic saved primitives only","reason":"No framework, source reads or runtime execution"}]});
+    crate::store::publish(temporary.path(),&capture).unwrap();
+    let reader = Reader::open(temporary.path(),None).unwrap();
+    check(&reader);
+}
+fn declaration(id: char, name: &str, kind: &str) -> Value {
+    json!({"id":id.to_string().repeat(64),"kind":kind,"name":name,"evidence":"static",
+        "path":null,"location":null,"attributes":{},"links":[]})
+}
+fn source_less_method(id: char, owner: &str, name: &str) -> Value {
+    let mut fact = method(id,owner,name,1);
+    fact["path"]=Value::Null; fact["location"]=Value::Null; fact["links"]=json!([]);
+    fact
+}
+
+#[test]
+fn both_families_page_unknown_owner_rows_and_reach_the_named_suffix() {
+    let mut data = observation();
+    data["ancestors"] = json!([
+        {"index":0,"name":"Order","kind":"class","methods":[{"name":"direct","visibility":"public","source":null}]},
+        {"index":1,"name":null,"kind":"module","methods":[{"name":"anonymous","visibility":"public","source":null}]},
+        {"index":2,"name":"Same","kind":"module","methods":[{"name":"first","visibility":"public","source":null}]},
+        {"index":3,"name":"Same","kind":"module","methods":[{"name":"second","visibility":"public","source":null}]},
+        {"index":4,"name":"Parent","kind":"class","methods":[{"name":"tail","visibility":"public","source":null}]}
+    ]);
+    data["effective_methods"] = json!(["direct","anonymous","first","second","tail"].iter().enumerate()
+        .map(|(index,name)| json!({"name":name,"owner_index":index,"source":null})).collect::<Vec<_>>());
+    let ownership = batch(&context(),&json!({"version":1,"models":[data]}),"/app").unwrap()["facts"][0].clone();
+    saved(vec![declaration('a',"Order","class"),ownership,declaration('b',"Same","module"),
+        declaration('c',"Parent","class"),source_less_method('e',"Same","first"),source_less_method('f',"Parent","tail")],|reader| {
+        for family in ["contributions","methods"] {
+            let mut cursor = Value::Null;
+            let mut statuses = Vec::new(); let mut suffix = false; let mut suffix_candidate = false;
+            for _ in 0..8 {
+                let request = json!({"id":"a".repeat(64),"family":family,"limit":2,"cursor":cursor});
+                let page = select(reader,&Query::parse(&request).unwrap()).unwrap();
+                assert!(page["rows"].as_array().unwrap().len()<=2);
+                assert!(page["contributions"].as_array().unwrap().len()<=2);
+                for row in page["rows"].as_array().unwrap() {
+                    statuses.push(row["status"].as_str().unwrap().to_owned());
+                    if row["owner"]=="Parent" { suffix=true; }
+                    if matches!(row["status"].as_str(),Some("anonymous_owner_no_label_candidate" | "duplicate_owner_label_unknown")) {
+                        assert_eq!(row["returned"],0); assert!(!row["range_complete"].as_bool().unwrap());
+                    }
+                }
+                assert!(!page["contributions"].as_array().unwrap().iter().any(|row| row["owner"]=="Same"));
+                suffix_candidate |= page["contributions"].as_array().unwrap().iter().any(|row| row["owner"]=="Parent");
+                if page["continuation"].is_null() { break; }
+                let next = page["continuation"]["cursor"].clone();
+                assert_ne!(next,cursor); cursor=next;
+            }
+            assert!(suffix,"{family} lost its named suffix");
+            assert!(suffix_candidate,"{family} lost its suffix Source candidate");
+            assert!(statuses.iter().any(|status| status=="anonymous_owner_no_label_candidate"));
+            assert_eq!(statuses.iter().filter(|status| *status=="duplicate_owner_label_unknown").count(),2);
+        }
+    });
+}
+
+#[test]
+fn generated_methods_batch_rows_and_byte_cut_keeps_the_exact_candidate_suffix() {
+    let mut data = observation();
+    let methods = (0..40).map(|index| json!({"name":format!("generated_{index:02}"),"visibility":"public","source":null})).collect::<Vec<_>>();
+    data["ancestors"] = json!([{"index":0,"name":"Order","kind":"class","methods":methods}]);
+    data["effective_methods"] = json!((0..40).map(|index| json!({"name":format!("generated_{index:02}"),"owner_index":0,"source":null})).collect::<Vec<_>>());
+    let mut allowance = context(); allowance["limits"]["max_entries"]=json!(1000);
+    let observed = batch(&allowance,&json!({"version":1,"models":[data]}),"/app").unwrap()["facts"][0].clone();
+    saved(vec![declaration('a',"Order","class"),observed],|reader| {
+        let mut cursor = Value::Null; let mut names = Vec::new();
+        for _ in 0..5 {
+            let request = json!({"id":"a".repeat(64),"family":"methods","limit":8,"cursor":cursor});
+            let page = select(reader,&Query::parse(&request).unwrap()).unwrap();
+            assert_eq!(page["rows"].as_array().unwrap().len(),8);
+            names.extend(page["observed_only"].as_array().unwrap().iter().map(|row| row["name"].as_str().unwrap().to_owned()));
+            cursor=page["continuation"]["cursor"].clone();
+        }
+        assert_eq!(names.len(),40); assert_eq!(names.iter().collect::<HashSet<_>>().len(),40); assert!(cursor.is_null());
+    });
+    let mut data = observation();
+    data["ancestors"] = json!([{"index":0,"name":"Order","kind":"class","methods":[{"name":"label","visibility":"public","source":null}]}]);
+    data["effective_methods"] = json!([{"name":"label","owner_index":0,"source":null}]);
+    let observed = batch(&context(),&json!({"version":1,"models":[data]}),"/app").unwrap()["facts"][0].clone();
+    saved(vec![declaration('a',"Order","class"),observed,source_less_method('b',"Order","label"),source_less_method('c',"Order","label")],|reader| {
+        let request = json!({"id":"a".repeat(64),"family":"methods","limit":8});
+        let full = select(reader,&Query::parse(&request).unwrap()).unwrap();
+        let max = serde_json::to_vec(&full).unwrap().len();
+        let small = json!({"id":"a".repeat(64),"family":"methods","limit":8,"max_bytes":max-1});
+        let first = select(reader,&Query::parse(&small).unwrap()).unwrap();
+        assert_eq!(first["contributions"].as_array().unwrap().len(),1);
+        assert_eq!(first["contributions"][0]["status"],"unknown_incomplete_candidates");
+        let scope = json!(["source_comprehension","a".repeat(64),"methods"]);
+        assert_eq!(recorded_domain::position(Some(&first["continuation"]["cursor"]),&reader.generation,&scope).unwrap(),(0,1));
+        let suffix = json!({"id":"a".repeat(64),"family":"methods","cursor":first["continuation"]["cursor"]});
+        let last = select(reader,&Query::parse(&suffix).unwrap()).unwrap();
+        assert_ne!(first["contributions"][0]["fact"]["id"],last["contributions"][0]["fact"]["id"]);
+        assert!(last["continuation"].is_null());
+    });
+}
+
+#[test]
+fn admitted_large_ambiguous_ownership_is_queryable_without_group_revalidation() {
+    let mut data = observation();
+    // Two valid observations together exceed the former asymmetric 2 MiB query
+    // group cap. No source body is needed for an honest ambiguous answer.
+    let path = format!("/app/{}.rb","x".repeat(650));
+    let direct = (0..900).map(|index| json!({"name":format!("method_{index}"),"visibility":"public","source":{"path":path,"line":1}})).collect::<Vec<_>>();
+    data["ancestors"] = json!([{"index":0,"name":"Order","kind":"class","methods":direct}]);
+    data["effective_methods"] = json!((0..900).map(|index| json!({"name":format!("method_{index}"),"owner_index":0,"source":{"path":path,"line":1}})).collect::<Vec<_>>());
+    let mut allowance = context(); allowance["limits"]["max_entries"]=json!(10000); allowance["limits"]["max_facts"]=json!(10);
+    let result = batch(&allowance,&json!({"version":1,"models":[data.clone(),data]}),"/app").unwrap();
+    let ownership = result["facts"].as_array().unwrap();
+    assert!(serde_json::to_vec(ownership).unwrap().len()>MAX_INPUT);
+    saved(vec![declaration('a',"Order","class"),ownership[0].clone()],|reader| {
+        let request = json!({"id":"a".repeat(64),"family":"methods"});
+        let page = select(reader,&Query::parse(&request).unwrap()).unwrap();
+        assert_eq!(page["rows"].as_array().unwrap().len(),8);
+        let visits = page["usage"]["candidate_fact_visits"].as_u64().unwrap();
+        assert!(visits>=900 && visits<2000,"required descriptor scan must be metered");
+    });
+    let mut facts = vec![declaration('a',"Order","class")]; facts.extend(ownership.iter().cloned());
+    saved(facts,|reader| {
+        let request = json!({"id":"a".repeat(64)});
+        let page = select(reader,&Query::parse(&request).unwrap()).unwrap();
+        assert_eq!(page["ownership_status"],"ambiguous");
+        assert_eq!(page["contributions"].as_array().unwrap().len(),1);
+        assert!(page["usage"]["candidate_fact_visits"].as_u64().unwrap()<100);
+    });
+    let mut work = Work { visits:20_000,..Work::default() };
+    assert!(Inventory::new(&[json!({"name":"Order","methods":[]})],None,&mut work).is_err());
 }

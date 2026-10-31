@@ -9,6 +9,12 @@ pub(crate) const MAX_METHODS: usize = 2048;
 pub(crate) const MAX_PAGE: usize = 16;
 const MAX_INPUT: usize = 2 * 1024 * 1024;
 const MAX_OUTPUT: usize = 64 * 1024;
+const WORK_VISITS: usize = 20_000;
+const WORK_BYTES: usize = 32 * 1024 * 1024;
+// Candidate traversal cannot spend the compact projection's worst-case reserve:
+// at most 16 shrinking encodings of at most 16 row/candidate slots.
+const PROJECTION_VISITS: usize = 1024;
+const PROJECTION_BYTES: usize = 8 * 1024 * 1024;
 
 pub(crate) struct Query<'a> {
     pub id: &'a str, pub family: &'a str, pub limit: usize, pub cursor: Option<&'a Value>, pub max_bytes: usize,
@@ -69,13 +75,14 @@ pub(crate) fn validate_observation(data: &Value) -> Result<usize> {
     if owners.len() > MAX_OWNERS || methods.len() > MAX_METHODS { return Err(CoreError::limit("Ownership inventory exceeds allowance")); }
     let mut entries = owners.len();
     let mut names = HashSet::new();
+    let mut direct_sources = Vec::with_capacity(owners.len());
     for (index, owner) in owners.iter().enumerate() {
         schema::model_object(owner, &["index", "name", "kind", "methods"])?;
         label(&owner["name"], true)?;
         if owner["index"].as_u64() != Some(index as u64) || !matches!(owner["kind"].as_str(), Some("class" | "module")) {
             return Err(CoreError::input("Invalid ownership ancestor"));
         }
-        let mut direct = HashSet::new();
+        let mut direct = HashMap::new();
         let rows = schema::array(owner, "methods")?;
         entries = entries.checked_add(rows.len()).filter(|n| *n <= 100_000)
             .ok_or_else(|| CoreError::limit("Ownership entries exceed allowance"))?;
@@ -83,13 +90,14 @@ pub(crate) fn validate_observation(data: &Value) -> Result<usize> {
             schema::model_object(method, &["name", "visibility", "source"])?;
             label(&method["name"], false)?;
             let name = method["name"].as_str().unwrap();
-            if !direct.insert(name) || !matches!(method["visibility"].as_str(), Some("public" | "protected" | "private")) {
+            if direct.insert(name, &method["source"]).is_some() || !matches!(method["visibility"].as_str(), Some("public" | "protected" | "private")) {
                 return Err(CoreError::input("Duplicate or invalid ownership method"));
             }
             names.insert(name);
             if names.len() > MAX_METHODS { return Err(CoreError::limit("Ownership names exceed allowance")); }
             hint(&method["source"])?;
         }
+        direct_sources.push(direct);
     }
     let mut seen = HashSet::new();
     for method in methods {
@@ -103,9 +111,9 @@ pub(crate) fn validate_observation(data: &Value) -> Result<usize> {
         } else {
             let index = method["owner_index"].as_u64().filter(|i| *i < owners.len() as u64)
                 .ok_or_else(|| CoreError::input("Invalid effective owner index"))? as usize;
-            let direct = owners[index]["methods"].as_array().unwrap().iter().find(|row| row["name"] == method["name"])
+            let source = direct_sources[index].get(name)
                 .ok_or_else(|| CoreError::input("Effective owner does not define method"))?;
-            if direct["source"] != method["source"] { return Err(CoreError::input("Effective descriptor hint disagrees")); }
+            if **source != method["source"] { return Err(CoreError::input("Effective descriptor hint disagrees")); }
         }
     }
     if seen != names { return Err(CoreError::input("Incomplete effective ownership inventory")); }
@@ -116,8 +124,9 @@ pub(crate) fn validate_observation(data: &Value) -> Result<usize> {
 fn normalize_hints(data: &mut Value, root: &str) {
     fn normalize(row: &mut Value, root: &str) {
         if let Some(path) = row["source"]["path"].as_str() {
-            let path = path.strip_prefix(root).and_then(|tail| tail.strip_prefix('/'))
-                .or_else(|| (!path.starts_with('/')).then_some(path));
+            // Ruby eval/internal/relative pseudo-locations are not physical
+            // in-root evidence. Only an absolute root-prefixed path is eligible.
+            let path = path.strip_prefix(root).and_then(|tail| tail.strip_prefix('/'));
             row["source"] = match path.filter(|path| schema::path(path).is_ok()) {
                 Some(path) => json!({"path":path,"line":row["source"]["line"]}),
                 None => Value::Null,
@@ -186,96 +195,159 @@ pub(crate) fn validate_fact(fact: &Value) -> Result<()> {
     Ok(())
 }
 
-fn owner(fact: &Value) -> Option<&str> {
-    if fact["evidence"] != "static" { return None; }
-    match fact["kind"].as_str()? {
-        "class" | "module" => fact["name"].as_str(),
-        "method" => method_lookup::key(fact).map(|(owner,_)| owner),
-        _ => None,
-    }
-}
 fn identity(fact: &Value) -> Value {
     json!({"id":fact["id"],"kind":fact["kind"],"name":fact["name"],"evidence":fact["evidence"],"path":fact["path"],"location":fact["location"]})
 }
 
-/// Root supplies one owner page from Directory, and zero/one/multiple selected
-/// ownership facts through the existing recorded-domain index. No Ruby analysis.
-/// A unique label is still only a candidate for the saved model's loaded registry.
-pub(crate) fn project(generation: &str, model: &Value, ownership: &[&Value], owner_label: &str,
-    candidates: &[&Value], matches_seen: usize, offset: usize, range_complete: bool) -> Result<Value> {
-    schema::hash(generation)?;
-    schema::hash(schema::string(model,"id")?)?;
-    if candidates.len() > MAX_PAGE || ownership.len() > 2 || candidates.len() > matches_seen.saturating_sub(offset) {
-        return Err(CoreError::input("Invalid source comprehension page"));
+/// Borrowed request-local lookup over already publish/open-validated immutable
+/// facts. No fact revalidation, ownership-group encoding cap or retained index.
+struct Inventory<'a> {
+    owners: &'a [Value], labels: HashMap<&'a str, usize>,
+    effective: HashMap<&'a str, &'a Value>, methods: usize,
+}
+impl<'a> Inventory<'a> {
+    fn new(owners: &'a [Value], observed: Option<&'a Value>, work: &mut Work) -> Result<Self> {
+        let mut labels = HashMap::new();
+        let mut methods = 0;
+        for owner in owners {
+            let name = owner["name"].as_str();
+            work.scan(name.map_or(0,str::len))?;
+            if let Some(name) = name { *labels.entry(name).or_insert(0) += 1; }
+            // Array lengths are constant-time; do not walk every direct method.
+            methods += owner["methods"].as_array().unwrap().len();
+        }
+        let mut effective = HashMap::new();
+        if let Some(observed) = observed {
+            for method in observed["effective_methods"].as_array().unwrap() {
+                let name = method["name"].as_str().unwrap();
+                work.scan(name.len())?;
+                effective.insert(name,method);
+            }
+        }
+        Ok(Self { owners,labels,effective,methods })
     }
-    if owner_label.is_empty() || owner_label.len() > 4096 { return Err(CoreError::input("Invalid owner label")); }
-    if !matches!(model["kind"].as_str(),Some("rails_model" | "class")) { return Err(CoreError::input("Expected model or class fact")); }
-    // Charge borrowed inputs before copying any identity/projection metadata.
-    schema::encoded_bytes(&candidates, MAX_INPUT)?;
-    schema::encoded_bytes(&ownership, MAX_INPUT)?;
-    for fact in ownership { validate_fact(fact)?; }
-    let model_label = if model["kind"] == "rails_model" { &model["attributes"]["model"]["name"] } else { &model["name"] };
-    for fact in ownership {
-        if model_label.is_null() || fact["attributes"]["source_comprehension"]["observation"]["name"] != *model_label {
-            return Err(CoreError::input("Ownership label candidate disagrees with model"));
+    fn row(&self, family: &str, label: &str, row: usize, work: &mut Work) -> Result<(&'a Value, Option<&'a Value>)> {
+        if family=="contributions" {
+            let mut direct = None;
+            for (index,owner) in self.owners.iter().enumerate() {
+                let name = owner["name"].as_str();
+                work.scan(name.map_or(0,str::len).saturating_add(label.len()))?;
+                if name==Some(label) { direct=Some(index); break; }
+            }
+            // Model declaration first; original owner indexes/order stay intact.
+            let index = match direct {
+                Some(direct) if row==0 => direct,
+                Some(direct) if row<=direct => row-1,
+                _ => row,
+            };
+            return Ok((&self.owners[index],None));
+        }
+        let mut position = row;
+        for owner in self.owners {
+            work.scan(0)?;
+            let methods = owner["methods"].as_array().unwrap();
+            if position<methods.len() { return Ok((owner,Some(&methods[position]))); }
+            position-=methods.len();
+        }
+        Err(CoreError::input("Invalid source comprehension method position"))
+    }
+}
+
+struct Selected<'a> {
+    owner: &'a Value, method: Option<&'a Value>, row: usize, offset: usize,
+    positions: Vec<usize>, matches_seen: usize, complete: bool, partial: bool,
+    status: &'static str, next: Option<(usize,usize)>,
+}
+
+fn project_page(generation: &str, model: &Value, ownership: &[&Value], inventory: &Inventory<'_>,
+    selected: &[Selected<'_>], facts: &[Value], work: &mut Work) -> Result<Value> {
+    work.scan(model["name"].as_str().map_or(0,str::len) + model["path"].as_str().map_or(0,str::len) + 64 * (ownership.len()+1))?;
+    let mut contributions = Vec::new();
+    let mut outline = Vec::with_capacity(selected.len());
+    let mut owners = Vec::new();
+    let mut owner_indexes = HashSet::new();
+    let mut matches_seen = 0;
+    let mut range_complete = true;
+    let mut page_complete = true;
+    let mut observed_only = Vec::new();
+    for row in selected {
+        let owner_label = row.owner["name"].as_str();
+        let method_name = row.method.and_then(|method| method["name"].as_str());
+        work.scan(owner_label.map_or(0,str::len).saturating_add(method_name.map_or(0,str::len)))?;
+        if owner_indexes.insert(row.owner["index"].as_u64().unwrap()) {
+            owners.push(json!({"index":row.owner["index"],"name":row.owner["name"],"kind":row.owner["kind"]}));
+        }
+        let complete = row.complete && row.offset==0 && row.positions.len()==row.matches_seen;
+        matches_seen += row.matches_seen;
+        range_complete &= row.complete;
+        page_complete &= complete;
+        outline.push(json!({"row":row.row,"owner_index":row.owner["index"],"owner":row.owner["name"],
+            "method_name":method_name,"visibility":row.method.map(|method| &method["visibility"]),
+            "status":row.status,"candidate_matches_seen":row.matches_seen,"offset":row.offset,
+            "returned":row.positions.len(),"range_complete":row.complete,"partial":row.partial}));
+        for position in &row.positions {
+            let fact = &facts[*position];
+            let name = fact["attributes"]["method_name"].as_str();
+            let effective = name.and_then(|name| inventory.effective.get(name).copied());
+            let effective_owner = effective.and_then(|method| method["owner_index"].as_u64())
+                .and_then(|index| inventory.owners.get(index as usize));
+            // Meter copied labels/hints, not full immutable fact trees.
+            let bytes = [fact["name"].as_str(),fact["path"].as_str(),owner_label,name,
+                effective_owner.and_then(|owner| owner["name"].as_str()),
+                effective.and_then(|method| method["source"]["path"].as_str())]
+                .into_iter().flatten().map(str::len).sum();
+            work.scan(bytes)?;
+            let status = if fact["kind"]!="method" { "as_written_declaration" }
+                else if !complete { "unknown_incomplete_candidates" }
+                else if fact["attributes"]["name_resolution"]!="lexical" { "unknown_precedence" }
+                else if row.positions.len()>1 { "ambiguous_definitions" }
+                else if effective_owner.is_some_and(|owner| owner["name"].as_str()==owner_label) { "observed_loaded_owner_source_binding_unknown" }
+                else if effective_owner.is_some() { "alternative_to_observed_loaded_owner" }
+                else { "unknown_precedence" };
+            contributions.push(json!({"fact":identity(fact),"owner":owner_label,"method_name":name,"status":status,
+                "observed_owner":effective_owner.map(|owner| &owner["name"]),
+                "observed_source_hint":effective.map(|method| &method["source"]),
+                "source":{"operation":"source","generation":generation,"id":fact["id"]},
+                "callers":{"operation":"references","generation":generation,"id":fact["id"],"direction":"incoming","cursor":null}}));
+        }
+        if row.positions.is_empty() && row.complete && row.offset==0 {
+            if let Some(method) = row.method {
+                work.scan(method["source"]["path"].as_str().map_or(0,str::len))?;
+                observed_only.push(json!({"name":method["name"],"owner":row.owner["name"],"owner_index":row.owner["index"],
+                    "visibility":method["visibility"],"source_hint":method["source"],"status":row.status,
+                    "source_runtime_coherence":"unknown"}));
+            }
         }
     }
-    let observed = (ownership.len() == 1).then(|| &ownership[0]["attributes"]["source_comprehension"]["observation"]);
-    let owners = observed.and_then(|data| data["ancestors"].as_array());
-    let owner_matches = owners.map_or(0, |rows| rows.iter().filter(|row| row["name"] == owner_label).count());
-    let in_chain = owner_matches == 1;
-    if model_label.as_str() != Some(owner_label) && !in_chain {
-        return Err(CoreError::input("Owner is not a unique observed contribution candidate"));
-    }
-    let complete = range_complete && offset == 0 && candidates.len() == matches_seen;
-    let mut counts = HashMap::new();
-    let mut ids = HashSet::new();
-    for fact in candidates {
-        if owner(fact) != Some(owner_label) || !ids.insert(schema::hash(schema::string(fact,"id")?)?) { return Err(CoreError::input("Invalid owner candidate selection")); }
-        if fact["kind"] == "method" { *counts.entry(schema::string(&fact["attributes"],"method_name")?).or_insert(0usize) += 1; }
-    }
-    let mut contributions = Vec::with_capacity(candidates.len());
-    for fact in candidates {
-        let name = fact["attributes"]["method_name"].as_str();
-        let effective = observed.and_then(|data| data["effective_methods"].as_array()).and_then(|rows| rows.iter().find(|row| row["name"].as_str() == name));
-        let effective_owner = effective.and_then(|row| row["owner_index"].as_u64()).and_then(|index| owners?.get(index as usize));
-        let status = if fact["kind"] != "method" { "as_written_declaration" }
-            else if !complete { "unknown_incomplete_candidates" }
-            else if fact["attributes"]["name_resolution"] != "lexical" { "unknown_precedence" }
-            else if counts.get(name.unwrap()).copied().unwrap_or(0) > 1 { "ambiguous_definitions" }
-            else if owner_matches > 1 { "unknown_duplicate_owner_labels" }
-            else if effective_owner.is_some_and(|row| row["name"] == owner_label) { "observed_loaded_owner_source_binding_unknown" }
-            else if effective_owner.is_some() { "alternative_to_observed_loaded_owner" }
-            else { "unknown_precedence" };
-        contributions.push(json!({"fact":identity(fact),"owner":owner_label,"method_name":name,"status":status,
-            "observed_owner":effective_owner.map(|row| &row["name"]),
-            "observed_source_hint":effective.map(|row| &row["source"]),
-            "source":{"operation":"source","generation":generation,"id":fact["id"]},
-            "callers":{"operation":"references","generation":generation,"id":fact["id"],"direction":"incoming","cursor":null}}));
-    }
-    let mut out = json!({"version":1,"generation":generation,"model":identity(model),"owner":owner_label,
+    owners.sort_unstable_by_key(|owner| owner["index"].as_u64().unwrap());
+    Ok(json!({"version":1,"generation":generation,"model":identity(model),"owner":model["name"],
         "composition":"identified_contributions","source_runtime_coherence":"unknown",
         "ownership_status":if ownership.len()==1 {"unique_label_candidate_binding_unknown"} else if ownership.is_empty() {"unavailable"} else {"ambiguous"},
         "ownership_evidence_ids":ownership.iter().map(|fact| &fact["id"]).collect::<Vec<_>>(),
-        "owners":owners.map(|rows| rows.iter().map(|row| json!({"index":row["index"],"name":row["name"],"kind":row["kind"]})).collect::<Vec<_>>()),
-        "coverage":{"candidate_matches_seen":matches_seen,"range_complete":range_complete,"offset":offset,"returned":contributions.len(),"page_complete":complete,
-            "scope":"Indexed saved definitions for one exact owner label; labels do not establish runtime binding"},
+        "owners":owners,"rows":outline,"contributions":contributions,"observed_only":observed_only,
+        "coverage":{"candidate_matches_seen":matches_seen,"range_complete":range_complete,"returned":contributions.len(),"page_complete":page_complete,
+            "scope":"Selected owner/method rows and bounded indexed candidates; per-row witnesses are not whole-family totals. Labels do not establish runtime binding; owners shown are page-local."},
         "continuation":null,
-        "semantics":"Separate as-written contributions, not a concatenated effective runtime class. Loaded owner is observed; saved-source binding, conditions, invocation and execution remain unknown."});
-    out["contributions"] = Value::Array(contributions);
-    out["observed_only"] = json!([]);
-    schema::encoded_bytes(&out, MAX_OUTPUT)?;
-    Ok(out)
+        "semantics":"Separate as-written contributions, not a concatenated effective runtime class. Loaded owner is observed; saved-source binding, conditions, invocation and execution remain unknown."}))
 }
 
 #[derive(Default)]
 struct Work { visits: usize, comparisons: usize, bytes: usize }
+impl Work {
+    fn scan(&mut self, bytes: usize) -> Result<()> {
+        if self.visits>=WORK_VISITS || bytes>WORK_BYTES.saturating_sub(self.bytes) {
+            return Err(CoreError::limit("Ownership projection work exhausted"));
+        }
+        self.visits+=1; self.bytes+=bytes;
+        Ok(())
+    }
+}
 impl method_lookup::Work for Work {
     fn visit(&mut self) -> bool {
-        if self.visits==20_000 { return false; } self.visits+=1; true
+        if self.visits>=WORK_VISITS-PROJECTION_VISITS { return false; } self.visits+=1; true
     }
     fn bytes(&mut self, bytes: usize) -> bool {
-        if bytes> (32*1024*1024usize).saturating_sub(self.bytes) { return false; } self.bytes+=bytes; true
+        if bytes> (WORK_BYTES-PROJECTION_BYTES).saturating_sub(self.bytes) { return false; } self.bytes+=bytes; true
     }
     fn compare(&mut self, a: &str, b: &str) -> Option<Ordering> {
         if self.comparisons==100_000 || !self.bytes(a.len().saturating_add(b.len())) { return None; }
@@ -292,10 +364,10 @@ impl recorded_domain::LabelWork for Work {
     }
 }
 
-/// One owner/declaration or one owner/method candidate range per response.
-/// Two cursor positions identify the owner/method row and its candidate offset.
-/// No automatic whole-family traversal or source I/O. Root's thin Reader dispatch
-/// calls this with its pinned Reader after reserving Query::scratch.
+/// Up to limit logical rows/candidate positions per response. An empty or unknown
+/// row consumes one slot, so generated methods advance in bounded groups. The
+/// unchanged two-coordinate cursor names the next row and its candidate offset.
+/// No source I/O; method-directory locks end before response construction.
 pub(crate) fn select(reader: &Reader, query: &Query<'_>) -> Result<Value> {
     let root = reader.stored_fact(query.id)?;
     if !matches!(root["kind"].as_str(),Some("rails_model" | "class")) { return Err(CoreError::input("Expected saved model or class")); }
@@ -303,88 +375,94 @@ pub(crate) fn select(reader: &Reader, query: &Query<'_>) -> Result<Value> {
     let label = label.ok_or_else(|| CoreError::input("Anonymous model source composition is unavailable"))?;
     let mut work = Work::default();
     let (registries,registry_stats) = reader.recorded_candidates(label,Some("rails_source_ownership"),0,2,&mut work)?;
-    // A two-element witness means ambiguity, irrespective of omitted matches.
     let ownership = registries.positions.iter().map(|index| &reader.facts[*index]).collect::<Vec<_>>();
-    for fact in &ownership { validate_fact(fact)?; }
+    // Reader open and publication already validated these immutable pinned facts.
+    // A two-element witness is ambiguity, never an ownership-group size refusal.
     let observed = (registries.total==1).then(|| &ownership[0]["attributes"]["source_comprehension"]["observation"]);
-    let (row,offset) = query.position(&reader.generation)?;
     let fallback = json!([{"index":0,"name":label,"kind":"class","methods":[]}]);
     let owners = observed.map_or(&fallback, |data| &data["ancestors"]).as_array().unwrap();
-    let rows = if query.family=="contributions" { owners.len() }
-        else { owners.iter().map(|owner| owner["methods"].as_array().unwrap().len()).sum() };
+    let inventory = Inventory::new(owners,observed,&mut work)?;
+    let rows = if query.family=="contributions" { owners.len() } else { inventory.methods };
+    let (mut row,mut offset) = query.position(&reader.generation)?;
+    let start = row;
     if row>=rows && !(row==0 && rows==0) { return Err(CoreError::input("Source comprehension cursor is beyond family")); }
-    if rows==0 {
-        if offset!=0 { return Err(CoreError::input("Invalid empty-family candidate offset")); }
-        let mut out = project(&reader.generation,root,&ownership,label,&[],0,0,true)?;
-        out["family"] = json!(query.family);
-        out["coverage"]["reason"] = json!("no_observed_method_inventory_not_evidence_of_absence");
-        return finish(out,query,&work,registry_stats,Value::Null);
-    }
-    let (selected_owner,method) = if query.family=="contributions" {
-        // Read the model's as-written declaration first without changing the
-        // separately reported observed ancestry order or claiming precedence.
-        let direct = owners.iter().position(|owner| owner["name"]==label);
-        let position = match direct {
-            Some(direct) if row==0 => direct,
-            Some(direct) if row<=direct => row-1,
-            _ => row,
-        };
-        (&owners[position],None)
-    } else {
-        let mut position = row;
-        let mut selected = None;
-        for owner in owners {
-            let methods = owner["methods"].as_array().unwrap();
-            if position<methods.len() { selected=Some((owner,Some(&methods[position]))); break; }
-            position-=methods.len();
-        }
-        selected.ok_or_else(|| CoreError::input("Invalid source comprehension method position"))?
-    };
-    // Anonymous/duplicate owner labels are not resolved to a different class.
-    let owner = selected_owner["name"].as_str().ok_or_else(|| CoreError::input("Anonymous contribution has no source label candidate"))?;
+    if rows==0 && offset!=0 { return Err(CoreError::input("Invalid empty-family candidate offset")); }
+    let mut selected = Vec::with_capacity(query.limit);
+    let mut slots = 0;
     let mut method_stats = Value::Null;
-    let (positions,matches_seen,complete,partial,next_offset) = if let Some(method) = method {
-        let name = schema::string(method,"name")?;
-        let (page,stats) = reader.with_method_directory(query::budget(), |directory,built| {
-            (directory.page(&reader.facts,owner,name,offset,query.limit,&mut work),directory.stats(built).value())
-        })?;
-        let page = page?;
-        method_stats=stats;
-        (page.positions,page.matches_seen,page.range_complete,page.partial,page.next_offset)
-    } else {
-        let kind = if selected_owner["kind"]=="module" {"module"} else {"class"};
-        let (page,_) = reader.recorded_candidates(owner,Some(kind),offset,query.limit,&mut work)?;
-        if offset>page.total { return Err(CoreError::input("Contribution cursor exceeds candidate range")); }
-        let next = offset+page.positions.len();
-        let complete = next==page.total;
-        (page.positions,page.total,complete,false,(next<page.total).then_some(next))
-    };
-    let candidates = positions.iter().map(|index| &reader.facts[*index]).collect::<Vec<_>>();
-    let mut out = project(&reader.generation,root,&ownership,owner,&candidates,matches_seen,offset,complete)?;
-    if candidates.is_empty() && complete && offset==0 {
-        if let Some(method) = method {
-            out["observed_only"] = json!([{"name":method["name"],"visibility":method["visibility"],"source_hint":method["source"],
-                "status":"no_saved_definition_candidate","source_runtime_coherence":"unknown"}]);
+    while row<rows && slots<query.limit {
+        let (selected_owner,method) = inventory.row(query.family,label,row,&mut work)?;
+        let owner = selected_owner["name"].as_str();
+        let status = match owner {
+            None => "anonymous_owner_no_label_candidate",
+            Some(owner) if inventory.labels.get(owner).copied().unwrap_or(0)>1 => "duplicate_owner_label_unknown",
+            _ => "no_saved_definition_candidate",
+        };
+        let (positions,matches_seen,complete,partial,next_offset) = if status!="no_saved_definition_candidate" {
+            if offset!=0 { return Err(CoreError::input("Unknown owner row has no candidate offset")); }
+            (Vec::new(),0,false,false,None)
+        } else if let Some(method) = method {
+            let name = method["name"].as_str().unwrap();
+            let (page,stats) = reader.with_method_directory(query::budget(), |directory,built| {
+                (directory.page(&reader.facts,owner.unwrap(),name,offset,query.limit-slots,&mut work),directory.stats(built).value())
+            })?;
+            let page = page?;
+            if method_stats.is_null() { method_stats=stats; }
+            (page.positions,page.matches_seen,page.range_complete,page.partial,page.next_offset)
+        } else {
+            let kind = if selected_owner["kind"]=="module" {"module"} else {"class"};
+            let (page,_) = reader.recorded_candidates(owner.unwrap(),Some(kind),offset,query.limit-slots,&mut work)?;
+            if offset>page.total { return Err(CoreError::input("Contribution cursor exceeds candidate range")); }
+            let next = offset+page.positions.len();
+            (page.positions,page.total,next==page.total,false,(next<page.total).then_some(next))
+        };
+        let next = next_offset.map(|offset| (row,offset)).or_else(|| (!partial && row+1<rows).then_some((row+1,0)));
+        slots += positions.len().max(1);
+        let status = if positions.is_empty() {status} else {"saved_candidates"};
+        selected.push(Selected { owner:selected_owner,method,row,offset,positions,matches_seen,complete,partial,status,next });
+        match next {
+            Some((next_row,next_offset)) if next_row>row => { row=next_row; offset=next_offset; },
+            _ => break, // candidate suffix or zero-progress Work exhaustion
         }
     }
-    out["family"] = json!(query.family);
-    out["coverage"]["partial"] = json!(partial);
-    out["coverage"]["family_rows"] = json!(rows);
-    out["coverage"]["row"] = json!(row);
-    // Stop on zero-progress exhaustion. Never advertise a looping continuation.
-    let next = next_offset.map(|offset| (row,offset)).or_else(|| (!partial && row+1<rows).then_some((row+1,0)));
-    if let Some(position) = next {
-        let cursor = recorded_domain::cursor(&reader.generation,&json!(["source_comprehension",query.id,query.family]),position)?;
-        out["continuation"] = json!({"operation":"source_comprehension","id":query.id,"generation":reader.generation,"family":query.family,"cursor":cursor});
+    // Encode only compact bounded projections. If the byte budget cuts a row,
+    // retain its exact suffix cursor; no successful row/candidate is skipped.
+    loop {
+        let mut out = project_page(&reader.generation,root,&ownership,&inventory,&selected,&reader.facts,&mut work)?;
+        out["family"] = json!(query.family);
+        out["coverage"]["family_rows"] = json!(rows);
+        out["coverage"]["row"] = json!(start);
+        out["coverage"]["rows_returned"] = json!(selected.len());
+        out["coverage"]["partial"] = json!(selected.iter().any(|row| row.partial));
+        if rows==0 { out["coverage"]["reason"] = json!("no_observed_method_inventory_not_evidence_of_absence"); }
+        if let Some(position) = selected.last().and_then(|row| row.next) {
+            let cursor = recorded_domain::cursor(&reader.generation,&json!(["source_comprehension",query.id,query.family]),position)?;
+            out["continuation"] = json!({"operation":"source_comprehension","id":query.id,"generation":reader.generation,"family":query.family,"cursor":cursor});
+        }
+        match finish(out,query,&work,registry_stats.clone(),method_stats.clone()) {
+            Ok(out) => return Ok(out),
+            Err(error) => {
+                if let Some(last) = selected.last_mut() {
+                    if last.positions.len()>1 {
+                        last.positions.pop(); last.complete=false;
+                        last.next=Some((last.row,last.offset+last.positions.len()));
+                        continue;
+                    }
+                }
+                if selected.len()<=1 { return Err(error); }
+                let removed = selected.pop().unwrap();
+                selected.last_mut().unwrap().next=Some((removed.row,removed.offset));
+            }
+        }
     }
-    finish(out,query,&work,registry_stats,method_stats)
 }
 
 fn finish(mut out: Value, query: &Query<'_>, work: &Work, registry_stats: Value, method_stats: Value) -> Result<Value> {
     out["usage"] = json!({"candidate_fact_visits":work.visits,"label_comparisons":work.comparisons,"label_bytes":work.bytes,
         "recorded_directory":registry_stats,"method_directory":method_stats,"source_reads":0,
+        "projection_work_reservation":{"visits":PROJECTION_VISITS,"label_bytes":PROJECTION_BYTES},
         "scratch_reservation":query.scratch(),"max_wire_bytes":query.max_bytes,
-        "scope":"Reader open and lazy directory construction are separate from these request counters; no latency or RSS claim"});
+        "scope":"Visits include observation scans, row selection, compact projection copies and candidate visits; compared/hashed/copied label bytes are charged. Reader open and lazy directory construction are separate; no latency or RSS claim"});
     // Output counting precedes native envelope serialization. The dispatch owns
     // its existing envelope/bridge reservation; keep one newline byte here.
     schema::encoded_bytes(&out,query.max_bytes.saturating_sub(1))?;

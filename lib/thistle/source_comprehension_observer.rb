@@ -36,14 +36,17 @@ module Thistle
 
     def observe_ownership(model, owners, stop_before)
       names = {} # symbols returned by builtin reflection only
+      direct_names = []
       rows = owners.each_with_index.map do |owner, index|
         count_entry
         methods = []
+        direct_names[index] = {}
         %i[public protected private].each do |visibility|
           Module.instance_method(:"#{visibility}_instance_methods").bind_call(owner, false).each do |name|
             count_entry
             raise LimitExceeded, 'Ownership method names exceed 2048' if names.length >= MAX_METHODS && !names.key?(name)
             names[name] = true
+            direct_names[index][name] = true
             method = Module.instance_method(:instance_method).bind_call(owner, name)
             # With prepends instance_method may select a different owner's body.
             # Follow super_method through builtin descriptors to the actual row.
@@ -61,13 +64,7 @@ module Thistle
       end
       effective = names.keys.map do |name|
         count_entry
-        method = Module.instance_method(:instance_method).bind_call(model, name)
-        owner = UnboundMethod.instance_method(:owner).bind_call(method)
-        { 'name' => label(name), 'owner_index' => owners.index { |entry| same?(entry, owner) },
-          'source' => source_hint(UnboundMethod.instance_method(:source_location).bind_call(method)) }
-      rescue NameError
-        # Undef/removal/concurrent mutation remains explicit, not a guessed owner.
-        { 'name' => label(name), 'owner_index' => nil, 'source' => nil }
+        effective_descriptor(model, name, owners, direct_names)
       end
       { 'name' => label(Module.instance_method(:name).bind_call(model)),
         'status' => 'observed', 'superclass' => label(Module.instance_method(:name).bind_call(ancillary_parent(model))),
@@ -77,6 +74,20 @@ module Thistle
 
     def ancillary_parent(model) = Class.instance_method(:superclass).bind_call(model)
     def same?(a, b) = BasicObject.instance_method(:equal?).bind_call(a, b)
+
+    def effective_descriptor(model, name, owners, direct_names)
+      method = Module.instance_method(:instance_method).bind_call(model, name)
+      owner = UnboundMethod.instance_method(:owner).bind_call(method)
+      index = owners.index { |entry| same?(entry, owner) }
+      # Visibility-only entries can resolve to a body beyond the boundary.
+      # A body with no inventoried direct row cannot establish an owner here.
+      index = nil unless index && direct_names[index].key?(name)
+      { 'name' => label(name), 'owner_index' => index,
+        'source' => index ? source_hint(UnboundMethod.instance_method(:source_location).bind_call(method)) : nil }
+    rescue NameError
+      # Undef/removal/concurrent mutation remains explicit, not a guessed owner.
+      { 'name' => label(name), 'owner_index' => nil, 'source' => nil }
+    end
 
     def source_hint(location)
       return nil unless exact?(location, Array) && location.length == 2

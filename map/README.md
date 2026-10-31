@@ -51,10 +51,15 @@ class; duplicate definitions, precedence and source/runtime binding can remain
 unknown. Runtime-model Source uses this surface when the capture includes the
 optional explicit loaded-class ownership family; default captures are unchanged.
 
-Each page requests eight Core-selected rows with a 32 KiB response limit. Selected
+Each page requests up to eight Core row/candidate slots with a 32 KiB response
+limit. Empty/generated/unknown rows cost one slot; duplicate candidates each cost
+one. A compact outline and Core continuation retain the exact suffix. Anonymous
+or repeated owner labels stay unknown without blocking later owners. Selected
 files reserve a total of 64 KiB before deduplicated reads, then validate exact
 identity/digest/bytes and at most 2000 aggregate display lines before highlighting.
 An over-line file is wholly not admitted; missing source is a separate state.
+Shared-file contributions use one code block with their span highlights and
+physical in-page anchors, plus exact Source follow-ups.
 These and the finite HTML body limit are display controls, not RSS or complete
 native heap bounds. See the [source comprehension contract](docs/source-comprehension.md).
 Native, installed/served, independent task and person acceptance for this new

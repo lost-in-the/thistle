@@ -145,7 +145,10 @@ describes its evidence and work limits. Ruby exposes the same operation as
 For a saved model or class, `reader.source_comprehension(model_id,
 family: "contributions", limit: 8, cursor: nil, max_bytes: 32768)` returns
 identified owner/declaration contributions; `family: "methods"` pages recorded
-method-owner candidates. Follow the returned continuation on the same Reader.
+method-owner candidates. Each page has up to eight row/candidate slots by default,
+including compact rows for generated methods or unknown anonymous/repeated owner
+labels. Follow the exact returned continuation on the same Reader; unknown owners
+do not hide later concern/superclass rows.
 Duplicate definitions, unsupported precedence and source/runtime coherence remain
 explicit unknowns. See the [source comprehension contract](docs/development/source-comprehension.md).
 
