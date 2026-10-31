@@ -259,6 +259,15 @@ struct Selected<'a> {
     status: &'static str, next: Option<(usize,usize)>,
 }
 
+// A later row can retry with a fresh request budget. Never emit a cursor
+// back to an unchanged first row when this request has made no progress.
+fn defer_row_after_progress(selected: &mut [Selected<'_>], row: usize, offset: usize) -> bool {
+    if let Some(last) = selected.last_mut() {
+        last.next = Some((row,offset));
+        true
+    } else { false }
+}
+
 fn project_page(generation: &str, model: &Value, ownership: &[&Value], inventory: &Inventory<'_>,
     selected: &[Selected<'_>], facts: &[Value], work: &mut Work) -> Result<Value> {
     work.scan(model["name"].as_str().map_or(0,str::len) + model["path"].as_str().map_or(0,str::len) + 64 * (ownership.len()+1))?;
@@ -297,7 +306,8 @@ fn project_page(generation: &str, model: &Value, ownership: &[&Value], inventory
                 effective.and_then(|method| method["source"]["path"].as_str())]
                 .into_iter().flatten().map(str::len).sum();
             work.scan(bytes)?;
-            let status = if fact["kind"]!="method" { "as_written_declaration" }
+            let status = if fact["evidence"]!="static" { "unknown_precedence" }
+                else if fact["kind"]!="method" { "as_written_declaration" }
                 else if !complete { "unknown_incomplete_candidates" }
                 else if fact["attributes"]["name_resolution"]!="lexical" { "unknown_precedence" }
                 else if row.positions.len()>1 { "ambiguous_definitions" }
@@ -369,11 +379,14 @@ impl recorded_domain::LabelWork for Work {
 /// unchanged two-coordinate cursor names the next row and its candidate offset.
 /// No source I/O; method-directory locks end before response construction.
 pub(crate) fn select(reader: &Reader, query: &Query<'_>) -> Result<Value> {
+    select_with_work(reader,query,Work::default())
+}
+
+fn select_with_work(reader: &Reader, query: &Query<'_>, mut work: Work) -> Result<Value> {
     let root = reader.stored_fact(query.id)?;
     if !matches!(root["kind"].as_str(),Some("rails_model" | "class")) { return Err(CoreError::input("Expected saved model or class")); }
     let label = if root["kind"]=="rails_model" { root["attributes"]["model"]["name"].as_str() } else { root["name"].as_str() };
     let label = label.ok_or_else(|| CoreError::input("Anonymous model source composition is unavailable"))?;
-    let mut work = Work::default();
     let (registries,registry_stats) = reader.recorded_candidates(label,Some("rails_source_ownership"),0,2,&mut work)?;
     let ownership = registries.positions.iter().map(|index| &reader.facts[*index]).collect::<Vec<_>>();
     // Reader open and publication already validated these immutable pinned facts.
@@ -390,6 +403,7 @@ pub(crate) fn select(reader: &Reader, query: &Query<'_>) -> Result<Value> {
     let mut selected = Vec::with_capacity(query.limit);
     let mut slots = 0;
     let mut method_stats = Value::Null;
+    let mut work_deferred = false;
     while row<rows && slots<query.limit {
         let (selected_owner,method) = inventory.row(query.family,label,row,&mut work)?;
         let owner = selected_owner["name"].as_str();
@@ -403,19 +417,34 @@ pub(crate) fn select(reader: &Reader, query: &Query<'_>) -> Result<Value> {
             (Vec::new(),0,false,false,None)
         } else if let Some(method) = method {
             let name = method["name"].as_str().unwrap();
-            let (page,stats) = reader.with_method_directory(query::budget(), |directory,built| {
+            let result = reader.with_method_directory(query::budget(), |directory,built| {
                 (directory.page(&reader.facts,owner.unwrap(),name,offset,query.limit-slots,&mut work),directory.stats(built).value())
-            })?;
-            let page = page?;
+            }).and_then(|(page,stats)| page.map(|page| (page,stats)));
+            let (page,stats) = match result {
+                Ok(page) => page,
+                Err(error) if error.code=="limit_exceeded" && defer_row_after_progress(&mut selected,row,offset) => {
+                    work_deferred=true; break;
+                },
+                Err(error) => return Err(error),
+            };
             if method_stats.is_null() { method_stats=stats; }
             (page.positions,page.matches_seen,page.range_complete,page.partial,page.next_offset)
         } else {
             let kind = if selected_owner["kind"]=="module" {"module"} else {"class"};
-            let (page,_) = reader.recorded_candidates(owner.unwrap(),Some(kind),offset,query.limit-slots,&mut work)?;
+            let (page,_) = match reader.recorded_candidates(owner.unwrap(),Some(kind),offset,query.limit-slots,&mut work) {
+                Ok(page) => page,
+                Err(error) if error.code=="limit_exceeded" && defer_row_after_progress(&mut selected,row,offset) => {
+                    work_deferred=true; break;
+                },
+                Err(error) => return Err(error),
+            };
             if offset>page.total { return Err(CoreError::input("Contribution cursor exceeds candidate range")); }
             let next = offset+page.positions.len();
             (page.positions,page.total,next==page.total,false,(next<page.total).then_some(next))
         };
+        if partial && positions.is_empty() && defer_row_after_progress(&mut selected,row,offset) {
+            work_deferred=true; break;
+        }
         let next = next_offset.map(|offset| (row,offset)).or_else(|| (!partial && row+1<rows).then_some((row+1,0)));
         slots += positions.len().max(1);
         let status = if positions.is_empty() {status} else {"saved_candidates"};
@@ -433,7 +462,7 @@ pub(crate) fn select(reader: &Reader, query: &Query<'_>) -> Result<Value> {
         out["coverage"]["family_rows"] = json!(rows);
         out["coverage"]["row"] = json!(start);
         out["coverage"]["rows_returned"] = json!(selected.len());
-        out["coverage"]["partial"] = json!(selected.iter().any(|row| row.partial));
+        out["coverage"]["partial"] = json!(work_deferred || selected.iter().any(|row| row.partial));
         if rows==0 { out["coverage"]["reason"] = json!("no_observed_method_inventory_not_evidence_of_absence"); }
         if let Some(position) = selected.last().and_then(|row| row.next) {
             let cursor = recorded_domain::cursor(&reader.generation,&json!(["source_comprehension",query.id,query.family]),position)?;

@@ -13,7 +13,7 @@ class SourceComprehensionPresenterTest < Minitest::Test
     fact = { 'id' => ID, 'kind' => 'method', 'name' => 'Order#label', 'evidence' => 'static',
       'path' => 'app/models/order.rb', 'location' => { 'start_line' => 2, 'end_line' => 3 } }
     { 'version' => 1, 'generation' => GENERATION, 'owner' => 'Order', 'composition' => 'identified_contributions',
-      'ownership_status' => 'unique_label_candidate_binding_unknown', 'owners' => [{ 'name' => 'Order', 'kind' => 'class' }],
+      'ownership_status' => 'unique_label_candidate_binding_unknown', 'owners' => [{ 'index' => 0, 'name' => 'Order', 'kind' => 'class' }],
       'semantics' => 'Loaded owner observed; invocation unknown.', 'observed_only' => [{ 'name' => 'native_hash' }],
       'coverage' => { 'returned' => 1, 'candidate_matches_seen' => 1, 'range_complete' => true, 'scope' => 'saved owner definitions' }, 'continuation' => nil,
       'contributions' => [{ 'fact' => fact, 'owner' => 'Order', 'method_name' => 'label',
@@ -118,6 +118,19 @@ class SourceComprehensionPresenterTest < Minitest::Test
     assert_includes html, '#L5'
     assert_equal 7, html.scan('class="ln"').length
     refute_includes html, 'class="source-row selected" id="source-' + ID + '-L4"'
+  end
+
+  def test_page_local_owner_list_retains_original_ancestry_positions
+    data = projection
+    data['owners'] = [
+      { 'index' => 8, 'name' => 'Tagged', 'kind' => 'module' },
+      { 'index' => 15, 'name' => 'Parent', 'kind' => 'class' }
+    ]
+    html = render(data)
+    assert_includes html, '<li value="9">Tagged (module)</li>'
+    assert_includes html, '<li value="16">Parent (class)</li>'
+    data['owners'][0]['index'] = '<script>'
+    assert_raises(Presenter::InvalidProjection) { render(data) }
   end
 
   def test_unknown_owner_rows_are_visible_and_keep_the_normal_family_continuation

@@ -330,3 +330,56 @@ fn admitted_large_ambiguous_ownership_is_queryable_without_group_revalidation() 
     let mut work = Work { visits:20_000,..Work::default() };
     assert!(Inventory::new(&[json!({"name":"Order","methods":[]})],None,&mut work).is_err());
 }
+
+
+#[test]
+fn runtime_class_candidates_never_claim_as_written_provenance() {
+    for evidence in ["static","runtime"] {
+        let mut root = declaration('a',"Order","class"); root["evidence"]=json!(evidence);
+        saved(vec![root,ownership()],|reader| {
+            let request = json!({"id":"a".repeat(64),"limit":1});
+            let page = select(reader,&Query::parse(&request).unwrap()).unwrap();
+            assert_eq!(page["contributions"][0]["fact"]["evidence"],evidence);
+            assert_eq!(page["contributions"][0]["status"],
+                if evidence=="static" {"as_written_declaration"} else {"unknown_precedence"});
+        });
+    }
+}
+
+#[test]
+fn later_row_work_exhaustion_preserves_the_exact_retry_position() {
+    let mut data = observation();
+    data["ancestors"] = json!([
+        {"index":0,"name":"Order","kind":"class","methods":[{"name":"first","visibility":"public","source":null}]},
+        {"index":1,"name":"Parent","kind":"class","methods":[{"name":"tail","visibility":"public","source":null}]}
+    ]);
+    data["effective_methods"] = json!([
+        {"name":"first","owner_index":0,"source":null},{"name":"tail","owner_index":1,"source":null}
+    ]);
+    let observed = batch(&context(),&json!({"version":1,"models":[data]}),"/app").unwrap()["facts"][0].clone();
+    saved(vec![declaration('a',"Order","class"),declaration('b',"Parent","class"),observed,
+        source_less_method('c',"Order","first"),source_less_method('d',"Parent","tail")],|reader| {
+        for family in ["contributions","methods"] {
+            let first_request = json!({"id":"a".repeat(64),"family":family,"limit":1});
+            let first = select(reader,&Query::parse(&first_request).unwrap()).unwrap();
+            let comparisons = first["usage"]["label_comparisons"].as_u64().unwrap() as usize;
+            assert!(comparisons>0 && comparisons<100_000);
+            // Leave exactly the first row's measured comparison work. The
+            // second row then has zero comparison progress on the SAME page.
+            let work = Work { comparisons:100_000-comparisons,..Work::default() };
+            let request = json!({"id":"a".repeat(64),"family":family,"limit":2});
+            let page = select_with_work(reader,&Query::parse(&request).unwrap(),work).unwrap();
+            assert_eq!(page["rows"].as_array().unwrap().len(),1);
+            assert_eq!(page["contributions"].as_array().unwrap().len(),1);
+            assert!(page["coverage"]["partial"].as_bool().unwrap());
+            let cursor = &page["continuation"]["cursor"];
+            let scope = json!(["source_comprehension","a".repeat(64),family]);
+            assert_eq!(recorded_domain::position(Some(cursor),&reader.generation,&scope).unwrap(),(1,0));
+            let suffix_request = json!({"id":"a".repeat(64),"family":family,"cursor":cursor});
+            let suffix = select(reader,&Query::parse(&suffix_request).unwrap()).unwrap();
+            assert!(suffix["rows"].as_array().unwrap().iter().any(|row| row["owner"]=="Parent"));
+            assert!(suffix["contributions"].as_array().unwrap().iter().any(|row| row["owner"]=="Parent"));
+        }
+    });
+    assert!(!defer_row_after_progress(&mut [],0,0),"do not offer a zero-progress self-cursor");
+}

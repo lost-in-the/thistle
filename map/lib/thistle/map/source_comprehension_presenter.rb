@@ -175,7 +175,9 @@ module Thistle
         owners = @data['owners'] || []
         append '<ol>'
         owners.each do |owner|
-          append "<li>#{h(owner['name'] || 'Anonymous owner')} (#{h(owner.fetch('kind'))})</li>"
+          index = owner.fetch('index')
+          raise InvalidProjection, 'Invalid observed ancestry index' unless index.is_a?(Integer) && index.between?(0, 63)
+          append "<li value=\"#{index + 1}\">#{h(owner['name'] || 'Anonymous owner')} (#{h(owner.fetch('kind'))})</li>"
         end
         append '</ol>'
         coverage = @data.fetch('coverage')
