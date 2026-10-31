@@ -2,13 +2,15 @@
 
 require 'erb'
 require 'uri'
+require_relative 'constant_occurrence'
 
 module Thistle
   module Map
     # Selection, ambiguity and limits belong to the native pinned Reader.
     class ReferencesPresenter
-      def initialize(generation:, mount:)
+      def initialize(generation:, mount:, schema_version: nil)
         @generation, @mount = generation, mount
+        @occurrences = ConstantOccurrence.new(generation: generation, mount: mount, schema_version: schema_version)
       end
 
       def render(result)
@@ -28,6 +30,7 @@ module Thistle
           origin, link = row.fetch('origin'), row.fetch('link')
           body << "<article><h3>#{h(link.fetch('relation'))}: #{h(link.fetch('target'))}</h3>"
           body << "<p>Recorded at #{navigation(origin, candidate: false)} · #{source(origin)} · #{h(origin.fetch('evidence'))}; recorded resolution #{h(link.fetch('resolution'))}.</p>"
+          body << @occurrences.render(link, origin: origin, detail_omitted: row.fetch('detail_omitted'))
           body << "<p>Link detail omitted by display budget. Follow the recorded origin's Links page for captured details.</p>" if row.fetch('detail_omitted')
           candidates = row.fetch('candidates')
           body << "<p>#{row.fetch('candidate_matches')} known name-match candidates; binding unknown. "

@@ -9,6 +9,7 @@ require_relative 'model_presenter'
 require_relative 'callback_presenter'
 require_relative 'find_presenter'
 require_relative 'references_presenter'
+require_relative 'constant_occurrence'
 
 module Thistle
   module Map
@@ -18,8 +19,8 @@ module Thistle
       class Limit < StandardError; end
 
       PAGE_SIZE = 50
-      MAX_SOURCE_BYTES = 262_144
-      MAX_SOURCE_LINES = 10_000
+      MAX_SOURCE_BYTES = ConstantOccurrence::WEB_SOURCE_BYTES
+      MAX_SOURCE_LINES = ConstantOccurrence::WEB_SOURCE_LINES
       MAX_CONSTRAINT_ENTRIES = 32
       MAX_CONSTRAINT_FAMILY_BYTES = 8_192
       CONSTRAINT_FIELDS = {
@@ -161,7 +162,8 @@ module Thistle
         body = fact ? "<h1 class=\"t1\">Links for #{h(fact.fetch('name'))}</h1>" + fact_tiles(fact, details: direction != 'incoming') : '<h1 class="t1">Incoming references</h1>'
         body += "<p><a href=\"#{h(url('/links', 'direction' => 'outgoing'))}\">Outgoing references</a> · <a href=\"#{h(url('/links', 'direction' => 'incoming'))}\">Incoming references</a></p>"
         body += if references
-                  ReferencesPresenter.new(generation: @generation, mount: @mount).render(references)
+                  ReferencesPresenter.new(generation: @generation, mount: @mount,
+                    schema_version: @reader.manifest['schema_version']).render(references)
                 elsif references_limited
                   '<p class="notice ui">Reference selection reached resource limits; no reference result was returned.</p>'
                 else
@@ -174,11 +176,17 @@ module Thistle
           body += '<p class="ui">No links were captured for this fact. This does not prove it has no dependencies.</p>'
         else
           visible = links.slice((page - 1) * PAGE_SIZE, PAGE_SIZE)
-          structured = visible.any? { |link| plain?(link, Hash) && plain?(link['attributes'], Hash) && link['attributes'].key?('thistle_call') }
+          occurrences = ConstantOccurrence.new(generation: @generation, mount: @mount, schema_version: @reader.manifest['schema_version'])
+          structured = visible.any? do |link|
+            plain?(link, Hash) && plain?(link['attributes'], Hash) &&
+              (link['attributes'].key?('thistle_call') || occurrences.available?(link, origin: fact))
+          end
           file = call_file(fact) if structured
           source_info = call_source_info(fact, file) if file && file['bytes'] <= MAX_SOURCE_BYTES
           rows = visible.map do |link|
             detail = call_detail(link, fact, file, source_info)
+            detail += occurrences.render(link, origin: fact, source_bytes: file && file['bytes'],
+              source_info: source_info, verify_source: true) { |origin_id| url('/source', 'id' => origin_id) }
             "<tr><td>#{h(link.fetch('relation'))}</td><td>#{h(link.fetch('target'))}#{detail}</td><td>#{h(link.fetch('resolution'))}</td></tr>"
           end.join
           body += table('Captured links', %w[Relation Target Evidence], rows)
@@ -309,7 +317,7 @@ module Thistle
           return { over_limit: true } if offsets.length == MAX_SOURCE_LINES
           offsets << index
         end
-        { offsets: offsets, rendered_lines: offsets.length + (content.end_with?("\n") ? 0 : 1) }
+        { content: content, offsets: offsets, rendered_lines: offsets.length + (content.end_with?("\n") ? 0 : 1) }
       rescue Thistle::Error
         nil
       end
