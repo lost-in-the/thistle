@@ -136,8 +136,9 @@ Map source wiring now present (App execution remains UNRUN):
    source expansion occurs. Original physical Source anchors and default captures
    without optional ownership coverage retain their established behavior.
 
-Root retains shared packaging/README/gemspec/ledger/decisions synchronization,
-current CI disposition, the full independent review and actual finite execution.
+The package selectors, installed-manifest assertions and shared reading guides now
+include this contract. Root retains current CI disposition, the full independent
+review and actual finite execution.
 
 ## Cost and alternatives
 
@@ -174,21 +175,13 @@ rustfmt preflight failed before starting its child and that attempt was retained
 No package/native/installed/served result can be inherited from another artifact.
 
 The opt-in installed producer/consumer harness and served task protocol are in
-the [Map contract](../../map/docs/source-comprehension.md). They require Root's
+the [Map contract](https://github.com/lost-in-the/thistle/blob/43b2bca7555b8b62f970bc9751939226a274f4ef/map/docs/source-comprehension.md)
+at source checkpoint `43b2bca`. The explicit URL remains usable without a sibling
+Map checkout. These checks require Root's
 shared wiring and a new finite execution lease. Root owns review/check/integration;
 Leah owns applicable acceptance. Self-checks do not independently qualify the work.
 
-Proposed ledger text for Root's normal implementation PR, preserving all statuses:
-
-- L04 candidate cell: “LOS-147 prepares original physical source and identified
-  owner/concern/superclass contribution witnesses, with duplicate candidates and
-  source/runtime coherence unknown. Installed/served acceptance pending; broad
-  effective-source semantics remain open.”
-- L14 candidate cell: “LOS-147 code-first model/concern reading increment and
-  context-preserving Source/caller journey pending changed-candidate acceptance.
-  Full Field Guide discovery, schema, history and human jobs remain open.”
-
-For the shared decisions record: record the additive existing-index page decision,
-its repeated-prefix cost and reconsideration condition above. For Map README and
-installed-doc manifests, link this contract and the Map contract with their actual
-implemented/UNRUN boundary; do not claim the full restored replacement scope done.
+The repository ledger's L04/L14 candidate cells record this bounded source
+increment and pending acceptance. All 17 rows remain UNQUALIFIED. Broad effective
+source, complete Field Guide discovery, schema, history and human jobs remain
+declared outcomes; this guide and package inclusion do not qualify them.
