@@ -48,7 +48,8 @@ Dir.mktmpdir("thistle-installed-", File.realpath(Dir.tmpdir)) do |worker|
       core => %w[docs/development/platforms.md docs/development/tagged-call-encoding.md
                  docs/development/loaded-model-evidence.md docs/development/callback-evidence.md
                  docs/development/find-evidence.md docs/development/route-constraints.md
-                 docs/development/model-references.md docs/development/recorded-domain-access.md],
+                 docs/development/model-references.md docs/development/recorded-domain-access.md
+                 docs/development/model-brief-markdown.md],
       map => %w[docs/MODELS.md docs/REUSE.md]
     }.each do |package, expected|
       actual = Gem::Package.new(package).contents.select { |path| path.start_with?("docs/") }.sort
