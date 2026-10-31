@@ -162,3 +162,29 @@ database privilege, memory/PID/network limit or fixture answer. A later fresh
 host admission must establish actual startup and journey behavior; this focused
 check is not that result. The failed4887 instance and original database remain
 KEEP; no reset or in-window retry is implied.
+
+## Root cold Bundler lock-parser correction
+
+The next63e8 window proved actual OCI startup, then stopped at the bare
+`bundler/lockfile_parser` require before cohort readiness or DB startup. Safe
+diagnostics record HOST_L91; they do not preserve the exception class/message.
+Original installed restoration completed, but no loaded-native identity receipt
+or journey result completed. Report
+`b41e6bb5e1638fa335902974f32b44fbccdc4c7900bcf2be14701e6f7696c3a6`,
+index `65a50580dbbf0f1c09ae18ebf22bb9d8a77eb797afd9fc3c75d3cc62bb72bf73`.
+Compute is absent and the failed instance/raw evidence remain KEEP.
+
+Pinned Bundler2.6.9 source shows that LockfileParser uses base-module autoloads
+such as GemHelpers and Source. The producer's lock projection now requires
+`bundler` before using its parser. It never invokes Bundler.setup, runtime setup,
+resolution or installation. The minimal consumer still uses the producer's
+verified projection without loading Bundler or any framework.
+
+A cold functional helper check parses a tiny lock for an unavailable synthetic
+gem and verifies its name/version without activating that gem, bundler/setup or
+a framework. It fails with the old bare-parser load on the host Ruby and passes
+with the base loader. This source regression is distinct from the target image
+and actual installed journey, which remain runtime obligations. The correction
+adds no dependency or artifact and only the base loader needed by the existing
+parser; no extra lock scan or consumer work is introduced. Old failures and all17
+qualification limits remain unchanged.

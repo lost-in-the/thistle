@@ -1,5 +1,5 @@
 # frozen_string_literal: true
-# Harmless stdlib-only controller helpers; no Rails, Thistle, DB, server or native
+# Harmless stdlib/Bundler-introspection helpers; no Rails, Thistle, DB or native
 # candidate is loaded. Database method receivers below are explicit metadata stubs.
 require 'json'
 require 'tmpdir'
@@ -63,6 +63,26 @@ Dir.mktmpdir('los139-ruby-helpers-') do |directory|
   refuses('F12_ACTIVE_SUPPORT') { HostProfile.framework_free! }
   Object.send(:remove_const, :ActiveSupport)
   checks << 'F12_actual_provider_roots_default_hash_and_framework_guard'
+end
+
+Dir.mktmpdir('los139-lock-introspection-') do |directory|
+  keys = %w[HOME BUNDLE_GEMFILE BUNDLE_USER_HOME BUNDLE_APP_CONFIG]
+  previous = keys.to_h { |key| [key, ENV[key]] }
+  begin
+    ENV['HOME'] = directory
+    ENV['BUNDLE_GEMFILE'] = File.join(directory, 'Gemfile')
+    ENV['BUNDLE_USER_HOME'] = ENV['BUNDLE_APP_CONFIG'] = File.join(directory, '.bundle')
+    File.write(ENV['BUNDLE_GEMFILE'], "source 'https://rubygems.org'\n")
+    lock = File.join(directory, 'Gemfile.lock')
+    File.write(lock, "GEM\n  remote: https://rubygems.org/\n  specs:\n    fixture_only (1.2.3)\n\nPLATFORMS\n  ruby\n\nDEPENDENCIES\n  fixture_only (= 1.2.3)\n")
+    assert(HostProfile.lock_versions(lock) == { 'fixture_only' => '1.2.3' }, 'LOCK_COLD_PROJECTION')
+    assert(!Gem.loaded_specs.key?('fixture_only'), 'LOCK_NO_RESOLUTION_OR_ACTIVATION')
+    assert(!$LOADED_FEATURES.any? { |path| path.end_with?('/bundler/setup.rb') }, 'LOCK_NO_RUNTIME_SETUP')
+    HostProfile.framework_free!
+    checks << 'cold_lock_projection_without_setup_resolution_or_framework'
+  ensure
+    previous.each { |key, value| ENV[key] = value }
+  end
 end
 
 original_config = HostProfile.method(:config)

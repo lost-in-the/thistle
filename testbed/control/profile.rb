@@ -79,6 +79,13 @@ module HostProfile
     actual.merge('mapped' => mapped_paths.include?(path))
   end
 
+  def lock_versions(path)
+    # LockfileParser needs Bundler's base autoloads. This is introspection only:
+    # never require bundler/setup or resolve/install the supplied lock here.
+    require 'bundler'
+    Bundler::LockfileParser.new(File.read(path)).specs.to_h { |s| [s.name, s.version.to_s] }
+  end
+
   def identities(client: false, reference: nil)
     require 'thistle/map'
     raise 'Selected Map lacks F05 presentation' unless defined?(Thistle::Map::ConstantOccurrence)
@@ -88,8 +95,7 @@ module HostProfile
       locked = reference.fetch('specs').transform_values { |s| s.fetch('version') }
     else
       ENV['BUNDLE_GEMFILE'] = '/input/app/Gemfile' # parser context only; never bundle/setup
-      require 'bundler/lockfile_parser'
-      locked = Bundler::LockfileParser.new(File.read('/input/artifacts/Gemfile.lock')).specs.to_h { |s| [s.name, s.version.to_s] }
+      locked = lock_versions('/input/artifacts/Gemfile.lock')
     end
     (reference ? %w[thistle thistle-map] : %w[thistle thistle-map puma]).each do |name|
       expected = name == 'puma' ? '8.0.2' : '0.1.0.pre.3'
