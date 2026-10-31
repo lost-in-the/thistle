@@ -41,7 +41,7 @@ SELECTED = {
 }
 MIB = 1024 * 1024
 LIMITS = {'memory': 2 * 1024 * MIB, 'pids': 256, 'nano_cpus': 2_000_000_000,
-          'lease': 900, 'file': 32 * MIB, 'output': 8 * MIB, 'work': 512 * MIB}
+          'lease': 900, 'cpu': 600, 'file': 32 * MIB, 'output': 8 * MIB, 'work': 512 * MIB}
 # Podman may serialize --cap-drop=ALL as its expanded default-capability set.
 # Actual zero CapEff/NoNewPrivs is independently checked on every running PID.
 DEFAULT_CAPABILITIES = {'CHOWN', 'DAC_OVERRIDE', 'FOWNER', 'FSETID', 'KILL', 'NET_BIND_SERVICE',
@@ -245,7 +245,10 @@ class Runner:
         # value nor directory is passed or mounted into candidate processes.
         def limits():
             resource.setrlimit(resource.RLIMIT_FSIZE, (LIMITS['file'], LIMITS['file']))
-            resource.setrlimit(resource.RLIMIT_CPU, (seconds + 5, seconds + 5))
+            # Preserve the helper's short soft budget, but let unprivileged crun
+            # set the declared OCI limit without raising an inherited hard cap.
+            cpu_soft = seconds + 5
+            resource.setrlimit(resource.RLIMIT_CPU, (cpu_soft, max(cpu_soft, LIMITS['cpu'])))
         with contextlib.ExitStack() as stack:
             stream = None if self.readonly else stack.enter_context(private_open(log))
             process = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -529,7 +532,7 @@ class Host:
                 '--cap-drop=ALL', '--security-opt=no-new-privileges', '--userns=keep-id',
                 '--user', f'{os.getuid()}:{os.getgid()}', '--memory', str(LIMITS['memory']),
                 '--memory-swap', str(LIMITS['memory']), '--cpus=2', '--pids-limit=256',
-                '--ulimit', f'fsize={LIMITS["file"]}:{LIMITS["file"]}', '--ulimit', 'cpu=600:600',
+                '--ulimit', f'fsize={LIMITS["file"]}:{LIMITS["file"]}', '--ulimit', f'cpu={LIMITS["cpu"]}:{LIMITS["cpu"]}',
                 '--timeout', str(LIMITS['lease']), '--log-driver=none', '--unsetenv-all',
                 '--workdir', '/work' if role == 'app' else '/var/lib/mysql']
         for source, (target, writable) in self.mounts(role).items():
@@ -579,7 +582,7 @@ class Host:
             require('NoNewPrivs:\t1' in status and 'CapEff:\t0000000000000000' in status, 'Actual process privileges differ')
             limits = Path(f'/proc/{pid}/limits').read_text()
             require(re.search(r'Max file size\s+33554432\s+33554432\s+bytes', limits), 'Actual file limit differs')
-            require(re.search(r'Max cpu time\s+600\s+600\s+seconds', limits), 'Actual CPU limit differs')
+            require(re.search(rf'Max cpu time\s+{LIMITS["cpu"]}\s+{LIMITS["cpu"]}\s+seconds', limits), 'Actual CPU limit differs')
             groups = Path(f'/proc/{pid}/cgroup').read_text().splitlines()
             require(len(groups) == 1 and groups[0].startswith('0::/'), 'Actual cgroup v2 missing')
             group = groups[0][3:]

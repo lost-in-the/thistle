@@ -141,3 +141,24 @@ one17,672-byte staged copy and bounded hashing; the existing proc maps read is
 reused. No global plugin install, search fallback, password change or new worker
 was introduced. This is a source correction based on an observed working tuple,
 not a claim that every previous authentication failure has a proven sole cause.
+
+## Root OCI CPU inheritance correction
+
+The first full-host attempt at4887 prepared an instance, then failed before the
+app process started: rootless crun could not set the declared600-second CPU
+limit because Runner had inherited a35-second hard limit from its helper bound.
+No framework/native load, mysqld start, connection, migration/seed or journey
+test occurred. Cleanup preserved the failed instance and all database state.
+Report `0b35e8b31f5d8df82226c6b9a413322c7704b4ec056b9921cf61dfe8aa1a409a`,
+index `d16205154f7f5a5692893f590bd6e8f173f23655c2d0c5a9a7aaf709070ef33c`.
+
+Runner now retains its short soft CPU budget and wall deadline, while its hard
+CPU ceiling permits the unchanged declared OCI600-second limit. One shared
+constant supplies the inherited ceiling, container argument and actual PID
+verification. A harmless child regression reproduces the old failure and checks
+the soft budget, permitted OCI limit operation and unchanged file limit without
+starting a container or consuming a CPU workload. This changes no package,
+database privilege, memory/PID/network limit or fixture answer. A later fresh
+host admission must establish actual startup and journey behavior; this focused
+check is not that result. The failed4887 instance and original database remain
+KEEP; no reset or in-window retry is implied.

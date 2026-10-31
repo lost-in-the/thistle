@@ -501,6 +501,23 @@ class LifecycleTest(unittest.TestCase):
 
 
 class FilesystemAndRunnerTest(unittest.TestCase):
+    def test_runner_preserves_soft_cpu_budget_and_allows_declared_oci_limit(self):
+        with tempfile.TemporaryDirectory() as directory:
+            runner = host.Runner(directory)
+            # Model crun's rlimit operation without a container or CPU workload.
+            # An unprivileged child may raise its soft limit only up to hard.
+            program = ('import json, resource; '
+                       'before = resource.getrlimit(resource.RLIMIT_CPU); '
+                       'resource.setrlimit(resource.RLIMIT_CPU, (600, 600)); '
+                       'print(json.dumps({"before": before, '
+                       '"container": resource.getrlimit(resource.RLIMIT_CPU), '
+                       '"file": resource.getrlimit(resource.RLIMIT_FSIZE)}))')
+            observed = json.loads(runner([host.sys.executable, '-c', program], seconds=2))
+            self.assertEqual(7, observed['before'][0])
+            self.assertGreaterEqual(observed['before'][1], 600)
+            self.assertEqual([600, 600], observed['container'])
+            self.assertEqual([host.LIMITS['file']] * 2, observed['file'])
+
     def test_disk_monitor_tolerates_only_missing_ephemeral_entries(self):
         with tempfile.TemporaryDirectory() as name:
             root = Path(name)
