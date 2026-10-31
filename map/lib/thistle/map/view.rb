@@ -13,6 +13,7 @@ require_relative 'constant_occurrence'
 require_relative 'investigation_presenter'
 require_relative 'investigation_evidence'
 require_relative 'source_comprehension_sources'
+require_relative 'job_mail_presenter'
 
 module Thistle
   module Map
@@ -119,6 +120,20 @@ module Thistle
       rescue Thistle::Error => error
         raise unless error.code == 'source_unavailable'
 
+        if @reader.manifest.fetch('coverage', []).any? { |row| row['family'] == 'rails_job_mail' }
+          raise Limit, 'Saved job/mail Source navigation requires the compact identity Reader API.' unless @reader.respond_to?(:fact_identity)
+          compact = @reader.fact_identity(@params.fetch('id'))
+          unless compact['generation'] == @generation && compact.dig('fact', 'id') == @params['id'] && JSON.generate(compact).bytesize <= 32768
+            raise Thistle::InvalidSnapshot, 'Job/mail compact identity mismatch'
+          end
+          if compact.dig('fact', 'kind') == 'rails_job_mail'
+            fact = compact.fetch('fact')
+            body = "<h1 class=\"t1\">#{h(fact.fetch('name'))}</h1>" + job_mail_navigation(fact)
+            body << '<p class="notice ui">Saved job/mail investigation is unavailable with this Reader.</p>' unless @reader.respond_to?(:job_mail)
+            body << '<p class="notice ui">Saved registry identity only; no file or line was captured. Inspect registrations and source candidates explicitly. No job or mail delivery was observed.</p>'
+            return layout('Source', body, fact: fact)
+          end
+        end
         fact = @reader.fact(@params.fetch('id'))
         raise error unless fact['id'] == @params['id'] && fact['path'].nil? && fact['location'].nil?
 
@@ -174,7 +189,9 @@ module Thistle
           end
         end
         body << "<p><a href=\"#{h(url('/links', 'id' => id, 'direction' => 'incoming'))}\">Incoming references / callers</a> · "
-        body << "<a href=\"#{h(url('/links', 'id' => id, 'direction' => 'outgoing'))}\">Links and recorded callback/schema context</a></p></details>"
+        body << "<a href=\"#{h(url('/links', 'id' => id, 'direction' => 'outgoing'))}\">Links and recorded callback/schema context</a></p>"
+        result.fetch('contributions').each { |row| body << job_mail_navigation(row.fetch('fact')) }
+        body << '</details>'
         content = layout('Source', body, fact: root)
         raise Limit, 'Source comprehension page exceeds its output budget.' if content.bytesize > SourceComprehensionPresenter::MAX_BODY_BYTES + 65536
         content
@@ -190,6 +207,23 @@ module Thistle
         raise Investigation::Limit, 'Investigation page exceeds its total output budget; no partial page was returned.' if content.bytesize > InvestigationPresenter::MAX_PAGE_BYTES
 
         content
+      end
+
+      def job_mail_page(family)
+        unless NavigationContext::JOB_MAIL_FAMILIES.include?(family) && @reader.respond_to?(:job_mail)
+          raise Limit, 'Saved job/mail evidence is unavailable with this Reader.'
+        end
+        id = @params.fetch('id')
+        limit = family == 'overview' ? 8 : JobMailPresenter.page_limit(@navigation)
+        result = @reader.job_mail(id, family: family, cursor: @params['cursor'], limit: limit, max_bytes: 32768)
+        JobMailPresenter.validate!(result, generation: @generation, id: id, family: family, cursor: @params['cursor'], limit: limit)
+        projection = ->(descriptor) { url("/job-mail/#{descriptor.fetch('family')}", 'id' => descriptor.fetch('id'), 'cursor' => descriptor['cursor']) }
+        body = "<h1 class=\"t1\">#{h(result.fetch('root').fetch('name'))}</h1>"
+        body << JobMailPresenter.new(generation: @generation, navigation: @navigation, projection: projection).render(result)
+        bounded_evidence_page('Job, mailer and template evidence', body, fact: result.fetch('root'))
+      rescue Thistle::InvalidInput => error
+        raise unless error.message == 'Unknown native operation'
+        raise Limit, 'Saved job/mail evidence is unavailable with this native Reader.'
       end
 
       # Independent, single-Reader-operation pages: no fact/source expansion or
@@ -348,6 +382,23 @@ module Thistle
         '<nav aria-label="Model reading views">' +
           "<a href=\"#{h(url('/comprehension/contributions', 'id' => id, 'cursor' => nil))}\">As-written contributions</a> · " +
           "<a href=\"#{h(url('/comprehension/methods', 'id' => id, 'cursor' => nil))}\">Methods and owners</a></nav>"
+      end
+
+      # Progressive typed entry links only. No job_mail/Source/reference query is
+      # made to decide whether a source anchor exposes a supported syntax family.
+      def job_mail_navigation(fact)
+        return '' unless @reader.respond_to?(:job_mail)
+        families = case fact['kind']
+                   when 'rails_job_mail' then { 'overview' => 'Investigate saved job or mailer', 'registrations' => 'Inspect registrations', 'declarations' => 'Inspect declarations' }
+                   when 'class', 'module' then { 'policy' => 'Inspect policy' }
+                   when 'method' then { 'handoff' => 'Inspect handoff' }
+                   when 'file' then fact['path'].to_s.end_with?('.erb') ? { 'template_references' => 'Inspect template references' } : {}
+                   else {}
+                   end
+        return '' if families.empty?
+        '<nav aria-label="Job, mailer and template investigation">' + families.map do |family, label|
+          "<a href=\"#{h(url("/job-mail/#{family}", 'id' => fact.fetch('id'), 'cursor' => nil))}\">#{h(label)}</a>"
+        end.join(' · ') + '</nav>'
       end
 
       def bounded_evidence_page(title, body, fact:)
@@ -559,6 +610,7 @@ module Thistle
           "<div#{klass}><span class=\"eyebrow\">#{h(eyebrow)}</span><dl>" +
             rows.map { |label, value| "<dt>#{h(label)}</dt><dd>#{h(value)}</dd>" }.join + '</dl></div>'
         end.join + '</div>'
+        identity += job_mail_navigation(fact)
         return identity + '<p class="notice ui">Detailed fact evidence was not loaded for this incoming view. Open Source or Outgoing references to inspect it.</p>' unless details
 
         identity + model_brief(fact) + ModelPresenter.render(fact) +

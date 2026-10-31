@@ -1,9 +1,11 @@
 # Investigating a saved mailing job
 
-Source-only LOS-148 checkpoint: the dedicated presenter is implemented; the
-Core Reader/capture hooks are now wired in source; App/View route wiring and the
-actual installed/served journey remain Root-owned and **UNRUN**. This document describes the intended supported path and
-does not advertise a currently working route on main.
+Source-only LOS-148 checkpoint: Core and Map routes/presentation are wired in
+source, composed with published LOS147 Map checkpoint
+`43b2bca7555b8b62f970bc9751939226a274f4ef`. Actual native/framework/installed/served
+execution and acceptance remain **UNRUN**. This does not advertise an accepted
+or currently deployed route on main. Root owns review, packaging and finite
+execution; Leah owns applicable acceptance.
 
 Start with a saved job registry. Inspect registrations to read recorded exception
 labels, opaque handlers and shared superclass rows. Follow declarations to the
@@ -30,8 +32,40 @@ identities and continuation descriptors originate in Rust. Each generation must
 match the explicitly pinned Reader. Map never computes selection, candidate
 positions, template paths or semantic answers. Source/Links witnesses go through
 the existing injected NavigationContext, which owns normalized query/selection/
-generation state. Root supplies the actual projection-route adapter; until then,
-family links say “projection route not integrated” rather than guessing routes.
+generation state. View supplies the admitted projection-descriptor adapter to
+that same authority. The presenter has no independent URL or selection policy.
+
+Actual source routes are `/job-mail/overview`, `/job-mail/registrations`,
+`/job-mail/declarations`, `/job-mail/policy`, `/job-mail/handoff` and
+`/job-mail/template_references`. Family is in the path. Destination fields are
+only saved `id` and optional native `cursor`, plus the existing generation,
+selection and bounded search state. Unknown fields/routes or a malformed,
+wrong-generation/id/family `recorded-v1` cursor refuse before ReaderFactory.
+Cursor scope is exactly `['job_mail',id,family]`; Ruby computes no next positions.
+
+Each page makes one public `job_mail` call and uses its compact root identity.
+The default is eight rows/32 KiB; display admission can request fewer rows when
+long full-collection witness URLs would exceed the existing 64 KiB rendered
+presenter budget. Native still supplies the actual continuation. The public
+Reader ceiling stays 16 rows/64 KiB; web parameters do not override admission.
+Encoded-envelope, generation/root/family, row type, typed candidate descriptor,
+unknowns and continuation are validated before presentation. No Source/parsing
+fanout occurs in overview and no expanded `Reader#fact` fallback supplies job-page
+identity. Missing Reader/native APIs or output limits explicitly refuse.
+
+Source and Links offer progressive policy/handoff/template actions for supported
+typed anchors. Job registry Source uses `fact_identity` after source-unavailable,
+never an expanded fact fallback; without compact identity it refuses. Model
+source-comprehension contributions can link their actual captured class/method
+anchors. An untyped file-reference Source URL does not invent a file fact ID;
+open the saved ERB file fact to inspect its template references. Merely reading
+Source/Links does not automatically query any job family.
+
+All generated links preserve the selected saved generation and up to 24 collected
+IDs within the existing 4096-byte/nine-field limits. Search is dropped atomically
+with the existing visible notice when it cannot fit; collected IDs are retained.
+Access, same-origin/host checks, GET/HEAD behavior and Reader ensure-close remain
+unchanged. Markup stays a plain String with escaped values, no `html_safe`/`raw`.
 
 Pages expose coverage, omissions and explicit continuation. Reaching the end of
 a page domain does not prove complete capture or execution. A missing/oversized/
@@ -46,12 +80,19 @@ No new JavaScript is required for the presenter. Root's served path must preserv
 Find/Source/Links/Check, keyboard focus, narrow screens, IME input and no-JS links.
 
 The independent fixture cards and exact native/shared DTOs are in
-[the Core contract](../../docs/development/job-mail-template.md). Pure presenter
-checks cover escaping, same-generation refusal, Root navigation delegation and
-typed continuation. They do not prove the integrated server, browser usability,
-keyboard focus or accessibility. Desktop/narrow screenshots and real keyboard/
-no-JS follow/back tasks remain UNRUN; use the authored served journey after
-Root's actual route/server/package admission.
+[the Core contract](../../docs/development/job-mail-template.md). Pure mocked
+source checks pass: job/mail navigation 3 tests/75 assertions, isolated mocked
+routes 16/32, presenter 2/21, and existing LOS147 navigation 4/41. They cover typed
+followups, explicit Source/Links entry actions, no family fanout, safe ERB source
+escaping, before-factory scope refusal, unsupported APIs, malformed envelopes/
+descriptors, HEAD/close, full collection and search-drop notice. Reader/highlighter
+are doubles; no Native, Rails, store, real server or browser is loaded by those
+probes. Ruby/node syntax checks also pass. They do not prove installed integration,
+browser usability, keyboard focus, IME or accessibility. Desktop/narrow screenshots
+and real keyboard/no-JS follow/back tasks remain UNRUN; use the authored served
+journey after Root's finite package/server admission. The installed Rack script
+now uses the actual source route `/job-mail/overview`; a Rack call is still
+separate from a served browser task.
 
 Broader mail defaults/callbacks, HAML/alternate template languages, historical
 changes, test relevance and full Passage remain explicit parent obligations.

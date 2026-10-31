@@ -118,13 +118,13 @@ if $PROGRAM_NAME == __FILE__
       out, err, result = Open3.capture3(RbConfig.ruby, script, 'capture', copied, saved_store)
       demand(result.success?, "Capture subprocess failed: #{err}")
       tuple = JSON.parse(out.lines.last)
+      projection_path = ENV.fetch('LOS148_MAP_PATH', '/job-mail/overview')
       %w[read served].each do |step|
-        next if step == 'served' && !ENV['LOS148_MAP_PATH']
-        out, err, result = Open3.capture3(RbConfig.ruby, script, step, copied, saved_store, tuple.fetch('a'), ENV.fetch('LOS148_MAP_PATH', ''))
+        out, err, result = Open3.capture3(RbConfig.ruby, script, step, copied, saved_store, tuple.fetch('a'), projection_path)
         demand(result.success?, "#{step} subprocess failed: #{err}")
         puts out
       end
-      puts JSON.generate(tuple.merge('served' => ENV['LOS148_MAP_PATH'] ? 'Rack integration exercised; browser journey separate' : 'UNRUN: actual Root route required'))
+      puts JSON.generate(tuple.merge('served' => 'Rack integration exercised; actual served browser journey remains separate'))
     end
   end
 end

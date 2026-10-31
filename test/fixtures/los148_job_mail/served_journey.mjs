@@ -63,7 +63,7 @@ try {
   await candidate(page, 'ReceiptMailer#receipt');
   await follow(page, 'Inspect handoff');
   await candidate(page, 'receipt.html.erb');
-  await follow(page, 'Inspect template_references');
+  await follow(page, 'Inspect template references');
   text = await page.locator('body').innerText();
   for (const expected of ['@recipient', 'receipt_heading', 'receipt_mailer/footer']) demand(text.includes(expected), `ERB evidence missing ${expected}`);
   demand(!text.includes('@comment_only') && !text.includes('@escaped_only'), 'Escaped/comment text became a Ruby reference');

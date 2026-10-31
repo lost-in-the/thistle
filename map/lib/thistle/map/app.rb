@@ -50,6 +50,7 @@ module Thistle
           return finish(env, 200, content, type: type)
         end
         continuation_path = /\A\/(?:brief\/(?:columns|associations|registry_candidates)|references\/(?:incoming|outgoing)|comprehension\/(?:contributions|methods))\z/.match?(path)
+        continuation_path ||= path.start_with?('/job-mail/') && NavigationContext::JOB_MAIL_FAMILIES.include?(path.delete_prefix('/job-mail/'))
         return finish(env, 404, 'This page does not exist.') unless continuation_path || %w[/ /source /links /check /investigation].include?(path)
 
         mount = mount_path(env)
@@ -90,7 +91,9 @@ module Thistle
         selection ||= Investigation.new(generation: reader.generation)
         view = View.new(reader: reader, mount: mount, params: params, selection: selection, path: path)
         content = if continuation
-                    if continuation[:comprehension]
+                    if continuation[:job_mail]
+                      view.job_mail_page(continuation[:job_mail])
+                    elsif continuation[:comprehension]
                       view.source_comprehension_page(continuation[:comprehension])
                     else
                       continuation[:family] ? view.brief_page(continuation[:family]) : view.references_page(continuation)

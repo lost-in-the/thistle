@@ -2,7 +2,7 @@
 
 Contract: [LOS-148](https://linear.app/lost-in-the/issue/LOS-148). This is a
 **source-only implementation checkpoint**, not an executed or accepted journey.
-Leah owns acceptance; Root owns Map/packaging wiring, independent review and later finite
+Leah owns acceptance; Root owns packaging, independent review and later finite
 native/framework/installed/served execution. No source/native/package or launch
 qualification is inferred from the pure helper checks.
 
@@ -19,7 +19,10 @@ Phase 3 composes the published LOS147 Core checkpoint
 and the shared parser worker. The immutable original base remains
 `5c80f5d167ccf30d7c38f7bd78a33ca4c5734cfa`. Exact transfers now implement the Core
 hooks below in source. They have not been compiled or executed in this phase;
-Map routing, packaging, independent review and actual acceptance remain Root-owned.
+Map routing is wired in source after phase 4's signed merge of published147
+`43b2bca7555b8b62f970bc9751939226a274f4ef`. Packaging, independent review and
+actual acceptance remain Root-owned; no actual Native/App/browser execution is
+inferred from pure mocked route probes.
 
 | Location | Current source integration / remaining ownership |
 | --- | --- |
@@ -29,7 +32,7 @@ Map routing, packaging, independent review and actual acceptance remain Root-own
 | `lib/thistle.rb`, `capture.rb` | Optional explicit `job_mail` context is validated/copied before Native calls and forwarded within the supplied app/root. Existing Rails and LOS147 observation order/delta accounting is preserved. Loaded jobs/mailers, guarded framework version, remaining limits and byte budget reach `JobMailObserver`; no descendant lookup or eager loading. `rails_capture.rb` is unchanged. |
 | `engine/src/capture.rs` template inventory | `capture_with_templates` validates/deduplicates bounded explicit paths and shares the normal Capture object after ordinary inventory. Existing `open_root`/`open_at` guard every path component/final file with NOFOLLOW and regular-file/metadata checks; existing `read_file`/`add_fact`/file record machinery accounts source/facts/bytes/diagnostics. ERB bytes pass strict Rust `admit_bytes`, create one inert full-span file fact and normal blob, and never reach Prism/ERB evaluation during capture. No Ruby path traversal or new filesystem authority/global limit. |
 | `lib/thistle/reader.rb` | Thin `job_mail(id, family: nil, limit: 8, cursor: nil, max_bytes: 32768)` forwards fields and pinned handle to the one native op. Public method source is present; actual native behavior remains UNRUN. |
-| Map App/View/NavigationContext | Consume one public answer/family page. Inject existing NavigationContext and a Root-owned projection-descriptor URL adapter into `JobMailPresenter`. Add only actual admitted projection routes/parameter allowlists. Preserve encoded page/refusal budgets and typed identity collection; do not use expanded `Reader#fact` for compact identity. |
+| Map App/View/NavigationContext | Source wiring implements `/job-mail/{overview,registrations,declarations,policy,handoff,template_references}` with family in path and id/cursor controls. Existing NavigationContext owns all URLs/state and pre-ReaderFactory scope/cursor validation. One public projection per page, validated typed envelopes/descriptors and compact root identity; explicit Source/Links actions do not eagerly query job families. Long-URL display admission can reduce requested rows without inferring Native positions. Existing source/page/output/access/close limits remain; actual installed/served task evidence is UNRUN. |
 | Packaging/install manifests | Add the two dedicated docs and new files to the affected explicit manifests; retain Core and Map note fragments for the actual PR. Wire the manually authored installed contract into an applicable admitted check. |
 
 Raw source file admission is separate from ERB analysis: a captured ERB source
@@ -202,8 +205,8 @@ source/fact copies, syntax tree/projection allowance, and native/Ruby response
 copies. Root keeps the reservation through response serialization. There is one
 shared parser permit with capture through the implemented source helper rather
 than a second parser authority. Its authored admission/error/panic regression is
-UNRUN; public job/Core source hooks now exist. Map projection/package wiring and
-actual native/framework/installed/served evidence remain outstanding.
+UNRUN; public job/Core and Map projection source hooks now exist. Package wiring
+and actual native/framework/installed/served evidence remain outstanding.
 
 The selected saved file is limited to 256 KiB before Source reads. There are
 20,000 **pending-node pops**, 200 derived rows, 64 arguments per inspected call,
@@ -241,8 +244,20 @@ handlers/job/helper/template bodies that raise if dispatched.
 Executed in the initial source phase: pure mocked observer 3 tests/9 assertions,
 raw template helper 2/7, presenter 2/21. No native library, Rails app or ERB engine
 was loaded for those suites. `rustfmt` was attempted and unavailable (exit 127);
-Rust compilation/tests remain **UNRUN**. Later source checks are reported on the
-PR with their exact candidate; this paragraph does not qualify changed packages.
+Local Rust compilation/native tests remain **UNRUN** in these source-only phases.
+Hosted attempts are recorded separately below. Later checks must retain their
+exact candidate identity; pure source checks do not qualify changed packages.
+
+Historical CI attempt at `4b72599e406da51e025a251264c629b95fcfae05` is **FAIL**:
+required job `124658315705`, primary `124657965293`, minimum `124657965265` and
+ARM `124657965238`. The primary log demonstrated Rust E0428: the registration
+DTO helper and saved-fact projector both used `identity`; E0061 callers then
+selected the wrong signature. Phase 4 names them `registration_identity` and
+`saved_identity` and updates their two/six callers respectively. Inverse-rename
+static comparison preserves every other byte, and the owned modules have no
+duplicate module-level function declarations. This is a source correction, not
+an executed compile pass. Compilation stopped before native/Ruby/installed
+checks in that attempt; current-candidate CI/native evidence remains required.
 
 Phase 3 pure wiring checks: new job/mail stdlib-double suite 11 tests/22
 assertions PASS; existing LOS147 stdlib wiring regression 7/14 PASS; changed Ruby
@@ -250,6 +265,11 @@ syntax PASS. These cover explicit app/config copying, thin Reader/closed-handle
 forwarding, nil defaults, ordered incremental composition, cumulative entries,
 no old-fact rewalk/reserialization, and failure propagation before publication.
 They load neither native code nor Rails and perform no actual capture/store IO.
+Phase 4 pure mocked checks: Map job navigation 3/75, isolated routes 16/32,
+presenter 2/21 and existing LOS147 navigation 4/41 PASS. These validate one-query
+pages, typed followups, no expanded identity fallback/fanout, pre-factory scope
+refusal, HEAD/close, full collection/search-drop notice and explicit source entry
+actions. They do not establish real native/server/browser behavior.
 
 Authored but **UNRUN**:
 
@@ -262,8 +282,9 @@ Authored but **UNRUN**:
   each family with limit 1, duplicate/unloaded targets, ERB/partial/helper and
   dynamic selection. Run outside checkout with isolated installed gems and an
   explicit Root lease. The manual script fails if shared wiring is missing.
-* Set Root's actual `LOS148_MAP_PATH` to add the installed Rack projection check.
-  This is not a served-browser substitute. Supply the real served URL to
+* The installed script now includes the actual `/job-mail/overview` Rack route
+  (`LOS148_MAP_PATH` can supply the admitted mount's path). This is not a
+  served-browser substitute. Supply the real served URL to
   `test/fixtures/los148_job_mail/served_journey.mjs` for screenshots, narrow screen,
   keyboard and no-JavaScript assertions under Root's separate finite admission.
 

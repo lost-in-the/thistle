@@ -53,7 +53,7 @@ fn class(value: &Value, normalized: bool) -> Result<usize> {
     Ok(entries.len())
 }
 
-fn identity(data: &Value) -> Result<(String,String)> {
+fn registration_identity(data: &Value) -> Result<(String,String)> {
     let name = data["class"]["name"].as_str().map(str::to_owned)
         .unwrap_or_else(|| format!("Anonymous {} {}",data["class"]["kind"].as_str().unwrap_or("class"),data["ordinal"]));
     Ok((schema::digest(&schema::canonical(&json!(["rails_job_mail",1,data["ordinal"],data["class"]["kind"],data["class"]["name"]]))?),name))
@@ -95,7 +95,7 @@ pub(crate) fn batch(context: &Value, observation: &Value) -> Result<Value> {
         }
         let data = json!({"version":1,"ordinal":ordinal,"framework_version":observation["framework_version"],
             "boundary":"explicit_loaded_app","coherence":"unknown","class":observed});
-        let (id,name) = identity(&data)?;
+        let (id,name) = registration_identity(&data)?;
         let fact = json!({"id":id,"kind":"rails_job_mail","name":name,"path":null,"location":null,
             "evidence":"runtime","attributes":{"job_mail":data},"links":[]});
         validate_fact(&fact)?;
@@ -121,7 +121,7 @@ pub(crate) fn validate_fact(fact: &Value) -> Result<()> {
         return Err(CoreError::input("Invalid job/mail saved provenance"));
     }
     class(&data["class"],true)?;
-    let (id,name) = identity(data)?;
+    let (id,name) = registration_identity(data)?;
     if fact["id"] != id || fact["name"] != name { return Err(CoreError::input("Invalid job/mail identity")); }
     Ok(())
 }
@@ -159,7 +159,7 @@ impl recorded_domain::LabelWork for Work {
 fn descriptor(reader: &Reader, id: &str, family: &str, cursor: Value) -> Value {
     json!({"operation":"job_mail","generation":reader.generation,"id":id,"family":family,"cursor":cursor})
 }
-fn identity(reader: &Reader, fact: &Value) -> Value {
+fn saved_identity(reader: &Reader, fact: &Value) -> Value {
     json!({"generation":reader.generation,"id":fact["id"],"kind":fact["kind"],"name":fact["name"],
         "evidence":fact["evidence"],"path":fact["path"],"span":fact["location"]})
 }
@@ -167,7 +167,7 @@ fn response(reader: &Reader, query: &Query<'_>, root: &Value, items: Vec<Value>,
     let next = if complete { Value::Null } else {
         recorded_domain::cursor(&reader.generation,&json!(["job_mail",query.id,query.family]),position)?
     };
-    let result = json!({"version":1,"generation":reader.generation,"root":identity(reader,root),
+    let result = json!({"version":1,"generation":reader.generation,"root":saved_identity(reader,root),
         "family":query.family,"items":items,"coverage":coverage,"provenance":"saved_evidence",
         "unknowns":{"coherence":"unknown","binding":"unknown","execution":"unknown","delivery":"unknown"},
         "next_cursor":next,"continuation":if complete {Value::Null} else {descriptor(reader,query.id,query.family,next.clone())},
@@ -180,7 +180,7 @@ fn response(reader: &Reader, query: &Query<'_>, root: &Value, items: Vec<Value>,
 /// traverses every family. Every continuation is scoped to generation/id/family.
 pub(crate) fn select(reader: &Reader, query: &Query<'_>) -> Result<Value> {
     let fact = reader.stored_fact(query.id)?;
-    schema::encoded_bytes(&identity(reader,fact),16*1024)?;
+    schema::encoded_bytes(&saved_identity(reader,fact),16*1024)?;
     let registry = fact["kind"] == "rails_job_mail";
     let erb = fact["kind"] == "file" && fact["path"].as_str().is_some_and(|p| p.ends_with(".erb"));
     let families: &[&str] = if registry { &["registrations","declarations"] }
@@ -207,7 +207,7 @@ pub(crate) fn select(reader: &Reader, query: &Query<'_>) -> Result<Value> {
     if query.family == "registrations" {
         if position.0 > entries.len() || position.1 != 0 { return Err(CoreError::input("Registry cursor outside rows")); }
         while next.0 < entries.len() && items.len() < query.limit {
-            let item = json!({"kind":"registration","root":identity(reader,fact),"position":next.0,
+            let item = json!({"kind":"registration","root":saved_identity(reader,fact),"position":next.0,
                 "provenance":"registered_metadata","registration":entries[next.0],"declaration_match":"unknown"});
             if !fits(&items,&item,query.max_bytes)? { break; }
             items.push(item); next.0 += 1;
@@ -227,7 +227,7 @@ pub(crate) fn select(reader: &Reader, query: &Query<'_>) -> Result<Value> {
             directories.push(stats);
             let item = json!({"kind":"declaration_candidate","role":role,"label":label,"candidate_matches":page.total,
                 "candidate_search_complete":true,"candidate_status":candidate_status(page.total),
-                "candidate":page.positions.first().map(|i| identity(reader,&reader.facts[*i])),
+                "candidate":page.positions.first().map(|i| saved_identity(reader,&reader.facts[*i])),
                 "request":page.positions.first().map(|i| descriptor(reader,reader.facts[*i]["id"].as_str().unwrap(),"overview",Value::Null)),
                 "provenance":"saved_label_candidate","binding":"unknown"});
             if !fits(&items,&item,query.max_bytes)? { break; }
@@ -315,11 +315,11 @@ fn select_source(reader: &Reader, query: &Query<'_>, fact: &Value, position: (us
             (recorded_domain::Page {positions:Vec::new(),total:0},json!({"status":"not_requested"}))
         };
         directories.push(stats);
-        let item = json!({"kind":"source_evidence","root":identity(reader,fact),"ordinal":next.0,
+        let item = json!({"kind":"source_evidence","root":saved_identity(reader,fact),"ordinal":next.0,
             "provenance":if path.ends_with(".erb") {"inert_source"} else {"source_potential"},
             "evidence":row,"sha256":saved["sha256"],"candidate_matches":page.total,
             "candidate_search_complete":true,"candidate_status":if candidate_key(row).is_some() {candidate_status(page.total)} else {"unsupported_selection_unknown"},
-            "candidate":page.positions.first().map(|i| identity(reader,&reader.facts[*i])),
+            "candidate":page.positions.first().map(|i| saved_identity(reader,&reader.facts[*i])),
             "request":page.positions.first().map(|i| descriptor(reader,reader.facts[*i]["id"].as_str().unwrap(),"overview",Value::Null))});
         if !fits(&items,&item,query.max_bytes)? { break; }
         items.push(item); next.1 += page.positions.len();
