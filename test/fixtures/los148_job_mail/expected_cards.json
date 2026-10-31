@@ -1,0 +1,32 @@
+{
+  "authoring": "Independent expected customer answers, written before native/framework execution; not generated from implementation output",
+  "job": "ReceiptJob",
+  "registry": {
+    "exceptions_in_registered_order": ["DeliveryTimeout", "MissingRecipient", "UnloadedDeliveryError"],
+    "shared_with_superclass": [true, false, false],
+    "handler_kinds": ["proc", "proc", "method"],
+    "method_handler_owner": "ReceiptJob",
+    "private_override_status": "unavailable"
+  },
+  "policy": [
+    {"owner": "ApplicationJob", "operation": "retry_on", "exception_source": "DeliveryTimeout", "wait_source": ":polynomially_longer", "attempts_source": "4", "inheritance": "superclass source declaration; loaded registration association unknown"},
+    {"owner": "ReceiptJob", "operation": "discard_on", "exception_source": "MissingRecipient", "handler": "opaque_block"},
+    {"owner": "ReceiptJob", "operation": "rescue_from", "exception_source": "'UnloadedDeliveryError'", "with_source": ":record_failure"}
+  ],
+  "handoffs": [
+    {"action": "ReceiptMailer#receipt", "recorded_candidates": 1, "conditionality": "unknown", "invocation": "unknown", "delivery": "unknown"},
+    {"action": "ReceiptMailer#archive", "recorded_candidates": 2, "status": "ambiguous"},
+    {"action": "MissingMailer#digest", "recorded_candidates": 0, "status": "no_recorded_match_binding_or_capture_unknown"},
+    {"action": "ReceiptMailer#dynamic_receipt", "recorded_candidates": 1, "template_selection": "dynamic_unknown"}
+  ],
+  "template": {
+    "path": "app/views/receipt_mailer/receipt.html.erb",
+    "instance_variable": "@recipient",
+    "helper_candidate": "receipt_heading",
+    "partial": "app/views/receipt_mailer/_footer.html.erb",
+    "not_references": ["@comment_only", "@escaped_only", "imaginary_helper"],
+    "values": "unknown", "helper_binding": "unknown", "execution": "unknown"
+  },
+  "saved_generation_journey": "Capture A; edit fixture source for B; publish B as CURRENT; fresh Rails-free Reader and Map pinned to A must retain A's policy, source, candidates and continuation",
+  "served_checks_unrun": ["desktop screenshot", "narrow screenshot", "keyboard follow/back context", "no JavaScript follow path", "no execution/delivery claims", "typed same-generation candidates", "continuation beyond first page"]
+}
