@@ -18,7 +18,11 @@ module Thistle
         @calls = 0
         @reserved_bytes = 0
         raise Thistle::InvalidSnapshot, 'Investigation Reader generation mismatch' unless reader.generation == selection.generation
-        raise Investigation::Limit, 'Compact saved fact lookup is unavailable with this Reader. No evidence was substituted.' unless reader.respond_to?(:fact_identity)
+        # An empty focus needs no evidence lookup. Keep it usable from ordinary
+        # Find navigation; nonempty collections still require the exact seam.
+        unless selection.ids.empty? || reader.respond_to?(:fact_identity)
+          raise Investigation::Limit, 'Compact saved fact lookup is unavailable with this Reader. No evidence was substituted.'
+        end
       end
 
       def fetch(id)

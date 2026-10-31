@@ -17,6 +17,16 @@ class InvestigationTest < Minitest::Test
     Selection.new(generation: GENERATION, ids: ids)
   end
 
+  def test_empty_collection_needs_no_identity_seam_but_selected_evidence_still_does
+    reader = Object.new
+    reader.define_singleton_method(:generation) { GENERATION }
+    empty = Thistle::Map::InvestigationEvidence.new(reader: reader, selection: selection([]))
+    assert_raises(Selection::Limit) { empty.fetch(IDS.first) }
+    assert_raises(Selection::Limit) do
+      Thistle::Map::InvestigationEvidence.new(reader: reader, selection: selection)
+    end
+  end
+
   def identity(id, **changes)
     { 'id' => id, 'name' => 'A<&>', 'kind' => 'method', 'evidence' => 'static',
       'path' => 'lib/a.rb', 'location' => { 'start_line' => 3, 'end_line' => 4 } }.merge(changes.transform_keys(&:to_s))

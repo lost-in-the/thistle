@@ -93,7 +93,12 @@ class FindSourceTest < Minitest::Test
     navigation.scan(/href="([^"]+)"/).flatten.each do |href|
       target = URI.parse(CGI.unescapeHTML(href))
       params = URI.decode_www_form(target.query).to_h
-      assert_equal context, params.slice(*context.keys)
+      if target.path == '/investigation'
+        # The dedicated focus URL is generation + IDs only, never Find text.
+        assert_equal({ 'generation' => GENERATION, 'selection' => '' }, params)
+      else
+        assert_equal context, params.slice(*context.keys)
+      end
       refute params.key?('path')
       assert_equal target.path == '/source', params.key?('file')
       assert_equal 200, request(app, target.path, query: target.query).first

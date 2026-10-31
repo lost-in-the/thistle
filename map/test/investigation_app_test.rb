@@ -31,6 +31,22 @@ class InvestigationAppTest < Minitest::Test
     URI.encode_www_form('generation' => GENERATION, 'selection' => ids.join(','))
   end
 
+  def test_empty_focus_get_and_head_do_not_require_identity_or_expand_evidence
+    %w[GET HEAD].each do |method|
+      reader = Reader.new
+      closed = false
+      reader.define_singleton_method(:close) { closed = true }
+      %i[fact facts source references].each do |operation|
+        reader.define_singleton_method(operation) { |*| raise 'Empty focus expanded evidence' }
+      end
+      code, headers, html = request(make_app(reader), '/investigation', query: query([]), method: method)
+      assert_equal 200, code
+      assert closed
+      assert_operator headers.fetch('content-length').to_i, :>, 0
+      assert_empty html if method == 'HEAD'
+    end
+  end
+
   def test_collection_uses_only_compact_identity_and_keeps_missing_in_order
     reader = CompactReader.new
     code, headers, html = request(make_app(reader), '/investigation', query: query([FACT_ID, 'c' * 64]))
