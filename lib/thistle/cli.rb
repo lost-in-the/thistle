@@ -117,7 +117,11 @@ module Thistle
         ensure
           reader.close
         end
-        @out.write(report) if command == "export-model-brief"
+        if command == "export-model-brief"
+          @out.write(report)
+          # Detect buffered sink failures before choosing the successful status.
+          @out.flush
+        end
       end
       0
     rescue OptionParser::ParseError, ArgumentError => error

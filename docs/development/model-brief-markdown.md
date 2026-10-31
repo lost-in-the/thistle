@@ -39,9 +39,12 @@ so the renderer creates no web links or inferred repository URLs.
 
 No full source, excerpts, arbitrary attributes, link metadata, callback condition
 values, original absolute callback descriptor paths or store paths are embedded.
-Allowlisted names and status text render as inert code spans, with control and
-bidirectional formatting characters made visible. URL-like and absolute/home
-path text is withheld, including token-bearing URLs. Invalid UTF-8 or unsupported
+Allowlisted names and status text render as inert code spans. Control characters,
+line/paragraph separators and the bidi embedding/isolate ranges are made visible;
+other format characters and literal backslashes remain as supplied. Literal
+backslash escape text can therefore resemble a displayed control escape.
+Scheme-bearing URLs and absolute/home path text are withheld. Scheme-less URL
+shapes may remain as inert label text. Invalid UTF-8 or unsupported
 response shapes refuse the report rather than repairing evidence. This is a
 bounded evidence projection, not a general secret scanner: review the selected
 application labels before sharing them, as with any source-derived report.

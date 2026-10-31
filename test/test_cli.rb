@@ -119,6 +119,21 @@ class ThistleMarkdownExportCLITest < Minitest::Test
     assert_equal 'internal_error', JSON.parse(@err.string).dig('error', 'code')
     assert_equal 1, @reader.closes
   end
+
+  def test_buffered_output_failure_is_handled_after_write_and_reader_close
+    output = Object.new
+    writes = []
+    output.define_singleton_method(:write) { |text| writes << text; text.bytesize }
+    output.define_singleton_method(:flush) do
+      raise IOError, 'private buffered output failure'
+    end
+    assert_equal 1, invoke(out: output)
+    assert_equal 1, writes.length
+    assert writes.first.start_with?("# Saved model investigation\n")
+    assert_equal 1, @reader.closes
+    assert_equal 'internal_error', JSON.parse(@err.string).dig('error', 'code')
+    refute_includes @err.string, 'private buffered output failure'
+  end
 end
 
 # Root must admit this separately: it boots the real producer and executes native
@@ -155,7 +170,14 @@ class ThistleMarkdownExportSavedGenerationTest < Minitest::Test
         File.write(File.join(ARGV[1], 'records.rb'), 'class CurrentReplacement; end')
         newer = Thistle.capture(root: ARGV[1], output: ARGV[2]).fetch('generation')
         raise 'Report changed after CURRENT advanced' unless first == report.call && saved != newer
-        raise 'Missing evidence' unless first.include?('BriefFixture::Order') && first.include?('captured_source_potential') && first.include?('--generation ' + saved)
+        expected = [
+          'BriefFixture::Order', '--generation ' + saved,
+          'Potential request (not execution):',
+          '- provenance: ` captured_source_potential `',
+          '- receiver: ` BriefFixture::DeliveryJob `',
+          '- macro: ` has_many `', '- target: ` BriefFixture::Item `'
+        ]
+        raise 'Missing fixture evidence rows' unless expected.all? { |line| first.include?(line) }
         raise 'Embedded source excerpt' if first.include?('perform_later("雪')
         puts JSON.generate(saved: saved, newer: newer, bytes: first.bytesize, identical: true)
       PROGRAM
