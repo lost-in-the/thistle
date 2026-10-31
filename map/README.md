@@ -60,6 +60,31 @@ native heap bounds. See the [source comprehension contract](docs/source-comprehe
 Native, installed/served, independent task and person acceptance for this new
 journey remains pending; source wiring and pure checks do not qualify it.
 
+## Saved job, mailer and template investigation
+
+The source-wired journey follows declared inherited/local retry, discard and
+rescue policy → potential mailer/action → explicit literal ERB template, variable,
+partial and helper evidence. Start from a saved job registry or a supported typed
+Source/Links anchor. Registrations and source options remain separate; ambiguous
+or unloaded targets, dynamic selection, coherence, invocation and delivery stay
+explicitly uncertain. ERB is escaped inert Source and is never evaluated.
+
+Routes are `/job-mail/overview`, `/job-mail/registrations`,
+`/job-mail/declarations`, `/job-mail/policy`, `/job-mail/handoff` and
+`/job-mail/template_references`. Each page queries one Core family and follows
+typed same-generation descriptors through the existing NavigationContext. The
+default is eight rows/32 KiB; long witness URLs can reduce display-admitted rows
+within the 64 KiB presenter budget. Native supplies all cursor positions. Existing
+4096-byte/nine-field/full-24-ID collection, search-drop notice, access/GET/HEAD
+and Reader close controls remain. Overview does not fan out to Source or parsing.
+
+See the installed [job/mail/template contract](docs/job-mail-template.md).
+Mocked source checks are not native, installed or served acceptance. A real
+saved A/CURRENT B/fresh Reader/served Map task, desktop/narrow screenshots,
+keyboard/no-JavaScript and applicable person checks remain pending. Broader mail
+defaults/callbacks, alternate/HAML templates, history and full Passage remain
+parent scope; this increment does not establish complete Woods replacement.
+
 ## Repository validation
 
 From the core project root after installing development dependencies:

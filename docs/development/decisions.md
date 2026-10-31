@@ -1,5 +1,44 @@
 # Development tooling and cohort decisions
 
+## Saved job/mail policy and inert ERB evidence (PR 121 / LOS-148)
+
+Reuse maintained vendored Prism 1.9.0, its existing generated child visitor,
+saved-fact/name directories and the shared capture parser worker. A small inert
+ERB delimiter projection preserves original bytes/lines while masking HTML,
+comments and escaped tags; Prism analyzes Ruby syntax without ERB compilation or
+evaluation. Ruby supplies guarded loaded-registry descriptors only; Rust owns
+validation, source semantics, selection, typed candidates and continuation. Map
+uses one public family projection and the existing NavigationContext, not a Ruby
+analyzer, runtime resolver or parallel URL policy. See the
+[bounded contract](job-mail-template.md).
+
+Alternatives were template/handler execution (outside authority and unnecessary
+for source evidence), Ruby ERB compilation/analysis (a second semantic owner), or
+another parser/runtime dependency (additional maintenance without a demonstrated
+need for this ERB slice). Reusing existing anchored inventory/source/fact admission
+for explicit template paths also avoids a second filesystem authority. The
+initial numeric-byte JSON transport remains an optional raw-admission seam;
+normal capture instead passes explicit paths to the existing Rust reader and
+shares bounded native byte admission, avoiding Ruby integer arrays/JSON copies.
+
+Operating cost includes inventory/path/read/digest accounting, selected source
+loads, projection/Prism parse and destruction, native/Ruby response copies, and
+the lazy name directory's charged whole-domain construction/sort on first use.
+One atomic try-permit/64 MiB stack is shared with capture, with no queue or second
+worker authority. Parse-free families reserve 32 MiB and source families 96 MiB
+from existing admission; these are not hard heap/RSS/CPU bounds. Selected source
+is capped at 256 KiB, with post-parse 20k pending-node pops/200 derived rows and
+separately bounded argument/keyword/constant inspections. Public pages default
+to 8 rows/32 KiB (ceilings 16/64 KiB); web output/URL admission retains existing
+limits. No speed or memory improvement is claimed from source checks.
+
+Reconsider the projection for demonstrated unsupported ERB syntax or another
+template language; reconsider transport/index/work shape only with exact-artifact
+complete-investigation cost or refusal evidence. Preserve raw physical source,
+ambiguity, separate registration/source/coherence/execution claims, guarded IO
+and one Rust semantic owner. Current source and package selectors do not establish
+native/framework/installed/served acceptance or qualify any launch capability.
+
 ## Saved model source comprehension (PR 120 / LOS-147)
 
 Reuse the existing Rust saved-method directory with an additive bounded

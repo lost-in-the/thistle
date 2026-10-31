@@ -20,9 +20,11 @@ and the shared parser worker. The immutable original base remains
 `5c80f5d167ccf30d7c38f7bd78a33ca4c5734cfa`. Exact transfers now implement the Core
 hooks below in source. They have not been compiled or executed in this phase;
 Map routing is wired in source after phase 4's signed merge of published147
-`43b2bca7555b8b62f970bc9751939226a274f4ef`. Packaging, independent review and
-actual acceptance remain Root-owned; no actual Native/App/browser execution is
-inferred from pure mocked route probes.
+`43b2bca7555b8b62f970bc9751939226a274f4ef`. Final package/docs composition adds
+published147 `a731439b1daaf9662a4e6b82dcb7ef8b3eaa1e40` and includes both job/mail
+guides in the preserved installed-doc union. Independent review, actual builds,
+native/installed/served execution and acceptance remain Root-owned; none is
+inferred from pure mocked routes or static package selectors.
 
 | Location | Current source integration / remaining ownership |
 | --- | --- |
@@ -33,7 +35,7 @@ inferred from pure mocked route probes.
 | `engine/src/capture.rs` template inventory | `capture_with_templates` validates/deduplicates bounded explicit paths and shares the normal Capture object after ordinary inventory. Existing `open_root`/`open_at` guard every path component/final file with NOFOLLOW and regular-file/metadata checks; existing `read_file`/`add_fact`/file record machinery accounts source/facts/bytes/diagnostics. ERB bytes pass strict Rust `admit_bytes`, create one inert full-span file fact and normal blob, and never reach Prism/ERB evaluation during capture. No Ruby path traversal or new filesystem authority/global limit. |
 | `lib/thistle/reader.rb` | Thin `job_mail(id, family: nil, limit: 8, cursor: nil, max_bytes: 32768)` forwards fields and pinned handle to the one native op. Public method source is present; actual native behavior remains UNRUN. |
 | Map App/View/NavigationContext | Source wiring implements `/job-mail/{overview,registrations,declarations,policy,handoff,template_references}` with family in path and id/cursor controls. Existing NavigationContext owns all URLs/state and pre-ReaderFactory scope/cursor validation. One public projection per page, validated typed envelopes/descriptors and compact root identity; explicit Source/Links actions do not eagerly query job families. Long-URL display admission can reduce requested rows without inferring Native positions. Existing source/page/output/access/close limits remain; actual installed/served task evidence is UNRUN. |
-| Packaging/install manifests | Add the two dedicated docs and new files to the affected explicit manifests; retain Core and Map note fragments for the actual PR. Wire the manually authored installed contract into an applicable admitted check. |
+| Packaging/install manifests | Both gemspec installed-doc selectors, both installed-manifest assertions and Core/Map automation doclists include their job-mail-template guide while preserving the complete existing union. Both PR121 note fragments remain. Actual archive/install validation and the manually authored installed/served contract remain Root's admitted execution gates. |
 
 Raw source file admission is separate from ERB analysis: a captured ERB source
 may be available even if its syntax, encoding or selection is unsupported. A
@@ -205,8 +207,9 @@ source/fact copies, syntax tree/projection allowance, and native/Ruby response
 copies. Root keeps the reservation through response serialization. There is one
 shared parser permit with capture through the implemented source helper rather
 than a second parser authority. Its authored admission/error/panic regression is
-UNRUN; public job/Core and Map projection source hooks now exist. Package wiring
-and actual native/framework/installed/served evidence remain outstanding.
+UNRUN; public job/Core, Map projection and package-selector source hooks now
+exist. Actual native/framework/archive/installed/served evidence remains
+outstanding.
 
 The selected saved file is limited to 256 KiB before Source reads. There are
 20,000 **pending-node pops**, 200 derived rows, 64 arguments per inspected call,
@@ -293,24 +296,17 @@ claimed. Package hashes/native loaded identities, actual framework cohorts,
 served URL/access policy, screenshots and independent task answers must be
 recorded by Root/Leah before acceptance. Keep failed attempts and earlier tuples.
 
-## Exact synchronization proposal for Root's normal PR
+## Package/docs synchronization and remaining acceptance
 
-Do not mark any capability qualified. In `docs/capability-ledger.md`, append the
-following bounded status/evidence to **L02, L03, L04, L07, L14 and L15**, retaining
-all existing outcomes/support obligations: “LOS-148 supplies dedicated source for
-guarded job/mail registrations and inert ERB source-potential investigation;
-shared integration and exact installed/served acceptance remain outstanding.
-Registrations, source syntax, candidates, coherence and execution are distinct.”
-Link this document and the eventual actual installed/served report, without
-substituting pure helper results for those gates.
+The Core/Map README contracts, exact installed-doc selectors/assertions and one
+bounded development decision now describe this source-wired path. Ledger candidate
+cells L02/L03/L04/L07/L14/L15 record its scoped evidence and missing acceptance;
+all 17 launch outcomes remain UNQUALIFIED. No parent requirement or support scope
+was removed. Preserve the historical failed CI attempt above and attach the exact
+new package/native/installed/served evidence before accepting the journey.
 
-In Map's README/current-validation scope, add the supported job policy → potential
-mailer/action → explicit ERB/partial/helper path **only after Root wires it**,
-with links to `map/docs/job-mail-template.md` and actual task evidence. State that
 HAML/alternate families, broader defaults/callbacks/history, full Passage,
-effective inherited mail dispatch and template resolver parity remain parent
-scope; this child does not close Woods replacement or launch requirements.
-
-For `docs/development/decisions.md`, record the bounded maintained-Prism + inert
-ERB projection choice above, one shared parser authority, transport cost, limits
-and reconsideration conditions. No shared docs were edited by this writer.
+effective inherited mail dispatch and full template resolver parity remain parent
+scope. Static selectors/link checks do not build an archive, install either gem,
+exercise Native or qualify customer task answers. Root owns one full initial
+review and the settled candidate's finite execution; Leah owns acceptance.

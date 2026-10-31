@@ -149,6 +149,17 @@ method-owner candidates. Follow the returned continuation on the same Reader.
 Duplicate definitions, unsupported precedence and source/runtime coherence remain
 explicit unknowns. See the [source comprehension contract](docs/development/source-comprehension.md).
 
+For a saved job/mail registry, class/module, method or ERB file fact,
+`reader.job_mail(id, family: nil, limit: 8, cursor: nil, max_bytes: 32768)`
+returns one bounded family. Use an explicitly generation-pinned Reader; `nil`
+selects a parse-free overview. Families are `overview`, `registrations`,
+`declarations`, `policy`, `handoff` and `template_references`. The public ceilings
+are 16 rows/64 KiB. Follow Native's continuation on the same saved generation.
+Registered handlers, source-declared options, potential mailer/template candidates
+and execution are separate; duplicate/unloaded targets and dynamic selection
+remain explicit unknowns. See the [job/mail/ERB contract](docs/development/job-mail-template.md).
+Native, installed and served acceptance for this source-wired journey is pending.
+
 Use `export-model-brief` to share that saved model summary as deterministic
 Markdown, with explicit uncertainty and generation-pinned literal evidence
 commands. It requires the generation and embeds no captured source bodies or
@@ -189,6 +200,25 @@ Explicit context is also honored with `rails: nil`; it does not bind captured
 source methods to the loaded registry. Native, installed and served acceptance
 for this new journey remains pending.
 
+Job/mail observation also requires an explicit already-loaded inventory and the
+supplied Rails app. Template paths are explicit and root-relative:
+
+```ruby
+Thistle.capture(root: Rails.root.to_s,
+                output: Rails.root.join(".thistle").to_s,
+                rails: Rails.application,
+                job_mail: { jobs: [ReceiptJob], mailers: [ReceiptMailer],
+                            templates: ["app/views/receipt_mailer/receipt.html.erb",
+                                        "app/views/receipt_mailer/_footer.html.erb"] })
+```
+
+Pass classes the application has already loaded; Thistle performs no descendant
+discovery, autoload or application getter/job/handler/mail delivery invocation
+for this registration family. Rust reads declared ERB files through the existing
+anchored inventory guards and stores inert bytes/spans; it never evaluates ERB
+or helpers. `job_mail: nil` retains the prior capture path. This opt-in does not
+prove source/runtime coherence or qualify broader Rails/mail/template behavior.
+
 ## Optional Map
 
 Map can [collect and reopen a small investigation](https://github.com/lost-in-the/thistle/blob/main/map/docs/investigations.md)
@@ -207,6 +237,14 @@ display lines are checked on bounded responses before highlighting. Unknown
 ownership and files not admitted for display remain explicit. See the
 [reading contract](docs/development/source-comprehension.md) for limits and the
 pending installed/served/person acceptance boundary.
+
+Saved job/mail investigation uses `/job-mail/overview` and its explicit policy,
+registration/declaration, handoff and template-reference family routes. Source
+and Links offer supported typed entry actions without automatically parsing all
+job families. Generation/search/collected IDs use the same navigation authority;
+see the [job/mail/ERB contract](docs/development/job-mail-template.md). Actual
+installed/served answers, keyboard/no-JavaScript/narrow-screen acceptance and
+broader defaults, callbacks, HAML, history and full Passage remain outstanding.
 
 `map/` contains an independent read-only companion gem. It uses Thistle's reader
 API and an approved source-view component from Woods Map. It has no Woods runtime
