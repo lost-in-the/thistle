@@ -142,6 +142,13 @@ The [loaded-model contract](docs/development/loaded-model-evidence.md#model-inve
 describes its evidence and work limits. Ruby exposes the same operation as
 `reader.model_brief(model_id, limit: 8, max_bytes: 32768)` on its pinned handle.
 
+For a saved model or class, `reader.source_comprehension(model_id,
+family: "contributions", limit: 8, cursor: nil, max_bytes: 32768)` returns
+identified owner/declaration contributions; `family: "methods"` pages recorded
+method-owner candidates. Follow the returned continuation on the same Reader.
+Duplicate definitions, unsupported precedence and source/runtime coherence remain
+explicit unknowns. See the [source comprehension contract](docs/development/source-comprehension.md).
+
 Use `export-model-brief` to share that saved model summary as deterministic
 Markdown, with explicit uncertainty and generation-pinned literal evidence
 commands. It requires the generation and embeds no captured source bodies or
@@ -167,6 +174,21 @@ records observed runtime facts and unknown source/runtime coherence. It does not
 fabricate source positions, prove immutable application boot, or claim that a
 route is callable without constraints. Static capture never boots Rails itself.
 
+To include model/concern ownership, explicitly supply already loaded classes and
+a boundary; this optional family performs no class discovery or method execution:
+
+```ruby
+Thistle.capture(root: Rails.root.to_s,
+                output: Rails.root.join(".thistle").to_s,
+                rails: Rails.application,
+                source_comprehension: { models: [Order], stop_before: ActiveRecord::Base })
+```
+
+The default `source_comprehension: nil` preserves the existing capture path.
+Explicit context is also honored with `rails: nil`; it does not bind captured
+source methods to the loaded registry. Native, installed and served acceptance
+for this new journey remains pending.
+
 ## Optional Map
 
 Map can [collect and reopen a small investigation](https://github.com/lost-in-the/thistle/blob/main/map/docs/investigations.md)
@@ -177,6 +199,14 @@ need an authorized Map mount with that saved capture. Missing evidence and
 uncertainty remain explicit. Source opens captured bytes at the pinned
 generation even after CURRENT changes. This requires the matching Core with
 the bounded [fact identity operation](docs/development/fact-identity.md).
+
+Code-first model reading uses `/comprehension/contributions` and
+`/comprehension/methods`, with generation/search/investigation retained by shared
+navigation. Selected files reserve at most 64 KiB before reads; 2000 aggregate
+display lines are checked on bounded responses before highlighting. Unknown
+ownership and files not admitted for display remain explicit. See the
+[reading contract](docs/development/source-comprehension.md) for limits and the
+pending installed/served/person acceptance boundary.
 
 `map/` contains an independent read-only companion gem. It uses Thistle's reader
 API and an approved source-view component from Woods Map. It has no Woods runtime

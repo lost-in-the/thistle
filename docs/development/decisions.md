@@ -1,5 +1,55 @@
 # Development tooling and cohort decisions
 
+## Saved model source comprehension (PR 120 / LOS-147)
+
+Reuse the existing Rust saved-method directory with an additive bounded
+candidate-position page, the existing recorded-label directory and pinned Reader
+identities. The previous unique/ambiguity witness stops at the second match and
+cannot enumerate all saved alternatives. A second owner index or Ruby resolver
+would duplicate semantic authority, retention, invalidation and maintenance cost.
+See the [Core contract](source-comprehension.md) and
+[Map contract](../../map/docs/source-comprehension.md).
+
+The chosen page preserves duplicate candidates and physical spans, charges every
+visit/comparison/label byte through Work, and releases the directory mutex before
+Source I/O or projection. Directory construction remains lazy whole-domain
+validation/visit/sort work, not zero-scan retrieval. Positional pages repeat their
+bounded prefix traversal and charge it again. Reader open, lazy build and request
+work remain separate costs; no speed, RSS or full native heap result is claimed.
+Reconsider the cursor/index shape only if measured complete investigations show
+material repeated-prefix cost, preserving identity and ambiguity rather than
+raising limits or promoting a prefix to a complete answer.
+
+The caller explicitly supplies already loaded classes and a stop boundary. Bound
+builtin Module/Class/UnboundMethod reflection observes direct/effective descriptors
+without application getters, autoload, discovery or method execution. Rust strictly
+validates/adopts the DTO and owns selection. Executing inspected source or adding
+a general Ruby method analyzer would add authority and cost without proving
+source/runtime coherence. Observed owner order and descriptor hints do not bind a
+saved body to a loaded registry; unsupported precedence stays unknown. Reconsider
+the observer only for a changed supported reflection contract or a concrete
+customer question beyond this bounded model/concern slice.
+
+Map reuses the existing highlighter, attributed Field Guide tokens/reading pattern
+and single NavigationContext.url authority, rather than a new renderer or URL
+framework. It requests one bounded projection and exposes explicit supporting
+family/reference actions. Selected pinned files reserve aggregate 64 KiB before
+deduplicated Source reads. Exact response identity/digest/byte count and aggregate
+2000 display lines are checked before highlighting/HTML; an over-line file is
+wholly not admitted and keeps its byte reservation. Manifests have no line counts,
+so lines are a post-response display guard, not pre-read eligibility. Body and
+envelope limits charge expanded markup/URLs; existing Native Source scratch remains
+Core-owned. The operating cost includes one pinned manifest pass, bounded source
+hash/line checks, highlighting and copied display output. Reconsider pre-read line
+metadata only if actual investigation evidence justifies its capture/storage cost.
+
+Both packages explicitly include their source-comprehension guide; package selectors
+and installed-manifest assertions share the same exact doc sets. Cross-package
+guide links use explicit pinned source URLs instead of escaping installed roots.
+Native, installed/served, independent investigator and person acceptance remains
+pending. This source increment does not qualify L04/L14 or complete Field Guide
+discovery, all Rails annotations, schema/graph/history/Trail or optional Guide.
+
 ## Saved-model Markdown presentation (PR 118)
 
 Present one bounded Rust-selected `model_brief` using the existing CLI and a

@@ -135,7 +135,8 @@ first useful answer/task duration, backtracking, help and lost context. Record
 request/open/query/render observations where available without a speed claim.
 The answer table above is an authored oracle, not independent acceptance.
 
-The [Core contract](../../docs/development/source-comprehension.md) gives the DTO,
+The [Core contract](https://github.com/lost-in-the/thistle/blob/43b2bca7555b8b62f970bc9751939226a274f4ef/docs/development/source-comprehension.md)
+at source checkpoint `43b2bca` gives the DTO,
 family/cursor/cost boundaries and exact shared wiring. Full code search/discovery,
 all Rails annotations, schema/graph/history/Trail/optional Guide and whole Field
 Guide parity remain declared parent outcomes. No capability row is qualified here.
