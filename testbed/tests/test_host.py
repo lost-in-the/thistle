@@ -4,6 +4,7 @@ No Rails, native load, gem install, database, container, or server is executed.
 """
 import contextlib
 import importlib.util
+import io
 import json
 import os
 from pathlib import Path
@@ -104,6 +105,7 @@ class LifecycleTest(unittest.TestCase):
             'credentials': str(credential), 'dependency_home': '/dependencies', 'client_version': '3.4.9', 'host_port': 19292,
             'mysql2_extension_sha256': 'a' * 64, 'client_library_sha256': 'b' * 64, 'puma_version': '8.0.2',
             'mysql_image': 'sha256:' + 'c' * 64, 'mysqld': '/usr/sbin/mysqld', 'artifacts': {}}
+        self.config['map_candidate'] = {'source_sha': 'd' * 40, 'sha256': 'e' * 64}
         dependencies = base / 'dependencies'
         dependencies.mkdir(mode=0o700)
         manifest = base / 'dependencies.json'
@@ -125,7 +127,9 @@ class LifecycleTest(unittest.TestCase):
             shutil.copytree(SOURCE / name, self.root / 'inputs' / name)
         (self.root / 'inputs/artifacts').mkdir(mode=0o700)
         (self.root / 'inputs/artifacts/Gemfile.lock').write_text('mocked resolution')
-        host.write_json(self.root / 'inputs/profile.json', {'dependency_manifest_sha256': host.digest(manifest)})
+        host.write_json(self.root / 'inputs/profile.json', {'dependency_manifest_sha256': host.digest(manifest),
+                        'artifacts': {'Gemfile.lock': {'sha256': 'f' * 64}}})
+        shutil.copyfile(manifest, self.root / 'inputs/dependencies.json')
         self.controller.save({'phase': 'STOPPED', 'containers': {}, 'initialized': False, 'attempts': [],
                               'instance_id': 'mock-instance', 'attempt_paths': {}, 'cache_key': 'unit-test-only', 'inputs': host.inventory(self.root / 'inputs')})
 
@@ -136,6 +140,10 @@ class LifecycleTest(unittest.TestCase):
 
         def write(path, value):
             original_write(path, value)
+            if Path(path).name == 'admission.json':
+                original_write(self.root / 'work/cohort-ready.json', {'token': value['token'], 'identity': {
+                    'native': {'sha256': host.SELECTED['native.so']}, 'client': {'sha256': self.config['mysql2_extension_sha256']},
+                    'client_library': {'sha256': self.config['client_library_sha256']}, 'lock': {'sha256': 'f' * 64}}})
             if Path(path).name == 'go.json':
                 original_write(self.root / 'work/ready.json', {'token': value['token'], 'booted': True})
             if Path(path).name.endswith('-admission.json'):
@@ -219,6 +227,67 @@ class LifecycleTest(unittest.TestCase):
         self.assertFalse(any(call[1] in ('start', 'exec') for call in self.fake.calls))
         # Cleanup mismatch is a truthful failure, never an invented STOPPED.
         self.assertEqual('FAILED', self.controller.state()['phase'])
+
+    def test_real_podman_expanded_cap_drop_serialization_is_accepted(self):
+        expanded = ['CAP_CHOWN', 'CAP_DAC_OVERRIDE', 'CAP_FOWNER', 'CAP_FSETID', 'CAP_KILL',
+                    'CAP_NET_BIND_SERVICE', 'CAP_SETFCAP', 'CAP_SETGID', 'CAP_SETPCAP', 'CAP_SETUID', 'CAP_SYS_CHROOT']
+        def change(value):
+            value['HostConfig']['CapDrop'] = expanded
+            return value
+        self.fake.inspect_change = change
+        with self.admitted():
+            self.controller.start()
+            self.controller.stop()
+        self.assertEqual('STOPPED', self.controller.state()['phase'])
+
+    def test_explicit_cap_add_is_refused_even_with_drop_all(self):
+        def change(value):
+            value['HostConfig']['CapAdd'] = ['CAP_CHOWN']
+            return value
+        self.fake.inspect_change = change
+        with self.assertRaises(host.Refused):
+            self.controller.start()
+        self.assertFalse((self.root / 'work/go.json').exists())
+        self.assertFalse(any(call[1] in ('start', 'exec') for call in self.fake.calls))
+
+    def test_incomplete_expanded_cap_drop_is_refused(self):
+        def change(value):
+            value['HostConfig']['CapDrop'] = ['CAP_' + name for name in host.DEFAULT_CAPABILITIES - {'SETUID'}]
+            return value
+        self.fake.inspect_change = change
+        with self.assertRaises(host.Refused):
+            self.controller.start()
+        self.assertFalse((self.root / 'work/go.json').exists())
+        self.assertFalse(any(call[1] in ('start', 'exec') for call in self.fake.calls))
+
+    def test_failed_installed_cohort_preflight_never_starts_db_or_releases_go(self):
+        original = host.read_json
+        def read(path):
+            value = original(path)
+            if Path(path).name == 'cohort-ready.json':
+                value['identity']['client_library']['sha256'] = '0' * 64
+            return value
+        with self.admitted(), patch.object(host, 'read_json', side_effect=read):
+            with self.assertRaises(host.Refused):
+                self.controller.start()
+        self.assertEqual(1, len([call for call in self.fake.calls if call[1] == 'start']))  # confined preflight worker only
+        self.assertFalse((self.root / 'work/go.json').exists())
+        self.assertFalse(any(call[1] == 'exec' for call in self.fake.calls))
+        self.assertEqual({}, self.fake.containers)
+
+    def test_nonzero_effective_capability_is_refused_before_go(self):
+        with self.admitted():
+            original_read = Path.read_text
+            def read(path, *args, **kwargs):
+                if str(path).startswith('/proc/') and path.name == 'status':
+                    return 'NoNewPrivs:\t1\nCapEff:\t0000000000000001\n'
+                return original_read(path, *args, **kwargs)
+            with patch.object(Path, 'read_text', read):
+                with self.assertRaises(host.Refused):
+                    self.controller.start()
+        self.assertFalse((self.root / 'work/go.json').exists())
+        self.assertFalse(any(call[1] == 'exec' for call in self.fake.calls))
+        self.assertEqual({}, self.fake.containers)
 
     def test_stopped_start_test_stop_start_preserves_source_data_and_credentials(self):
         before_data = host.inventory(Path(self.config['mysql_data']))
@@ -325,6 +394,44 @@ class LifecycleTest(unittest.TestCase):
         self.assertIn('--kill-after=5s', command)
         self.assertNotIn('3306', ' '.join(command))
         self.assertNotIn('0.0.0.0', ' '.join(command))
+
+    def test_host_listener_must_be_in_the_admitted_scope(self):
+        unit = 'thistle-los139-' + 'a' * 32 + '.scope'
+        group = '/user.slice/' + unit
+        files = {'memory.max': '134217728', 'memory.swap.max': '0', 'pids.max': '32',
+                 'cpu.max': '100000 100000', 'cgroup.procs': '111'}
+        def read(path, *args, **kwargs):
+            if path.name in files:
+                return files[path.name]
+            if str(path) == '/proc/net/tcp':
+                return 'header\n0: 0100007F:4B5C 00000000:0000 0A 0 0 0 0 0 77\n'
+            raise AssertionError('Unexpected control-file read')
+        with patch.object(self.controller, 'run', return_value=group), patch.object(Path, 'read_text', read), \
+                patch.object(Path, 'iterdir', return_value=iter([Path('/proc/111/fd/3')])), \
+                patch.object(host.os, 'readlink', return_value='socket:[77]'):
+            self.assertEqual('0100007F:4B5C', self.controller.access_identity({'unit': unit})['owned_listener'])
+        with patch.object(self.controller, 'run', return_value=group), patch.object(Path, 'read_text', read), \
+                patch.object(Path, 'iterdir', return_value=iter([Path('/proc/111/fd/3')])), \
+                patch.object(host.os, 'readlink', return_value='socket:[88]'):
+            with self.assertRaises(host.Refused):
+                self.controller.access_identity({'unit': unit})
+
+    def test_host_side_probe_checks_exact_answer_and_generation(self):
+        response = io.BytesIO(b'{"reference":"retained-order-1","quantities":[2,3]}')
+        response.status = 200
+        with patch.object(host.urllib.request, 'build_opener') as opener:
+            opener.return_value.open.return_value = response
+            result = self.controller.host_probe()
+            request = opener.return_value.open.call_args.args[0]
+            self.assertEqual('http://127.0.0.1:19292/orders/1', request.full_url)
+            self.assertEqual('localhost:19292', request.headers['Host'])
+            self.assertEqual('passed', result['status'])
+        response = io.BytesIO(b'wrong generation')
+        response.status = 200
+        with patch.object(host.urllib.request, 'build_opener') as opener:
+            opener.return_value.open.return_value = response
+            with self.assertRaises(host.Refused):
+                self.controller.host_probe('/map/', expected_generation='a' * 64)
 
     def test_controlled_failure_has_distinct_safe_code_and_releases_compute(self):
         with self.admitted():

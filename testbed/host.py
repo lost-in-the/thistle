@@ -29,7 +29,6 @@ PROFILE = 'public-rails71-compatibility-v1'
 IMAGE = 'f377fb86ef51f1b4b31787dc58131ad453fe306e58b36296f29e76a98487c520'
 SELECTED = {
     'core.gem': '469a6966b0cfb6f5b307fca52af206d8ce32aa5bf53052fda2cf03a7bce4b942',
-    'map.gem': '3f18336f34cea30361aab62631c0dbe3ebd44f81832a7078259ae04f6fa498ff',
     'native.so': '4bee13087b17eb7aeb0e7ef606c7c0879d817e309e6acb2a09d520bd4c5f888e',
     'core.gemspec': '34949a0a21a1d1b8f84219d8bdd1b198e9eba5ffb2ced01ef70136b261351a08',
     'puma.gem': 'c8ed871dfbbe66448ea9ffd46692342d9804d4071522b52b5331b7b6e7b686fb',
@@ -38,6 +37,10 @@ SELECTED = {
 MIB = 1024 * 1024
 LIMITS = {'memory': 2 * 1024 * MIB, 'pids': 256, 'nano_cpus': 2_000_000_000,
           'lease': 900, 'file': 32 * MIB, 'output': 8 * MIB, 'work': 512 * MIB}
+# Podman may serialize --cap-drop=ALL as its expanded default-capability set.
+# Actual zero CapEff/NoNewPrivs is independently checked on every running PID.
+DEFAULT_CAPABILITIES = {'CHOWN', 'DAC_OVERRIDE', 'FOWNER', 'FSETID', 'KILL', 'NET_BIND_SERVICE',
+                        'SETFCAP', 'SETGID', 'SETPCAP', 'SETUID', 'SYS_CHROOT'}
 
 
 class Refused(Exception):
@@ -200,6 +203,8 @@ class Host:
         for key in ('mysql2_extension_sha256', 'client_library_sha256'):
             require(re.fullmatch(r'[0-9a-f]{64}', self.config[key]), 'Exact client identity required')
         require(self.config['puma_version'] == '8.0.2', 'Exact Puma archive profile required')
+        require(re.fullmatch(r'[0-9a-f]{40}', self.config['map_candidate']['source_sha'])
+                and re.fullmatch(r'[0-9a-f]{64}', self.config['map_candidate']['sha256']), 'Exact integration-owner Map binding required')
         require(self.config['dependency_home'] == '/dependencies', 'Exact prepared dependency mount required')
         require(type(self.config['host_port']) is int and 1024 <= self.config['host_port'] <= 65535, 'Explicit loopback port required')
         require(re.fullmatch(r'(?:[a-zA-Z0-9./_-]+@)?sha256:[0-9a-f]{64}', self.config['mysql_image']), 'Immutable MySQL image required')
@@ -257,7 +262,7 @@ class Host:
                 shutil.copytree(source, self.inputs / name)
             os.mkdir(self.inputs / 'artifacts', 0o700)
             artifacts = {}
-            require(set(self.config['artifacts']) == set(SELECTED) | {'Gemfile.lock'}, 'Exact artifact set required')
+            require(set(self.config['artifacts']) == set(SELECTED) | {'map.gem', 'Gemfile.lock'}, 'Exact artifact set required')
             for name, item in self.config['artifacts'].items():
                 source = Path(item['path'])
                 regular(source)
@@ -265,13 +270,18 @@ class Host:
                 require(actual == {k: item[k] for k in ('sha256', 'size')}, 'Artifact identity mismatch')
                 if name in SELECTED:
                     require(actual['sha256'] == SELECTED[name], 'Selected artifact mismatch')
+                if name == 'map.gem':
+                    require(actual['sha256'] == self.config['map_candidate']['sha256'], 'Selected Map candidate mismatch')
                 shutil.copyfile(source, self.inputs / 'artifacts' / name)
                 artifacts[name] = actual
             require(artifacts['native.so']['size'] == 6124976, 'Native size mismatch')
             profile = {k: self.config[k] for k in ('profile', 'ruby', 'dependency_home', 'server_uuid',
                        'mysql2_extension_sha256', 'client_library_sha256', 'client_version', 'puma_version')}
             profile['artifacts'] = artifacts
+            profile['map_candidate'] = self.config['map_candidate']
             profile['dependency_manifest_sha256'] = self.config['dependency_manifest']['sha256']
+            shutil.copyfile(self.config['dependency_manifest']['path'], self.inputs / 'dependencies.json')
+            profile['host_socat'] = self.config['host_socat']
             write_json(self.inputs / 'profile.json', profile)
             # Key includes exact artifacts, lock, image/OS/arch and ABI assertion;
             # the observed ABI is checked inside the worker before any connect.
@@ -379,7 +389,9 @@ class Host:
         require(not any(observed.get('NetworkSettings', {}).get('Ports', {}).values()), 'Published image port refused')
         require(host['Memory'] == LIMITS['memory'] and host['MemorySwap'] == LIMITS['memory'], 'Memory/swap unenforced')
         require(host['PidsLimit'] == LIMITS['pids'] and host['NanoCpus'] == LIMITS['nano_cpus'], 'PID/CPU unenforced')
-        require('no-new-privileges' in host['SecurityOpt'] and set(host['CapDrop']) >= {'ALL'}, 'Privileges not dropped')
+        dropped = {cap.removeprefix('CAP_') for cap in host['CapDrop']}
+        require('no-new-privileges' in host['SecurityOpt'] and not host.get('CapAdd')
+                and ('ALL' in dropped or DEFAULT_CAPABILITIES <= dropped), 'Privileges not dropped')
         actual = {m['Source']: (m['Destination'], m['RW']) for m in observed['Mounts'] if m['Type'] == 'bind'}
         require(actual == self.mounts(role), 'Bind mount topology mismatch')
         require(all(m['Type'] == 'bind' for m in observed['Mounts']), 'Unexpected image/anonymous volume')
@@ -441,8 +453,24 @@ class Host:
                 and limits['pids.max'] == '32', 'Host access resource limits absent')
         quota, period = limits['cpu.max'].split()
         require(quota != 'max' and int(quota) == int(period), 'Host access CPU unbounded')
-        require((root / 'cgroup.procs').read_text().strip(), 'Host access compute absent')
-        return {'unit': unit, 'cgroup': group, 'limits': limits}
+        pids = (root / 'cgroup.procs').read_text().split()
+        require(0 < len(pids) <= 32 and all(pid.isdecimal() for pid in pids), 'Host access compute absent')
+        inodes = set()
+        for pid in pids:
+            try:
+                for fd in Path(f'/proc/{pid}/fd').iterdir():
+                    try:
+                        target = os.readlink(fd)
+                        if target.startswith('socket:['):
+                            inodes.add(target[8:-1])
+                    except FileNotFoundError:
+                        pass
+            except FileNotFoundError:
+                pass
+        address = f'0100007F:{self.config["host_port"]:04X}'
+        listeners = [row.split() for row in Path('/proc/net/tcp').read_text().splitlines()[1:]]
+        require(any(row[1] == address and row[3] == '0A' and row[9] in inodes for row in listeners), 'Host listener socket not owned by admitted scope')
+        return {'unit': unit, 'cgroup': group, 'limits': limits, 'owned_listener': address}
 
     def host_probe(self, path='/orders/1', expected_generation=None):
         opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
@@ -502,7 +530,7 @@ class Host:
         try:
             os.makedirs(self.work / 'tmp', mode=0o700, exist_ok=True)
             (self.work / 'sessions' / token).mkdir(mode=0o700, parents=True)
-            for name in ('go.json', 'ready.json'):
+            for name in ('admission.json', 'cohort-ready.json', 'go.json', 'ready.json'):
                 path = self.work / name
                 if path.exists():
                     # Archive prior session receipts before removing coordination
@@ -513,8 +541,25 @@ class Host:
                 state['containers'][role] = identifier
                 self.save(state)
                 self.prove(identifier, role, token, False)
-            for role in ('db', 'app'):
-                self.podman('start', state['containers'][role])
+            self.podman('start', state['containers']['app'])
+            app_proof = self.prove(state['containers']['app'], 'app', token, True)
+            write_json(self.work / 'admission.json', {'token': token, 'expires_at': state['expires_at'],
+                       'namespaces': app_proof['namespaces']})
+            deadline = time.monotonic() + 35
+            while not (self.work / 'cohort-ready.json').exists():
+                require(time.monotonic() < deadline, 'Installed cohort preflight deadline')
+                self.prove(state['containers']['app'], 'app', token, True)
+                time.sleep(0.1)
+            cohort = read_json(self.work / 'cohort-ready.json')
+            require(cohort['token'] == token and cohort['identity']['native']['sha256'] == SELECTED['native.so']
+                    and cohort['identity']['client']['sha256'] == self.config['mysql2_extension_sha256']
+                    and cohort['identity']['client_library']['sha256'] == self.config['client_library_sha256']
+                    and cohort['identity']['lock']['sha256'] == read_json(self.inputs / 'profile.json')['artifacts']['Gemfile.lock']['sha256'],
+                    'Installed cohort preflight identity mismatch')
+            write_json(self.logs / f'{token}-cohort.json', cohort)
+            # No DB start, application boot/connect or GO before actual installed
+            # framework/native/client/lock preflight succeeds inside confinement.
+            self.podman('start', state['containers']['db'])
             proofs = {role: self.prove(cid, role, token, True) for role, cid in state['containers'].items()}
             require(proofs['db']['namespaces']['pid'] != proofs['app']['namespaces']['pid'], 'DB/app PID namespace shared')
             write_json(self.logs / f'{token}-admission.json', proofs)
@@ -654,6 +699,7 @@ class Host:
         if (self.work / 'loaded').exists():
             shutil.copytree(self.work / 'loaded', destination / 'loaded')
         write_json(destination / 'profile.json', read_json(self.inputs / 'profile.json'))
+        shutil.copyfile(self.inputs / 'dependencies.json', destination / 'dependencies.json')
         expected = inventory(destination)
         write_json(destination / 'INDEX.json', expected)
         # INDEX excludes only itself; independently re-enumerate and compare.

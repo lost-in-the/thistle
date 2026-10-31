@@ -10,6 +10,10 @@
     "sha256": "REQUIRED_PREPARED_DEPENDENCY_MANIFEST_SHA256"
   },
   "puma_version": "8.0.2",
+  "map_candidate": {
+    "source_sha": "40a2809419987b824d5a7abccbd14c666fc249a5",
+    "sha256": "3f18336f34cea30361aab62631c0dbe3ebd44f81832a7078259ae04f6fa498ff"
+  },
   "host_port": 19292,
   "host_socat": {"path": "/usr/bin/socat", "sha256": "REQUIRED_INSTALLED_HOST_SOCAT_SHA256"},
   "mysql_image": "docker.io/library/mysql@sha256:5cf1e1293ea42e077e6a22114e6773b9aae3bb8f9933a2acd5a9721518ff8f5b",

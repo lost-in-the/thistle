@@ -17,7 +17,8 @@ module HostProfile
     ENV['GEM_PATH'] = ['/work/gems', config.fetch('dependency_home')].join(':')
     Gem.clear_paths
     gem 'bundler', '= 2.6.9'
-    { 'rails' => '7.1.6', 'rack' => '3.2.7', 'rouge' => '4.6.1',
+    { 'railties' => '7.1.6', 'activerecord' => '7.1.6', 'actionpack' => '7.1.6',
+      'rack' => '3.2.7', 'rouge' => '4.6.1',
       'minitest' => '5.25.4', 'mysql2' => '0.5.7' }.each { |name, version| gem name, "= #{version}" }
   end
 
@@ -32,6 +33,7 @@ module HostProfile
 
   def identities(client: false)
     require 'thistle/map'
+    raise 'Selected Map lacks F05 presentation' unless defined?(Thistle::Map::ConstantOccurrence)
     require 'mysql2' if client
     ENV['BUNDLE_GEMFILE'] = '/input/app/Gemfile' # controlled parser context only; never bundle/setup
     require 'bundler/lockfile_parser'

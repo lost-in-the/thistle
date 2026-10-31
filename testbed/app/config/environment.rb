@@ -2,6 +2,7 @@
 
 require_relative 'application'
 ReusableHost::Application.initialize!
+raise 'Rails/AR cohort drift' unless Rails.version == '7.1.6' && ActiveRecord::VERSION::STRING == '7.1.6'
 # No database.yml or URL interpolation: the private file is never rendered,
 # included in capture, or passed in argv. The controller admits this socket first.
 database = JSON.parse(File.read('/private/database.json'))

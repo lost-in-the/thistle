@@ -36,6 +36,9 @@ SHA `c8ed871dfbbe66448ea9ffd46692342d9804d4071522b52b5331b7b6e7b686fb`
 separately; its native build/install remains UNRUN. It was not previously
 installed in f377. The maintained CI primary/minimum remain Ruby
 4.0.9/3.4.12 + Rails 8.1.4. This profile claims no modern-cohort result.
+The app explicitly depends on railties, activerecord and actionpack at 7.1.6,
+and asserts the actual booted Rails/AR versions. It does not require the Rails
+metagem's unrelated mail/storage/cable components.
 
 The first runtime image is the existing local immutable image ID
 `f377fb86ef51f1b4b31787dc58131ad453fe306e58b36296f29e76a98487c520`.
@@ -48,6 +51,14 @@ selected tuple is checked before candidate execution:
 | Actually loaded Core native, 6,124,976 bytes | `4bee13087b17eb7aeb0e7ef606c7c0879d817e309e6acb2a09d520bd4c5f888e` |
 | Original Core gemspec | `34949a0a21a1d1b8f84219d8bdd1b198e9eba5ffb2ced01ef70136b261351a08` |
 | F05 Map from source 40a2809419987b824d5a7abccbd14c666fc249a5 | `3f18336f34cea30361aab62631c0dbe3ebd44f81832a7078259ae04f6fa498ff` |
+
+That Map row is the original supplied binding. Root's subsequent verified
+incoming-large-source correction changes the parent Map artifact; before runtime,
+the private `map_candidate` source SHA/digest and matching `artifacts.map.gem`
+must use Root's actual new signed/package handback. The controller records and
+verifies that explicit selected binding, and the installed check requires F05
+presentation plus its two-site known answers. It never aliases a new package
+to the old digest or changes the protected parent files/PR base itself.
 
 The operator supplies a **new actual host lock** containing Map and Puma, an
 exact preassembled installed dependency home mounted read-only at `/dependencies`,
@@ -166,6 +177,12 @@ cgroup limits before writing GO. The boot process checks its own namespace IDs
 against that receipt before loading candidate gems or connecting. An incomplete
 preflight cannot start dependent compute/connect/GO. A failed create is reconciled
 by exact instance/lease labels before cleanup; an uncertain inventory stays failed.
+The first confined worker stage loads only framework/installed dependencies,
+verifies Ruby/ABI/7.1 components/lock/native/client identities, and returns a
+cohort receipt without reading DB credentials or booting the app. Only after
+that actual receipt validates does the controller start DB compute and issue
+the separate GO for app boot/connection. Missing/invalid cohort output stops
+the worker and created resources without DB start, app connection or GO.
 
 Readiness requires the actual retained schema/seed checks, booted Rails and a
 real TCP request to the known order controller. `status` performs only reads and
