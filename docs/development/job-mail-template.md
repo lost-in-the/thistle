@@ -14,14 +14,15 @@ mailer action, delivery method, ERB compiler/evaluator or helper is invoked.
 
 ## Dedicated interfaces and Root-owned callsites
 
-No existing file is transferred to this writer. The immutable starting head is
-`5c80f5d167ccf30d7c38f7bd78a33ca4c5734cfa`. These modules intentionally target
-the following **future shared seams**, absent from that base:
+One exact existing-file transfer permits the parser-worker extraction in
+`capture.rs`; all other shared wiring remains Root-owned. The immutable starting
+head is `5c80f5d167ccf30d7c38f7bd78a33ca4c5734cfa`. The parser helper below now
+exists in source; the other integration seams remain outstanding:
 
 | Root-owned location | Exact integration required |
 | --- | --- |
 | `engine/src/lib.rs` | Declare `mod job_mail; mod job_mail_source; mod erb_template;`. Route internal `job_mail_batch` to `job_mail::batch(context, observation)`; raw template admission to `erb_template::admit_raw(raw)`; public native `job_mail` to `job_mail::select(&reader, &job_mail::Query::parse(request)?)`. Add its `scratch()` to request admission. No second public source dispatcher. |
-| `engine/src/capture.rs` | Provide `pub(crate) fn parser_worker<T: Send + 'static>(name: &'static str, task: impl FnOnce() -> Result<T> + Send + 'static) -> Result<T>`. Existing capture and selected source share its one atomic try-admission, 64 MiB stack, spawn/join/panic mapping and RAII release. Busy is immediate; no queue/retry/fallback. |
+| `engine/src/capture.rs` | Source helper implemented: `pub(crate) fn parser_worker<T: Send + 'static>(name: &'static str, task: impl FnOnce() -> Result<T> + Send + 'static) -> Result<T>`. Existing capture delegates with unchanged effective-limit validation and capture recipe. Capture and selected source share one atomic try-admission, 64 MiB stack, spawn/join/panic mapping and RAII release. Busy is immediate; no queue/retry/fallback. Native execution remains UNRUN. |
 | `engine/src/schema.rs` | Strictly recognize `rails_job_mail` through `job_mail::validate_fact` at publication **and fresh Reader admission**. Structural generic acceptance is insufficient. `rails_job_mail` runtime rows have no source location; the handler location is only a hint. Exclude anonymous job/mail registry display names from recorded-name candidate identity, as already done for anonymous models/callbacks. |
 | `lib/thistle/capture.rb`, `rails_capture.rb` | Within the explicitly supplied app boundary, pass actual already loaded `jobs:`, `mailers:`, absolute `root:`, admitted `framework_version:`, remaining `limits:` and `evidence_budget:` to `JobMailObserver.new(app:,...).call`. The helper does not discover/eager-load descendants or resolve constants. Append only admitted batch facts and charge the returned `appended` counts. `job_mail_observer` producer metadata is supplied by `batch`. |
 | Template inventory/blob aggregation | Open candidate files with the existing anchored/no-symlink/regular-file policy; pass a dedicated open File to `JobMailTemplateCapture.call(file:, path:, max_bytes:)`. Admit raw bytes in Rust. Deduplicate/charge source files, total bytes, source facts, entries, metadata, links and diagnostics under existing limits before publication. Include a normal `file` fact named by its exact relative path, physical full-file span and saved blob, so existing `Reader#source` and `source_file` work without Rails. No new global limit. |
@@ -175,8 +176,9 @@ query scratch. Parse-required paths (`policy`, `handoff`, `template_references`)
 reserve **96 MiB**, including the existing 64 MiB worker stack, bounded owned
 source/fact copies, syntax tree/projection allowance, and native/Ruby response
 copies. Root keeps the reservation through response serialization. There is one
-shared parser permit with capture; this implementation targets Root's future
-helper rather than creating a second parser authority.
+shared parser permit with capture through the implemented source helper rather
+than a second parser authority. Its authored admission/error/panic regression is
+UNRUN; the public job operation and other integration hooks remain unwired.
 
 The selected saved file is limited to 256 KiB before Source reads. There are
 20,000 **pending-node pops**, 200 derived rows, 64 arguments per inspected call,

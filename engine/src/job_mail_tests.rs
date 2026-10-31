@@ -1,5 +1,23 @@
 use super::*;
 
+// Authored UNRUN in the source-only phase; shares the public capture test lock.
+#[test]
+fn shared_parser_worker_refuses_nested_admission_and_releases_after_errors_and_panics() {
+    let _guard = crate::CAPTURE_FIXTURE_LOCK.lock().unwrap();
+    let result = crate::capture::parser_worker("thistle-parser-test", || {
+        let nested = crate::capture::parser_worker("thistle-parser-nested", || Ok(()));
+        assert_eq!(nested.unwrap_err().code,"busy");
+        Ok(17)
+    }).unwrap();
+    assert_eq!(result,17);
+    let error = crate::capture::parser_worker::<()>("thistle-parser-error", || Err(CoreError::input("fixture error"))).unwrap_err();
+    assert_eq!(error.code,"invalid_input");
+    assert_eq!(crate::capture::parser_worker("thistle-parser-after-error", || Ok(23)).unwrap(),23);
+    let error = crate::capture::parser_worker::<()>("thistle-parser-panic", || panic!("fixture worker panic")).unwrap_err();
+    assert_eq!(error.code,"internal_error");
+    assert_eq!(crate::capture::parser_worker("thistle-parser-after-panic", || Ok(29)).unwrap(),29);
+}
+
 fn context() -> Value {
     json!({"schema_version":3,"facts":0,"links":0,"diagnostics":0,"fact_bytes":2,
         "limits":{"max_facts":100,"max_links":100,"max_entries":100,"max_diagnostics":100}})

@@ -111,22 +111,40 @@ impl Drop for CapturePermit {
 
 pub fn capture(root: &Path, limits: &Value) -> Result<Value> {
     let effective = effective_limits(limits)?;
+    let root = root.to_path_buf();
+    parser_worker("thistle-capture", move || capture_inner(&root, effective))
+}
+
+/// One process-wide, non-queued parser admission shared by capture and saved
+/// source queries. Parsing and AST destruction must both finish inside task;
+/// only owned Send results cross the join. This is not a CPU/RSS sandbox.
+pub(crate) fn parser_worker<T: Send + 'static>(
+    name: &'static str,
+    task: impl FnOnce() -> Result<T> + Send + 'static,
+) -> Result<T> {
     if CAPTURE_ACTIVE.compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire).is_err() {
-        return Err(CoreError::new("busy", "A native capture is already active; retry after it completes"));
+        return Err(CoreError::new("busy", if name == "thistle-capture" {
+            "A native capture is already active; retry after it completes"
+        } else {
+            "A native parser worker is already active; retry after it completes"
+        }));
     }
     let _permit = CapturePermit;
-    let root = root.to_path_buf();
     // Prism's C parser and AST destructor recurse. Ruby worker stacks are much
     // smaller than its depth guard assumes. Keep parsing and destruction on one
-    // explicitly sized native stack, and bound concurrency to one capture.
+    // explicitly sized native stack, and bound concurrency to one parser worker.
     // This is not a sandbox or a CPU deadline; controller workers remain needed
     // for hostile-input qualification and enforced process resource limits.
     std::thread::Builder::new()
-        .name("thistle-capture".to_owned())
+        .name(name.to_owned())
         .stack_size(PARSER_STACK_BYTES)
-        .spawn(move || capture_inner(&root, effective))?
+        .spawn(task)?
         .join()
-        .map_err(|_| CoreError::new("internal_error", "Native capture worker panicked; no result was published"))?
+        .map_err(|_| CoreError::new("internal_error", if name == "thistle-capture" {
+            "Native capture worker panicked; no result was published"
+        } else {
+            "Native source parser worker panicked; no result was returned"
+        }))?
 }
 
 fn effective_limits(limits: &Value) -> Result<HashMap<String, usize>> {

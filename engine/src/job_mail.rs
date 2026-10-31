@@ -258,8 +258,8 @@ fn fits(items: &[Value], item: &Value, max_bytes: usize) -> Result<bool> {
 fn parse_source(fact: &Value, path: &str, content: &str) -> Result<Value> {
     schema::encoded_bytes(fact,512*1024)?;
     let fact = fact.clone(); let path = path.to_owned(); let content = content.to_owned();
-    // Explicit future Root-owned seam: same process permit/large-stack worker
-    // as capture, immediate busy refusal, no second concurrency authority.
+    // Same process permit/large-stack worker as capture, immediate busy
+    // refusal, no second concurrency authority.
     crate::capture::parser_worker("thistle-job-mail-source",move || if path.ends_with(".erb") {
             crate::erb_template::analyze(&path,&content)
         } else { crate::job_mail_source::analyze(&fact,&content) })
