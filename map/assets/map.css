@@ -15,7 +15,8 @@ html,body{margin:0;min-height:100%;background:#222126}
 .thistle-workbench nav .disabled{color:var(--mut)}
 .thistle-workbench nav small{font-size:var(--fs-12)}
 .thistle-workbench .capture{margin:var(--s4) 0;color:var(--mut)}
-.thistle-workbench main{display:grid;gap:var(--s4);padding:var(--s4) 0 var(--s6);min-width:0}
+.thistle-workbench main{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--s4);padding:var(--s4) 0 var(--s6);min-width:0;overflow-wrap:anywhere}
+.thistle-workbench main pre{overflow:auto}
 .thistle-workbench .t1{overflow-wrap:anywhere}
 .thistle-workbench .notice{padding:var(--s4);border-left:3px solid var(--select);background:var(--panel)}
 .thistle-workbench .facts{display:flex;flex-wrap:wrap;gap:var(--s6)}
