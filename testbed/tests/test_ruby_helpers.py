@@ -15,5 +15,6 @@ class RubyControllerHelpers(unittest.TestCase):
         self.assertEqual(0, result.returncode, result.stderr.decode())
         report = json.loads(result.stdout)
         self.assertEqual('passed', report['status'])
-        self.assertEqual(5, len(report['checks']))
+        self.assertEqual(6, len(report['checks']))
+        self.assertIn('auth_provider_static_vs_loaded_mapping_directory_and_hash', report['checks'])
         self.assertIn('no SQL/framework/product runtime', report['scope'])

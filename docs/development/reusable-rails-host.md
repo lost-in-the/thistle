@@ -44,6 +44,7 @@ Maintained CI remains Ruby4.0.9/3.4.12 + Rails8.1.4.
 | Official native-ruby Puma8.0.2 archive, 265,216 bytes | `c8ed871dfbbe66448ea9ffd46692342d9804d4071522b52b5331b7b6e7b686fb` |
 | Public mysql2 extension, 350,880 bytes | `4daad6688cd0f7fe990ed64c9df1d65d78d9327f315836d82ad62f4b046e2137` |
 | Public Connector/C library, 549,096 bytes | `a373e8e8216e180e5dca24a4da6dbe7db34cc520c0693fc29319a37953a58fb2` |
+| Same-build caching SHA-2 client auth provider, 17,672 bytes | `f8723a85ab470e94c52fe5ebfc7373cb8e4b2ff782195ba2b6fca69c08f891eb` |
 
 The example selects signed parent `64eee68b736fc47369c30009a5eca022820d7caf`,
 tree `6e56d58a94bc52de3ca607bc6b859e14f43cb61a`. It includes the incoming
@@ -73,6 +74,28 @@ This is not a portable archive set. The old public71 lock
 an actual new host lock and Puma8.0.2 native/provider set under credential-free
 controls. An available Puma archive does not establish build/install success.
 No host/cohort result is inferred from that separate preparation.
+
+The client auth provider is an explicit input, not an image default gem or an
+implicit global plugin search. Prepare verifies its artifact and stages a private
+`client-auth` directory containing only that provider. Both the app launch and
+every exec use `MARIADB_PLUGIN_DIR=/input/client-auth`; the original client library
+still resolves through `LD_LIBRARY_PATH=/input/artifacts`. The profile manifest,
+cache key and retained shared artifacts bind these bytes. Pre-connection identity
+checks verify the provider file and report `mapped: false`; authenticated
+host/producer observations separately record the actual mapping and retain its
+raw bytes. A same-named provider mapped from another directory refuses.
+
+Root's bounded official-client control authenticated the unchanged project admin
+credential, then observed successful Connector/C admin and new read-only account
+connections with librarya373 and mapped providerf872. It created the separate
+app schema **empty**, with schema-only bootstrap grants and SELECT/SHOW VIEW
+reuse grants, and verified the original LOS67 empty tables before/after.
+Report `d8f74aaf5f0939ba50ad1fba29d011e6a3b114801ca965438c2ddbbada4c70ba`,
+index `6a6a0fd88f1cd91bf04d62ec8a2342de4510dbd9b80d9add260817c54a17dee7`.
+The server and client compute stopped; data/accounts/private credentials are
+kept. Fixture migrations/seed and the full host journey remain unexecuted.
+Earlier connection failures remain failed attempts; this working provider tuple
+does not isolate every historical authentication cause or qualify support.
 
 Root's subsequent credential-free provider/Unix phase recorded a scoped PASS
 (report2f1ecc9766d1ce6372ebd71f3c83515f4ed0c1ee2ada2b3907459b407d71d8e6,

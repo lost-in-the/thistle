@@ -63,6 +63,11 @@
       "path": "/absolute/retained/public-client-3.4.9/lib/mariadb/libmariadb.so.3",
       "sha256": "a373e8e8216e180e5dca24a4da6dbe7db34cc520c0693fc29319a37953a58fb2",
       "size": 549096
+    },
+    "caching_sha2_password.so": {
+      "path": "/absolute/retained/public-client-3.4.9/lib/mariadb/plugin/caching_sha2_password.so",
+      "sha256": "f8723a85ab470e94c52fe5ebfc7373cb8e4b2ff782195ba2b6fca69c08f891eb",
+      "size": 17672
     }
   },
   "host_source": {

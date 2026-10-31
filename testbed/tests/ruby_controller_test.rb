@@ -65,6 +65,29 @@ Dir.mktmpdir('los139-ruby-helpers-') do |directory|
   checks << 'F12_actual_provider_roots_default_hash_and_framework_guard'
 end
 
+original_config = HostProfile.method(:config)
+original_identity = HostProfile.method(:file_identity)
+original_plugin_dir = ENV['MARIADB_PLUGIN_DIR']
+auth_path = '/input/client-auth/caching_sha2_password.so'
+auth = { 'path' => auth_path, 'sha256' => 'a' * 64, 'size' => 17 }
+begin
+  HostProfile.define_singleton_method(:config) { { 'client_auth' => auth } }
+  HostProfile.define_singleton_method(:file_identity) { |path| raise 'wrong provider' unless path == auth_path; auth.dup }
+  ENV['MARIADB_PLUGIN_DIR'] = '/input/client-auth'
+  assert(!HostProfile.client_auth_identity([]).fetch('mapped'), 'AUTH_PRECONNECT_IS_NOT_LOADED')
+  assert(HostProfile.client_auth_identity([auth_path]).fetch('mapped'), 'AUTH_LOADED_MAPPING')
+  refuses('AUTH_FOREIGN_MAPPING') { HostProfile.client_auth_identity(['/tmp/caching_sha2_password.so']) }
+  HostProfile.define_singleton_method(:file_identity) { |_path| auth.merge('sha256' => '0' * 64) }
+  refuses('AUTH_PROVIDER_DRIFT') { HostProfile.client_auth_identity([]) }
+  ENV['MARIADB_PLUGIN_DIR'] = '/unadmitted'
+  refuses('AUTH_DIRECTORY_DRIFT') { HostProfile.client_auth_identity([]) }
+  checks << 'auth_provider_static_vs_loaded_mapping_directory_and_hash'
+ensure
+  HostProfile.define_singleton_method(:config, original_config)
+  HostProfile.define_singleton_method(:file_identity, original_identity)
+  ENV['MARIADB_PLUGIN_DIR'] = original_plugin_dir
+end
+
 fixture = JSON.parse(File.read(File.expand_path('../app/expected.json', __dir__)))
 assert(fixture.fetch('indexes').fetch('items') == [['items_order_id_idx', ['order_id'], false]], 'F03_DECLARED_INDEX')
 assert(fixture.fetch('foreign_keys').fetch('items') == [['fk_items_orders', 'orders', 'order_id', 'id']], 'F03_DECLARED_FK')

@@ -37,6 +37,7 @@ SELECTED = {
     'core.gemspec': '34949a0a21a1d1b8f84219d8bdd1b198e9eba5ffb2ced01ef70136b261351a08',
     'puma.gem': 'c8ed871dfbbe66448ea9ffd46692342d9804d4071522b52b5331b7b6e7b686fb',
     'libmariadb.so.3': 'a373e8e8216e180e5dca24a4da6dbe7db34cc520c0693fc29319a37953a58fb2',
+    'caching_sha2_password.so': 'f8723a85ab470e94c52fe5ebfc7373cb8e4b2ff782195ba2b6fca69c08f891eb',
 }
 MIB = 1024 * 1024
 LIMITS = {'memory': 2 * 1024 * MIB, 'pids': 256, 'nano_cpus': 2_000_000_000,
@@ -426,6 +427,7 @@ class Host:
             profile = {k: self.config[k] for k in ('profile', 'ruby', 'dependency_home', 'server_uuid',
                        'mysql2_extension_sha256', 'client_library_sha256', 'client_version', 'puma_version')}
             profile['artifacts'] = artifacts
+            profile['client_auth'] = self.prepare_client_auth(artifacts)
             profile['map_candidate'] = self.config['map_candidate']
             profile['dependency_manifest_sha256'] = self.config['dependency_manifest']['sha256']
             private_copy(self.config['dependency_manifest']['path'], self.inputs / 'dependencies.json')
@@ -452,6 +454,16 @@ class Host:
             # Preserve failed prepare effects; never remove/reuse partial inputs.
             write_json(self.root / 'prepare-failed.json', {'status': 'failed', 'effects_retained': True})
             raise
+
+    def prepare_client_auth(self, artifacts):
+        name = 'caching_sha2_password.so'
+        source = self.inputs / 'artifacts' / name
+        expected = artifacts[name]
+        require(source.stat().st_size == expected['size'] and digest(source) == expected['sha256'], 'Client auth provider drift')
+        directory = self.inputs / 'client-auth'
+        directory.mkdir(mode=0o700)
+        private_copy(source, directory / name)
+        return dict(expected, path='/input/client-auth/' + name)
 
     def podman(self, *args, seconds=30):
         return self.run(['podman', *map(str, args)], seconds=seconds)
@@ -526,6 +538,7 @@ class Host:
         if role == 'app':
             command = ['/usr/bin/env', '-i', 'PATH=/usr/local/bin:/usr/bin:/bin', 'HOME=/work',
                        f'TMPDIR=/work/sessions/{token}/tmp', 'RAILS_ENV=test', 'LD_LIBRARY_PATH=/input/artifacts',
+                       'MARIADB_PLUGIN_DIR=/input/client-auth',
                        'ruby', '/input/control/run.rb', 'host', token]
         else:
             command = ['/bin/sh', '/control/db-entrypoint.sh', str(os.getuid()), token,
@@ -587,6 +600,7 @@ class Host:
         return self.podman('exec', identifier, '/usr/bin/env', '-i', 'PATH=/usr/local/bin:/usr/bin:/bin',
                            'HOME=/work', f'TMPDIR=/work/sessions/{self.state()["token"]}/tmp', 'RAILS_ENV=test', 'GEM_HOME=/work/gems',
                            'LD_LIBRARY_PATH=/input/artifacts',
+                           'MARIADB_PLUGIN_DIR=/input/client-auth',
                            f'GEM_PATH=/work/gems:{self.config["dependency_home"]}',
                            'ruby', '/input/control/run.rb', script, *args, seconds=seconds)
 

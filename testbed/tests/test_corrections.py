@@ -334,6 +334,36 @@ class Corrections(unittest.TestCase):
         self.assertFalse(any(call[1] in ('create', 'start', 'exec') for call in self.fake.calls))
         self.assertEqual('STOPPED', self.c.state()['phase'])
 
+    def test_auth_provider_has_a_private_directory_and_exact_staged_identity(self):
+        name = 'caching_sha2_password.so'
+        source = self.c.inputs / 'artifacts' / name
+        with host.private_open(source) as stream:
+            stream.write(b'metadata fixture; not a native binary')
+        expected = {'sha256': host.digest(source), 'size': source.stat().st_size}
+        with self.assertRaises(host.Refused):
+            self.c.prepare_client_auth({name: dict(expected, sha256='0' * 64)})
+        self.assertFalse((self.c.inputs / 'client-auth').exists())
+        result = self.c.prepare_client_auth({name: expected})
+        self.assertEqual(dict(expected, path='/input/client-auth/' + name), result)
+        directory = self.c.inputs / 'client-auth'
+        self.assertEqual(0o700, directory.stat().st_mode & 0o777)
+        self.assertEqual([name], [path.name for path in directory.iterdir()])
+        self.assertEqual(0o600, (directory / name).stat().st_mode & 0o777)
+        self.assertEqual(expected['sha256'], host.digest(directory / name))
+
+    def test_app_and_exec_both_use_the_declared_auth_provider_directory(self):
+        state = self.c.state()
+        state['token'] = 'a' * 32
+        self.c.save(state)
+        identifier = self.c.create('app', state['token'])
+        created = self.fake.calls[-1]
+        self.assertIn('MARIADB_PLUGIN_DIR=/input/client-auth', created)
+        self.c.exec_ruby(identifier, 'probe', '/work/sessions/' + state['token'] + '/http.sock')
+        executed = self.fake.calls[-1]
+        self.assertIn('MARIADB_PLUGIN_DIR=/input/client-auth', executed)
+        self.assertIn('LD_LIBRARY_PATH=/input/artifacts', created)
+        self.assertIn('LD_LIBRARY_PATH=/input/artifacts', executed)
+
     def test_prefixed_immutable_image_id_matches_actual_bare_inspection(self):
         original = self.c.run
         def run(argv, seconds=30):

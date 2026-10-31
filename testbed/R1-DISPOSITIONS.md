@@ -117,3 +117,27 @@ Failure status inspects at most the two owned role IDs and does not mutate them.
 No Core/Map package, schema, Reader, access rule, source cap or fixture answer
 changed. Current-head affected CI and actual full-host admission/execution remain
 required. Person-performed usability and all17 qualification remain separate.
+
+## Root runtime auth-provider input correction
+
+The subsequent first finite window observed a real DB-free Rails7.1.6/AR7.1.6
+boot without a DB connection or Thistle load, then failed at trusted provisioning
+connection. Its failure remains recorded. Two diagnostic windows observed safe
+1045/28000 errors and stopped dependent plugin/provisioning work as declared.
+
+A later pinned official-client control authenticated the unchanged admin file;
+Connector/C admin and new read-only account connections passed with the exact
+retained caching SHA-2 provider mapped. It provisioned only the new **empty** app
+schema/accounts, verified scoped grants and the original67 rows, then stopped
+compute. No fixture migration/seed, app capture or Reader/Map suite ran.
+
+Root carries that observed input through the reusable path: selected artifact
+hash, isolated staged provider directory, manifest/cache/shared bytes, explicit
+app **and** exec environment, static pre-connect identity versus actual mapped
+identity, and raw provider retention. This changes no Core/Map package bytes,
+client build, fixture answer, grant scope or source budget. The copied provider
+is from the same retained Connector/C3.4.9 build, outside shipped gems. It adds
+one17,672-byte staged copy and bounded hashing; the existing proc maps read is
+reused. No global plugin install, search fallback, password change or new worker
+was introduced. This is a source correction based on an observed working tuple,
+not a claim that every previous authentication failure has a proven sole cause.

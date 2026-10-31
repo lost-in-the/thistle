@@ -66,6 +66,19 @@ module HostProfile
     end
   end
 
+  def client_auth_identity(mapped_paths)
+    expected = config.fetch('client_auth')
+    path = expected.fetch('path')
+    raise 'Client auth directory drift' unless path == '/input/client-auth/caching_sha2_password.so' &&
+      ENV['MARIADB_PLUGIN_DIR'] == '/input/client-auth'
+    actual = file_identity(path)
+    raise 'Client auth provider drift' unless actual.slice('sha256', 'size') == expected.slice('sha256', 'size')
+    raise 'Unadmitted client auth mapping' unless mapped_paths.empty? || mapped_paths.uniq == [path]
+    # Pre-connection cohort checks have no mapping yet. Later authenticated
+    # producer/host observations separately establish the actual loaded provider.
+    actual.merge('mapped' => mapped_paths.include?(path))
+  end
+
   def identities(client: false, reference: nil)
     require 'thistle/map'
     raise 'Selected Map lacks F05 presentation' unless defined?(Thistle::Map::ConstantOccurrence)
@@ -109,14 +122,18 @@ module HostProfile
       result['client'] = file_identity(path)
       raise 'Adapter binary drift' unless result['client']['sha256'] == config.fetch('mysql2_extension_sha256')
       lib = '/proc/self/maps'
-      paths = File.readlines(lib).filter_map { |line| line.split.last if line.match?(/lib(?:mysqlclient|mariadb).*\.so/) }.uniq
+      mappings = File.readlines(lib)
+      paths = mappings.filter_map { |line| line.split.last if line.match?(/lib(?:mysqlclient|mariadb).*\.so/) }.uniq
       raise 'Client library absent' unless paths.length == 1
       result['client_library'] = file_identity(paths.first)
       raise 'Client library drift' unless result['client_library']['sha256'] == config.fetch('client_library_sha256')
       result['client_version'] = Mysql2::Client.info.fetch(:version)
       raise 'Client provider/version drift' unless result['client_version'] == config.fetch('client_version')
+      auth_paths = mappings.filter_map { |line| line.split.last if line.match?(%r{/caching_sha2_password\.so\s*\z}) }.uniq
+      result['client_auth_plugin'] = client_auth_identity(auth_paths)
       FileUtils.mkdir_p('/work/loaded', mode: 0o700)
-      { 'native.so' => native, 'mysql2.so' => path, 'client.so' => paths.first }.each do |name, source|
+      { 'native.so' => native, 'mysql2.so' => path, 'client.so' => paths.first,
+        'client-auth-provider.so' => result['client_auth_plugin'].fetch('path') }.each do |name, source|
         target = File.join('/work/loaded', name)
         if File.exist?(target)
           raise 'Retained loaded binary drift' unless Digest::SHA256.file(target).hexdigest == Digest::SHA256.file(source).hexdigest
