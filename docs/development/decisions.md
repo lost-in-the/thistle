@@ -309,7 +309,7 @@ Woods index dependency do not fit Thistle Map's saved Reader/Rack boundary.
 
 A separate maintained testbed repository would require coordinated app/runner
 pins, two-repo updates, review and compatibility execution for each fixture or
-interface change. Tonight Thistle alone owns those updates. The existing
+interface change. Thistle alone owns those updates. The existing
 independent-evaluator authority remains separate; a fixture inside the candidate
 repository supplies development evidence, not protected qualification.
 
@@ -323,6 +323,25 @@ generations/evidence grow per attempt. There is no measured speed or memory
 benefit and no fresh-machine/other-platform proof. Reconsider a second repo,
 framework or portable archive only for demonstrated independent consumers,
 multi-profile lifecycle complexity or an admitted reproducibility requirement.
+
+The R1 correction uses Puma 8.0.2's private Unix listener and maintained host
+socat UNIX-CONNECT in the bounded loopback scope. The pinned official binder
+and hash-verified Puma archive were inspected by Root: Unix peers initialize as
+127.0.0.1; the runtime must still verify the actual peer and Host. Explicit
+0700 session directories and 0600 socket/umask077 protect the socket. This
+removes a Python/Go/Podman-exec chain per connection; increasing its task/memory
+budget would keep unnecessary startup and failure cost. Net::HTTP's response
+framing is reused for the internal Unix probe; no generic HTTP/proxy framework
+or arbitrary target is added. Four parallel host requests plus assets and actual
+resource measurements remain a runtime gate, not a demonstrated speed result.
+
+Custody stops writers before copying, verifies a frozen current-session snapshot,
+then removes compute and seals its actual absence receipt. Current artifacts
+share indexed bytes rather than copies per attempt; old failed/partial bundles
+remain history. Admission hashes the selected source/cohort, while monitoring
+samples current-session/cache disk at two-second intervals. These monitored
+ceilings are not filesystem quotas. Reconsider only for a measured complete-job
+cost, missing upstream API, or separately declared support/retention requirement.
 
 ## Maintenance rule
 

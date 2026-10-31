@@ -11,7 +11,8 @@ Rails 7.1.6, public mysql2 0.5.7, Connector/C 3.4.9 and MySQL 8.4.13.
 This is separate from the maintained CI Ruby 4.0.9/3.4.12 + Rails 8.1.4 policy.
 The compatibility source does not reuse the earlier private-adapter fixture.
 
-Harmless controller checks, with no product/dependency/runtime execution:
+Harmless controller mocks and stdlib-only Ruby helper checks; no framework,
+product, server or DB execution:
 
 ```sh
 timeout --kill-after=5s 30s python3 -B -m unittest discover -s testbed/tests -v

@@ -7,6 +7,6 @@ class OrdersController < ActionController::Base
   end
 
   def health
-    render plain: 'reusable-host-v1'
+    render json: { fixture: 'reusable-host-v1', peer: request.get_header('REMOTE_ADDR'), host: request.host }
   end
 end

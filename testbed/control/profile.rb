@@ -1,5 +1,11 @@
 # frozen_string_literal: true
 
+# Fixed admitted homes are established before any default/dependency require.
+# No Bundler setup, repository load path or inherited Ruby option participates.
+ENV['GEM_HOME'] = '/work/gems'
+ENV['GEM_PATH'] = '/work/gems:/dependencies'
+Gem.clear_paths
+
 require 'json'
 require 'digest'
 require 'fileutils'
@@ -10,20 +16,29 @@ module HostProfile
 
   def config = @config ||= JSON.parse(File.read('/input/profile.json'))
 
-  def activate
+  def activate(consumer: false)
     raise 'Ruby cohort drift' unless RUBY_VERSION == config.fetch('ruby')
     raise 'Ruby ABI/platform drift' unless RbConfig::CONFIG.fetch('ruby_version') == '3.4.0' && RUBY_PLATFORM.start_with?('x86_64-linux')
     ENV['GEM_HOME'] = '/work/gems'
     ENV['GEM_PATH'] = ['/work/gems', config.fetch('dependency_home')].join(':')
     Gem.clear_paths
-    gem 'bundler', '= 2.6.9'
-    { 'railties' => '7.1.6', 'activerecord' => '7.1.6', 'actionpack' => '7.1.6',
-      'rack' => '3.2.7', 'rouge' => '4.6.1',
-      'minitest' => '5.25.4', 'mysql2' => '0.5.7' }.each { |name, version| gem name, "= #{version}" }
+    versions = { 'rack' => '3.2.7', 'rouge' => '4.6.1' }
+    if consumer
+      versions.merge!('thistle' => '0.1.0.pre.3', 'thistle-map' => '0.1.0.pre.3')
+    else
+      versions.merge!('bundler' => '2.6.9', 'railties' => '7.1.6', 'activerecord' => '7.1.6',
+        'actionpack' => '7.1.6', 'minitest' => '5.25.4', 'mysql2' => '0.5.7')
+    end
+    versions.each { |name, version| gem name, "= #{version}" }
   end
 
   def write(path, object)
-    File.open(path, File::WRONLY | File::CREAT | File::EXCL, 0o600) { |f| f.write(JSON.pretty_generate(object)) }
+    data = JSON.pretty_generate(object)
+    raise 'Receipt output budget' if data.bytesize > 8 * 1024 * 1024
+    temporary = "#{path}.#{Process.pid}.#{Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond)}.tmp"
+    File.open(temporary, File::WRONLY | File::CREAT | File::EXCL, 0o600) { |f| f.write(data); f.flush; f.fsync }
+    File.link(temporary, path) # exclusive atomic publication; never overwrite evidence
+    File.unlink(temporary)
   end
 
   def file_identity(path)
@@ -31,20 +46,51 @@ module HostProfile
     { 'path' => File.realpath(path), 'sha256' => Digest::SHA256.file(path).hexdigest, 'size' => File.size(path) }
   end
 
-  def identities(client: false)
+  def framework_free!
+    raise 'Consumer loaded framework' if defined?(Rails) || defined?(ActiveRecord) || defined?(ActiveSupport) ||
+      %w[railties activerecord actionpack activesupport].any? { |name| Gem.loaded_specs.key?(name) }
+  end
+
+  def admitted_gem_root?(path) = path.start_with?('/work/gems/', '/dependencies/')
+
+  def verify_spec!(name, spec, locked, providers)
+    if spec.default_gem?
+      expected = providers.fetch('specs').fetch(name)
+      raise 'Default provider spec drift' unless expected.fetch('version') == spec.version.to_s &&
+        expected.fetch('gemspec_path') == File.realpath(spec.loaded_from) &&
+        expected.fetch('gemspec_sha256') == Digest::SHA256.file(spec.loaded_from).hexdigest
+      raise 'Default provider lock drift' if locked.key?(name) && locked[name] != spec.version.to_s
+    else
+      raise 'Nondefault gem provider escaped admitted homes' unless admitted_gem_root?(File.realpath(spec.full_gem_path))
+      raise 'Loaded resolution not in supplied cohort lock' unless locked[name] == spec.version.to_s
+    end
+  end
+
+  def identities(client: false, reference: nil)
     require 'thistle/map'
     raise 'Selected Map lacks F05 presentation' unless defined?(Thistle::Map::ConstantOccurrence)
     require 'mysql2' if client
-    ENV['BUNDLE_GEMFILE'] = '/input/app/Gemfile' # controlled parser context only; never bundle/setup
-    require 'bundler/lockfile_parser'
-    locked = Bundler::LockfileParser.new(File.read('/input/artifacts/Gemfile.lock')).specs.to_h { |s| [s.name, s.version.to_s] }
-    %w[thistle thistle-map puma].each do |name|
+    if reference
+      raise 'Reference lock drift' unless reference.fetch('lock').fetch('sha256') == Digest::SHA256.file('/input/artifacts/Gemfile.lock').hexdigest
+      locked = reference.fetch('specs').transform_values { |s| s.fetch('version') }
+    else
+      ENV['BUNDLE_GEMFILE'] = '/input/app/Gemfile' # parser context only; never bundle/setup
+      require 'bundler/lockfile_parser'
+      locked = Bundler::LockfileParser.new(File.read('/input/artifacts/Gemfile.lock')).specs.to_h { |s| [s.name, s.version.to_s] }
+    end
+    (reference ? %w[thistle thistle-map] : %w[thistle thistle-map puma]).each do |name|
       expected = name == 'puma' ? '8.0.2' : '0.1.0.pre.3'
       raise 'Host lock is missing selected product/server' unless locked[name] == expected
     end
+    providers = JSON.parse(File.read('/input/default-providers.json'))
     Gem.loaded_specs.each do |name, spec|
-      next if spec.default_gem? || name == 'bundler'
-      raise 'Loaded resolution not in supplied cohort lock' unless locked[name] == spec.version.to_s
+      verify_spec!(name, spec, locked, providers)
+    end
+    $LOADED_FEATURES.select { |p| p.start_with?('/') }.each do |path|
+      actual = file_identity(path)
+      next if actual.fetch('path').start_with?('/work/gems/', '/dependencies/', '/input/control/', '/input/app/', '/work/sessions/')
+      expected = providers.fetch('files').fetch(actual.fetch('path'))
+      raise 'Immutable image default file drift' unless actual.slice('sha256', 'size') == expected
     end
     native = $LOADED_FEATURES.find { |p| p.match?(%r{/thistle/thistle_native\.(so|bundle)\z}) } or raise 'Native absent'
     result = { 'ruby' => RUBY_DESCRIPTION, 'native' => file_identity(native),

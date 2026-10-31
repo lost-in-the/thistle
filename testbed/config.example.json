@@ -7,7 +7,7 @@
   "dependency_root": "/absolute/private/prepared-public71-host-gems",
   "dependency_manifest": {
     "path": "/absolute/private/prepared-public71-host-gems-identity.json",
-    "sha256": "REQUIRED_PREPARED_DEPENDENCY_MANIFEST_SHA256"
+    "sha256": "22be09e0933649c5084e3470db0564cb638c699b97b430e1b22b8e6d4f5dcebf"
   },
   "puma_version": "8.0.2",
   "map_candidate": {
@@ -51,7 +51,7 @@
     },
     "Gemfile.lock": {
       "path": "/absolute/private/prepared-public71-host-lock/Gemfile.lock",
-      "sha256": "REQUIRED_NEW_ACTUAL_HOST_LOCK_SHA256",
+      "sha256": "a4381c91145870d79d56371e5bc2d4796e78d0f9e637e855aa7daa2789c16f93",
       "size": 0
     },
     "puma.gem": {
@@ -64,5 +64,13 @@
       "sha256": "a373e8e8216e180e5dca24a4da6dbe7db34cc520c0693fc29319a37953a58fb2",
       "size": 549096
     }
+  },
+  "host_source": {
+    "commit": "REQUIRED_ACTUAL_REVIEWED_HOST_COMMIT",
+    "tree": "REQUIRED_ACTUAL_REVIEWED_HOST_TREE"
+  },
+  "default_providers": {
+    "path": "/absolute/private/immutable-image-default-providers.json",
+    "sha256": "4a0d87eb346216a64b94f270ecd86307d484d91ce943cf5adfeda9a0f48df650"
   }
 }

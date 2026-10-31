@@ -1,13 +1,14 @@
 # frozen_string_literal: true
 
 require_relative 'profile'
-HostProfile.activate
+HostProfile.activate(consumer: true)
 require 'thistle/map'
 require 'rack/mock'
 require 'uri'
 require 'cgi'
-require 'net/http'
-raise 'Consumer loaded Rails/AR' if defined?(Rails) || defined?(ActiveRecord)
+require_relative 'http'
+require_relative 'answers'
+HostProfile.framework_free!
 out = ARGV.fetch(0)
 raise 'Expected private attempt path' unless out.match?(%r{\A/work/sessions/[0-9a-f]{32}/attempts/[0-9a-f]{32}\z})
 ownership = JSON.parse(File.read(File.join(out, 'begin.json')))
@@ -50,6 +51,9 @@ begin
   routes = reader.facts.select { |fact| fact['kind'] == 'route' }
   selected_routes = routes.select { |fact| expected.fetch('route').all? { |key, value| fact.dig('attributes', key) == value } }
   raise 'Runtime route missing or ambiguous' unless selected_routes.length == 1
+  oracle = { 'saved' => reader.generation, 'origin_id' => origin.fetch('id'), 'order_id' => order.fetch('id'),
+    'source_sha256' => Digest::SHA256.file('/input/app/app/services/inspection.rb').hexdigest,
+    'site_lines' => expected.fetch('site_lines'), 'site_count' => 2 }
   app = Rack::MockRequest.new(Thistle::Map::App.new(store: store))
   pages = {}
   request = ->(path, params) do
@@ -63,16 +67,17 @@ begin
   pages['links'] = request.call('/links', { 'id' => origin.fetch('id') })
   pages['incoming'] = request.call('/links', { 'id' => order.fetch('id'), 'direction' => 'incoming' })
   pages['check'] = request.call('/check', {})
-  # Also verify the actual developer URL/topology through Puma. The peer and Host
-  # remain loopback. Rack-only and TCP results are retained as distinct evidence.
-  http = Net::HTTP.new('127.0.0.1', 9292, nil)
-  http.open_timeout = 2
-  http.read_timeout = 5
+  %w[find source links incoming check].each { |kind| MapAnswers.verify(kind, pages.fetch(kind), oracle) }
+  # INTERNAL UNIX transport; host URL/concurrency is checked separately.
+  socket = "/work/sessions/#{ownership.fetch('token')}/http.sock"
   { 'find' => ['/', { 'q' => 'Inspection#sites' }], 'source' => ['/source', { 'id' => origin.fetch('id') }],
-    'links' => ['/links', { 'id' => origin.fetch('id') }], 'check' => ['/check', {}] }.each do |name, (path, params)|
+    'links' => ['/links', { 'id' => origin.fetch('id') }],
+    'incoming' => ['/links', { 'id' => order.fetch('id'), 'direction' => 'incoming' }],
+    'check' => ['/check', {}] }.each do |name, (path, params)|
     query = URI.encode_www_form(params.merge('generation' => reader.generation))
-    response = http.request(Net::HTTP::Get.new("/map#{path}?#{query}", 'Host' => 'localhost:9292'))
-    raise 'Map loopback HTTP failed' unless response.code == '200' && response.body.include?(reader.generation)
+    response = HostHTTP.request(socket, "/map#{path}?#{query}")
+    raise 'Map internal UNIX HTTP failed' unless response.code == '200'
+    MapAnswers.verify(name, response.body, oracle)
     pages["http-#{name}"] = response.body
   end
   %w[links incoming].each do |name|
@@ -93,12 +98,13 @@ begin
   HostProfile.write(File.join(out, 'reader.json'), { 'source' => source, 'sites' => sites, 'model' => model,
     'callbacks' => registry, 'routes' => routes, 'check' => check, 'origin' => origin })
   HostProfile.write(File.join(out, 'map.json'), pages)
-  identity = HostProfile.identities
+  HostProfile.write(File.join(out, 'oracle.json'), oracle)
+  identity = HostProfile.identities(reference: receipt.fetch('identity'))
   raise 'Native producer/reader mismatch' unless identity.fetch('native') == receipt.fetch('identity').fetch('native')
-  raise 'Consumer loaded Rails/AR' if defined?(Rails) || defined?(ActiveRecord)
+  HostProfile.framework_free!
   HostProfile.write(File.join(out, 'consumer.json'), { 'status' => 'passed', 'saved' => reader.generation,
     'current' => latest.generation, 'identity' => identity, 'rails_free' => true,
-    'scope' => 'installed Reader, Map Rack and loopback HTTP known answers; browser/human unobserved' })
+    'scope' => 'installed Reader, Map Rack and INTERNAL UNIX HTTP; host URL checked separately; browser/human unobserved' })
 ensure
   latest&.close
   reader&.close

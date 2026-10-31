@@ -14,7 +14,7 @@ module ReusableHost
     config.secret_key_base = 'testbed-only-no-user-sessions-' * 4
     config.hosts = ['localhost', '127.0.0.1']
     config.logger = Logger.new(File::NULL)
-    config.paths['log'] = '/work/rails.log'
-    config.paths['tmp'] = '/work/tmp'
+    config.paths['log'] = File.join(ENV.fetch('TMPDIR'), 'rails.log')
+    config.paths['tmp'] = ENV.fetch('TMPDIR')
   end
 end

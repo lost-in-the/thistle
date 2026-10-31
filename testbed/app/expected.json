@@ -8,6 +8,8 @@
     "items": [["id", "integer", false], ["order_id", "integer", false], ["quantity", "integer", false]],
     "host_metadata": [["schema_version", "string", false], ["seed_version", "string", false]]
   },
+  "indexes": {"orders": [], "host_metadata": [], "items": [["items_order_id_idx", ["order_id"], false]]},
+  "foreign_keys": {"orders": [], "host_metadata": [], "items": [["fk_items_orders", "orders", "order_id", "id"]]},
   "route": {"controller": "orders", "action": "show", "route_path": "/orders/:id(.:format)", "verb": "GET"},
   "site_lines": [7, 8]
 }

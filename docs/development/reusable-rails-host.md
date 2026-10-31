@@ -1,56 +1,49 @@
 # Reusable Rails host and installed journey
 
-[LOS-139](https://linear.app/lost-in-the/issue/LOS-139) owns this developer fixture.
-`testbed/host.py` implements the five lifecycle commands with Python's standard
-library and rootless Podman. A small real Rails app provides one retained order,
-two items, a save callback, two routes and two distinct nonreceiver `Order`
-references. Installed Core captures it; a fresh Rails/AR-free Reader and Map
-follow its saved generation after CURRENT advances. This is development evidence,
-with Leah retaining acceptance and Root owning runtime admission, independent
-review and integration. It is outside both gem file lists and runtime dependencies.
+[LOS-139](https://linear.app/lost-in-the/issue/LOS-139) owns this repository-only
+Rails app and the five commands in `testbed/host.py`: prepare, start, status,
+test and stop. The app has one retained order, two items, an association, a
+registered callback, routes and two distinct `Order` constant sites. Installed
+Core publishes Gen A then CURRENT B from a run-owned source copy; a fresh Reader
+and Map follow saved Gen A. This is a source implementation, not accepted host
+execution. Root owns changed-scope review/runtime/integration, PM metadata and
+Leah acceptance. All 17 launch requirements remain UNQUALIFIED.
 
-## Three persistent and disposable boundaries
+## Boundaries and current inputs
 
-| Boundary | Owner and contents | Mutation rule |
-| --- | --- | --- |
-| Persistent environment | Operator's retained MySQL data, accounts, private 0600 credentials, exact installed gem/native cache | Stop compute and keep state. No DB initialization, account rotation, DROP, wipe or implicit `db:prepare`. |
-| Canonical fixture | This repository's `testbed/app/`, explicit migration, seeds and independently declared `expected.json` | Versioned source; prepare copies it once, and later source drift refuses. It never becomes a run's mutable working tree. |
-| Per-run evidence | Private instance `work/sessions/SESSION/attempts/ID/{app,store}`, saved store, raw results, logs, loaded binaries, lock and retained indexes | Only this run-owned source copy receives the Gen A→B comment edit. Canonical app and retained rows do not change during tests. |
-
-The original public71 `empty-v1` fixture, its two empty tables and failed-init
-history are separate retained evidence. This app requires the distinct schema
-`thistle_los139_app_v1`. Its `los139-schema-v1`/`los139-seed-v1` contents are
-defined by the checked-in migration/seeds/expected answers. A failed partial
-DDL attempt stays partial; a subsequent start refuses it. Recovery needs a
-specific owner disposition, never automatic reset or seed replacement.
-
-## Exact first profile and inputs
-
-The named `public-rails71-compatibility-v1` profile requires Linux amd64,
-Ruby 3.4.12/ABI 3.4.0, Rails 7.1.6, public mysql2 **0.5.7**, public Connector/C
-**3.4.9**, MySQL **8.4.13**, Rack 3.2.7, Rouge **4.6.1**, Minitest 5.25.4
-and Bundler 2.6.9. Rouge is explicitly activated because an unconstrained image
-lookup can select 5.1.0. Puma is pinned to **8.0.2**, official native-ruby archive
-SHA `c8ed871dfbbe66448ea9ffd46692342d9804d4071522b52b5331b7b6e7b686fb`
-(265,216 bytes), runtime dependency nio4r ~>2.0. Root acquired that archive
-separately; its native build/install remains UNRUN. It was not previously
-installed in f377. The maintained CI primary/minimum remain Ruby
-4.0.9/3.4.12 + Rails 8.1.4. This profile claims no modern-cohort result.
-The app explicitly depends on railties, activerecord and actionpack at 7.1.6,
-and asserts the actual booted Rails/AR versions. It does not require the Rails
-metagem's unrelated mail/storage/cable components.
-
-The first runtime image is the existing local immutable image ID
-`f377fb86ef51f1b4b31787dc58131ad453fe306e58b36296f29e76a98487c520`.
-It is an **image-bound installed profile**, not a portable archive set. The
-selected tuple is checked before candidate execution:
-
-| Input | SHA-256 |
+| Boundary | Contents and rule |
 | --- | --- |
-| Core 0.1.0.pre.3 source gem | `469a6966b0cfb6f5b307fca52af206d8ce32aa5bf53052fda2cf03a7bce4b942` |
-| Actually loaded Core native, 6,124,976 bytes | `4bee13087b17eb7aeb0e7ef606c7c0879d817e309e6acb2a09d520bd4c5f888e` |
+| Persistent environment | Retained MySQL data/accounts, private 0600 credentials and prepared caches; stop compute without reset, rotation or wipe. |
+| Canonical fixture | Versioned app/migration/seed/expected answers under `testbed/app`; no run changes the canonical source. |
+| Current session/attempt | `work/sessions/TOKEN/attempts/ID/{app,store}`, temporary files, host log and atomic receipts. Each store is new and owner-checked; only that app copy receives the Gen A→B comment. |
+| Immutable custody | Frozen current-session bundles and one indexed artifact copy referenced by digest; older failed/partial bundles remain historical evidence. |
+
+The original LOS67 `public71-schema-v1`/`empty-v1`, its two empty tables,
+accounts, credentials and failed-init history stay untouched. This app uses the
+separate `thistle_los139_app_v1` schema with `los139-schema-v1`/`los139-seed-v1`.
+The checked-in expected answers declare columns, rows, `items_order_id_idx` on
+`order_id` and `fk_items_orders` from items.order_id to orders.id. Actual schema
+is compared with those declarations; raw signatures are evidence, never an
+instance-local `/work/schema.json` gate. A new artifact instance can reuse this
+same retained schema without copying a gate file, resetting or reseeding it.
+
+The first profile is explicitly **public Rails 7.1 compatibility**: Linux amd64,
+Ruby3.4.12/ABI3.4.0, railties/Active Record/Action Pack7.1.6, public mysql2 0.5.7,
+Connector/C3.4.9 and MySQL8.4.13, Rack3.2.7, Rouge4.6.1, Minitest5.25.4 and
+Bundler2.6.9. It is a real Rails::Application with raw `active_record` and an
+explicit private connection after GO, preserving Root's F01 remedy. No Rails
+metagem/mail/storage/cable dependency or database.yml railtie hook is required.
+Maintained CI remains Ruby4.0.9/3.4.12 + Rails8.1.4.
+
+| Selected input | SHA-256 |
+| --- | --- |
+| Core 0.1.0.pre.3 | `469a6966b0cfb6f5b307fca52af206d8ce32aa5bf53052fda2cf03a7bce4b942` |
+| Loaded native, 6,124,976 bytes | `4bee13087b17eb7aeb0e7ef606c7c0879d817e309e6acb2a09d520bd4c5f888e` |
 | Original Core gemspec | `34949a0a21a1d1b8f84219d8bdd1b198e9eba5ffb2ced01ef70136b261351a08` |
-| Current F05 Map from source 64eee68b736fc47369c30009a5eca022820d7caf | `1b9aad42d3b757617b268b0c1ed24e1e84c063837048c7de2ef9dab240f982c9` |
+| F05 Map 0.1.0.pre.3, source64eee68 | `1b9aad42d3b757617b268b0c1ed24e1e84c063837048c7de2ef9dab240f982c9` |
+| Official native-ruby Puma8.0.2 archive, 265,216 bytes | `c8ed871dfbbe66448ea9ffd46692342d9804d4071522b52b5331b7b6e7b686fb` |
+| Public mysql2 extension, 350,880 bytes | `4daad6688cd0f7fe990ed64c9df1d65d78d9327f315836d82ad62f4b046e2137` |
+| Public Connector/C library, 549,096 bytes | `a373e8e8216e180e5dca24a4da6dbe7db34cc520c0693fc29319a37953a58fb2` |
 
 The example selects signed parent `64eee68b736fc47369c30009a5eca022820d7caf`,
 tree `6e56d58a94bc52de3ca607bc6b859e14f43cb61a`. It includes the incoming
@@ -67,104 +60,119 @@ Map `28fbb1378c5fd98860022c2b5776f4b250bacb276911253a007fea1f62d18216`
 at source67f/tree2e9184, with source26/428 and installed10/183 checks.
 Keep those original tuples and results separate.
 
-Before runtime, private `map_candidate` SHA/tree/digest and matching
-`artifacts.map.gem` must agree with the actual handback. The controller records
-and verifies this selected binding; installed checks require F05 presentation
-and its two-site known answers. A new package never aliases an old digest.
+Root merged parent PR115 as main `81336a5d0a6dc1da2e7631cedb03d6b03e842959`,
+whose complete tree equals tested64. Root retargeted PR116 to that main base;
+the author made no parent write, rebase or retarget. Parent CI/artifact results
+remain their own tuples; new main CI and this host's runtime are separate gates.
 
-The operator supplies a **new actual host lock** containing Map and Puma, an
-exact preassembled installed dependency home mounted read-only at `/dependencies`,
-its external file-identity manifest, a locally present immutable MySQL image
-and retained data directory. The original public71 lock
+The runtime is bound to the existing immutable image
+`f377fb86ef51f1b4b31787dc58131ad453fe306e58b36296f29e76a98487c520`.
+This is not a portable archive set. The old public71 lock
 `e69cfb4eca75663e11c95516144d4f94d2729ef07ae81017875ae7cd4c56eee2`
-(2,904 bytes) contains rackup2.3.1 and excludes Puma and Map. Keep it unchanged;
-it cannot represent the new host resolution. Root separately admits new lock
-resolution and credential-free Puma native build; this runner does neither.
+(2,904 bytes) excludes Map/Puma and remains unchanged. Root separately prepares
+an actual new host lock and Puma8.0.2 native/provider set under credential-free
+controls. An available Puma archive does not establish build/install success.
+No host/cohort result is inferred from that separate preparation.
 
-The public mysql2 extension SHA is
-`4daad6688cd0f7fe990ed64c9df1d65d78d9327f315836d82ad62f4b046e2137`
-(350,880 bytes); public Connector/C library SHA is
-`a373e8e8216e180e5dca24a4da6dbe7db34cc520c0693fc29319a37953a58fb2`
-(549,096 bytes). The library is an exact input selected via worker
-`LD_LIBRARY_PATH=/input/artifacts`; loaded paths/hashes/version still require
-runtime verification. A version-only cache match is refused: the cache key
-includes artifacts, dependency manifest, lock, image, OS/arch and Ruby ABI. Observed
-Ruby ABI/platform and loaded resolution are checked inside the worker before a
-connection. The supplied lock is parsed as an exact resolution contract; it is
-not represented as an already active Bundler lock. The parser uses the controlled
-`/input/app/Gemfile` for context only. No `bundle setup`, inherited
-`RUBYOPT`, `-I` or source-checkout fallback is used.
+Root's subsequent credential-free provider/Unix phase recorded a scoped PASS
+(report2f1ecc9766d1ce6372ebd71f3c83515f4ed0c1ee2ada2b3907459b407d71d8e6,
+index5d356986efcbf156260c636b0331518357c4906873c88ce6424bb94ae322157b).
+The selected new lock is a4381c91145870d79d56371e5bc2d4796e78d0f9e637e855aa7daa2789c16f93;
+the 3012-file dependency manifest is22be09e0933649c5084e3470db0564cb638c699b97b430e1b22b8e6d4f5dcebf;
+defaults manifest4a0d87eb346216a64b94f270ecd86307d484d91ce943cf5adfeda9a0f48df650
+binds58 genuine default specifications/1297 image files. Root observed four
+literal Unix responses with peer127/originalHost, genuine selected providers
+and private socket modes. Its whole-container peaks36,155,392B/14PIDs/0.444179
+CPU-seconds are scoped observations, not host bridge or performance acceptance.
+ManualV2 overallFAIL13ba33e4, continuationFAILfd85316 and the earlier envelope
+mode failure remain unchanged. This source phase does not replay builds/probes;
+actual Rails/Thistle/DB/TCP/harness/browser execution is still UNRUN.
 
-No package/client rebuild occurs. The loader extracts the exact source gems
-without installation hooks, loads the **original spec directly**, restores the
-verified native bytes/size, writes the extension's build-complete marker, clears
-RubyGems paths, and only then looks up installed specifications. The installed
-Map and Core paths must be in `/work/gems`; native and client identities must
-match. Builtin relative feature names such as `enumerator`/`fiber` are recorded
-as names; only actual absolute files are hashed.
+## Private preparation contract
 
-The dependency manifest maps each relative file to `{"sha256":"...","size":123}`.
-It lives outside the dependency tree. Prepare/start independently enumerate and
-hash that entire read-only tree; symlinks and special files refuse. Assemble the
-new host dependency set separately; never modify the original retained gem home.
+Use Python3.11+, GNU timeout, rootless Podman with cgroup v2 delegation, a user
+systemd manager and maintained host socat. First admit a finite runtime window
+and verify nobody owns the stopped retained MySQL directory. Its expected UUID
+is `0fe59249-d501-11f1-964a-c4f5809f9f3d`; auto.cnf is read non-secretly before
+start and the actual server UUID/version are checked after GO. No datadir chown,
+initialize, DROP, automatic db:prepare or credential rotation is provided.
 
-On a fresh Linux machine the operator must obtain the exact authorized retained
-image, MySQL image and artifact tuple through its existing trusted artifact
-distribution, with matching data ownership and rootless cgroup-v2 support.
-Ordinary new builds use the repository's [platform prerequisites](platforms.md)
-and [candidate flow](pr-ci-release.md), public RubyGems/Rails and the public
-mysql2/Connector/C providers; their changed bytes require a new reviewed profile.
-There is no committed archive containing all f377 dependencies, no automatic
-image acquisition/build, no new-machine bootstrap proof and no other-platform
-result. An unavailable Puma, lock, client or image is a concrete preflight gap,
-not permission to fetch/install/recompile or substitute the host's Connector/C.
+Copy `testbed/config.example.json` outside Git into a private0700 directory;
+the config is0600. Fill required paths/hashes/sizes from actual non-secret
+receipts. Use a new absent private instance directory. Choose a short path:
+its full `work/sessions/TOKEN/http.sock` must fit Linux's 108-byte Unix pathname
+limit; the controller rejects longer paths before effects. The account must own
+and be able to reuse the retained data through rootless keep-id.
 
-## Private setup
+`mysql_image` accepts exactly `repository@sha256:DIGEST` or
+`sha256:64-lowercase-hex`. An unprefixed image ID is not accepted. Local inspect
+may report a bare or prefixed Id; comparison normalizes that serialization.
+No pull, image startup initializer, host DB port or external network is used.
 
-Use Python 3.11+ on Linux, GNU timeout, rootless Podman with delegated cgroup
-v2, a user systemd manager and maintained host socat with its exact binary hash
-in the private profile. An owner first admits a finite execution window and proves the retained
-MySQL resource is stopped. No service may already own that data directory.
-The retained server UUID must be
-`0fe59249-d501-11f1-964a-c4f5809f9f3d`; the app observes it again after connection.
-Retained data must be writable by the admitted rootless keep-id UID/GID.
-The harness never chowns existing data to make a run pass.
+The dedicated credential directory contains only `database.json`, owned by the
+operator,0600 in0700, outside the instance. It is mounted read-only at `/private`.
+Its private keys are adapter=mysql2, database=thistle_los139_app_v1,
+socket=/socket/mysql.sock, encoding=utf8mb4, username and password. Supply account
+values through the authorized private mechanism. Only the explicitly admitted
+new-app schema needs first-use DDL/index/FK/seed grants; reuse needs reads. This
+runner creates no accounts and changes no grants. Values/hashes of credentials
+never enter argv, stdout, logs or custody.
 
-Copy `testbed/config.example.json` to a private 0700 directory outside Git and
-set its file mode to 0600. Replace all `REQUIRED_*` fields and zero sizes from
-actual nonsecret manifests/files. `instance` names a **new, absent** private
-directory beneath an existing parent. Its input copies, locks, logs and retained
-receipts persist across sessions. No personal absolute path is checked in.
+The prepared dependency home is read-only at `/dependencies`. Its external
+JSON manifest maps each relative regular file to `{sha256,size}`; prepare/start
+compare the actual inventory and reject links/special files. A second hashed
+non-secret **default-provider manifest** binds the immutable image:
 
-`mysql_image` is a locally present immutable `repository@sha256:DIGEST` (preferred)
-or image ID whose inspect receipt matches the configured identity. `mysqld`
-is the actual absolute binary path in that image. No defaults/options file,
-image startup initialization entrypoint, DB host port or external network is used.
+```json
+{
+  "specs": {
+    "example-default": {
+      "version": "REQUIRED_OBSERVED_VERSION",
+      "gemspec_path": "/absolute/image/default/specification.gemspec",
+      "gemspec_sha256": "REQUIRED_ACTUAL_SHA256"
+    }
+  },
+  "files": {
+    "/absolute/image/loaded/stdlib-file.rb": {"sha256": "REQUIRED_ACTUAL_SHA256", "size": 123}
+  }
+}
+```
 
-The dedicated credential directory contains only `database.json` (0600, owned
-by the operator). It is outside the instance and mounted read-only at `/private`.
-Supply the following keys through the authorized private credential mechanism;
-the table shows a format, with no account/password values:
+Root must supply actual default specification and loaded-feature identities;
+these examples claim no installed provider. Non-default loaded gem roots must
+resolve under `/work/gems` or `/dependencies`; same-version external roots fail.
+Fixed admitted gem homes are set before initial library requires. Actual default
+spec files and absolute image features are hash-checked; a default version named
+in the lock must also agree. The manifest may cover the complete approved
+immutable stdlib/default tree without loading this host to discover it. Relative
+builtin feature names remain names, never invented paths to hash.
 
-| Key | Required value or source |
-| --- | --- |
-| `adapter` | `mysql2` |
-| `database` | `thistle_los139_app_v1` |
-| `socket` | `/socket/mysql.sock` |
-| `username`, `password` | Dedicated app account, supplied privately |
-| `encoding` | `utf8mb4` |
+`host_source.commit/tree` declares the actual signed host source. Prepare checks
+Git HEAD/tree, tracked app/control/host.py files and clean bytes/modes, rejecting
+untracked/ignored extra files. Profile/state/begin receipts bind controller SHA,
+app/control inventory and its digest. The cache key binds artifact/lock, prepared
+dependencies/defaults, immutable image, OS/arch and Ruby ABI, not versions alone.
 
-The DB administrator prepares only this empty app schema and its dedicated
-account/grants under the separate runtime admission. First-use migration needs
-table/index/foreign-key DDL and seed DML within that schema; reuse needs read
-access. This runner creates no accounts and grants no privileges. Original
-LOS67 schemas/accounts/credentials stay intact. No credential values or hashes
-belong in configuration examples, argv, stdout, SQL logs or evidence indexes.
+The loader extracts exact Core/Map gems without hooks or rebuilds: direct original
+Core spec → raw native hash/size → complete marker → clear_paths/find_by_name.
+LD_LIBRARY_PATH selects the exact supplied public Connector/C library. Producer
+preflight checks the actual lock and loaded client/native paths/hashes. Consumer
+activates only Core/Map/Rack/Rouge, checks its actual providers against the
+producer's lock-checked projection, and refutes Rails, ActiveRecord, ActiveSupport
+and their activated framework gems. No inherited RUBYOPT, repo -I, Bundler setup
+or source-path fallback is used.
 
-## Five commands
+Fresh-machine setup must obtain the exact authorized retained image/artifact set
+through existing trusted distribution and satisfy rootless data ownership. The
+[platform prerequisites](platforms.md) and [candidate flow](pr-ci-release.md)
+describe ordinary new builds from public RubyGems/Rails/mysql2/Connector/C; changed
+bytes need their own profile/evidence. No complete portable archive, automatic
+acquisition or other-platform bootstrap has been qualified here.
 
-Set `THISTLE_HOST_CONFIG` to the private configuration path. After runtime
-admission, from the repository root:
+## Five commands and new-candidate reuse
+
+After Root's Runtime PREEXEC admission, set THISTLE_HOST_CONFIG to the private
+config path and run from the reviewed checkout:
 
 ```sh
 python3 -B testbed/host.py prepare --config "$THISTLE_HOST_CONFIG"
@@ -174,176 +182,123 @@ python3 -B testbed/host.py test --config "$THISTLE_HOST_CONFIG"
 python3 -B testbed/host.py stop --config "$THISTLE_HOST_CONFIG"
 ```
 
-`prepare` copies and verifies canonical sources/artifacts. It starts no process
-or DB and preserves partial effects on failure. `--initialize-empty` is an
-explicit first-use app-schema action: it is refused after an initialization
-attempt. Subsequent sessions use `start` without that switch. There is no
-implicit schema creation, DB initialization or migration on reuse.
+Prepare copies verified source/inputs, starts no app/DB, and retains partial
+preparation effects on failure. First use requires an explicitly provisioned
+**empty new-app schema**; initialize-empty is refused after an initialization
+attempt. Partial DDL stays partial and must be dispositioned, never reset.
 
-`start` validates source/artifact/lock/credential modes and retained UUID before
-creating compute. Podman helpers must succeed with valid structured output.
-The controller checks actual image IDs, rootless cgroup v2, precise bind mounts,
-read-only root, dropped capabilities, no-new-privileges, no published ports,
-finite CPU/memory/swap/PID settings, actual process namespaces and `/proc`/
-cgroup limits before writing GO. The boot process checks its own namespace IDs
-against that receipt before loading candidate gems or connecting. An incomplete
-preflight cannot start dependent compute/connect/GO. A failed create is reconciled
-by exact instance/lease labels before cleanup; an uncertain inventory stays failed.
-The first confined worker stage loads only framework/installed dependencies,
-verifies Ruby/ABI/7.1 components/lock/native/client identities, and returns a
-cohort receipt without reading DB credentials or booting the app. Only after
-that actual receipt validates does the controller start DB compute and issue
-the separate GO for app boot/connection. Missing/invalid cohort output stops
-the worker and created resources without DB start, app connection or GO.
+Start verifies inputs/source and actual rootless OCI image/CPU/memory/swap/PID,
+read-only mounts, namespaces, process limits, CapEff0 and NoNewPrivs1. It starts
+a confined preflight worker first; framework/native/client/lock validation reads
+no DB credential or connection. Only a valid actual cohort receipt permits DB
+start and the separate app GO. MySQL probes explicit private RW /mysql-tmp as
+its actual UID before exec, then the app verifies retained UUID/schema/seed.
+Failed/malformed helpers stop dependent mutation; failed create effects are
+reconciled by exact instance/token labels. Status performs reads/inspections
+only and reports actual compute plus the last cleanup/custody result.
 
-Readiness requires the actual retained schema/seed checks, booted Rails and a
-real TCP request to the known order controller. `status` performs only reads and
-read-only Podman inspections; it verifies actual instance-owned compute against
-the state record instead of trusting a stale RUNNING/STOPPED flag.
+A session token is passed to run.rb host; its private session host.log and safe
+failed-start diagnostics survive PID1 reuse and are retained. Python/Ruby polled
+JSON uses same-directory temporary writes plus atomic exclusive publication;
+immutable evidence is never overwritten. Mode0700/0600 is set from creation.
 
-The developer endpoint is **host** `http://127.0.0.1:19292/orders/1` (or the
-explicit profile `host_port`), with Map at `/map`. Exact topology: host loopback
-→ bounded socat listener → fixed Podman-exec stdio → worker loopback TCP
-`127.0.0.1:9292` → Puma/Rack. Socat owns listening/forking; a fixed Ruby stdio
-pump crosses the namespace boundary. It accepts no target/port/program input,
-and adds no generic proxy framework or eval endpoint. The host listener has a
-token-owned systemd scope: 128MiB/no swap, one CPU, 32 tasks, at most eight
-connections and a 900s GNU timeout. Actual cgroup limits and a **host-side HTTP
-known-answer probe** are required before start succeeds. Stop checks the scope
-stopped and the host port is unreachable.
+For normal reuse, repeat start/status/test/stop **without initialize-empty**.
+For a later Map/source/cohort candidate, prepare a **new instance/config** with
+its exact inputs and current host source, pointing at the same retained app
+schema/account/credentials. Start without initialize-empty. No old schema.json,
+new schema, reset or copied instance gate is needed; declared schema/index/FK/
+seed checks must pass unchanged. Prior instances, stores and reports stay intact.
 
-App and DB retain `--network=none`, separate PID/network namespaces and no
-external networking. MySQL has only its private Unix socket, never a forwarded
-DB port. Map receives an actual worker-loopback peer from the transport and an
-unchanged loopback Host. The host listener accepts only loopback peers. There
-is no forwarded-header trust, authentication adapter or Map access bypass.
-Internal and host-side probes are distinct receipts. Source mocks establish
-neither host reachability nor browser usability; Root must test the actual
-host URL in its admitted runtime window.
+## Actual developer access and answers
 
-`test` boots the real app from a new run-owned copy, checks controller output,
-associations and callback registrations, captures Gen A, appends a comment only
-to the run copy, captures Gen B, verifies CURRENT advance, and restores that run
-copy in `ensure`. Each attempt owns a fresh store below its session/attempt path,
-refuses an existing store and verifies its owner marker. The host selects only
-that current session's exact attempt store and records its saved generation.
-Earlier stores/selections remain in older session directories. A separate Ruby
-process with no Rails/AR opens Gen A. It checks
-fixture-derived columns/association/route identities, source bytes/anchors, two
-same-target sites, Links, integrity and pinned Source. Both Map Rack requests
-and actual loopback HTTP Find/Source/Links/Check are retained separately. A
-host-side Map probe must observe the same selected saved generation. Browser,
-assistive-technology and human-use results remain unobserved until actually run.
+Puma8.0.2 listens on the fresh session's filesystem Unix socket, with explicit
+umask077/mode0600 in a token-owned0700 directory. Existing/stale/wrong objects
+are rejected; the controller verifies actual type/UID/GID/mode/inode. Root
+inspected the pinned official/sha-verified binder source: Unix REMOTE_ADDR starts
+as127.0.0.1. Actual peer/Host is still checked by an internal health request.
 
-`stop` retains/indexes evidence, stops only exact instance/lease-owned compute,
-checks it stopped, removes containers and confirms absence. Data, accounts,
-credentials, source, installed gems, locks and captures remain. A retention,
-helper, inspection or cleanup error makes stop nonzero. Run-owned effects are
-kept for diagnosis even when a failure prevents complete retention.
+The advertised URL is **host** http://127.0.0.1:19292/orders/1 (or configured
+host_port), with Map at /map. Exact path: host-loopback TCP → bounded maintained
+socat UNIX-CONNECT → private Puma Unix socket → Rails/Map. There is no relay.rb,
+per-request Python/Go/podman-exec, worker TCP listener, DB forwarding, external
+network, forwarded-header trust or Host/auth bypass. Root's actual127 Rails
+allowlist and Map's loopback peer+Host gates stay intact. Internal probes use
+that Unix socket and are labelled INTERNAL; they are not host/browser proof.
+Host readiness uses the advertised URL without replacing its Host header.
 
-## Reuse and controlled failure
+Test captures A/B only in a fresh owner-checked attempt store/source copy. The
+fresh framework-free Reader verifies fixture columns/associations/callbacks,
+full controller+action+path+verb route identity, canonical pinned source bytes,
+site roles/spans/lines, and saved integrity after CURRENT B. Map Rack/internal
+Unix/host HTTP checks require the known origin id in Find, verified Check JSON,
+pinned Source id/hash/lines and exact per-site origin/generation/line links with
+two F05 rows. A hidden generation field plus200 cannot pass these oracles.
 
-After one successful stop, repeat `start`, `status`, `test`, `stop` without
-`--initialize-empty`. Actual UUID, schema columns/indexes/foreign keys, versioned
-metadata and exact rows must still match; no silent reinitialization repairs
-drift. Credential modes, canonical sources, installed artifact/lock resolution
-and observed native/client identities are checked again.
+The host probe issues four concurrent requests, checks all five semantic pages
+and three assets under bounded responses/deadlines, and records actual scope
+memory/task peaks. The scope stays128MiB/no swap/one CPU/32 tasks, max8 socat
+children,900s GNU timeout. Actual four-connection success, process RSS/resource
+cost, Unix peer/Host and browser/human usability remain runtime gates; mocks do
+not establish them or a speed improvement.
 
-For an admitted cleanup failure probe, start normally, then run:
+## Stop, custody and failure
 
-```sh
-python3 -B testbed/host.py test --config "$THISTLE_HOST_CONFIG" --inject-failure
-python3 -B testbed/host.py status --config "$THISTLE_HOST_CONFIG"
-```
+Stop checks LoadState/ActiveState, including structured exit5/not-loaded, before
+stopping host access. Never-created/GC'd/inactive scopes are valid absence only
+with the actual host port unreachable; unexpected helper errors fail. Container
+cleanup uses exact ID+instance/token/role ownership and actual running state,
+not the startup isolation gate. Exact-ID absence counts removed; ownership
+mismatch never authorizes stopping another resource.
 
-The first command must return nonzero, retain `failure.json`, stop/remove
-compute, and leave the retained fixture/credentials unchanged. The second must
-independently observe STOPPED/absence. Inspect both exit codes; an expected
-refusal is still a mutation attempt. Do not treat missing consumer/results or
-an incomplete cleanup as success. Original failed-driver attempts remain FAIL;
-this is a new procedure with a distinct candidate/attempt identity.
+All writer compute is stopped/confirmed first. Then a new frozen current-session
+snapshot is copied and independently verified; only then may containers be
+removed and absence proved. The final immutable INDEX excludes only itself and
+includes source/controller identity, admission/cohort/cgroup/namespace/scratch,
+internal/host endpoint/host log, attempts and final STOP/absence receipts. Exact
+input/loaded artifacts use shared digest references, not one full copy per
+attempt. A failed snapshot keeps its partial directory and stopped/raw effects;
+a later stop takes a new custody attempt. A later session does not re-hash every
+historic session or relabel an old failed/corrupt bundle.
 
-## Bounds, retention and troubleshooting
+STOPPED means actual compute absence. A command can still return nonzero for
+incomplete custody; inspect last_stop/retained reports. Cleanup/custody success
+is explicitly separate from failed start or failed journey outcomes. Test's
+passed result is custody-pending until successful stop/index readback. Old
+failures and partial attempts remain visible and unaccepted.
 
-MySQL uses a separate private RW `/mysql-tmp` mount and explicit
-`--tmpdir=/mysql-tmp`. Its fixed entrypoint verifies UID, writes/removes a
-scratch probe and records the result **as the actual mysqld UID** before exec.
-It never uses retained data as disposable scratch or assumes read-only-root
-`/tmp` is writable. Startup requires the probe before GO; future runtime must
-inspect it and verify cleanup/data preservation.
+For an admitted controlled-failure probe, start normally, run test with
+--inject-failure, expect nonzero/CONTROLLED_FAILURE, then status must independently
+observe compute absent and retained data/accounts/credentials unchanged. Inspect
+both exit codes and final indexes. Missing results or incomplete cleanup never
+become a pass; original public67 failures remain FAIL and no LOS69 replay occurs.
 
-Runtime requests two CPUs, 2 GiB memory with zero swap, 256 PIDs, CPU 600s,
-32 MiB file-size limits and a 900s OCI timeout per container. The host process
-also exits at its lease deadline. A separate token-bound lease/disk monitor
-stops compute at expiry or on a monitoring error. Inherited subprocess FSIZE
-matches the OCI limit; helper output has a distinct 8 MiB cap. Helpers have
-30s defaults, producer/consumer 120s limits, plus finite readiness deadlines.
-Work disk monitoring uses a 512 MiB ceiling; ENOENT is tolerated only for
-disappearing ephemeral entries, and other filesystem errors fail stop. These
-are monitored work/process bounds, **not an enforced filesystem quota**, global
-disk limit, performance result or promise about the retained database size.
+OCI requests two CPUs,2GiB/no swap,256 PIDs,600s CPU,32MiB FSIZE and900s wall.
+Inherited helper FSIZE matches OCI; output has a separate8MiB cap. Helpers have
+30s defaults, producer/consumer120s, and finite readiness/guard deadlines.
+The active session plus fixed gem/loaded caches are sampled at two-second
+intervals against512MiB; older session work is excluded. Only disappearing
+ephemeral files tolerate ENOENT; other monitor errors fail stop. These are
+monitored ceilings, not filesystem/global quotas. Retained history/state metadata
+still grows and needs a separate explicit retention decision.
 
-Each attempt retains raw producer/consumer/native/client identities, the actual
-loaded binary copies, cohort lock, exact input artifacts, manifests, source,
-store, Map pages and logs before compute cleanup. `INDEX.json` hashes every
-retained file except itself; a fresh enumeration/hash readback must agree.
-Partial indexes and corruption block success. No private credential directory
-is copied. Repeated sessions retain additional attempts and store generations;
-operators must budget long-term disk growth and remove state only through an
-explicit separate retention decision.
+## Review and runtime handoff
 
-For failure, inspect the private `logs/`, `state.json` and attempt evidence;
-public error output contains a fixed program/step, safe class and source-bound
-error code. Ruby failures include at most one allowlisted control/app file and
-line, never external paths, exception text, SQL, environment or inspected data.
-The controlled failure has a distinct `CONTROLLED_FAILURE` receipt. Keep
-failed attempts and current effects. Diagnose mismatched image/Puma/lock/client
-identities, namespace permission/cgroup gaps, stopped DB ownership, schema drift
-or retention failure rather than changing pins/limits or bypassing checks.
-OCI timeout remains a bound if the host guard cannot run. Any missing required
-isolation proof blocks candidate execution and is reported to Root.
+The original full R1 at c9/tree1a229/base77 was NOT ACCEPTABLE for runtime.
+Its report SHA9b9b72cec3cb30aeaecdcc05b76390a35c14bbbadbbd89716b142a21682acbf4,
+875.5s analysis overrun and setup/report-mode gaps are preserved. Root's F01
+source remedy at e67 is retained, not claimed boot-tested. The stable
+[F01–F13 disposition ledger](../../testbed/R1-DISPOSITIONS.md) names corrections,
+source checks and remaining obligations. One changed-scope R2 belongs to Root.
 
-## Source-phase evidence and next execution
+This author phase permits only guarded controller mocks, stdlib-only helper
+checks and syntax. It runs no Rails/app/Thistle/native/gem build/install/capture/
+DB/server/container/browser workload and reads no DB secret values. No new
+runtime lease, evaluator approval, launch qualification or publication is implied.
 
-The implementation phase permits only Python stdlib controller tests with a
-mocked Podman boundary and Ruby syntax checks. It has not run Rails, loaded
-candidate native code, built/installed gems, started DB/server/container,
-connected, migrated, captured or opened a browser. Mocked reuse is a controller
-regression, not proof of real retained-resource reuse.
-
-Root's next finite runtime plan is: independently review the exact source/base;
-prepare the new actual host lock and dependency set (including the separately
-admitted Puma native build), verify client/image/transport inputs; record
-Runtime PREEXEC identity/resource ownership and bounds; prove empty new app
-schema/account authority and retained UUID; execute the five-command first use;
-execute STOPPED→start→test→stop reuse; execute the controlled failure/absence
-probe; audit retained raw payload/indexes and exact installed pair; then route
-affected canonical CI and acceptance. No old public67 or LOS69 replay is part
-of this plan. No new package acceptance, launch qualification, publication or
-merge is implied by source checks.
-
-## Implementation self-review
-
-Correctness/lifecycle review found and addressed create-helper effects missing
-from state, partial retention mistaken for completion, cross-attempt store reuse,
-namespace-only developer reachability and read-only-root MySQL scratch failures.
-Instance/token labels reconcile actual compute; indexes are re-read independently;
-stores live under exact session/attempt owners; the host URL has its own probe;
-the DB entrypoint probes its explicit scratch mount as the actual UID.
-
-Security review checks fixed argv programs, env-i candidate processes, private
-credential mounts outside capture/evidence, exact input/loaded identities, actual
-namespaces/cgroups, no external networking/DB publication, token-owned finite
-host access, unchanged Map peer/Host gates and sanitized source-local diagnostics.
-This is author self-review, not independent approval or executed sandbox proof.
-
-Cost/design review retained maintained Podman/Rails/Puma/socat mechanisms and
-one fixture owner. The fixed stdio adapter exists only to cross the isolated
-worker namespace without external networking or a new proxy framework. Hashing
-dependency trees at admission costs O(input bytes); captures/readers and repeated
-source expansion retain their existing costs. Each attempt retains a new store
-and exact artifacts, so disk use grows; helper logs are selected since attempt
-start to avoid copying all historic helper logs quadratically. No material speed,
-RSS or global quota claim is made. Root must independently assess the composed
-server/transport resource and lifecycle behavior, new lock/build applicability,
-real cleanup and host reachability before accepting this source outcome.
+After R2 disposition, Root must admit exact source/artifact/cohort/private-resource
+inputs, prove real DB-free boot and Unix API/peer/Host, actual provider/client
+loading, first use, STOPPED reuse, changed-Map fresh-instance reuse, four parallel
+host requests/assets with tasks/RSS, controlled failure/nonzero/absence/KEEP,
+and final independent raw/index audit. Hosted affected CI and Leah's acceptance
+remain separate. The fixture/runner/docs stay outside shipped gem file lists and
+runtime dependencies;116.testing is repository Map-test infrastructure metadata.
