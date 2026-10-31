@@ -289,6 +289,41 @@ Reconsider if per-edit latency or session token cost grows materially, if
 upstream Brain fixes the missing-plugin exit or the guide's search description,
 or if cross-machine memory needs hosted sync.
 
+## Reusable Rails host: one Thistle fixture owner — LOS-139
+
+Own the minimal Rails app, versioned schema/seed/answers and five-command
+controller together under `testbed/`, outside shipped gems and runtime
+dependencies. Reuse Python stdlib/subprocess, rootless Podman's process/resource
+mechanisms, Rails migrations/reflection and Puma/Rack's existing server/request
+mechanisms. A Compose/orchestration framework or fork adds configuration,
+credential and review ownership without helping the single retained fixture.
+See the [operating contract](reusable-rails-host.md) for exact inputs and limits.
+
+The inspected [woods-testbed README at fe29e4f6](https://github.com/lost-in-the/woods-testbed/blob/fe29e4f616fe8eef985b631c26cff9edd5b04182/README.md)
+supplies conceptual precedent for per-profile apps and persistent dependency
+volumes. Its Rails 6.0/7.2/8.0 variants and Woods extraction/Console do not define
+Thistle cohorts. No code was copied; the pinned root LICENSE lookup returned
+404, so no license grant is inferred. Importing assets later needs exact
+files/adaptations/provenance and license review. Woods Map's Rails engine and
+Woods index dependency do not fit Thistle Map's saved Reader/Rack boundary.
+
+A separate maintained testbed repository would require coordinated app/runner
+pins, two-repo updates, review and compatibility execution for each fixture or
+interface change. Tonight Thistle alone owns those updates. The existing
+independent-evaluator authority remains separate; a fixture inside the candidate
+repository supplies development evidence, not protected qualification.
+
+First prove local retained reuse on the explicitly named public Rails7.1
+compatibility profile (Ruby3.4.12/Rails7.1.6/public mysql2 0.5.7/ConnectorC3.4.9/
+MySQL8.4.13). This does not change maintained CI policy. Exact image/artifact/
+lock/ABI cache identities avoid version-only reuse; missing cached server/client
+inputs refuse rather than acquire or rebuild them. Operating cost is one small
+app plus a Python lifecycle guard and Ruby known-answer programs; retained
+generations/evidence grow per attempt. There is no measured speed or memory
+benefit and no fresh-machine/other-platform proof. Reconsider a second repo,
+framework or portable archive only for demonstrated independent consumers,
+multi-profile lifecycle complexity or an admitted reproducibility requirement.
+
 ## Maintenance rule
 
 Every tool/version update records upstream maintenance/runtime status, actual

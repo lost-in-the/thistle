@@ -1,0 +1,13 @@
+{
+  "schema": "los139-schema-v1",
+  "seed": "los139-seed-v1",
+  "orders": [[1, "retained-order-1"]],
+  "items": [[1, 1, 2], [2, 1, 3]],
+  "columns": {
+    "orders": [["id", "integer", false], ["reference", "string", false]],
+    "items": [["id", "integer", false], ["order_id", "integer", false], ["quantity", "integer", false]],
+    "host_metadata": [["schema_version", "string", false], ["seed_version", "string", false]]
+  },
+  "route": {"controller": "orders", "action": "show", "route_path": "/orders/:id(.:format)", "verb": "GET"},
+  "site_lines": [7, 8]
+}
