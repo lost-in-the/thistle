@@ -203,19 +203,18 @@ module Thistle
           references_limited = true
           nil
         end
-        if references && references.fetch('relationships').length > reference_limit
-          raise Limit, 'References exceed the requested row budget.'
+        if references
+          unless plain?(references, Hash) && references['generation'] == @generation &&
+              plain?(references['anchor'], Hash) && references['anchor']['id'] == id &&
+              references['direction'] == direction && plain?(references['relationships'], Array)
+            raise Thistle::InvalidSnapshot, 'References do not match the saved anchor or relationship envelope'
+          end
+          raise Limit, 'References exceed the requested row budget.' if references['relationships'].length > reference_limit
         end
         # Incoming navigation needs identity only. Reader#fact expands the entire
         # outgoing link tree, which must not accompany the bounded incoming query.
         fact = if direction == 'incoming'
-                 if references
-                   anchor = references.fetch('anchor')
-                   unless references.fetch('generation') == @generation && anchor.fetch('id') == id
-                     raise Thistle::InvalidSnapshot, 'References substituted a different anchor'
-                   end
-                   anchor
-                 end
+                 references && references.fetch('anchor')
                else
                  @reader.fact(id)
                end
