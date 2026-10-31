@@ -3,8 +3,8 @@
 This source increment prepares one model/concern reading journey. Core wiring
 adds optional explicit capture context, strict publication/open validation and a
 Reader operation. Map route/View wiring is now present in source. Actual native
-checks, installed/served evidence and independent review still belong to the
-integration owner.
+checks and installed/served evidence still belong to the integration owner. The
+full initial R120 source review is retained; this correction awaits changed-scope R2.
 The installed/served journey below is **UNRUN**. All launch rows remain open.
 
 The customer must be able to identify the file and owner to edit, read its code,
@@ -32,7 +32,10 @@ Raw DTO v1 is `{version: 1, models: [...]}`. Each model has exactly `name`,
 An ancestor has its ordinal `index`, nullable `name`, `kind: class|module`, and
 direct `methods` (`name`, `visibility`, nullable `source`). Effective descriptors
 have `name`, nullable `owner_index`, nullable `source`. A source hint has `path`
-and positive u32 `line`. Undef gaps use null owner/source. Anonymous owners remain
+and positive u32 `line`. Undef gaps and descriptors without an inventoried direct
+owner use null owner/source. A visibility-only entry may resolve to an excluded
+body or an in-chain wrapper, depending on Ruby; neither justifies a guessed owner.
+Anonymous owners remain
 anonymous. Descriptor provenance is reflection, not a captured source span.
 
 Rust `validate_observation` checks exact fields, names, indexes, visibility,
@@ -40,8 +43,9 @@ duplicates, complete descriptor-name coverage and owner/source agreement.
 `batch(context, observation, root)` uses existing `ObservationAdmission` counters
 and wire-byte admission. New `rails_source_ownership` facts have no physical path
 or location. Identity uses kind/version/registry ordinal/model label; duplicate
-registry labels remain different facts. Absolute hints beneath the supplied root
-become safe relative hints; outside/unsafe hints become unavailable. Root `/`
+registry labels remain different facts. Only safe absolute hints beneath the
+supplied root become relative hints; relative, eval/internal pseudo-locations,
+outside and unsafe hints become unavailable. Root `/`
 is deliberately refused by this initial normalizer. Hints do not certify file
 presence. `validate_fact` recomputes identity and validates the DTO on publication
 and open; the integration must call it in both paths.
@@ -84,14 +88,25 @@ binding. The model's as-written declaration is shown first; the separately
 reported observed ancestry order is preserved. `methods` traverses the observed direct method inventory, retaining
 included, prepended and superclass alternatives, then pages exact owner/name
 definition candidates through the existing method directory. No observed method
-inventory means unknown, not an empty application. Anonymous or duplicate owner
-labels remain unsupported/refused where no distinct source candidate is justified.
+inventory means unknown, not an empty application. An anonymous owner returns
+`anonymous_owner_no_label_candidate`; a repeated owner label returns
+`duplicate_owner_label_unknown`. These are row-level unknowns with no candidates
+and no complete candidate-range claim, never a whole-page refusal. Both families
+continue normally to subsequent owners/methods.
 
-One response visits one owner or method row, including an empty row. The existing
+One response returns up to `limit` row/candidate slots. A row with no candidates
+(including generated methods or unsupported owner labels) consumes one slot; a
+row with multiple candidates consumes one slot per candidate. The compact `rows`
+outline retains owner index/name, method/visibility, status and per-row range
+witnesses even when no code candidate exists. `owners` contains only page-local
+owners in original ancestry-index order, not a reconstructed full class. The existing
 `recorded_domain` cursor scope is `[source_comprehension, id, family]`; its two
 positions are the owner/flattened-method ordinal and candidate offset. Cursors
 cannot change generation, model or family. Callers follow `continuation`; the
-selector never auto-traverses all rows or reads source. A zero-progress work
+selector never auto-traverses all rows or reads source. Byte-limited pages shorten
+the selected suffix and return its exact next row/candidate offset, rather than
+skip it or require one request per generated method. A single row that cannot fit
+still refuses the requested byte budget. A zero-progress work
 exhaustion has no looping continuation and remains partial.
 
 The sole transferred existing-file change is additive
@@ -147,14 +162,24 @@ second match and could not enumerate duplicate candidates; the additive page API
 reuses its fixed-key index and Work contract. Recorded-directory construction is
 lazy and visits/sorts the saved fact domain under its existing guards. This is
 not zero whole-domain work. Reader open, lazy build and request work are distinct.
-Request caps are 20,000 candidate visits, 100,000 comparisons, 32 MiB of compared
-label bytes, 2 MiB per borrowed metadata input group, an 8 MiB scratch reservation,
-and 32/64 KiB encoded output. Projection/serialization create bounded copies;
+Request caps remain 20,000 visits, 100,000 label comparisons, 32 MiB of label bytes,
+an 8 MiB scratch reservation and 32/64 KiB encoded output. Candidate traversal
+leaves 1024 visits and 8 MiB of label-byte accounting for compact projection and
+byte-limit trimming; these are within the existing caps. Visits/bytes also meter
+required observation scans, row lookup and copied compact labels/hints.
+Immutable saved ownership facts are trusted after strict publish/open validation;
+queries neither revalidate nor encode their full trees. There is no asymmetric
+2 MiB query-group cap; the 2 MiB per-model **admission** cap remains.
+Projection/serialization create bounded copies;
 these accounting limits are not heap or RSS measurements. No speed claim.
 
-Flattened method-row selection scans at most the admitted 100,000 direct rows;
-it does not copy their bodies. Candidate projection is bounded by 16 output rows
-and the 2048-name observed descriptor table. Method-page continuation repeats its
+Admission indexes direct names per owner for linear descriptor validation instead
+of repeated name searches. Each query builds borrowed label/effective-name maps
+over at most 64 owners and 2048 descriptors, metering those scans. It uses direct
+array lengths and at most 64 owner-range checks per selected row, without walking
+the full direct-method inventory. Candidate projection has at most 16 row/candidate
+slots. Byte fitting can encode at most 16 shrinking compact projections; it never
+copies full saved facts or ownership trees. Method-page continuation repeats its
 bounded prefix scan through the unchanged directory, charging all work again.
 If this cost becomes material, reconsider a measured position-based index cursor;
 do not raise caps or hide repeated work. Existing Rust/serde/Prism and the Map
@@ -170,9 +195,27 @@ before publication, and Reader selector/close forwarding. No native capture or
 framework is executed by these probes. They are dispatch evidence, not captured
 semantic or saved-generation acceptance.
 Rust regressions are authored in `source_comprehension_tests.rs` and remain
-**UNRUN** in this phase. The Rust toolchain is absent from the active PATH;
-rustfmt preflight failed before starting its child and that attempt was retained.
+**UNRUN** in this phase. The initial missing-rustfmt preflight and earlier attempts
+are retained; no Rust/native execution is admitted for this correction.
 No package/native/installed/served result can be inherited from another artifact.
+
+## R120 correction dispositions — source only
+
+| Stable finding | Correction and focused evidence |
+| --- | --- |
+| R120-01 | Unknown anonymous/duplicate-label rows retain normal continuation. Authored Rust traversal checks both families reach Parent; fixture now has a mid-chain anonymous module. Pure observer/presenter checks cover the raw row and visible unknowns. |
+| R120-02 | Descriptors without a known inventoried direct owner normalize owner/source to null; strict admission still rejects forged hints/owners. Builtin-only Ruby 4.0.9 visibility probe observed a child-owned wrapper, so the review's boundary-owner trigger was not reproduced on that Ruby. Regression accommodates actual VM forms and exercises real builtin descriptors against missing/outside owner inventories. Other cohort execution is pending. |
+| R120-03 | Only absolute root-prefixed safe hints survive. Authored Rust cases cover relative, eval/internal, outside, traversal and double-slash hints. |
+| R120-04 | Up to limit row/candidate slots and compact outline per response; authored Rust check traverses 40 generated methods in five limit-eight pages and verifies byte-cut suffix identity. README corrected. |
+| R120-05 | Removed immutable-fact revalidation/group encoding; direct-name admission maps and metered request maps replace repeated name scans. Authored Rust tests cover >2 MiB ambiguous groups, a large unique inventory, and exhausted scan allowance. |
+| R120-06 | One admitted shared-file block highlights the union of selected spans, with each fact's physical start linked in-page and exact Source preserved. Pure presenter regression checks both spans/anchors, one numbered file and family-specific continuation. |
+
+These are implemented source dispositions, not independent acceptance. Root owns
+changed-scope R2 and actual native/installed/served/customer evidence. The full
+initial report/raw remain unchanged: ~696s analysis exceeded its 300s target;
+missing timeout wrappers, first-open 0644 scratch lists, retention EROFS, partial
+doc/test reads, unverified transcript persistence and unmeasured CPU/RSS/quota
+remain disclosed. Prior CI and procedural attempts keep their exact identities.
 
 The opt-in installed producer/consumer harness and served task protocol are in
 the [Map contract](https://github.com/lost-in-the/thistle/blob/43b2bca7555b8b62f970bc9751939226a274f4ef/map/docs/source-comprehension.md)

@@ -2,6 +2,11 @@
 module Los147
   class Order < Parent
     include Tagged
+    include Module.new {
+      def anonymous_label
+        'anonymous contribution before Tagged and Parent'
+      end
+    }
     prepend Decorated
     include Optional if false
 
@@ -23,5 +28,7 @@ module Los147
 
     # A builtin-backed method has no physical Ruby source body to recover.
     define_method(:native_hash, Object.instance_method(:hash))
+    # Visibility-only entry for a builtin body beyond the explicit stop boundary.
+    private :itself
   end
 end

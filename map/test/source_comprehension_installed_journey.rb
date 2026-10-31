@@ -48,17 +48,20 @@ when 'consume'
     model = reader.find('Los147::Order').find { |fact| fact['kind'] == 'rails_model' && fact['name'] == 'Los147::Order' }
     verify(model, 'Missing saved loaded model')
     verify(reader.respond_to?(:source_comprehension), 'Root Reader integration is absent')
-    contributions, missing, pages = [], [], 0
+    contributions, missing, pages, outlines = [], [], 0, {}
     %w[contributions methods].each do |family|
+      outlines[family] = []
       cursor = nil
       loop do
         pages += 1
         verify(pages <= 128, 'Family continuation exceeded finite journey allowance')
-        page = reader.source_comprehension(model.fetch('id'), family: family, limit: 2, cursor: cursor)
+        page = reader.source_comprehension(model.fetch('id'), family: family, limit: 8, cursor: cursor)
         verify(page.fetch('generation') == generation_a, 'Comprehension lost A')
         verify(page.fetch('source_runtime_coherence') == 'unknown', 'Invented source/runtime coherence')
+        verify(page.fetch('rows').length <= 8 && page.fetch('contributions').length <= 8, 'Reader exceeded the row/candidate page allowance')
         contributions.concat(page.fetch('contributions'))
         missing.concat(page.fetch('observed_only'))
+        outlines[family].concat(page.fetch('rows'))
         next_page = page['continuation']
         break unless next_page
         verify(next_page.fetch('generation') == generation_a && next_page.fetch('id') == model.fetch('id') && next_page.fetch('family') == family, 'Invalid continuation scope')
@@ -66,6 +69,11 @@ when 'consume'
         verify(next_cursor != cursor, 'Continuation made no progress')
         cursor = next_cursor
       end
+    end
+    %w[contributions methods].each do |family|
+      rows = outlines.fetch(family)
+      verify(rows.any? { |row| row['status'] == 'anonymous_owner_no_label_candidate' && row['returned'] == 0 }, "Anonymous owner was hidden in #{family}")
+      verify(rows.any? { |row| row['owner'] == 'Los147::Parent' }, "Named suffix became unreachable in #{family}")
     end
     by_name = contributions.group_by { |row| row.fetch('fact').fetch('name') }
     verify(by_name.key?('Los147::Tagged#tag_text'), 'Missing included concern source')

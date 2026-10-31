@@ -5,7 +5,9 @@ require 'minitest/autorun'
 require_relative '../lib/thistle/source_comprehension_observer'
 
 module SourceComprehensionUnitFixture
-  class Boundary; end
+  class Boundary
+    def outside_boundary = 'outside'
+  end
   class Parent < Boundary
     def inherited = 'parent'
     def label = 'parent label'
@@ -71,5 +73,49 @@ class SourceComprehensionObserverTest < Minitest::Test
     row = result['models'][0]['effective_methods'].find { |method| method['name'] == 'inherited' }
     assert_nil row['owner_index']
     assert_nil row['source']
+  end
+
+  def test_boundary_external_visibility_entry_is_unknown_without_guessing_a_body
+    child = Class.new(F::Boundary) { private :outside_boundary }
+    # Builtin-only cohort check: some Rubies resolve ZSUPER to the boundary;
+    # Ruby 4.0.9 instead reports a child-owned visibility wrapper. Neither form
+    # authorizes guessing a body/owner absent from the direct inventory.
+    assert_includes Module.instance_method(:private_instance_methods).bind_call(child, false), :outside_boundary
+    descriptor = Module.instance_method(:instance_method).bind_call(child, :outside_boundary)
+    resolved = UnboundMethod.instance_method(:owner).bind_call(descriptor)
+    assert [child, F::Boundary].any? { |owner| BasicObject.instance_method(:equal?).bind_call(owner, resolved) }
+    result = observer.call(models: [child], stop_before: F::Boundary)['models'][0]
+    direct = result['ancestors'][0]['methods'].find { |row| row['name'] == 'outside_boundary' }
+    assert_equal 'private', direct['visibility']
+    effective = result['effective_methods'].find { |row| row['name'] == 'outside_boundary' }
+    if BasicObject.instance_method(:equal?).bind_call(resolved, child)
+      assert_equal 0, effective['owner_index']
+      assert_equal direct['source'], effective['source']
+    else
+      assert_nil direct['source']
+      assert_nil effective['owner_index']
+      assert_nil effective['source']
+    end
+  end
+
+  def test_anonymous_mid_chain_owner_keeps_the_named_suffix_in_the_raw_inventory
+    anonymous = Module.new { def anonymous_label = 'anonymous' }
+    child = Class.new(F::Parent) { include F::Included; include anonymous }
+    result = observer.call(models: [child], stop_before: F::Boundary)['models'][0]
+    owners = result['ancestors']
+    assert_nil owners[1]['name']
+    assert_equal ['SourceComprehensionUnitFixture::Included', 'SourceComprehensionUnitFixture::Parent'], owners.drop(2).map { |row| row['name'] }
+    assert_equal 1, result['effective_methods'].find { |row| row['name'] == 'anonymous_label' }['owner_index']
+  end
+
+  def test_builtin_descriptors_without_an_inventoried_direct_owner_have_no_source_hint
+    child = Class.new(F::Boundary) { def local = 'local' }
+    # Real builtin descriptors with finite test inventories, not substituted VM
+    # methods: one owner outside the boundary, one absent direct-row witness.
+    %i[outside_boundary local].each do |name|
+      descriptor = observer.send(:effective_descriptor, child, name, [child], [{}])
+      assert_nil descriptor['owner_index']
+      assert_nil descriptor['source']
+    end
   end
 end

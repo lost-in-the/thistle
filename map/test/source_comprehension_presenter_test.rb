@@ -13,7 +13,7 @@ class SourceComprehensionPresenterTest < Minitest::Test
     fact = { 'id' => ID, 'kind' => 'method', 'name' => 'Order#label', 'evidence' => 'static',
       'path' => 'app/models/order.rb', 'location' => { 'start_line' => 2, 'end_line' => 3 } }
     { 'version' => 1, 'generation' => GENERATION, 'owner' => 'Order', 'composition' => 'identified_contributions',
-      'ownership_status' => 'unique_label_candidate_binding_unknown', 'owners' => [{ 'name' => 'Order', 'kind' => 'class' }],
+      'ownership_status' => 'unique_label_candidate_binding_unknown', 'owners' => [{ 'index' => 0, 'name' => 'Order', 'kind' => 'class' }],
       'semantics' => 'Loaded owner observed; invocation unknown.', 'observed_only' => [{ 'name' => 'native_hash' }],
       'coverage' => { 'returned' => 1, 'candidate_matches_seen' => 1, 'range_complete' => true, 'scope' => 'saved owner definitions' }, 'continuation' => nil,
       'contributions' => [{ 'fact' => fact, 'owner' => 'Order', 'method_name' => 'label',
@@ -95,7 +95,57 @@ class SourceComprehensionPresenterTest < Minitest::Test
     data['continuation'] = { 'operation' => 'source_comprehension', 'generation' => GENERATION, 'id' => ID, 'family' => 'methods', 'cursor' => 'opaque-core-cursor' }
     html = render(data)
     assert_includes html, 'Precedence unknown: more candidates remain'
-    assert_includes html, 'More saved contributions'
+    assert_includes html, 'More saved methods'
+    refute_includes html, 'More saved contributions'
     assert @destinations.any? { |path, selector| path == 'typed-continuation' && selector['cursor'] == 'opaque-core-cursor' }
+  end
+
+  def test_shared_file_highlights_the_union_and_outlines_each_physical_start_in_place
+    data = projection
+    second = Marshal.load(Marshal.dump(data['contributions'][0]))
+    second['fact'].merge!('id' => 'c' * 64, 'name' => 'Order#duplicate_label',
+      'location' => { 'start_line' => 5, 'end_line' => 6 })
+    %w[source callers].each { |key| second[key]['id'] = second['fact']['id'] }
+    data['contributions'] << second
+    content = "# header\ndef label\n  'first'\nend\ndef duplicate_label\n  'second'\nend\n"
+    sources = { ID => { 'fact' => data['contributions'][0]['fact'], 'content' => content,
+      'generation' => GENERATION, 'sha256' => Digest::SHA256.hexdigest(content) } }
+    html = render(data, sources: sources, states: { second['fact']['id'] => { 'status' => 'shared_file' } })
+    assert_equal 1, html.scan('class="cv codeview"').length
+    [2, 3, 5, 6].each { |line| assert_includes html, "class=\"source-row selected\" id=\"source-#{ID}-L#{line}\"" }
+    assert_includes html, "id=\"source-#{'c' * 64}-L5\""
+    assert_includes html, "href=\"#source-#{'c' * 64}-L5\""
+    assert_includes html, '#L5'
+    assert_equal 7, html.scan('class="ln"').length
+    refute_includes html, 'class="source-row selected" id="source-' + ID + '-L4"'
+  end
+
+  def test_page_local_owner_list_retains_original_ancestry_positions
+    data = projection
+    data['owners'] = [
+      { 'index' => 8, 'name' => 'Tagged', 'kind' => 'module' },
+      { 'index' => 15, 'name' => 'Parent', 'kind' => 'class' }
+    ]
+    html = render(data)
+    assert_includes html, '<li value="9">Tagged (module)</li>'
+    assert_includes html, '<li value="16">Parent (class)</li>'
+    data['owners'][0]['index'] = '<script>'
+    assert_raises(Presenter::InvalidProjection) { render(data) }
+  end
+
+  def test_unknown_owner_rows_are_visible_and_keep_the_normal_family_continuation
+    data = projection
+    data['contributions'] = []
+    data['rows'] = [
+      { 'owner' => nil, 'method_name' => nil, 'status' => 'anonymous_owner_no_label_candidate' },
+      { 'owner' => 'SameLabel', 'method_name' => 'label', 'visibility' => 'public', 'status' => 'duplicate_owner_label_unknown' }
+    ]
+    data['continuation'] = { 'operation' => 'source_comprehension', 'generation' => GENERATION,
+      'id' => ID, 'family' => 'contributions', 'cursor' => 'opaque-core-cursor' }
+    html = render(data, sources: {})
+    assert_includes html, 'Anonymous owner: source label unavailable'
+    assert_includes html, 'Duplicate owner label: source candidates unknown'
+    assert_includes html, 'More saved contributions'
+    refute_includes html, 'class="cv codeview"'
   end
 end

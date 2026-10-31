@@ -45,7 +45,13 @@ Destinations carry only ID/cursor; family is in the path. NavigationContext chec
 exact generation/ID/family/cursor scope before App opens a Reader, preserving its
 4096-byte/nine-field bound and atomic search-drop notice. Core alone interprets
 cursor positions. View requests one projection/page (`limit: 8`, `max_bytes: 32768`)
-and validates its envelope/continuation before any Source calls.
+and validates its envelope/continuation before any Source calls. Core returns up
+to eight row/candidate slots: an empty/unknown row costs one slot, duplicate saved
+candidates each cost one. The compact owner/method outline preserves these rows;
+generated methods no longer require one request each. Bytes/Work can shorten a
+page; its Core cursor retains the exact suffix without Ruby position arithmetic.
+Anonymous and repeated owner labels are explicit unknown rows with no candidates,
+and do not prevent either family from reaching subsequent concerns/superclasses.
 
 With optional ownership coverage present, runtime model Source opens the code-first
 reading surface using compact `fact_identity`, without full fact expansion. Default
@@ -54,8 +60,12 @@ Static class Source preserves exact `#L` anchors, adds reading links and moves i
 detail tiles after code. Source, Links, Find and Check remain ordinary links.
 
 Each code block keeps original file bytes and physical line numbers. Local anchors
-include the source fact ID to avoid line collisions across contributions. Missing
-source remains a notice and exact Source follow-up. A descriptor without a saved
+include the source fact ID to avoid line collisions across contributions.
+Shared-file reads are not repeated: one admitted code block highlights the union
+of its selected contribution spans, with an in-page link for each physical start
+and separate exact Source links. Owners in provenance are page-local, retaining
+their original observed ancestry indexes; they are not a full effective class.
+Missing source remains a notice and exact Source follow-up. A descriptor without a saved
 definition remains missing; a lexical incoming reference is not a verified caller.
 
 `SourceComprehensionSources` matches selected path/hash/size to the pinned manifest,
@@ -124,6 +134,7 @@ remain separate from that producer/consumer check.
 | Where should a direct label change be written? | `order.rb`, `Los147::Order#direct_label`; it calls `tag_text` in included Tagged. |
 | Which loaded owner supplies display_name? | Prepended `Los147::Decorated`; Order and Parent retain distinct saved alternatives. Coherence/execution unknown. |
 | Where is inherited_label written? | `parent.rb`, `Los147::Parent`; the model's superclass contribution. |
+| Does an anonymous contribution hide the remaining owners? | No. The anonymous module before Tagged/Parent has no source-label candidate; both families must still reach Tagged and Parent. |
 | Can you choose one duplicate_label definition as the effective saved body? | No. Both physical definitions in order.rb remain ambiguous saved candidates, even if a loaded descriptor points at one. |
 | Did Optional register? Did normalize_tag run? | Optional is conditionally declared but not in the fixture's observed ancestry. normalize_tag is registered with a condition; nothing executed it. Static syntax does not prove registration/execution. |
 | Where is native_hash source? | Builtin-backed descriptor; no captured Ruby body, explicit source unavailable. |
@@ -136,7 +147,19 @@ request/open/query/render observations where available without a speed claim.
 The answer table above is an authored oracle, not independent acceptance.
 
 The [Core contract](https://github.com/lost-in-the/thistle/blob/43b2bca7555b8b62f970bc9751939226a274f4ef/docs/development/source-comprehension.md)
-at source checkpoint `43b2bca` gives the DTO,
+at source checkpoint `43b2bca` gives the original DTO,
 family/cursor/cost boundaries and exact shared wiring. Full code search/discovery,
 all Rails annotations, schema/graph/history/Trail/optional Guide and whole Field
 Guide parity remain declared parent outcomes. No capability row is qualified here.
+
+The R120 correction batches rows, keeps unsupported owner rows traversable and
+unions admitted shared-file highlights. Query facts remain strictly validated on
+publish/open; queries use metered borrowed lookups rather than revalidation.
+Relative/pseudo/outside hints are unavailable. Builtin visibility forms can differ
+by Ruby; unsupported owner/source observations become null rather than guessed.
+All six R120 findings have implemented source dispositions in this
+[PR120 correction](https://github.com/lost-in-the/thistle/pull/120); the pinned
+43b guide above records the earlier checkpoint. Changed-scope R2 and actual
+acceptance remain pending. Preserve the initial
+review's ~696s target overrun and control/partial-inspection gaps; source fixes do
+not replace that historical report or CI identities.
