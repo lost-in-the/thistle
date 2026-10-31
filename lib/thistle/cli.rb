@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "optparse"
+require_relative "model_brief_markdown"
 require_relative "../thistle"
 
 module Thistle
@@ -11,12 +12,16 @@ module Thistle
       thistle capture ROOT --output STORE [--max-nodes INTEGER]
       thistle find TEXT --store STORE [--generation ID] [--limit 50] [--domain all|source|metadata] [--kind KIND] [--path PREFIX]
       thistle model-brief MODEL_ID --store STORE --generation ID [--limit 8] [--max-bytes 32768] [--family columns|associations|registry_candidates] [--cursor TOKEN]
+      thistle export-model-brief MODEL_ID --store STORE --generation ID [--limit 8] [--max-bytes 32768]
       thistle references ID --store STORE --generation ID [--direction outgoing|incoming] [--limit 50] [--candidate-link ORDINAL] [--cursor TOKEN]
       thistle source-file PATH --store STORE --generation ID
       thistle source ID --store STORE [--generation ID]
       thistle links ID --store STORE [--generation ID]
       thistle check --store STORE [--generation ID]
       thistle version
+
+      export-model-brief writes Markdown; --max-bytes bounds both the selected JSON
+      response and the complete encoded report. All other queries return JSON.
 
       Find without domain/kind/path filters returns the existing named-fact response.
       Add --domain all (or another evidence filter) for literal source/metadata results.
@@ -42,10 +47,10 @@ module Thistle
         emit("version" => VERSION, "native" => Native.call("op" => "version"))
         return 0
       end
-      unless %w[capture find source source-file links check model-brief references].include?(command)
+      unless %w[capture find source source-file links check model-brief export-model-brief references].include?(command)
         raise InvalidInput, "Unknown action. Use thistle help to see the available actions."
       end
-      options = command == "model-brief" ? { limit: 8, max_bytes: 32768 } : { limit: 50 }
+      options = %w[model-brief export-model-brief].include?(command) ? { limit: 8, max_bytes: 32768 } : { limit: 50 }
       parser = OptionParser.new do |opts|
         if command == "capture"
           opts.on("--output PATH") { |value| options[:output] = value }
@@ -53,10 +58,10 @@ module Thistle
         else
           opts.on("--store PATH") { |value| options[:store] = value }
           opts.on("--generation ID") { |value| options[:generation] = value }
-          if command == "model-brief"
+          if %w[model-brief export-model-brief].include?(command)
             opts.on("--limit INTEGER", Integer) { |value| options[:limit] = value }
             opts.on("--max-bytes INTEGER", Integer) { |value| options[:max_bytes] = value }
-            opts.on("--family NAME") { |value| options[:family] = value }
+            opts.on("--family NAME") { |value| options[:family] = value } if command == "model-brief"
           end
           if %w[model-brief references].include?(command)
             opts.on("--cursor TOKEN") { |value| options[:cursor] = value }
@@ -83,7 +88,7 @@ module Thistle
         emit(Thistle.capture(root: args.first, output: options[:output], limits: limits))
       else
         raise InvalidInput, "#{command} requires --store STORE" unless options[:store]
-        if %w[source-file model-brief references].include?(command) && !options[:generation]
+        if %w[source-file model-brief export-model-brief references].include?(command) && !options[:generation]
           raise InvalidInput, "#{command} requires --generation ID"
         end
         reader = Reader.new(options[:store], generation: options[:generation])
@@ -95,6 +100,7 @@ module Thistle
             else
               reader.search(args.first, limit: options[:limit])
             end
+          when "export-model-brief" then reader.model_brief(args.first, **options.slice(:limit, :max_bytes))
           when "model-brief" then reader.model_brief(args.first, **options.slice(:limit, :max_bytes, :family, :cursor))
           when "references" then reader.references(args.first, **options.slice(:limit, :direction, :candidate_link, :cursor))
           when "source-file" then reader.source_file(args.first)
@@ -102,9 +108,19 @@ module Thistle
           when "links" then { "generation" => reader.generation, "fact_id" => args.first, "links" => reader.links(args.first) }
           when "check" then reader.check
           end
-          emit(result)
+          if command == "export-model-brief"
+            report = ModelBriefMarkdown.render(result, manifest: reader.manifest, generation: options[:generation],
+              model_id: args.first, max_bytes: options[:max_bytes])
+          else
+            emit(result)
+          end
         ensure
           reader.close
+        end
+        if command == "export-model-brief"
+          @out.write(report)
+          # Detect buffered sink failures before choosing the successful status.
+          @out.flush
         end
       end
       0
