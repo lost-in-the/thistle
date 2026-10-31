@@ -1,7 +1,8 @@
 # Read a saved model and its contributions — LOS-147
 
-Status: dedicated source preparation. Public Reader/App/View/capture wiring is
-Root-owned and not present on the preparation base. The installed/served protocol
+Status: Core source wiring now includes the public Reader, strict saved-fact
+validation and optional explicit capture context. Map App/View integration remains
+Root-owned and absent from this checkpoint. The installed/served protocol
 and all screenshots/investigator results here are **UNRUN**.
 
 The useful journey is to read a model as written, inspect identified concern and
@@ -62,6 +63,8 @@ No source-only worker may execute the following protocol.
    `source_comprehension_installed_journey.rb produce` mode boots genuine Rails,
    loads the model/concerns and captures A through the installed gem. It then
    replaces only that disposable source with B and advances CURRENT. Keep A.
+   This producer supplies `{models: [Los147::Order], stop_before: ActiveRecord::Base}`
+   explicitly; normal captures do not discover classes for this optional family.
 2. Start a separate consumer process with the installed Core/Map gems, outside
    their checkout/load paths and without Rails/ActiveRecord loaded. Its consume
    mode opens A explicitly, walks both bounded families, checks physical source

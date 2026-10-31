@@ -5,6 +5,7 @@ mod model;
 mod callbacks;
 mod callback_effects;
 mod method_lookup;
+mod source_comprehension;
 mod references;
 mod fact_identity;
 mod model_brief;
@@ -47,6 +48,7 @@ fn request_scratch(request: &Value) -> Result<Option<query::Reservation>> {
     let bytes = match request["op"].as_str() {
         Some("fact_identity") => { fact_identity::id(request)?; fact_identity::SCRATCH },
         Some("model_brief") => model_brief::Query::parse(request)?.scratch(),
+        Some("source_comprehension") => source_comprehension::Query::parse(request)?.scratch(),
         Some("callback_effects") => callback_effects::Query::parse(request)?.scratch(),
         Some("references") => references::Query::parse(request)?.scratch(),
         Some("find_evidence") => query::Query::parse(request)?.scratch()?,
@@ -83,6 +85,7 @@ fn dispatch_inner(request: &Value) -> Result<Value> {
         "publish" => store::publish(Path::new(schema::string(request, "path")?), &request["capture"]),
         "model_batch" => model::batch(&request["context"], &request["observation"]),
         "callback_batch" => callbacks::batch(&request["context"], &request["observation"]),
+        "source_comprehension_batch" => source_comprehension::batch(&request["context"], &request["observation"], schema::string(request, "root")?),
         "open" => {
             let requested = match request.get("generation") { None | Some(Value::Null) => None,
                 Some(value) => Some(value.as_str().ok_or_else(|| CoreError::input("Generation must be a string"))?) };
@@ -117,6 +120,7 @@ fn dispatch_inner(request: &Value) -> Result<Value> {
         "source" => reader(request)?.source(schema::string(request, "id")?),
         "links" => reader(request)?.links(schema::string(request, "id")?),
         "model_brief" => model_brief::select(&*reader(request)?, &model_brief::Query::parse(request)?),
+        "source_comprehension" => source_comprehension::select(&*reader(request)?, &source_comprehension::Query::parse(request)?),
         "callback_effects" => callback_effects::select(&*reader(request)?, &callback_effects::Query::parse(request)?),
         "references" => references::select(&*reader(request)?, &references::Query::parse(request)?),
         "check" => reader(request)?.check(),

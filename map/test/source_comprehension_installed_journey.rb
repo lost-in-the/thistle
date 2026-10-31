@@ -21,7 +21,8 @@ when 'produce'
   %w[parent concerns order caller].each { |name| FileUtils.cp(File.join(fixture, "#{name}.rb"), root) }
   require File.join(fixture, 'boot.rb')
   app = Los147.boot(root)
-  saved = Thistle.capture(root: root, output: store, rails: app)
+  saved = Thistle.capture(root: root, output: store, rails: app,
+    source_comprehension: { models: [Los147::Order], stop_before: ActiveRecord::Base })
   expected = %w[parent concerns order caller].to_h do |name|
     ["#{name}.rb", Digest::SHA256.file(File.join(root, "#{name}.rb")).hexdigest]
   end

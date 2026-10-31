@@ -60,6 +60,7 @@ module Thistle
           'kind' => exact?(owner, Class) ? 'class' : 'module', 'methods' => methods }
       end
       effective = names.keys.map do |name|
+        count_entry
         method = Module.instance_method(:instance_method).bind_call(model, name)
         owner = UnboundMethod.instance_method(:owner).bind_call(method)
         { 'name' => label(name), 'owner_index' => owners.index { |entry| same?(entry, owner) },

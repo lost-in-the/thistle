@@ -117,3 +117,49 @@ fn existing_method_directory_pages_keep_all_duplicates_and_explicit_partiality()
     let absent = directory.page(&facts,"Order","missing",0,1,&mut meter()).unwrap();
     assert!(absent.range_complete); assert!(!absent.partial); assert!(absent.positions.is_empty());
 }
+
+#[test]
+fn wired_batch_dispatch_and_both_fact_validation_paths_are_strict() {
+    let request = json!({"op":"source_comprehension_batch","context":context(),
+        "observation":{"version":1,"models":[observation()]},"root":"/app"});
+    let result = crate::dispatch(&request).unwrap();
+    assert_eq!(result["source_comprehension_observer"]["version"],1);
+    assert_eq!(result["appended"]["entries"],8);
+    let facts = result["facts"].as_array().unwrap();
+    schema::facts(facts,&[],3).unwrap();
+    schema::stored_facts(facts.iter(),&[],3).unwrap();
+    let mut forged = facts.clone();
+    forged[0]["attributes"]["source_comprehension"]["observation"]["effective_methods"][0]["owner_index"] = json!(1);
+    assert!(schema::facts(&forged,&[],3).is_err());
+    assert!(schema::stored_facts(forged.iter(),&[],3).is_err());
+    for root in ["relative","/","/app/../elsewhere","/app/","/app//nested","/app/./nested"] {
+        let mut bad = request.clone(); bad["root"] = json!(root);
+        assert!(crate::dispatch(&bad).is_err(),"{root}");
+    }
+}
+
+#[test]
+fn saved_reader_dispatch_is_pinned_and_refuses_invalid_continuation_without_source_io() {
+    let temporary = tempfile::tempdir().unwrap();
+    let root = json!({"id":"a".repeat(64),"kind":"class","name":"Order","evidence":"static",
+        "path":null,"location":null,"attributes":{},"links":[]});
+    let capture = json!({"schema_version":3,"root_id":"d".repeat(64),"files":[],"facts":[root,ownership()],
+        "producer":{},"diagnostics":[],"coverage":[{"family":"source","status":"partial","scope":"synthetic saved primitives","reason":"No framework or captured source"}]});
+    let manifest = crate::store::publish(temporary.path(),&capture).unwrap();
+    let generation = manifest["generation"].as_str().unwrap();
+    let opened = crate::dispatch(&json!({"op":"open","path":temporary.path().to_str().unwrap(),"generation":generation})).unwrap();
+    let handle = &opened["handle"];
+    let request = json!({"op":"source_comprehension","handle":handle,"id":"a".repeat(64),"limit":1});
+    let answer = crate::dispatch(&request).unwrap();
+    assert_eq!(answer["generation"],generation);
+    assert_eq!(answer["owner"],"Order");
+    assert_eq!(answer["usage"]["source_reads"],0);
+    assert_eq!(answer["contributions"][0]["fact"]["id"],"a".repeat(64));
+    let mut invalid = request.clone(); invalid["family"] = json!("unknown");
+    assert!(crate::dispatch(&invalid).is_err());
+    let mut invalid = request.clone(); invalid["cursor"] = recorded_domain::cursor(&"e".repeat(64),
+        &json!(["source_comprehension","a".repeat(64),"contributions"]),(1,0)).unwrap();
+    assert!(crate::dispatch(&invalid).is_err());
+    crate::dispatch(&json!({"op":"close","handle":handle})).unwrap();
+    assert_eq!(crate::dispatch(&request).unwrap_err().code,"closed_reader");
+}

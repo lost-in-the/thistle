@@ -139,6 +139,7 @@ fn validate_facts<'a>(facts: impl IntoIterator<Item = &'a Value>, files: &[Value
         }
         if fact["kind"] == "rails_model" { model_fact(fact)?; }
         if fact["kind"] == "rails_save_callbacks" { crate::callbacks::validate_fact(fact)?; }
+        if fact["kind"] == "rails_source_ownership" { crate::source_comprehension::validate_fact(fact)?; }
         for link in array(fact, "links")? {
             let view = if stored {
                 crate::link_encoding::SemanticLinkView::from_wire(link, version, string(fact, "evidence")?)?

@@ -1,8 +1,9 @@
 # Saved model source comprehension — LOS-147
 
-This source increment prepares one model/concern reading journey. It does not
-yet expose a Reader operation or a served route: shared wiring, native checks,
-installed evidence and independent review belong to the integration owner.
+This source increment prepares one model/concern reading journey. Core wiring
+adds optional explicit capture context, strict publication/open validation and a
+Reader operation. The served route, native checks, installed evidence and
+independent review still belong to the integration owner.
 The installed/served journey below is **UNRUN**. All launch rows remain open.
 
 The customer must be able to identify the file and owner to edit, read its code,
@@ -46,6 +47,10 @@ and open; the integration must call it in both paths.
 
 Ruby limits: 64 ancestors before the explicit boundary; 2048 distinct method
 names; caller `max_facts`, shared `max_entries`, and streaming JSON byte budget.
+The observer counts owner, direct-method and effective-descriptor rows against
+the same per-observation-batch entry limit that Rust admits; other families keep
+their existing per-batch entry meaning. Fact/link/byte counters are incremental
+across families. No old fact tree is reserialized to append this family.
 Rust also caps each model DTO at 2 MiB and 100,000 direct entries before cloning;
 complete batch input uses the existing 64 MiB capture ceiling. Refusal never
 returns a partly accepted batch. Ruby allocates the bounded reflection rows before
@@ -64,7 +69,7 @@ the final streaming envelope check; the byte counter is not a heap/RSS bound.
 
 ## Rust query and the exact shared integration
 
-Target public Reader signature (Root-owned, **not present on base main**):
+Public Reader signature (wired in this Core source checkpoint):
 `source_comprehension(id, family: nil, limit: 8, cursor: nil, max_bytes: 32768)`.
 `Query::parse/scratch/select` lives in the dedicated Rust module. Allowlisted
 families are `contributions` (default) and `methods`; limit ceiling 16, response
@@ -98,24 +103,32 @@ no partial page proves uniqueness. Position order is the unchanged immutable
 directory slot order; deterministic pagination reuses that generation's directory.
 Build/sort/key/lookup/stats/caps and callback paths are unchanged.
 
-Root's remaining exact integration responsibilities:
+Core wiring now present (execution remains UNRUN):
 
-1. Add the dedicated module declaration and observation/query dispatch branches;
-   reserve query scratch before selection and preserve failure propagation.
-2. Call the new strict fact validator for `rails_source_ownership` from schema
-   validation (publication and Reader open). Add the guarded observer to capture's
-   existing incremental append path with the actual supplied class registry and
-   boundary; include its appended counts/coverage. No Ruby-side fact construction.
-3. Expose the thin public Reader method. `select` already calls indexed
+1. Dedicated module declaration, observation/query dispatch branches and query
+   scratch reservation before selection. New Rust regressions are now reachable
+   from the module declaration; they have not been run in this source phase.
+2. Strict `rails_source_ownership` validator in the shared fact-validation path
+   used by publication and Reader open. Ruby accepts the optional keyword
+   `source_comprehension: {models: [ExplicitLoadedClass], stop_before: Boundary}`
+   on both `Thistle.capture` and `Capture.new`. Nil preserves the previous path;
+   explicit context with `rails: nil` still takes the Ruby orchestration path.
+   Configuration is snapshotted as classes and a boundary, with no discovery.
+   The guarded observer runs after any existing Rails families and appends via
+   native `source_comprehension_batch` with normalized root, counters, descriptor
+   and coverage. Invalid context or observation/batch failure stops publication.
+3. Thin public Reader request method. `select` calls indexed
    `stored_fact`, `recorded_candidates` and `with_method_directory`; no new store
    resolver is needed. The method-directory closure copies only bounded positions
    and stats. It returns before projection, Source I/O or HTML.
-4. Wire an admitted Map route/family adapter using the corrected PR119 navigation
+Root's remaining integration responsibilities:
+
+1. Wire an admitted Map route/family adapter using the corrected PR119 navigation
    authority. Resolve the root/selected contribution through compact identity.
    Fetch source progressively with a finite aggregate budget, retain the saved
    generation, and pass admitted responses to the presenter. Do not expand every
    family/source or every method to make an initial page.
-5. Compose existing model schema/association/callback marginalia and contextual
+2. Compose existing model schema/association/callback marginalia and contextual
    references **after the reading surface**, using their existing Rust selectors.
    Serialize affected README/gemspec/ledger/decisions/Map-doc hunks normally.
 
@@ -142,6 +155,12 @@ highlighter suffice; no parser, renderer framework or new dependency is introduc
 ## Evidence and remaining gates
 
 Pure observer/presenter tests are runnable without Thistle/native/framework/App.
+Dedicated wiring probes run isolated subprocesses with Native and framework
+registry adapters stubbed before facade loading. They check unchanged nil/default
+behavior, context with `rails: nil`, after-Rails incremental counters, refusal
+before publication, and Reader selector/close forwarding. No native capture or
+framework is executed by these probes. They are dispatch evidence, not captured
+semantic or saved-generation acceptance.
 Rust regressions are authored in `source_comprehension_tests.rs` and remain
 **UNRUN** in this phase. The Rust toolchain is absent from the active PATH;
 rustfmt preflight failed before starting its child and that attempt was retained.

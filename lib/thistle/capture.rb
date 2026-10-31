@@ -26,20 +26,24 @@ module Thistle
       end.freeze
     end
 
-    def initialize(root:, rails: nil, limits: {})
+    def initialize(root:, rails: nil, limits: {}, source_comprehension: nil)
       @root = root.to_s
       @rails = rails
       @limits = self.class.copy_limits(limits)
+      @source_comprehension = source_comprehension_context(source_comprehension)
     end
 
     def call
       result = Native.call("op" => "capture", "root" => @root, "limits" => @limits)
       fact_bytes = native_evidence_bytes(result)
       effective = result.fetch("producer").fetch("effective_limits").transform_keys(&:to_sym)
+      # One initial link count for explicit observation paths. Append uses native
+      # delta charges and never rewalks/serializes earlier facts for each family.
+      links = (@rails || @source_comprehension) ? result.fetch("facts").sum { |fact| fact.fetch("links").length } : 0
       if @rails
         require_relative "rails_capture"
         static_fact_count = result.fetch("facts").length
-        static_links = result.fetch("facts").sum { |fact| fact.fetch("links").length }
+        static_links = links
         remaining = effective.merge(
           max_facts: effective[:max_facts] - static_fact_count,
           max_links: effective[:max_links] - static_links,
@@ -75,7 +79,17 @@ module Thistle
           limits: effective.merge(max_facts: effective[:max_facts] - result.fetch("facts").length),
           evidence_budget: MAX_EVIDENCE_BYTES - fact_bytes
         ).call
-        fact_bytes, = append_observations(result, effective, "callback", callbacks, fact_bytes, links)
+        fact_bytes, links = append_observations(result, effective, "callback", callbacks, fact_bytes, links)
+        result.fetch("evidence_accounting")["fact_bytes_upper_bound"] = fact_bytes
+      end
+      if @source_comprehension
+        require_relative "source_comprehension_observer"
+        observations = SourceComprehensionObserver.new(
+          limits: effective.merge(max_facts: effective[:max_facts] - result.fetch("facts").length),
+          evidence_budget: MAX_EVIDENCE_BYTES - fact_bytes
+        ).call(**@source_comprehension)
+        fact_bytes, = append_observations(result, effective, "source_comprehension", observations, fact_bytes, links,
+          { "root" => File.expand_path(@root) })
         result.fetch("evidence_accounting")["fact_bytes_upper_bound"] = fact_bytes
       end
       raise LimitError, "Capture exceeds max_facts" if result["facts"].length > effective[:max_facts]
@@ -85,6 +99,27 @@ module Thistle
     end
 
     private
+
+    def source_comprehension_context(value)
+      exact = Object.instance_method(:instance_of?)
+      return nil if exact.bind_call(value, NilClass)
+      unless exact.bind_call(value, Hash) && Hash.instance_method(:size).bind_call(value) == 2 &&
+          Hash.instance_method(:key?).bind_call(value, :models) && Hash.instance_method(:key?).bind_call(value, :stop_before)
+        raise InvalidInput, "Source comprehension requires exactly models and stop_before"
+      end
+      models = Hash.instance_method(:fetch).bind_call(value, :models)
+      boundary = Hash.instance_method(:fetch).bind_call(value, :stop_before)
+      unless exact.bind_call(models, Array) && Array.instance_method(:length).bind_call(models) <= 100_000 &&
+          (exact.bind_call(boundary, Class) || exact.bind_call(boundary, Module))
+        raise InvalidInput, "Source comprehension requires explicit loaded classes and a stop boundary"
+      end
+      copy = []
+      Array.instance_method(:each).bind_call(models) do |model|
+        raise InvalidInput, "Source comprehension model must be a loaded Class" unless exact.bind_call(model, Class)
+        copy << model
+      end
+      { models: copy.freeze, stop_before: boundary }.freeze
+    end
 
     # Advisory native context only; Store independently validates actual facts.
     # This path is for this package's explicit schema3 native capture, not legacy
@@ -102,13 +137,13 @@ module Thistle
       bytes
     end
 
-    def append_observations(result, effective, family, observation, fact_bytes, links)
-      added = Native.call("op" => "#{family}_batch", "observation" => observation, "context" => {
+    def append_observations(result, effective, family, observation, fact_bytes, links, additional_request_fields = {})
+      added = Native.call(additional_request_fields.merge("op" => "#{family}_batch", "observation" => observation, "context" => {
         "limits" => effective.slice(:max_facts, :max_links, :max_entries, :max_diagnostics),
         "facts" => result.fetch("facts").length, "links" => links,
         "diagnostics" => result.fetch("diagnostics").length, "fact_bytes" => fact_bytes,
         "schema_version" => result.fetch("schema_version")
-      })
+      }))
       result.fetch("facts").concat(added.fetch("facts"))
       families = added.fetch("coverage").map { |entry| entry.fetch("family") }
       result.fetch("coverage").reject! { |entry| families.include?(entry["family"]) }

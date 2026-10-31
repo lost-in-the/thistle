@@ -109,7 +109,8 @@ pub(crate) fn validate_observation(data: &Value) -> Result<usize> {
         }
     }
     if seen != names { return Err(CoreError::input("Incomplete effective ownership inventory")); }
-    Ok(entries + methods.len())
+    entries.checked_add(methods.len()).filter(|n| *n <= 100_000)
+        .ok_or_else(|| CoreError::limit("Ownership combined entries exceed allowance"))
 }
 
 fn normalize_hints(data: &mut Value, root: &str) {
@@ -130,7 +131,9 @@ fn normalize_hints(data: &mut Value, root: &str) {
 }
 
 pub(crate) fn batch(context: &Value, observation: &Value, root: &str) -> Result<Value> {
-    if !root.starts_with('/') || root.ends_with('/') { return Err(CoreError::input("Expected absolute ownership root without trailing slash")); }
+    if !root.starts_with('/') || root.contains('\0') || root.split('/').skip(1).any(|part| part.is_empty() || part=="." || part=="..") {
+        return Err(CoreError::input("Expected normalized absolute ownership root without trailing slash"));
+    }
     schema::depth(observation)?;
     schema::encoded_bytes(observation, schema::MAX_FACTS_BYTES)?;
     schema::model_object(observation, &["version", "models"])?;
@@ -153,7 +156,9 @@ pub(crate) fn batch(context: &Value, observation: &Value, root: &str) -> Result<
         admission.admit(&fact, entries)?;
         facts.push(fact);
     }
-    let mut out = json!({"appended":admission.appended(),"coverage":[{"family":"source_ownership","status":"partial",
+    let mut out = json!({"appended":admission.appended(),"source_comprehension_observer":{"version":1,
+        "scope":"Explicit loaded classes before supplied stop boundary; builtin descriptors only; source/runtime coherence unknown"},
+        "coverage":[{"family":"source_ownership","status":"partial",
         "scope":"Explicit loaded classes, builtin instance-method descriptors before a supplied stop boundary; no method execution",
         "reason":"Ordered loaded ancestry and hints only. Saved-source coherence, conditions, dispatch and execution unknown."}]});
     out["facts"] = Value::Array(facts);
