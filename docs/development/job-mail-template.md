@@ -233,11 +233,13 @@ host execution window. A parser `busy` code maps to `Thistle::Busy`; Map returns
 analysis-limited source gives explicit unknown coverage, never complete absence.
 
 Display option snippets are at most 256 UTF-8 bytes, with `truncated` and original
-`source_bytes`; keyword hashes are not duplicated in `arguments`. Original
+`source_bytes`. Policy positional syntax appears once in `exceptions`; keyword
+hashes belong to the separately recorded `options`, with no `arguments` alias. Original
 physical spans and strict literal decoding/target identities remain untouched.
 ERB's 200-reference/20k-node allowance returns retained `bounded_partial` evidence,
 `scan_complete:false` and explicit remaining unsearched work, never empty complete
-absence. Large parse allocation/CPU still depends on admitted host execution.
+absence. Complete source scans omit `unsearched`; a partial scan retains its
+explicit remaining-work marker. Large parse allocation/CPU still depends on admitted host execution.
 
 Conventional implicit `mail(to:)`, `mail(template_name:)` without explicit path,
 and positional `render 'dir/name'` remain unsupported selection, with aligned

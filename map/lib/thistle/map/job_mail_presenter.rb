@@ -15,7 +15,7 @@ module Thistle
         'policy' => 'policy', 'handoff' => 'handoff', 'template_references' => 'template references' }.freeze
       EVIDENCE_LABELS = { 'policy_declaration' => 'Declared policy', 'mailer_action_candidate' => 'Potential mailer action',
         'delivery_request_candidate' => 'Potential delivery request', 'template_selection' => 'Template selection evidence',
-        'instance_variable' => 'Instance variable reference', 'helper_candidate' => 'Potential helper', 'local_or_helper_candidate' => 'Local or helper candidate', 'call_or_helper_candidate' => 'Call or helper candidate', 'partial_candidate' => 'Potential partial' }.freeze
+        'instance_variable' => 'Instance variable reference', 'local_or_helper_candidate' => 'Local or helper candidate', 'call_or_helper_candidate' => 'Call or helper candidate', 'partial_candidate' => 'Potential partial' }.freeze
 
       # Display-contract admission, not semantic selection. Native owns rows,
       # candidates and cursor positions; this validates typed saved witnesses.
@@ -54,7 +54,7 @@ module Thistle
               validate_identity!(item.fetch('root'), generation: generation, id: id)
               raise Thistle::InvalidSnapshot, 'Invalid source evidence row' unless item['evidence'].instance_of?(Hash) && Investigation::DIGEST.match?(item['sha256'].to_s)
               kinds = { 'policy' => %w[policy_declaration], 'handoff' => %w[mailer_action_candidate delivery_request_candidate template_selection],
-                'template_references' => %w[instance_variable helper_candidate local_or_helper_candidate call_or_helper_candidate partial_candidate] }.fetch(family)
+                'template_references' => %w[instance_variable local_or_helper_candidate call_or_helper_candidate partial_candidate] }.fetch(family)
               raise Thistle::InvalidSnapshot, 'Unsupported source evidence type' unless kinds.include?(item.dig('evidence','kind'))
               validate_span!(item.fetch('evidence').fetch('span'))
             end

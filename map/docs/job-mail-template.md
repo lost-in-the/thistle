@@ -82,7 +82,7 @@ Find/Source/Links/Check, keyboard focus, narrow screens, IME input and no-JS lin
 The independent fixture cards and exact native/shared DTOs are in
 [the corrected Core source contract](https://github.com/lost-in-the/thistle/blob/5c5348419faf28e16a3789850b8ff4086059e1b1/docs/development/job-mail-template.md). Pure mocked
 source checks pass: job/mail navigation 3 tests/75 assertions, isolated mocked
-routes 16/32, presenter 2/21, and existing LOS147 navigation 4/41. They cover typed
+routes 17/34, presenter 3/25, and existing LOS147 navigation 4/41. They cover typed
 followups, explicit Source/Links entry actions, no family fanout, safe ERB source
 escaping, before-factory scope refusal, unsupported APIs, malformed envelopes/
 descriptors, HEAD/close, full collection and search-drop notice. Reader/highlighter
@@ -104,7 +104,9 @@ application-controlled getter dispatch is permitted. Bare ERB names remain local
 or helper candidates, and other receiverless calls remain call or helper
 candidates; binding/execution stays unknown. Oversized option display is explicitly
 truncated while physical Source remains original. Template scan allowance returns
-bounded_partial and unsearched coverage rather than erasing prior rows. Native
+bounded_partial and unsearched coverage rather than erasing prior rows. Complete
+source scans omit the unsearched field. Policy exception syntax is displayed once,
+separately from recorded options. Native
 filesystem coverage distinguishes ordinary walk from separately supplied ERB.
 
 Busy source analysis renders 503 with Retry-After:1 and “retry this page” text;

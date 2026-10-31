@@ -69,7 +69,8 @@ fn source_policy_options_and_dynamic_template_selection_are_separate_from_regist
     let policy = &result["rows"][0];
     assert_eq!(policy["operation"],"retry_on");
     assert_eq!(policy["registration_match"],"unknown");
-    assert_eq!(policy["arguments"][0]["source"],"DeliveryTimeout");
+    assert_eq!(policy["exceptions"][0]["source"],"DeliveryTimeout");
+    assert!(policy.get("arguments").is_none());
     assert_eq!(policy["options"]["attempts"]["source"],"4");
     assert_eq!(policy["options"]["wait"]["source"],":polynomially_longer");
     let source = "def dynamic_receipt; mail(template_path: 'receipt_mailer', template_name: @selected); end";
@@ -181,7 +182,8 @@ fn oversized_handler_display_is_bounded_without_losing_options_or_source_witness
     let fact = json!({"id":"a".repeat(64),"kind":"class","location":{"start_byte":0,"end_byte":source.len()}});
     let answer = parse_source(&fact,"app/jobs/receipt_job.rb",&source).unwrap();
     let row = &answer["rows"][0];
-    assert_eq!(row["arguments"].as_array().unwrap().len(),1); // no duplicated keyword hash
+    assert_eq!(row["exceptions"].as_array().unwrap().len(),1); // positional exception only
+    assert!(row.get("arguments").is_none());
     assert_eq!(row["options"]["with"]["truncated"],true);
     assert!(row["options"]["with"]["source"].as_str().unwrap().len() <= 256);
     assert!(row["options"]["with"]["source_bytes"].as_u64().unwrap() > 8_000);
@@ -206,4 +208,34 @@ fn original_template_target_is_not_a_truncated_display_value() {
     let row = &answer["rows"][0];
     assert_eq!(row["template"],name);
     assert_eq!(candidate_key(row).unwrap().0,format!("app/views/receipt_mailer/{name}.html.erb"));
+}
+
+#[test]
+fn saved_source_pages_omit_unsearched_only_when_no_work_is_marked_unsearched() {
+    let _guard = crate::CAPTURE_FIXTURE_LOCK.lock().unwrap();
+    let root = tempfile::tempdir().unwrap();
+    std::fs::write(root.path().join("job.rb"),
+        "class ReceiptJob; retry_on DeliveryTimeout, wait: 5; def perform; ReceiptMailer.receipt.deliver_later; end; end").unwrap();
+    std::fs::write(root.path().join("complete.erb"),"<%= @recipient %>").unwrap();
+    std::fs::write(root.path().join("partial.erb"),"<%= @recipient %>\n".repeat(240)).unwrap();
+    let captured = crate::capture::capture_with_templates(root.path(),&json!({}),
+        &json!(["complete.erb","partial.erb"])).unwrap();
+    let facts = captured["facts"].as_array().unwrap();
+    let policy = facts.iter().find(|fact| fact["kind"] == "class").unwrap();
+    let handoff = facts.iter().find(|fact| fact["kind"] == "method").unwrap();
+    let complete = facts.iter().find(|fact| fact["kind"] == "file" && fact["name"] == "complete.erb").unwrap();
+    let partial = facts.iter().find(|fact| fact["kind"] == "file" && fact["name"] == "partial.erb").unwrap();
+    let store = tempfile::tempdir().unwrap();
+    let manifest = crate::store::publish(store.path(),&captured).unwrap();
+    let reader = Reader::open(store.path(),manifest["generation"].as_str()).unwrap();
+    for (fact,family) in [(policy,"policy"),(handoff,"handoff"),(complete,"template_references")] {
+        let query = json!({"id":fact["id"],"family":family,"limit":1});
+        let answer = select(&reader,&Query::parse(&query).unwrap()).unwrap();
+        assert_eq!(answer["coverage"]["source_scan_complete"],true);
+        assert!(answer["coverage"].get("unsearched").is_none());
+    }
+    let query = json!({"id":partial["id"],"family":"template_references","limit":1});
+    let answer = select(&reader,&Query::parse(&query).unwrap()).unwrap();
+    assert_eq!(answer["coverage"]["source_scan_complete"],false);
+    assert_eq!(answer["coverage"]["unsearched"],"remaining_reference_or_node_work");
 }

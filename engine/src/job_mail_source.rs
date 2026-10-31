@@ -124,14 +124,13 @@ pub(crate) fn analyze(declaration: &Value, content: &str) -> Result<Value> {
             let name = text(call.name().as_slice());
             let here = spans.span(node.location(), start);
             if !method && call.receiver().is_none() && matches!(name.as_str(), "retry_on"|"discard_on"|"rescue_from") {
-                let args: Vec<_> = arguments(&call)?.into_iter().filter(|n| n.as_keyword_hash_node().is_none()).map(value).collect();
                 let exceptions: Vec<_> = arguments(&call)?.into_iter().filter(|n| n.as_keyword_hash_node().is_none()).map(value).collect();
                 let mut options = serde_json::Map::new();
                 for key in ["wait","attempts","queue","priority","jitter","report","with"] {
                     options.insert(key.to_owned(),keyword(&call,key)?.map(value).unwrap_or(json!({"kind":"not_statically_available"})));
                 }
                 rows.push(json!({"kind":"policy_declaration","operation":name,"span":here,
-                    "arguments":args,"exceptions":exceptions,"options":options,
+                    "exceptions":exceptions,"options":options,
                     "handler":if call.block().is_some() {"opaque_block"} else {"not_stated"},
                     "option_defaults":"not_captured","other_options":"not_interpreted",
                     "provenance":"source_syntax","registration_match":"unknown","condition":"unknown"}));
