@@ -163,7 +163,7 @@ module Thistle
         body += "<p><a href=\"#{h(url('/links', 'direction' => 'outgoing'))}\">Outgoing references</a> · <a href=\"#{h(url('/links', 'direction' => 'incoming'))}\">Incoming references</a></p>"
         body += if references
                   ReferencesPresenter.new(generation: @generation, mount: @mount,
-                    schema_version: @reader.manifest['schema_version']).render(references)
+                    schema_version: @reader.manifest['schema_version'], files: @reader.manifest['files']).render(references)
                 elsif references_limited
                   '<p class="notice ui">Reference selection reached resource limits; no reference result was returned.</p>'
                 else

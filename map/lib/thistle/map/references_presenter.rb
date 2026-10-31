@@ -8,8 +8,9 @@ module Thistle
   module Map
     # Selection, ambiguity and limits belong to the native pinned Reader.
     class ReferencesPresenter
-      def initialize(generation:, mount:, schema_version: nil)
+      def initialize(generation:, mount:, schema_version: nil, files: [])
         @generation, @mount = generation, mount
+        @files = files
         @occurrences = ConstantOccurrence.new(generation: generation, mount: mount, schema_version: schema_version)
       end
 
@@ -26,11 +27,13 @@ module Thistle
         if result.fetch('relationships').empty?
           body << '<p class="ui">No matching recorded relationships found in the searched evidence. This does not establish that the model has no references.</p>'
         end
+        sizes = source_sizes(result.fetch('relationships'))
         result.fetch('relationships').each do |row|
           origin, link = row.fetch('origin'), row.fetch('link')
           body << "<article><h3>#{h(link.fetch('relation'))}: #{h(link.fetch('target'))}</h3>"
           body << "<p>Recorded at #{navigation(origin, candidate: false)} · #{source(origin)} · #{h(origin.fetch('evidence'))}; recorded resolution #{h(link.fetch('resolution'))}.</p>"
-          body << @occurrences.render(link, origin: origin, detail_omitted: row.fetch('detail_omitted'))
+          body << @occurrences.render(link, origin: origin, detail_omitted: row.fetch('detail_omitted'),
+            source_bytes: sizes[origin['path']])
           body << "<p>Link detail omitted by display budget. Follow the recorded origin's Links page for captured details.</p>" if row.fetch('detail_omitted')
           candidates = row.fetch('candidates')
           body << "<p>#{row.fetch('candidate_matches')} known name-match candidates; binding unknown. "
@@ -44,6 +47,22 @@ module Thistle
       end
 
       private
+
+      def source_sizes(rows)
+        # One pass over the already-pinned manifest, retaining only this page's
+        # constant origins. No full file index, Source read or fact expansion.
+        wanted = rows.each_with_object({}) do |row, paths|
+          paths[row.fetch('origin')['path']] = nil if row.fetch('link')['relation'] == 'references_constant'
+        end
+        return wanted if wanted.empty? || !@files.instance_of?(Array)
+
+        @files.each do |file|
+          next unless file.instance_of?(Hash) && wanted.key?(file['path'])
+          bytes = file['bytes']
+          wanted[file['path']] = bytes if bytes.instance_of?(Integer) && bytes >= 0
+        end
+        wanted
+      end
 
       def h(value)
         ERB::Util.html_escape(value.to_s)

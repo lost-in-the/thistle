@@ -109,6 +109,37 @@ class MapConstantOccurrenceTest < Minitest::Test
     refute_includes html, '<script>'
   end
 
+  def test_incoming_sites_apply_pinned_manifest_byte_limit_without_expanding_source_or_facts
+    [Thistle::Map::View::MAX_SOURCE_BYTES, Thistle::Map::View::MAX_SOURCE_BYTES + 1].each do |bytes|
+      content = 'Widget'.ljust(bytes)
+      link = occurrence(content, offset: 0, role: 'value')
+      fact = origin(content)
+      reader = reader_with([link], content)
+      # An unrelated oversized file must not force a small origin's fallback.
+      reader.manifest['files'].unshift('path' => 'other.rb', 'bytes' => bytes + 1)
+      def reader.fact(*) = raise('Incoming occurrence expanded fact')
+      def reader.links(*) = raise('Incoming occurrence expanded links')
+      def reader.source(*) = raise('Incoming occurrence expanded Source')
+      reader.define_singleton_method(:references) do |id, direction:|
+        { 'generation' => generation, 'anchor' => fact, 'direction' => direction,
+          'coverage' => { 'known_matches' => 1, 'known_omitted' => 0, 'scan_complete' => true, 'capture_partial' => true },
+          'relationships' => [{ 'origin' => fact, 'link' => link, 'detail_omitted' => false,
+            'candidates' => [], 'candidate_matches' => 0, 'candidate_search_complete' => true }] }
+      end
+      status, _, html = request(make_app(reader), '/links', query: "generation=#{GENERATION}&id=#{FACT_ID}&direction=incoming")
+      assert_equal 200, status
+      assert_includes html, 'Line 1 · Role: value'
+      if bytes > Thistle::Map::View::MAX_SOURCE_BYTES
+        assert_includes html, 'Source exceeds web display limits'
+        assert_includes html, "thistle source #{FACT_ID} --store STORE --generation #{GENERATION}"
+        refute_match(/#L\d/, html)
+      else
+        assert_includes html, 'Captured Source line 1</a>'
+        refute_includes html, 'Source exceeds web display limits'
+      end
+    end
+  end
+
   def test_malformed_opaque_and_missing_locations_never_create_site_anchors_or_source_reads
     base = occurrence
     changes = [nil, {}, { 'version' => 9 }, base['attributes']['thistle_constant'].merge('location' => nil),
