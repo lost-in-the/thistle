@@ -51,10 +51,12 @@ if $PROGRAM_NAME == __FILE__
     demand(registry['entries'].map { |r| r['exception'] } == expected.dig('registry', 'exceptions_in_registered_order'), 'Wrong registered exception order')
     demand(registry['entries'].map { |r| r['shared_with_superclass'] } == expected.dig('registry', 'shared_with_superclass'), 'Wrong inherited/local rows')
     demand(observed['classes'].find { |c| c['name'] == 'RegistryOverrideJob' }.dig('rescue_handlers', 'status') == 'unavailable', 'Application private getter was accepted')
-    a = Thistle.capture(root: fixture, output: store, rails: app)
+    context = { jobs: [ReceiptJob, RegistryOverrideJob], mailers: [ReceiptMailer],
+      templates: %w[app/views/receipt_mailer/receipt.html.erb app/views/receipt_mailer/_footer.html.erb] }
+    a = Thistle.capture(root: fixture, output: store, rails: app, job_mail: context)
     source = File.join(fixture, 'app/jobs/application_job.rb')
     File.write(source, File.read(source).sub('attempts: 4', 'attempts: 7'))
-    b = Thistle.capture(root: fixture, output: store, rails: app)
+    b = Thistle.capture(root: fixture, output: store, rails: app, job_mail: context)
     demand(a['generation'] != b['generation'], 'B did not publish changed bytes')
     puts JSON.generate('a' => a.fetch('generation'), 'b' => b.fetch('generation'))
   elsif %w[read served].include?(mode)

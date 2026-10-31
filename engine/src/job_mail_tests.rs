@@ -83,3 +83,61 @@ fn source_policy_options_and_dynamic_template_selection_are_separate_from_regist
     assert_eq!(result["rows"][0]["status"],"dynamic_unknown");
     assert!(candidate_key(&result["rows"][0]).is_none());
 }
+
+// Genuine native capture/publication/Reader regressions, authored UNRUN. Root
+// must execute these under its later native/filesystem resource admission.
+#[test]
+fn explicit_inert_templates_deduplicate_and_survive_saved_reader_admission() {
+    let _guard = crate::CAPTURE_FIXTURE_LOCK.lock().unwrap();
+    let root = tempfile::tempdir().unwrap();
+    std::fs::write(root.path().join("job.rb"),"class ReceiptJob; def perform(id); ReceiptMailer.receipt(id).deliver_later; end; end").unwrap();
+    let content = "<%= receipt_heading(@recipient) %>\n<% raise 'never evaluate' %>\n";
+    std::fs::write(root.path().join("receipt.erb"),content).unwrap();
+    let ordinary = crate::capture::capture(root.path(),&json!({})).unwrap();
+    assert!(!ordinary["files"].as_array().unwrap().iter().any(|f| f["path"] == "receipt.erb"));
+    let mut captured = crate::capture::capture_with_templates(root.path(),&json!({}),&json!(["receipt.erb","receipt.erb"])).unwrap();
+    assert_eq!(captured["files"].as_array().unwrap().iter().filter(|f| f["path"] == "receipt.erb").count(),1);
+    let file_fact = captured["facts"].as_array().unwrap().iter().find(|f| f["name"] == "receipt.erb").unwrap().clone();
+    assert_eq!(file_fact["attributes"]["parse_status"],"inert");
+    let mut context = context();
+    context["facts"] = json!(captured["facts"].as_array().unwrap().len());
+    context["links"] = json!(captured["facts"].as_array().unwrap().iter().map(|f| f["links"].as_array().unwrap().len()).sum::<usize>());
+    context["fact_bytes"] = captured["evidence_accounting"]["fact_bytes_upper_bound"].clone();
+    let added = batch(&context,&observation()).unwrap();
+    let registry = added["facts"][0].clone();
+    captured["facts"].as_array_mut().unwrap().extend(added["facts"].as_array().unwrap().iter().cloned());
+    captured["coverage"].as_array_mut().unwrap().extend(added["coverage"].as_array().unwrap().iter().cloned());
+    let store = tempfile::tempdir().unwrap();
+    let manifest = crate::store::publish(store.path(),&captured).unwrap();
+    let reader = Reader::open(store.path(),manifest["generation"].as_str()).unwrap();
+    assert_eq!(reader.source_file("receipt.erb").unwrap()["content"],content);
+    let query = json!({"id":file_fact["id"],"family":"template_references","limit":1});
+    let answer = select(&reader,&Query::parse(&query).unwrap()).unwrap();
+    assert_eq!(answer["generation"],manifest["generation"]);
+    assert_eq!(answer["root"]["kind"],"file");
+    assert!(!answer["next_cursor"].is_null());
+    let query = json!({"id":registry["id"],"family":"registrations","limit":1});
+    assert!(!select(&reader,&Query::parse(&query).unwrap()).unwrap()["page_complete"].as_bool().unwrap());
+    let mut bad = captured.clone();
+    bad["facts"].as_array_mut().unwrap().last_mut().unwrap()["attributes"]["job_mail"]["coherence"] = json!("verified");
+    assert!(crate::store::publish(store.path(),&bad).is_err());
+    assert_eq!(Reader::open(store.path(),None).unwrap().generation,manifest["generation"].as_str().unwrap());
+}
+
+#[test]
+fn explicit_template_paths_cannot_escape_or_bypass_existing_inventory_limits() {
+    let _guard = crate::CAPTURE_FIXTURE_LOCK.lock().unwrap();
+    let root = tempfile::tempdir().unwrap();
+    let outside = tempfile::tempdir().unwrap();
+    std::fs::write(outside.path().join("outside.erb"),"outside").unwrap();
+    std::os::unix::fs::symlink(outside.path(),root.path().join("linked")).unwrap();
+    std::os::unix::fs::symlink(outside.path().join("outside.erb"),root.path().join("linked.erb")).unwrap();
+    for path in ["../outside.erb","linked/outside.erb","linked.erb","vendor/hidden.erb","unsupported.haml"] {
+        assert!(crate::capture::capture_with_templates(root.path(),&json!({}),&json!([path])).is_err(),"{path}");
+    }
+    std::fs::write(root.path().join("regular.erb"),"<%= inert %>").unwrap();
+    assert!(crate::capture::capture_with_templates(root.path(),&json!({"max_file_bytes":1}),&json!(["regular.erb"])).is_err());
+    assert!(crate::capture::capture_with_templates(root.path(),&json!({"max_entries":1}),&json!(["regular.erb"])).is_err());
+    let anonymous = json!({"kind":"rails_job_mail","name":"Anonymous job 0","attributes":{"job_mail":{"class":{"name":null}}}});
+    assert!(recorded_domain::candidate_name(&anonymous).is_none());
+}

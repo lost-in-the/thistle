@@ -6,6 +6,9 @@ mod callbacks;
 mod callback_effects;
 mod method_lookup;
 mod source_comprehension;
+mod job_mail;
+mod job_mail_source;
+mod erb_template;
 mod references;
 mod fact_identity;
 mod model_brief;
@@ -49,6 +52,7 @@ fn request_scratch(request: &Value) -> Result<Option<query::Reservation>> {
         Some("fact_identity") => { fact_identity::id(request)?; fact_identity::SCRATCH },
         Some("model_brief") => model_brief::Query::parse(request)?.scratch(),
         Some("source_comprehension") => source_comprehension::Query::parse(request)?.scratch(),
+        Some("job_mail") => job_mail::Query::parse(request)?.scratch(),
         Some("callback_effects") => callback_effects::Query::parse(request)?.scratch(),
         Some("references") => references::Query::parse(request)?.scratch(),
         Some("find_evidence") => query::Query::parse(request)?.scratch()?,
@@ -77,7 +81,10 @@ fn dispatch_inner(request: &Value) -> Result<Value> {
     match schema::string(request, "op")? {
         "version" => Ok(json!({"engine":"rust", "version":env!("CARGO_PKG_VERSION"), "schema_version":schema::VERSION,
             "arch":std::env::consts::ARCH, "os":std::env::consts::OS, "parser":"prism-1.9.0"})),
-        "capture" => capture::capture(Path::new(schema::string(request, "root")?), request.get("limits").unwrap_or(&json!({}))),
+        "capture" => match request.get("templates") {
+            None | Some(Value::Null) => capture::capture(Path::new(schema::string(request, "root")?), request.get("limits").unwrap_or(&json!({}))),
+            Some(paths) => capture::capture_with_templates(Path::new(schema::string(request,"root")?), request.get("limits").unwrap_or(&json!({})), paths),
+        },
         "capture_publish" => {
             let captured = capture::capture(Path::new(schema::string(request, "root")?), request.get("limits").unwrap_or(&json!({})))?;
             store::publish(Path::new(schema::string(request, "path")?), &captured)
@@ -86,6 +93,8 @@ fn dispatch_inner(request: &Value) -> Result<Value> {
         "model_batch" => model::batch(&request["context"], &request["observation"]),
         "callback_batch" => callbacks::batch(&request["context"], &request["observation"]),
         "source_comprehension_batch" => source_comprehension::batch(&request["context"], &request["observation"], schema::string(request, "root")?),
+        "job_mail_batch" => job_mail::batch(&request["context"], &request["observation"]),
+        "erb_template_admit" => erb_template::admit_raw(&request["template"]),
         "open" => {
             let requested = match request.get("generation") { None | Some(Value::Null) => None,
                 Some(value) => Some(value.as_str().ok_or_else(|| CoreError::input("Generation must be a string"))?) };
@@ -121,6 +130,7 @@ fn dispatch_inner(request: &Value) -> Result<Value> {
         "links" => reader(request)?.links(schema::string(request, "id")?),
         "model_brief" => model_brief::select(&*reader(request)?, &model_brief::Query::parse(request)?),
         "source_comprehension" => source_comprehension::select(&*reader(request)?, &source_comprehension::Query::parse(request)?),
+        "job_mail" => job_mail::select(&*reader(request)?, &job_mail::Query::parse(request)?),
         "callback_effects" => callback_effects::select(&*reader(request)?, &callback_effects::Query::parse(request)?),
         "references" => references::select(&*reader(request)?, &references::Query::parse(request)?),
         "check" => reader(request)?.check(),

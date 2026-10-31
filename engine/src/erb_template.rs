@@ -19,8 +19,19 @@ pub(crate) fn admit_raw(raw: &Value) -> Result<Value> {
     if raw["bytes"].as_u64() != Some(bytes.len() as u64) || raw["sha256"] != schema::digest(&bytes) {
         return Err(CoreError::input("Raw template size/digest mismatch"));
     }
-    let content = String::from_utf8(bytes).map_err(|_| CoreError::input("Unsupported template encoding; UTF-8 required"))?;
-    Ok(json!({"path":path,"bytes":content.len(),"sha256":raw["sha256"],"encoding":"UTF-8","content":content}))
+    admit_bytes(path,&bytes,schema::string(raw,"sha256")?)
+}
+
+/// Shared admission for the existing descriptor-anchored capture reader. It
+/// passes raw bounded bytes directly, without numeric JSON transport/copies.
+pub(crate) fn admit_bytes(path: &str, bytes: &[u8], digest: &str) -> Result<Value> {
+    schema::path(path)?;
+    if !path.ends_with(".erb") { return Err(CoreError::input("Only ERB source is admitted")); }
+    if bytes.len() > source::MAX_BYTES { return Err(CoreError::limit("Raw template byte limit")); }
+    schema::hash(digest)?;
+    if schema::digest(bytes) != digest { return Err(CoreError::input("Raw template digest mismatch")); }
+    let content = std::str::from_utf8(bytes).map_err(|_| CoreError::input("Unsupported template encoding; UTF-8 required"))?;
+    Ok(json!({"path":path,"bytes":bytes.len(),"sha256":digest,"encoding":"UTF-8","content":content}))
 }
 
 fn projection(content: &str) -> Result<Vec<u8>> {

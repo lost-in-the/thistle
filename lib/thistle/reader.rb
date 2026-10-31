@@ -105,6 +105,11 @@ module Thistle
         "cursor" => cursor, "max_bytes" => max_bytes)
     end
 
+    def job_mail(id, family: nil, limit: 8, cursor: nil, max_bytes: 32768)
+      request("job_mail", "id" => id, "family" => family, "limit" => limit,
+        "cursor" => cursor, "max_bytes" => max_bytes)
+    end
+
     def check
       request("check")
     end

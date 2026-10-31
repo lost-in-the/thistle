@@ -1,8 +1,8 @@
 # Saved job, mailer and ERB investigation (LOS-148)
 
 Contract: [LOS-148](https://linear.app/lost-in-the/issue/LOS-148). This is a
-**source-only implementation checkpoint**, not an integrated or accepted journey.
-Leah owns acceptance; Root owns shared wiring, independent review and later finite
+**source-only implementation checkpoint**, not an executed or accepted journey.
+Leah owns acceptance; Root owns Map/packaging wiring, independent review and later finite
 native/framework/installed/served execution. No source/native/package or launch
 qualification is inferred from the pure helper checks.
 
@@ -14,27 +14,48 @@ mailer action, delivery method, ERB compiler/evaluator or helper is invoked.
 
 ## Dedicated interfaces and Root-owned callsites
 
-One exact existing-file transfer permits the parser-worker extraction in
-`capture.rs`; all other shared wiring remains Root-owned. The immutable starting
-head is `5c80f5d167ccf30d7c38f7bd78a33ca4c5734cfa`. The parser helper below now
-exists in source; the other integration seams remain outstanding:
+Phase 3 composes the published LOS147 Core checkpoint
+`ee37303386f688f7e9a608f79cb6dfc8d57c6e5b` by signed merge, preserving its bytes
+and the shared parser worker. The immutable original base remains
+`5c80f5d167ccf30d7c38f7bd78a33ca4c5734cfa`. Exact transfers now implement the Core
+hooks below in source. They have not been compiled or executed in this phase;
+Map routing, packaging, independent review and actual acceptance remain Root-owned.
 
-| Root-owned location | Exact integration required |
+| Location | Current source integration / remaining ownership |
 | --- | --- |
-| `engine/src/lib.rs` | Declare `mod job_mail; mod job_mail_source; mod erb_template;`. Route internal `job_mail_batch` to `job_mail::batch(context, observation)`; raw template admission to `erb_template::admit_raw(raw)`; public native `job_mail` to `job_mail::select(&reader, &job_mail::Query::parse(request)?)`. Add its `scratch()` to request admission. No second public source dispatcher. |
+| `engine/src/lib.rs` | Modules and `job_mail_batch`, `erb_template_admit`, public `job_mail` selection and `Query::scratch()` admission implemented. Reservation uses the existing native envelope/response-serialization lifetime. Optional `capture.templates` selects the narrow existing-inventory extension. No second public source dispatcher. |
 | `engine/src/capture.rs` | Source helper implemented: `pub(crate) fn parser_worker<T: Send + 'static>(name: &'static str, task: impl FnOnce() -> Result<T> + Send + 'static) -> Result<T>`. Existing capture delegates with unchanged effective-limit validation and capture recipe. Capture and selected source share one atomic try-admission, 64 MiB stack, spawn/join/panic mapping and RAII release. Busy is immediate; no queue/retry/fallback. Native execution remains UNRUN. |
-| `engine/src/schema.rs` | Strictly recognize `rails_job_mail` through `job_mail::validate_fact` at publication **and fresh Reader admission**. Structural generic acceptance is insufficient. `rails_job_mail` runtime rows have no source location; the handler location is only a hint. Exclude anonymous job/mail registry display names from recorded-name candidate identity, as already done for anonymous models/callbacks. |
-| `lib/thistle/capture.rb`, `rails_capture.rb` | Within the explicitly supplied app boundary, pass actual already loaded `jobs:`, `mailers:`, absolute `root:`, admitted `framework_version:`, remaining `limits:` and `evidence_budget:` to `JobMailObserver.new(app:,...).call`. The helper does not discover/eager-load descendants or resolve constants. Append only admitted batch facts and charge the returned `appended` counts. `job_mail_observer` producer metadata is supplied by `batch`. |
-| Template inventory/blob aggregation | Open candidate files with the existing anchored/no-symlink/regular-file policy; pass a dedicated open File to `JobMailTemplateCapture.call(file:, path:, max_bytes:)`. Admit raw bytes in Rust. Deduplicate/charge source files, total bytes, source facts, entries, metadata, links and diagnostics under existing limits before publication. Include a normal `file` fact named by its exact relative path, physical full-file span and saved blob, so existing `Reader#source` and `source_file` work without Rails. No new global limit. |
-| `lib/thistle/reader.rb` | `job_mail(id, family: nil, limit: 8, cursor: nil, max_bytes: 32768)` -> native op `job_mail` with these fields and the pinned handle. Keep the native scratch reservation alive through response serialization/C-envelope ownership. |
+| `engine/src/schema.rs`, `recorded_domain.rs` | Strict `rails_job_mail` validator is called by the common publication/fresh-open validation path. Runtime rows have no source location; handler locations are hints. One adjacent anonymous-label exclusion in `candidate_name` prevents anonymous registry display names from becoming candidate identity. |
+| `lib/thistle.rb`, `capture.rb` | Optional explicit `job_mail` context is validated/copied before Native calls and forwarded within the supplied app/root. Existing Rails and LOS147 observation order/delta accounting is preserved. Loaded jobs/mailers, guarded framework version, remaining limits and byte budget reach `JobMailObserver`; no descendant lookup or eager loading. `rails_capture.rb` is unchanged. |
+| `engine/src/capture.rs` template inventory | `capture_with_templates` validates/deduplicates bounded explicit paths and shares the normal Capture object after ordinary inventory. Existing `open_root`/`open_at` guard every path component/final file with NOFOLLOW and regular-file/metadata checks; existing `read_file`/`add_fact`/file record machinery accounts source/facts/bytes/diagnostics. ERB bytes pass strict Rust `admit_bytes`, create one inert full-span file fact and normal blob, and never reach Prism/ERB evaluation during capture. No Ruby path traversal or new filesystem authority/global limit. |
+| `lib/thistle/reader.rb` | Thin `job_mail(id, family: nil, limit: 8, cursor: nil, max_bytes: 32768)` forwards fields and pinned handle to the one native op. Public method source is present; actual native behavior remains UNRUN. |
 | Map App/View/NavigationContext | Consume one public answer/family page. Inject existing NavigationContext and a Root-owned projection-descriptor URL adapter into `JobMailPresenter`. Add only actual admitted projection routes/parameter allowlists. Preserve encoded page/refusal budgets and typed identity collection; do not use expanded `Reader#fact` for compact identity. |
 | Packaging/install manifests | Add the two dedicated docs and new files to the affected explicit manifests; retain Core and Map note fragments for the actual PR. Wire the manually authored installed contract into an applicable admitted check. |
 
 Raw source file admission is separate from ERB analysis: a captured ERB source
 may be available even if its syntax, encoding or selection is unsupported. A
 refused raw file needs explicit partial/unavailable coverage and a diagnostic;
-it is not an empty successful template family. Root owns those aggregation and
-publication decisions. Observe registrations independently of source coherence.
+it is not an empty successful template family. Explicit unsafe/missing/oversized
+input refuses the capture before publication. Invalid UTF-8 source follows the
+existing inventory diagnostic/partial-coverage policy. Observe registrations
+independently of source coherence.
+
+Opt in with `Thistle.capture(root:, output:, rails: supplied_app, job_mail:
+{jobs: [already_loaded_job_classes], mailers: [already_loaded_mailer_classes],
+templates: ['app/views/receipt_mailer/receipt.html.erb']})`. Nil retains the prior
+fast/default path; missing app, unknown keys or non-Class inventories refuse
+before capture. Templates are explicit paths, not a Ruby filesystem scan or
+framework resolver. The native request receives only root/limits/paths, never
+earlier source/fact payloads. Duplicate paths cannot replace an accepted source
+or add duplicate facts. Excluded directories and paths outside the root refuse.
+
+With explicit job/mail context, native `inventory_entries` plus every observation
+batch's `appended.entries` are checked cumulatively against the existing entry
+ceiling before result mutation/publication. Remaining observer limits, facts,
+links and fact bytes use incremental counters, including prior LOS147 batches;
+old fact metadata is not reserialized per family. The initial native capture
+also charges selected templates to its existing files/source-byte/fact/evidence
+limits. Store independently validates the eventual full publication.
 
 ## Raw observation DTO and validators
 
@@ -94,14 +115,17 @@ Raw template transport:
  provenance:'raw_template_bytes'}
 ```
 
-Numeric bytes preserve invalid UTF-8 across JSON without a Ruby encoding/parser
-policy. `erb_template::admit_raw` validates byte range, 256 KiB cap, exact length
+The optional raw-byte helper/`erb_template_admit` seam uses numeric bytes to
+preserve invalid UTF-8 across JSON without a Ruby encoding/parser policy.
+`erb_template::admit_raw` validates byte range, 256 KiB cap, exact length
 and digest, safe ERB path, provenance and strict UTF-8. It returns a normal
 `{path,content,bytes,sha256,encoding:'UTF-8'}` source record. The transport has an
 explicit allocation/serialization cost: up to 262,144 Ruby integer slots and
-numeric JSON bytes per file. Process one file at a time; aggregate admission is
-still required. A later measured binary FFI transport can replace this bounded
-JSON seam; no new dependency or engine coupling is introduced here.
+numeric JSON bytes per file. This transport is **not** used by the integrated
+capture path: explicit paths go to Rust, whose existing anchored reader passes
+bounded bytes directly to shared `admit_bytes` admission. This avoids Ruby
+integer arrays and numeric JSON copies in the normal job/mail capture. No new
+dependency or engine coupling is introduced here.
 
 ## Public answer and family allowlist
 
@@ -178,7 +202,8 @@ source/fact copies, syntax tree/projection allowance, and native/Ruby response
 copies. Root keeps the reservation through response serialization. There is one
 shared parser permit with capture through the implemented source helper rather
 than a second parser authority. Its authored admission/error/panic regression is
-UNRUN; the public job operation and other integration hooks remain unwired.
+UNRUN; public job/Core source hooks now exist. Map projection/package wiring and
+actual native/framework/installed/served evidence remain outstanding.
 
 The selected saved file is limited to 256 KiB before Source reads. There are
 20,000 **pending-node pops**, 200 derived rows, 64 arguments per inspected call,
@@ -219,10 +244,19 @@ was loaded for those suites. `rustfmt` was attempted and unavailable (exit 127);
 Rust compilation/tests remain **UNRUN**. Later source checks are reported on the
 PR with their exact candidate; this paragraph does not qualify changed packages.
 
+Phase 3 pure wiring checks: new job/mail stdlib-double suite 11 tests/22
+assertions PASS; existing LOS147 stdlib wiring regression 7/14 PASS; changed Ruby
+syntax PASS. These cover explicit app/config copying, thin Reader/closed-handle
+forwarding, nil defaults, ordered incremental composition, cumulative entries,
+no old-fact rewalk/reserialization, and failure propagation before publication.
+They load neither native code nor Rails and perform no actual capture/store IO.
+
 Authored but **UNRUN**:
 
 * `job_mail_tests.rs` / `erb_template_tests.rs`: strict DTO/provenance, source
-  policy, dynamic/non-UTF8 targets, physical spans, comments/escaped tags/cursors.
+  policy, dynamic/non-UTF8 targets, physical spans, comments/escaped tags/cursors,
+  explicit template source/dedup, symlink/parent/excluded/limit refusal, strict
+  publication and saved Rails-free Reader source/family recovery.
 * `test/test_job_mail_installed.rb`: isolated installed Core + real framework
   capture, exact expected registry, saved A/CURRENT B, fresh Rails-free Reader,
   each family with limit 1, duplicate/unloaded targets, ERB/partial/helper and

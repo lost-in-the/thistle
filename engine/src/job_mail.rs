@@ -99,7 +99,7 @@ pub(crate) fn batch(context: &Value, observation: &Value) -> Result<Value> {
         let fact = json!({"id":id,"kind":"rails_job_mail","name":name,"path":null,"location":null,
             "evidence":"runtime","attributes":{"job_mail":data},"links":[]});
         validate_fact(&fact)?;
-        admission.admit(&fact,count)?;
+        admission.admit(&fact,count + 1)?;
         facts.push(fact);
     }
     Ok(json!({"facts":facts,"appended":admission.appended(),"coverage":[

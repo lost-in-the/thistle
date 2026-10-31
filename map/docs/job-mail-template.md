@@ -1,8 +1,8 @@
 # Investigating a saved mailing job
 
 Source-only LOS-148 checkpoint: the dedicated presenter is implemented; the
-App/View/Reader route wiring and actual installed/served journey are **UNRUN**
-and remain Root-owned. This document describes the intended supported path and
+Core Reader/capture hooks are now wired in source; App/View route wiring and the
+actual installed/served journey remain Root-owned and **UNRUN**. This document describes the intended supported path and
 does not advertise a currently working route on main.
 
 Start with a saved job registry. Inspect registrations to read recorded exception
