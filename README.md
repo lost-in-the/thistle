@@ -158,7 +158,7 @@ route is callable without constraints. Static capture never boots Rails itself.
 
 ## Optional Map
 
-Map can [collect and reopen a small investigation](map/docs/investigations.md)
+Map can [collect and reopen a small investigation](https://github.com/lost-in-the/thistle/blob/main/map/docs/investigations.md)
 using one saved generation and up to 24 selected fact IDs. Ordinary GET links
 support collecting, removing and reopening evidence without JavaScript. The
 focus URL carries only the generation and IDs and grants no access; recipients
