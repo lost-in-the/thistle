@@ -56,7 +56,7 @@ must use the locked vendored dependencies; a build that cannot find them fails.
 This development package deliberately refuses public RubyGems publishing.
 
 Installed packages include the platform guide and the tagged-call, loaded-model,
-callback, Find, route-constraint and model-reference contracts in
+callback, Find, route-constraint, model-reference and Markdown report contracts in
 `docs/development/`. Contributor policy, the launch ledger and historical
 validation records remain in the repository; these packages do not qualify any
 launch requirement.
@@ -67,6 +67,7 @@ launch requirement.
 thistle capture ./my-app --output ./my-app/.thistle
 thistle find OrdersController --store ./my-app/.thistle
 thistle model-brief MODEL_ID --store ./my-app/.thistle --generation GENERATION_ID
+thistle export-model-brief MODEL_ID --store ./my-app/.thistle --generation GENERATION_ID
 thistle source FACT_ID --store ./my-app/.thistle
 thistle links FACT_ID --store ./my-app/.thistle
 thistle check --store ./my-app/.thistle
@@ -106,7 +107,8 @@ malformed selectors are refused. New readers retain old generations; engines
 that support only schema 1/2 refuse schema-3 stores. Use the matching Core and Map
 `0.1.0.pre.3` pair for new stores and call display.
 
-Commands return JSON. Errors return structured JSON on stderr and a nonzero exit.
+Queries return JSON except `export-model-brief`, which writes bounded Markdown
+to stdout. Errors return structured JSON on stderr and a nonzero exit.
 `thistle help` describes the stable literal action names. Every query identifies
 its generation; pass `--generation ID` to revisit the same captured evidence.
 Missing generations are refused, never replaced silently with current results.
@@ -139,6 +141,15 @@ Follow the returned fact IDs and source anchors using the same generation.
 The [loaded-model contract](docs/development/loaded-model-evidence.md#model-investigation-brief)
 describes its evidence and work limits. Ruby exposes the same operation as
 `reader.model_brief(model_id, limit: 8, max_bytes: 32768)` on its pinned handle.
+
+Use `export-model-brief` to share that saved model summary as deterministic
+Markdown, with explicit uncertainty and generation-pinned literal evidence
+commands. It requires the generation and embeds no captured source bodies or
+store paths. `--max-bytes` separately bounds the selected JSON response and the
+complete Markdown report; escaping can cause an explicit report refusal. See
+the [Markdown report contract](docs/development/model-brief-markdown.md) for
+limits, safe caller-owned redirection and what a recipient needs to resolve
+the evidence. Exporting does not upload or publish the report.
 
 ## Observe an already booted Rails application
 

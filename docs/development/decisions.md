@@ -1,5 +1,18 @@
 # Development tooling and cohort decisions
 
+## Saved-model Markdown presentation (PR 118)
+
+Present one bounded Rust-selected `model_brief` using the existing CLI and a
+small allowlisted Markdown renderer. The [report contract](model-brief-markdown.md#fit-and-maintenance)
+records the alternatives, operating cost and reconsideration criteria. A general
+Markdown parser or serializer would add a dependency and richer output policy
+for a fixed heading/list/code-span vocabulary. The renderer follows no source
+or relationship pages and owns no persistent export state. Review its allowlist
+when the response shape changes; richer formats may justify a maintained
+serializer. The report and Reader have explicit encoded-byte limits, not an RSS
+or speed guarantee. The installed Core guide documents evidence resolution and
+caller-owned output; publication and capability qualification stay separate.
+
 Reviewed **2026-10-28**. These are deliberate development choices, not permanent
 defaults or launch qualification. Recheck the cited upstream state when changing
 them. A historical baseline explains provenance; it does not justify a greenfield
