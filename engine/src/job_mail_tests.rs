@@ -216,12 +216,15 @@ fn saved_source_pages_omit_unsearched_only_when_no_work_is_marked_unsearched() {
     let root = tempfile::tempdir().unwrap();
     std::fs::write(root.path().join("job.rb"),
         "class ReceiptJob; retry_on DeliveryTimeout, wait: 5; def perform; ReceiptMailer.receipt.deliver_later; end; end").unwrap();
+    std::fs::write(root.path().join("bounded.rb"),
+        format!("class BoundedPolicy\n{}end\n","retry_on\n".repeat(201))).unwrap();
     std::fs::write(root.path().join("complete.erb"),"<%= @recipient %>").unwrap();
     std::fs::write(root.path().join("partial.erb"),"<%= @recipient %>\n".repeat(240)).unwrap();
     let captured = crate::capture::capture_with_templates(root.path(),&json!({}),
         &json!(["complete.erb","partial.erb"])).unwrap();
     let facts = captured["facts"].as_array().unwrap();
-    let policy = facts.iter().find(|fact| fact["kind"] == "class").unwrap();
+    let policy = facts.iter().find(|fact| fact["kind"] == "class" && fact["name"] == "ReceiptJob").unwrap();
+    let bounded_policy = facts.iter().find(|fact| fact["kind"] == "class" && fact["name"] == "BoundedPolicy").unwrap();
     let handoff = facts.iter().find(|fact| fact["kind"] == "method").unwrap();
     let complete = facts.iter().find(|fact| fact["kind"] == "file" && fact["name"] == "complete.erb").unwrap();
     let partial = facts.iter().find(|fact| fact["kind"] == "file" && fact["name"] == "partial.erb").unwrap();
@@ -233,9 +236,16 @@ fn saved_source_pages_omit_unsearched_only_when_no_work_is_marked_unsearched() {
         let answer = select(&reader,&Query::parse(&query).unwrap()).unwrap();
         assert_eq!(answer["coverage"]["source_scan_complete"],true);
         assert!(answer["coverage"].get("unsearched").is_none());
+        assert!(answer["coverage"]["reason"].as_str().is_some_and(|reason| !reason.is_empty()));
     }
     let query = json!({"id":partial["id"],"family":"template_references","limit":1});
     let answer = select(&reader,&Query::parse(&query).unwrap()).unwrap();
     assert_eq!(answer["coverage"]["source_scan_complete"],false);
     assert_eq!(answer["coverage"]["unsearched"],"remaining_reference_or_node_work");
+    let query = json!({"id":bounded_policy["id"],"family":"policy","limit":1});
+    let answer = select(&reader,&Query::parse(&query).unwrap()).unwrap();
+    assert_eq!(answer["coverage"]["analysis_status"],"bounded_partial");
+    assert_eq!(answer["coverage"]["source_scan_complete"],false);
+    assert_eq!(answer["coverage"]["unsearched"],"remaining_row_or_node_work");
+    assert!(answer["coverage"]["reason"].as_str().unwrap().contains("allowance exhausted"));
 }

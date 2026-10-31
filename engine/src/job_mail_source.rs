@@ -169,6 +169,9 @@ pub(crate) fn analyze(declaration: &Value, content: &str) -> Result<Value> {
     rows.sort_by_key(|r| r["span"]["start_byte"].as_u64());
     let result = json!({"version":1,"status":if complete {"partial"} else {"bounded_partial"},
         "declaration_id":declaration["id"],"rows":rows,"nodes_visited":nodes,
+        "reason":if complete {"Selected declaration syntax only; registration, binding and execution unknown"}
+            else {"Declaration row/node allowance exhausted; remaining source unsearched. Registration, binding and execution unknown"},
+        "unsearched":if complete {Value::Null} else {json!("remaining_row_or_node_work")},
         "scan_complete":complete,"registration_match":"unknown","execution":"unknown"});
     schema::encoded_bytes(&result, 128*1024)?;
     Ok(result)
