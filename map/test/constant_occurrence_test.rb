@@ -220,6 +220,24 @@ class MapConstantOccurrenceTest < Minitest::Test
     refute_match(/#L\d/, html)
   end
 
+  def test_verified_last_row_after_exact_newline_limit_remains_navigable
+    [Thistle::Map::View::MAX_SOURCE_LINES, Thistle::Map::View::MAX_SOURCE_LINES + 1].each do |newlines|
+      content = "\n" * newlines + 'Widget'
+      reader = reader_with([occurrence(content, offset: newlines, role: 'value')], content)
+      html = page(reader)
+      if newlines == Thistle::Map::View::MAX_SOURCE_LINES
+        assert_includes html, 'Captured Source line 10001</a>'
+        refute_includes html, 'Source exceeds web display limits'
+        status, _, source = request(make_app(reader), '/source', query: "generation=#{GENERATION}&id=#{FACT_ID}")
+        assert_equal 200, status
+        assert_includes source, 'id="L10001"'
+      else
+        assert_includes html, 'Source exceeds web display limits'
+        refute_match(/#L\d/, html)
+      end
+    end
+  end
+
   def test_adapter_objects_cannot_spoof_bool_null_or_string_types
     dispatched = false
     spoof = Object.new
