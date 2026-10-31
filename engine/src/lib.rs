@@ -5,7 +5,9 @@ mod model;
 mod callbacks;
 mod callback_effects;
 mod method_lookup;
+mod source_comprehension;
 mod references;
+mod fact_identity;
 mod model_brief;
 mod recorded_domain;
 mod link_encoding;
@@ -44,7 +46,9 @@ pub fn dispatch(request: &Value) -> Result<Value> {
 
 fn request_scratch(request: &Value) -> Result<Option<query::Reservation>> {
     let bytes = match request["op"].as_str() {
+        Some("fact_identity") => { fact_identity::id(request)?; fact_identity::SCRATCH },
         Some("model_brief") => model_brief::Query::parse(request)?.scratch(),
+        Some("source_comprehension") => source_comprehension::Query::parse(request)?.scratch(),
         Some("callback_effects") => callback_effects::Query::parse(request)?.scratch(),
         Some("references") => references::Query::parse(request)?.scratch(),
         Some("find_evidence") => query::Query::parse(request)?.scratch()?,
@@ -81,6 +85,7 @@ fn dispatch_inner(request: &Value) -> Result<Value> {
         "publish" => store::publish(Path::new(schema::string(request, "path")?), &request["capture"]),
         "model_batch" => model::batch(&request["context"], &request["observation"]),
         "callback_batch" => callbacks::batch(&request["context"], &request["observation"]),
+        "source_comprehension_batch" => source_comprehension::batch(&request["context"], &request["observation"], schema::string(request, "root")?),
         "open" => {
             let requested = match request.get("generation") { None | Some(Value::Null) => None,
                 Some(value) => Some(value.as_str().ok_or_else(|| CoreError::input("Generation must be a string"))?) };
@@ -104,6 +109,7 @@ fn dispatch_inner(request: &Value) -> Result<Value> {
         }
         "facts" => reader(request)?.all_facts(),
         "fact" => reader(request)?.fact(schema::string(request, "id")?),
+        "fact_identity" => fact_identity::select(&*reader(request)?, fact_identity::id(request)?),
         "find" => {
             let limit = match request.get("limit") { None => 50, Some(value) => value.as_u64().ok_or_else(|| CoreError::input("Limit must be an integer"))? };
             if limit > 500 { return Err(CoreError::input("Limit must be between 1 and 500")); }
@@ -114,6 +120,7 @@ fn dispatch_inner(request: &Value) -> Result<Value> {
         "source" => reader(request)?.source(schema::string(request, "id")?),
         "links" => reader(request)?.links(schema::string(request, "id")?),
         "model_brief" => model_brief::select(&*reader(request)?, &model_brief::Query::parse(request)?),
+        "source_comprehension" => source_comprehension::select(&*reader(request)?, &source_comprehension::Query::parse(request)?),
         "callback_effects" => callback_effects::select(&*reader(request)?, &callback_effects::Query::parse(request)?),
         "references" => references::select(&*reader(request)?, &references::Query::parse(request)?),
         "check" => reader(request)?.check(),
@@ -174,6 +181,9 @@ mod tests {
         assert_eq!(envelope(b"not-json")["ok"], false);
         assert_eq!(envelope(br#"{"op":"not-an-operation"}"#)["error"]["code"], "invalid_input");
         assert_eq!(envelope(br#"{"op":"find","handle":99999,"query":"x"}"#)["error"]["code"], "closed_reader");
+        assert_eq!(envelope(br#"{"op":"fact_identity","handle":99999,"id":"bad"}"#)["error"]["code"], "invalid_input");
+        let identity = json!({"op":"fact_identity","handle":99999,"id":"b".repeat(64)});
+        assert_eq!(envelope(&serde_json::to_vec(&identity).unwrap())["error"]["code"], "closed_reader");
     }
     #[test]
     fn ffi_owns_and_releases_response() {

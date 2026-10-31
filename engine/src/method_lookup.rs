@@ -63,7 +63,65 @@ pub(crate) struct Match {
     pub range_complete: bool,
 }
 
+/// Bounded positional enumeration; counts are witnesses, never a total when
+/// range_complete is false. A partial page cannot establish uniqueness.
+pub(crate) struct MethodPage {
+    pub positions: Vec<usize>,
+    pub matches_seen: usize,
+    pub range_complete: bool,
+    pub partial: bool,
+    pub next_offset: Option<usize>,
+}
+
 impl Directory {
+    /// Uses the same immutable slot order as lookup. Copies positions only;
+    /// release the Reader directory lock before response construction/Source I/O.
+    pub(crate) fn page(&self, facts: &[Value], owner: &str, name: &str,
+        offset: usize, limit: usize, work: &mut impl Work) -> Result<MethodPage> {
+        if limit == 0 || limit > 16 || offset > facts.len() || owner.is_empty() || name.is_empty() ||
+            owner.len() > 4096 || name.len() > 4096 {
+            return Err(CoreError::input("Invalid method candidate page"));
+        }
+        let mut page = MethodPage { positions:Vec::with_capacity(limit), matches_seen:0,
+            range_complete:false, partial:false, next_offset:None };
+        let mut exhausted = false;
+        if !work.bytes(owner.len().saturating_add(name.len())) { page.partial=true; return Ok(page); }
+        let digest = digest(owner,name);
+        let (mut lo,mut hi) = (0,self.slots.len());
+        while lo < hi {
+            let mid = lo+(hi-lo)/2;
+            match work.compare_digest(&self.slots[mid].digest,&digest) {
+                Some(Ordering::Less) => lo=mid+1,
+                Some(_) => hi=mid,
+                None => { page.partial=true; return Ok(page); },
+            }
+        }
+        for slot in &self.slots[lo..] {
+            match work.compare_digest(&slot.digest,&digest) {
+                Some(Ordering::Equal) => {},
+                Some(_) => { page.range_complete=true; break; },
+                None => { exhausted=true; break; },
+            }
+            if !work.visit() { exhausted=true; break; }
+            let Some((actual_owner,actual_name)) = key(&facts[slot.fact]) else { exhausted=true; break; };
+            let Some(owner_order) = work.compare(actual_owner,owner) else { exhausted=true; break; };
+            let Some(name_order) = work.compare(actual_name,name) else { exhausted=true; break; };
+            if owner_order==Ordering::Equal && name_order==Ordering::Equal {
+                page.matches_seen+=1;
+                if page.matches_seen<=offset { continue; }
+                // One bounded extra match witnesses a continuation; it is not
+                // returned or silently consumed by that continuation.
+                if page.positions.len()==limit { break; }
+                page.positions.push(slot.fact);
+            }
+        }
+        if !exhausted && page.matches_seen<=offset+page.positions.len() { page.range_complete=true; }
+        page.partial=exhausted;
+        if page.range_complete && offset>page.matches_seen { return Err(CoreError::input("Method cursor is beyond candidate range")); }
+        if !page.range_complete && !page.positions.is_empty() { page.next_offset=Some(offset+page.positions.len()); }
+        Ok(page)
+    }
+
     fn capacity_bytes(methods: usize) -> Result<usize> {
         methods.checked_mul(std::mem::size_of::<Slot>())
             .and_then(|n| n.checked_add(std::mem::size_of::<std::sync::Mutex<Option<Self>>>()))

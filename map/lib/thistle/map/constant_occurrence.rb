@@ -2,6 +2,7 @@
 
 require 'erb'
 require 'uri'
+require_relative 'navigation_context'
 
 module Thistle
   module Map
@@ -18,8 +19,9 @@ module Thistle
       ROLES = %w[argument predicate rescue_class value].freeze
       UNAVAILABLE = '<p class="ui">Constant site details unavailable or exceed display limits.</p>'
 
-      def initialize(generation:, mount:, schema_version:)
+      def initialize(generation:, mount:, schema_version:, navigation: nil)
         @generation, @mount, @schema_version = generation, mount, schema_version
+        @navigation = navigation || NavigationContext.new(generation: generation, mount: mount)
       end
 
       def available?(link, origin:)
@@ -104,7 +106,7 @@ module Thistle
       end
 
       def source_url(id)
-        "#{@mount}/source?#{URI.encode_www_form('generation' => @generation, 'id' => id)}"
+        @navigation.url('/source', 'id' => id)
       end
 
       def h(value)
