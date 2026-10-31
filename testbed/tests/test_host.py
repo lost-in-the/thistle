@@ -105,7 +105,7 @@ class LifecycleTest(unittest.TestCase):
             'credentials': str(credential), 'dependency_home': '/dependencies', 'client_version': '3.4.9', 'host_port': 19292,
             'mysql2_extension_sha256': 'a' * 64, 'client_library_sha256': 'b' * 64, 'puma_version': '8.0.2',
             'mysql_image': 'sha256:' + 'c' * 64, 'mysqld': '/usr/sbin/mysqld', 'artifacts': {}}
-        self.config['map_candidate'] = {'source_sha': 'd' * 40, 'sha256': 'e' * 64}
+        self.config['map_candidate'] = {'source_sha': 'd' * 40, 'source_tree': 'd' * 40, 'sha256': 'e' * 64}
         dependencies = base / 'dependencies'
         dependencies.mkdir(mode=0o700)
         manifest = base / 'dependencies.json'

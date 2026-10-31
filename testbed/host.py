@@ -204,6 +204,7 @@ class Host:
             require(re.fullmatch(r'[0-9a-f]{64}', self.config[key]), 'Exact client identity required')
         require(self.config['puma_version'] == '8.0.2', 'Exact Puma archive profile required')
         require(re.fullmatch(r'[0-9a-f]{40}', self.config['map_candidate']['source_sha'])
+                and re.fullmatch(r'[0-9a-f]{40}', self.config['map_candidate']['source_tree'])
                 and re.fullmatch(r'[0-9a-f]{64}', self.config['map_candidate']['sha256']), 'Exact integration-owner Map binding required')
         require(self.config['dependency_home'] == '/dependencies', 'Exact prepared dependency mount required')
         require(type(self.config['host_port']) is int and 1024 <= self.config['host_port'] <= 65535, 'Explicit loopback port required')

@@ -52,10 +52,16 @@ selected tuple is checked before candidate execution:
 | Original Core gemspec | `34949a0a21a1d1b8f84219d8bdd1b198e9eba5ffb2ced01ef70136b261351a08` |
 | F05 Map from source 40a2809419987b824d5a7abccbd14c666fc249a5 | `3f18336f34cea30361aab62631c0dbe3ebd44f81832a7078259ae04f6fa498ff` |
 
-That Map row is the original supplied binding. Root's subsequent verified
-incoming-large-source correction changes the parent Map artifact; before runtime,
-the private `map_candidate` source SHA/digest and matching `artifacts.map.gem`
-must use Root's actual new signed/package handback. The controller records and
+That Map row is the **original** supplied binding and keeps its prior evidence.
+Root's subsequent incoming-large-source correction produced distinct Map bytes
+`28fbb1378c5fd98860022c2b5776f4b250bacb276911253a007fea1f62d18216`
+from exact staged source tree `2e9184d8f9fe1af07b465fe849d094a2aef4ce2e`.
+Root reported source26/428 and changed-installed-Map10/183 passing for that
+tuple; those results are parent evidence, not this host's execution. The example
+selects the new digest/tree, and intentionally requires Root's actual signed
+parent commit SHA when that handback exists. Before runtime, the private
+`map_candidate` source SHA/tree/digest and matching `artifacts.map.gem` must agree
+with that actual handback. The controller records and
 verifies that explicit selected binding, and the installed check requires F05
 presentation plus its two-site known answers. It never aliases a new package
 to the old digest or changes the protected parent files/PR base itself.
