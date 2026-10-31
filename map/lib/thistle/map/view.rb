@@ -12,6 +12,7 @@ require_relative 'references_presenter'
 require_relative 'constant_occurrence'
 require_relative 'investigation_presenter'
 require_relative 'investigation_evidence'
+require_relative 'source_comprehension_sources'
 
 module Thistle
   module Map
@@ -80,6 +81,14 @@ module Thistle
       end
 
       def source
+        ownership_available = @reader.manifest.fetch('coverage', []).any? { |family| family['family'] == 'source_ownership' }
+        if ownership_available && @reader.respond_to?(:source_comprehension) && @reader.respond_to?(:fact_identity)
+          compact = @reader.fact_identity(@params.fetch('id'))
+          unless compact['generation'] == @generation && compact.dig('fact', 'id') == @params['id'] && JSON.generate(compact).bytesize <= 32768
+            raise Thistle::InvalidSnapshot, 'Source compact identity mismatch'
+          end
+          return source_comprehension_page('contributions') if compact.dig('fact', 'kind') == 'rails_model'
+        end
         result = @reader.source(@params.fetch('id'))
         fact = result.fetch('fact')
         unless result['generation'] == @generation && fact['id'] == @params['id']
@@ -98,11 +107,14 @@ module Thistle
           "<div class=\"source-row#{' selected' if selected}\" id=\"L#{number}\">" \
             "<a class=\"ln\" href=\"#L#{number}\" aria-label=\"Line #{number}\">#{number}</a><code class=\"src\">#{line}</code></div>"
         end.join
-        body = "<h1 class=\"t1\">#{h(fact.fetch('name'))}</h1>" + fact_tiles(fact)
+        comprehension = fact['kind'] == 'class' && @reader.respond_to?(:source_comprehension)
+        body = "<h1 class=\"t1\">#{h(fact.fetch('name'))}</h1>"
+        body += comprehension ? comprehension_navigation(fact.fetch('id')) : fact_tiles(fact)
         body += "<p class=\"ui\">Captured file. Highlighted rows mark the selected declaration when a source span is available.</p>" \
           "<p class=\"digest\">Source SHA-256: #{h(result.fetch('sha256'))}</p>" \
           "<div class=\"cvwrap\" role=\"region\" aria-label=\"Source of #{h(fact.fetch('name'))}\" tabindex=\"0\">" \
           "<div class=\"cv codeview\">#{rows}</div></div>"
+        body += fact_tiles(fact) if comprehension
         layout('Source', body, fact: fact)
       rescue Thistle::Error => error
         raise unless error.code == 'source_unavailable'
@@ -113,6 +125,61 @@ module Thistle
         body = "<h1 class=\"t1\">#{h(fact.fetch('name'))}</h1>" + fact_tiles(fact)
         body += '<p class="notice ui">No file or line was captured for this fact. Links and Check show the evidence that is available.</p>'
         layout('Source', body, fact: fact)
+      end
+
+      def source_comprehension_page(family)
+        unless NavigationContext::COMPREHENSION_FAMILIES.include?(family) && @reader.respond_to?(:source_comprehension)
+          raise Limit, 'Saved source comprehension is unavailable with this Reader.'
+        end
+        id = @params.fetch('id')
+        result = @reader.source_comprehension(id, family: family, cursor: @params['cursor'], limit: 8, max_bytes: 32768)
+        root = result.fetch('model')
+        unless result['version'] == 1 && result['generation'] == @generation && result['family'] == family &&
+            result['composition'] == 'identified_contributions' && result['source_runtime_coherence'] == 'unknown' &&
+            root['id'] == id && %w[class rails_model].include?(root['kind']) && result.fetch('contributions').length <= 8
+          raise Thistle::InvalidSnapshot, 'Source comprehension envelope mismatch'
+        end
+        raise Limit, 'Source comprehension response exceeds its byte budget.' if JSON.generate(result).bytesize > 32768
+        result.fetch('contributions').each do |row|
+          fact = row.fetch('fact')
+          unless Investigation::DIGEST.match?(fact.fetch('id')) && %w[source callers].all? { |name| row.fetch(name)['generation'] == @generation && row.fetch(name)['id'] == fact['id'] }
+            raise Thistle::InvalidSnapshot, 'Source comprehension witness identity mismatch'
+          end
+          unless row.dig('source', 'operation') == 'source' && row.dig('callers', 'operation') == 'references' && row.dig('callers', 'direction') == 'incoming'
+            raise Thistle::InvalidSnapshot, 'Source comprehension witness operation mismatch'
+          end
+        end
+        continuation_url = lambda do |selector|
+          unless selector['operation'] == 'source_comprehension' && selector['generation'] == @generation && selector['id'] == id && selector['family'] == family
+            raise Thistle::InvalidSnapshot, 'Source comprehension continuation identity mismatch'
+          end
+          cursor = selector.fetch('cursor')
+          NavigationContext.validate_cursor!(cursor, generation: @generation, scope: ['source_comprehension', id, family])
+          raise Thistle::InvalidSnapshot, 'Source comprehension continuation made no progress' if cursor == @params['cursor']
+          url("/comprehension/#{family}", 'id' => id, 'cursor' => cursor)
+        end
+        # Validate continuation before Source I/O, then reuse the same authority
+        # adapter in presentation. No Ruby position arithmetic or fallback route.
+        continuation_url.call(result['continuation']) if result['continuation']
+        admission = SourceComprehensionSources.new(reader: @reader, generation: @generation).call(result.fetch('contributions'))
+        body = "<h1 class=\"t1\">#{h(root.fetch('name'))}</h1>" + comprehension_navigation(id)
+        body << SourceComprehensionPresenter.new(projection: result, sources: admission.sources, source_states: admission.states,
+          navigation: @navigation, highlighter: Highlighter.method(:lines), continuation_url: continuation_url).render
+        # Supporting families remain explicit progressive actions. Do not query
+        # every model/callback/reference family merely to open a reading page.
+        body << '<details><summary>Recorded declarations and reference context</summary><p>Registration, saved source, binding and execution are separate evidence.</p>'
+        if root['kind'] == 'rails_model'
+          { 'columns' => 'Recorded columns', 'associations' => 'Recorded associations', 'registry_candidates' => 'Registered callback candidates' }.each do |name, label|
+            body << "<p><a href=\"#{h(url("/brief/#{name}", 'id' => id, 'cursor' => nil))}\">#{h(label)}</a></p>"
+          end
+        end
+        body << "<p><a href=\"#{h(url('/links', 'id' => id, 'direction' => 'incoming'))}\">Incoming references / callers</a> · "
+        body << "<a href=\"#{h(url('/links', 'id' => id, 'direction' => 'outgoing'))}\">Links and recorded callback/schema context</a></p></details>"
+        content = layout('Source', body, fact: root)
+        raise Limit, 'Source comprehension page exceeds its output budget.' if content.bytesize > SourceComprehensionPresenter::MAX_BODY_BYTES + 65536
+        content
+      rescue SourceComprehensionPresenter::InvalidProjection => error
+        raise Thistle::InvalidSnapshot, error.message
       end
 
       def investigation
@@ -276,6 +343,12 @@ module Thistle
       end
 
       private
+
+      def comprehension_navigation(id)
+        '<nav aria-label="Model reading views">' +
+          "<a href=\"#{h(url('/comprehension/contributions', 'id' => id, 'cursor' => nil))}\">As-written contributions</a> · " +
+          "<a href=\"#{h(url('/comprehension/methods', 'id' => id, 'cursor' => nil))}\">Methods and owners</a></nav>"
+      end
 
       def bounded_evidence_page(title, body, fact:)
         raise Limit, 'Evidence exceeds the rendered content budget; no partial page was returned.' if body.bytesize > InvestigationPresenter::MAX_OUTPUT_BYTES

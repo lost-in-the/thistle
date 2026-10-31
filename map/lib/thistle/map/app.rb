@@ -49,7 +49,7 @@ module Thistle
           content, type = @assets.fetch(path)
           return finish(env, 200, content, type: type)
         end
-        continuation_path = /\A\/(?:brief\/(?:columns|associations|registry_candidates)|references\/(?:incoming|outgoing))\z/.match?(path)
+        continuation_path = /\A\/(?:brief\/(?:columns|associations|registry_candidates)|references\/(?:incoming|outgoing)|comprehension\/(?:contributions|methods))\z/.match?(path)
         return finish(env, 404, 'This page does not exist.') unless continuation_path || %w[/ /source /links /check /investigation].include?(path)
 
         mount = mount_path(env)
@@ -90,7 +90,11 @@ module Thistle
         selection ||= Investigation.new(generation: reader.generation)
         view = View.new(reader: reader, mount: mount, params: params, selection: selection, path: path)
         content = if continuation
-                    continuation[:family] ? view.brief_page(continuation[:family]) : view.references_page(continuation)
+                    if continuation[:comprehension]
+                      view.source_comprehension_page(continuation[:comprehension])
+                    else
+                      continuation[:family] ? view.brief_page(continuation[:family]) : view.references_page(continuation)
+                    end
                   else
                     case path
                     when '/' then view.find

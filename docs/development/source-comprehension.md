@@ -2,8 +2,9 @@
 
 This source increment prepares one model/concern reading journey. Core wiring
 adds optional explicit capture context, strict publication/open validation and a
-Reader operation. The served route, native checks, installed evidence and
-independent review still belong to the integration owner.
+Reader operation. Map route/View wiring is now present in source. Actual native
+checks, installed/served evidence and independent review still belong to the
+integration owner.
 The installed/served journey below is **UNRUN**. All launch rows remain open.
 
 The customer must be able to identify the file and owner to edit, read its code,
@@ -121,16 +122,22 @@ Core wiring now present (execution remains UNRUN):
    `stored_fact`, `recorded_candidates` and `with_method_directory`; no new store
    resolver is needed. The method-directory closure copies only bounded positions
    and stats. It returns before projection, Source I/O or HTML.
-Root's remaining integration responsibilities:
+Map source wiring now present (App execution remains UNRUN):
 
-1. Wire an admitted Map route/family adapter using the corrected PR119 navigation
-   authority. Resolve the root/selected contribution through compact identity.
-   Fetch source progressively with a finite aggregate budget, retain the saved
-   generation, and pass admitted responses to the presenter. Do not expand every
-   family/source or every method to make an initial page.
-2. Compose existing model schema/association/callback marginalia and contextual
-   references **after the reading surface**, using their existing Rust selectors.
-   Serialize affected README/gemspec/ledger/decisions/Map-doc hunks normally.
+1. `/comprehension/contributions` and `/comprehension/methods` use the existing
+   corrected PR119 navigation authority with exact cursor/generation scope and
+   one bounded Reader projection per page. Compact root identity avoids fact
+   expansion. Pinned manifest file bytes are reserved before deduplicated Source
+   reads; exact identity/digest/size and aggregate physical display lines are
+   checked on bounded responses before highlighting. Lines are not claimed to
+   be known before reading; no Core metadata change is made.
+2. Code precedes the owner outline/provenance and explicit existing
+   schema/association/callback/reference follow-ups. No automatic all-family or
+   source expansion occurs. Original physical Source anchors and default captures
+   without optional ownership coverage retain their established behavior.
+
+Root retains shared packaging/README/gemspec/ledger/decisions synchronization,
+current CI disposition, the full independent review and actual finite execution.
 
 ## Cost and alternatives
 
