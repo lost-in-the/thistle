@@ -75,7 +75,7 @@ class ModelBriefJourneyTest < Minitest::Test
       fresh, err, process = Open3.capture3(RbConfig.ruby, '-I', File.expand_path('../../lib', __dir__),
         '-I', File.expand_path('../lib', __dir__), '-e', consumer, store, generation)
       assert process.success?, err
-      fresh = JSON.parse(fresh)
+      fresh = JSON.parse(fresh.force_encoding(Encoding::UTF_8))
       assert_equal 200, fresh.fetch('source_status')
       assert_equal 200, fresh.fetch('links_status')
       assert_includes fresh.fetch('source'), 'Source SHA-256: ' + Digest::SHA256.hexdigest(bytes)
