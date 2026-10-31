@@ -80,7 +80,7 @@ No new JavaScript is required for the presenter. Root's served path must preserv
 Find/Source/Links/Check, keyboard focus, narrow screens, IME input and no-JS links.
 
 The independent fixture cards and exact native/shared DTOs are in
-[the corrected Core source contract](https://github.com/lost-in-the/thistle/blob/5c5348419faf28e16a3789850b8ff4086059e1b1/docs/development/job-mail-template.md). Pure mocked
+[the corrected Core source contract](https://github.com/lost-in-the/thistle/blob/1fcbb8d57555cc8dc173848a62bee1f857e93ef8/docs/development/job-mail-template.md). Pure mocked
 source checks pass: job/mail navigation 3 tests/75 assertions, isolated mocked
 routes 17/34, presenter 3/25, and existing LOS147 navigation 4/41. They cover typed
 followups, explicit Source/Links entry actions, no family fanout, safe ERB source
