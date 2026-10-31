@@ -34,7 +34,7 @@ module Thistle
 
         a, b, first, last = data.fetch('location')
         return UNAVAILABLE if source_bytes && b > source_bytes
-        over_limit = first > WEB_SOURCE_LINES || (source_bytes && source_bytes > WEB_SOURCE_BYTES) || source_info&.fetch(:over_limit, false)
+        over_limit = (source_bytes && source_bytes > WEB_SOURCE_BYTES) || source_info&.fetch(:over_limit, false)
         if verify_source && !over_limit
           return UNAVAILABLE unless source_info && source_matches?(data, source_info)
         end

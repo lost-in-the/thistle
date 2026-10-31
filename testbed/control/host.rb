@@ -18,7 +18,7 @@ require_relative 'install'
 gem 'puma', "= #{HostProfile.config.fetch('puma_version')}"
 require 'puma'
 require 'rails'
-require 'active_record/railtie'
+require 'active_record'
 require 'action_controller/railtie'
 raise 'Framework cohort drift' unless Rails.version == '7.1.6' && ActiveRecord::VERSION::STRING == '7.1.6'
 HostProfile.write('/work/cohort-ready.json', { 'token' => admission.fetch('token'),

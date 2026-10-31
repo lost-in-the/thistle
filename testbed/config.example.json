@@ -11,9 +11,9 @@
   },
   "puma_version": "8.0.2",
   "map_candidate": {
-    "source_sha": "77c871274de68985a5964d2206b8a637824db97c",
-    "source_tree": "acf4db3d5c77e232a0043d2768bb349ba4cda3eb",
-    "sha256": "68d1947fbab7e1065b031297af86786fce8a2ba18f1560c8f5fae30383bb57fa"
+    "source_sha": "64eee68b736fc47369c30009a5eca022820d7caf",
+    "source_tree": "6e56d58a94bc52de3ca607bc6b859e14f43cb61a",
+    "sha256": "1b9aad42d3b757617b268b0c1ed24e1e84c063837048c7de2ef9dab240f982c9"
   },
   "host_port": 19292,
   "host_socat": {
@@ -36,7 +36,7 @@
     },
     "map.gem": {
       "path": "/absolute/retained/map.gem",
-      "sha256": "68d1947fbab7e1065b031297af86786fce8a2ba18f1560c8f5fae30383bb57fa",
+      "sha256": "1b9aad42d3b757617b268b0c1ed24e1e84c063837048c7de2ef9dab240f982c9",
       "size": 0
     },
     "native.so": {

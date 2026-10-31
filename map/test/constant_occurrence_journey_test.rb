@@ -57,6 +57,7 @@ class MapConstantOccurrenceJourneyTest < Minitest::Test
       end
       status, _, outgoing = request(app, '/links', query: URI.encode_www_form('generation' => saved, 'id' => origin.fetch('id')))
       assert_equal 200, status
+      assert_equal 2, outgoing.scan('class="constant-site"').length
       assert_includes outgoing, 'Line 4 · Role: argument'
       assert_includes outgoing, 'Line 5 · Role: value'
       assert_equal 403, request(app, '/links', query: incoming_query, env: { 'REMOTE_ADDR' => '192.0.2.1' }).first

@@ -50,14 +50,16 @@ selected tuple is checked before candidate execution:
 | Core 0.1.0.pre.3 source gem | `469a6966b0cfb6f5b307fca52af206d8ce32aa5bf53052fda2cf03a7bce4b942` |
 | Actually loaded Core native, 6,124,976 bytes | `4bee13087b17eb7aeb0e7ef606c7c0879d817e309e6acb2a09d520bd4c5f888e` |
 | Original Core gemspec | `34949a0a21a1d1b8f84219d8bdd1b198e9eba5ffb2ced01ef70136b261351a08` |
-| Current F05 Map from source 77c871274de68985a5964d2206b8a637824db97c | `68d1947fbab7e1065b031297af86786fce8a2ba18f1560c8f5fae30383bb57fa` |
+| Current F05 Map from source 64eee68b736fc47369c30009a5eca022820d7caf | `1b9aad42d3b757617b268b0c1ed24e1e84c063837048c7de2ef9dab240f982c9` |
 
-The example selects signed parent `77c871274de68985a5964d2206b8a637824db97c`,
-tree `acf4db3d5c77e232a0043d2768bb349ba4cda3eb`. It includes both incoming
-source-budget corrections, retaining unknown line eligibility as an explicit
-CLI fallback rather than an unchecked web anchor. Root's current parent checks
-are source26/461 and changed-installed-Map10/216 passing; those are parent
-artifact evidence, **not this Rails host's execution**.
+The example selects signed parent `64eee68b736fc47369c30009a5eca022820d7caf`,
+tree `6e56d58a94bc52de3ca607bc6b859e14f43cb61a`. It includes the incoming
+byte/unknown-line fallbacks, outgoing details rendered once, and navigation to
+Source's permitted final row. Root's current parent checks are source28/483
+and changed-installed-Map12/238 passing; these are parent artifact evidence,
+**not this Rails host's execution**. The earlier source77/Map68d tuple had
+source26/461 and installed10/216 results; sourcea8/Map0144 had source27/472
+and installed11/227. Preserve those dated scopes.
 
 Historical supplied Map `3f18336f34cea30361aab62631c0dbe3ebd44f81832a7078259ae04f6fa498ff`
 belongs to source40a. The intermediate byte-limit correction produced

@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require 'rails'
-require 'active_record/railtie'
+require 'active_record'
 require 'action_controller/railtie'
 require 'logger'
 
@@ -14,7 +14,6 @@ module ReusableHost
     config.secret_key_base = 'testbed-only-no-user-sessions-' * 4
     config.hosts = ['localhost', '127.0.0.1']
     config.logger = Logger.new(File::NULL)
-    config.active_record.dump_schema_after_migration = false
     config.paths['log'] = '/work/rails.log'
     config.paths['tmp'] = '/work/tmp'
   end
