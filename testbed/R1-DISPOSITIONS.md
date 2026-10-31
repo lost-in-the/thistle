@@ -76,3 +76,44 @@ Runtime PREEXEC, real DB-free boot, first use, same-instance reuse, new-artifact
 instance reuse of retained schema, actual host answers/parallel assets/resource
 cost, controlled failure/absence/KEEP and independent final payload/index audit.
 Hosted affected CI and Leah acceptance remain open. All17 remain UNQUALIFIED.
+
+## Root scoped R2 correction
+
+The independent changed-scope R2 reviewed signed258f81d/f27855c. Its report
+`32071a8c8938e774c06fee5139236f704165b2b6c17acaf7938d68e9d40ce23e`
+remains **NOT ACCEPTABLE for runtime at258**. Its827s analysis exceeded the
+300s target. The exclusive0600 report was retained unchanged; no review or CI
+result is relabelled as execution of the corrected source.
+
+Root took the released worktree for this small batch and applied the review's
+specific remedies, without another author or review panel:
+
+- **LOS139-R2-F01 P1 / R1-F08 host leg:** JSON decoding runs only for the Check
+  page's exact unlabelled `pre.check-data`. F05's labelled literal syntax block
+  is never decoded as JSON on Links/incoming. A positive regression uses the
+  actual ConstantOccurrence markup, with both recorded site links; a labelled
+  fake integrity result cannot satisfy Check.
+- **LOS139-R2-F02 P3:** stop reloads persisted state after both final-index
+  success and failure. Failed finalization preserves shared evidence and the
+  partial custody entry; a later stop takes a new attempt without overwriting it.
+- **LOS139-R2-F03 P3:** read-only FAILED/STOPPING status returns the last stop
+  and observed exact-owned container states, including stopped retained compute.
+  A completed no-op stop verifies no owned compute and preserves its meaningful
+  receipt. Failed custody still retries rather than taking the no-op path.
+- **R1-F04 residual:** start refuses an occupied loopback port before creating
+  containers. A later bind race remains a truthful runtime failure; this check
+  does not reserve the port or authorize touching a foreign listener.
+
+Five new regressions fail on the fixed258 controller before the correction.
+The corrected source passes47 controller/std-helper tests in1.388s, with no
+framework/product/native/DB/socket/server/container workload. Root's scoped
+source disposition resolves these precise findings; it is not an independent
+post-correction approval or a runtime result. The original R1/R2 reports and
+their source identities remain unchanged.
+
+The parser still makes one bounded HTML pass, with less JSON work on site pages.
+Error-path custody adds one state reload, not another history or artifact scan.
+Failure status inspects at most the two owned role IDs and does not mutate them.
+No Core/Map package, schema, Reader, access rule, source cap or fixture answer
+changed. Current-head affected CI and actual full-host admission/execution remain
+required. Person-performed usability and all17 qualification remain separate.

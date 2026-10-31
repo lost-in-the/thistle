@@ -259,6 +259,81 @@ class Corrections(unittest.TestCase):
         with self.assertRaises(host.Refused):
             host.check_map_page('links', wrong_sites, oracle)
 
+    def test_real_constant_syntax_pre_is_not_check_json_on_links_or_incoming(self):
+        oracle = {'saved': 'a' * 64, 'origin_id': 'b' * 64, 'source_sha256': 'c' * 64,
+                  'site_count': 2, 'site_lines': [7, 8]}
+        body = '<input value="' + oracle['saved'] + '">'
+        # ConstantOccurrence#render's actual F05 shape, including its shared
+        # check-data class. Literal syntax is not a serialized integrity result.
+        for line, role in [(7, 'argument'), (8, 'value')]:
+            body += '<div class="constant-site"><p class="ui">Recorded constant site · Line ' + str(line)
+            body += ' · Role: ' + role + ' · Binding unknown.</p>'
+            body += '<pre class="check-data" aria-label="Recorded constant syntax"><code>Order</code></pre>'
+            body += '<p><a href="/source?id=' + oracle['origin_id'] + '&amp;generation=' + oracle['saved']
+            body += '#L' + str(line) + '">Captured Source line ' + str(line) + '</a></p></div>'
+        for kind in ('links', 'incoming'):
+            with self.subTest(kind=kind):
+                page = host.check_map_page(kind, body, oracle)
+                self.assertEqual(2, page.site_count)
+                self.assertEqual([], page.checks)
+        labelled_json = '<pre class="check-data" aria-label="Recorded constant syntax">'
+        labelled_json += json.dumps({'generation': oracle['saved'], 'integrity': 'verified'}) + '</pre>'
+        with self.assertRaises(host.Refused):
+            host.check_map_page('check', labelled_json, oracle)
+
+    def test_final_index_failure_preserves_partial_custody_and_shared_identity(self):
+        with self.fixture.admitted():
+            self.c.start()
+            self.c.test()
+            token = self.c.state()['token']
+            with patch.object(self.c, 'finish_retention', side_effect=OSError('stubbed final index failure')):
+                with self.assertRaises(host.Refused):
+                    self.c.stop()
+            state = self.c.state()
+            self.assertIn('shared_evidence', state)
+            self.assertEqual('partial', state['sessions'][token]['custody_history'][0]['status'])
+            self.assertNotIn('sealed', state['sessions'][token])
+            self.assertIn('final-index', state['last_stop']['failures'])
+            self.c.stop()
+            self.assertEqual(2, len(self.c.state()['sessions'][token]['custody_history']))
+            self.c.verify_retained(token)
+
+    def test_failed_or_stopping_status_reports_stopped_resources_without_mutation(self):
+        with self.fixture.admitted():
+            self.c.start()
+            self.fake.incomplete_cleanup = True
+            with self.assertRaises(host.Refused):
+                self.c.stop()
+            for phase in ('FAILED', 'STOPPING'):
+                state = self.c.state()
+                state['phase'] = phase
+                self.c.save(state)
+                before = self.c.state_path.read_bytes()
+                self.fake.calls.clear()
+                report = self.c.status()
+                self.assertEqual(phase, report['phase'])
+                self.assertEqual(state['last_stop'], report['last_stop'])
+                self.assertTrue(all(not entry['running'] for entry in report['observations'].values()))
+                self.assertEqual(before, self.c.state_path.read_bytes())
+                self.assertFalse(any(call[1] in ('start', 'stop', 'kill', 'rm') for call in self.fake.calls))
+
+    def test_noop_stop_preserves_the_completed_stop_and_attempt_receipt(self):
+        with self.fixture.admitted():
+            self.c.start()
+            attempt = self.c.test()
+            self.c.stop()
+            before = self.c.state_path.read_bytes()
+            self.c.stop()
+            self.assertEqual(before, self.c.state_path.read_bytes())
+            self.assertEqual({attempt: 'passed'}, self.c.state()['last_stop']['attempt_outcomes'])
+
+    def test_occupied_host_port_refuses_before_any_create_or_start_effect(self):
+        with self.fixture.admitted(), patch.object(self.c, 'port_absent', return_value=False):
+            with self.assertRaises(host.Refused):
+                self.c.start()
+        self.assertFalse(any(call[1] in ('create', 'start', 'exec') for call in self.fake.calls))
+        self.assertEqual('STOPPED', self.c.state()['phase'])
+
     def test_prefixed_immutable_image_id_matches_actual_bare_inspection(self):
         original = self.c.run
         def run(argv, seconds=30):

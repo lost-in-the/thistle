@@ -147,6 +147,9 @@ class LifecycleTest(unittest.TestCase):
         host.write_json(self.config_path, self.config)
         self.fake = Podman(self.config)
         self.controller = host.Host(self.config_path, runner=self.fake)
+        port = patch.object(self.controller, 'port_absent', return_value=True)
+        port.start()
+        self.addCleanup(port.stop)
         self.root = self.controller.root
         self.root.mkdir(mode=0o700)
         for name in ('inputs', 'work', 'logs', 'socket', 'mysql-tmp'):

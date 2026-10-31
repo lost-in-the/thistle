@@ -144,10 +144,11 @@ def private_tree(source, destination, skip_socket=None):
 
 
 class MapPage(HTMLParser):
-    def __init__(self, body):
+    def __init__(self, body, read_check=False):
         super().__init__(convert_charrefs=True)
         self.results, self.ids, self.site_count, self.checks, self.links = [], set(), 0, [], []
         self.in_check, self.check_text = False, ''
+        self.read_check = read_check
         self.feed(body)
 
     def handle_starttag(self, tag, attrs):
@@ -160,7 +161,9 @@ class MapPage(HTMLParser):
             self.links.append(urlsplit(attrs['href']))
         if 'constant-site' in attrs.get('class', '').split():
             self.site_count += 1
-        if tag == 'pre' and 'check-data' in attrs.get('class', '').split():
+        # Links also uses check-data for literal constant syntax. Only Check's
+        # unlabelled JSON block is an integrity result, never a site snippet.
+        if self.read_check and tag == 'pre' and attrs.get('class') == 'check-data' and 'aria-label' not in attrs:
             self.in_check, self.check_text = True, ''
 
     def handle_data(self, data):
@@ -174,7 +177,7 @@ class MapPage(HTMLParser):
 
 
 def check_map_page(kind, body, oracle):
-    page = MapPage(body)
+    page = MapPage(body, read_check=kind == 'check')
     saved, origin = oracle['saved'], oracle['origin_id']
     require(saved in body, 'Map generation absent')
     if kind == 'find':
@@ -735,6 +738,7 @@ class Host:
 
     def start(self, initialize_empty=False):
         state = self.preflight()
+        require(self.port_absent(), 'Host loopback port already in use')
         require(not initialize_empty or not state.get('init_attempted', False), 'Initialization already attempted')
         token = uuid.uuid4().hex
         state.update(phase='STARTING', token=token, expires_at=time.time() + LIMITS['lease'])
@@ -825,6 +829,20 @@ class Host:
 
     def observe_status(self):
         state = self.state()
+        if state['phase'] in ('FAILED', 'STOPPING'):
+            # Failure inspection must remain useful and read-only even when a
+            # stopped container is deliberately kept for custody recovery.
+            observations = {}
+            for role, identifier in state['containers'].items():
+                try:
+                    observed = self.owned_container(identifier, state)
+                    observations[role] = {'id': identifier, 'present': observed is not None,
+                                          'running': observed['State']['Running'] if observed else False}
+                except Exception as error:
+                    observations[role] = {'id': identifier, 'observation_error': type(error).__name__}
+            return {'phase': state['phase'], 'profile': PROFILE, 'containers': state['containers'],
+                    'observations': observations, 'initialized': state['initialized'],
+                    'last_stop': state.get('last_stop'), 'endpoint': None}
         actual_ids = {row['Id'] for row in self.compute(state)}
         require(actual_ids == set(state['containers'].values()), 'Actual compute differs from lifecycle record')
         observations = {role: self.prove(cid, role, state['token'], True) for role, cid in state['containers'].items()}
@@ -982,6 +1000,9 @@ class Host:
     def stop(self):
         state = self.state()
         token = state.get('token')
+        if state['phase'] == 'STOPPED' and not state['containers'] and not state.get('access') and state.get('last_stop', {}).get('status') == 'passed':
+            require(not self.compute(state), 'Owned compute remains')
+            return  # Preserve the meaningful completed stop/custody receipt.
         failures, stopped, absent = [], {}, []
         if token:
             self.select_logs(token)
@@ -1073,17 +1094,19 @@ class Host:
             for attempt in record.get('attempts', []):
                 path = session / 'attempts' / attempt
                 receipt['attempt_outcomes'][attempt] = 'failed' if (path / 'failure.json').exists() else 'passed' if (path / 'result.json').exists() else 'incomplete'
+        reference = None
         if directory is not None:
             try:
                 reference = self.finish_retention(directory, receipt)
-                state = self.state()  # retain may have added shared/custody metadata
-                state['sessions'][token]['custody_history'][-1]['status'] = receipt['status']
-                if not failures:
-                    state['sessions'][token]['sealed'] = reference
             except Exception:
                 failures.append('final-index')
-        else:
-            state = self.state()
+        # retain() persists shared blobs and the new partial attempt before
+        # finishing its index. Preserve that state on BOTH success and failure.
+        state = self.state()
+        if reference is not None:
+            state['sessions'][token]['custody_history'][-1]['status'] = receipt['status']
+            if not failures:
+                state['sessions'][token]['sealed'] = reference
         # STOPPED describes actual compute absence, never retroactive journey success.
         state.update(containers=remaining, phase='STOPPED' if empty and not state.get('access') else 'FAILED')
         receipt.update(status='failed' if failures else 'passed', failures=failures)
