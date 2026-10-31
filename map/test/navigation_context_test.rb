@@ -51,6 +51,24 @@ class NavigationContextTest < Minitest::Test
     assert_raises(Thistle::Map::Investigation::Limit) { nav.url('/brief/columns') }
   end
 
+  def test_new_fact_clears_inherited_direction_and_position_but_explicit_controls_win
+    nav = context('id' => Fact, 'direction' => 'incoming', 'page' => '3',
+      'cursor' => 'old-position', 'candidate' => '2')
+    changed = params(nav.url('/links', 'id' => Selected))
+    assert_equal Selected, changed['id']
+    refute changed.key?('direction')
+    refute changed.key?('page')
+    continued = params(nav.url('/references/outgoing', 'id' => Selected))
+    refute continued.key?('cursor')
+    refute continued.key?('candidate')
+    same = params(nav.url('/links'))
+    assert_equal 'incoming', same['direction']
+    assert_equal '3', same['page']
+    explicit = params(nav.url('/links', 'id' => Selected, 'direction' => 'incoming', 'page' => '2'))
+    assert_equal 'incoming', explicit['direction']
+    assert_equal '2', explicit['page']
+  end
+
   def test_scope_checked_before_reader_and_route_fields_stay_at_most_nine
     scope = ['model_brief', Fact, 'columns']
     valid = { 'generation' => Generation, 'id' => Fact, 'selection' => Selected, 'cursor' => cursor(scope) }

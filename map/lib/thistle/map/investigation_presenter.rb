@@ -19,7 +19,7 @@ module Thistle
       def render
         body = +'<h1 class="t1">Investigation</h1>'
         body << "<p>Saved generation <code>#{h(@selection.generation)}</code>. CURRENT is not consulted; live freshness is unknown.</p>"
-        body << '<p class="notice ui">Keep this focus URL to reopen the ordered selection. It contains only saved generation and fact IDs, with no access token. The server saves nothing. Opening a link still requires authorized access to this retained capture.</p>'
+        body << "<p class=\"notice ui\">Use Reopen this investigation to bookmark or share the ordered selection: that link contains only saved generation and fact IDs, with no access token. This page's address can also carry your search. The server saves nothing. Opening a link still requires authorized access to this retained capture.</p>"
         body << "<p><a href=\"#{h(@selection.url(@mount))}\">Reopen this investigation</a></p>"
         body << '<p>At most 24 selections; 4096 query bytes, 24 compact identity requests (32 KiB each; 768 KiB total response allowance), 256 KiB investigation content and 320 KiB total page. Reader opening validates the saved capture separately. Resource refusal returns no partial successful collection. Source is loaded only when you follow Source.</p>'
         body << '<p>Saved facts can be partial or unavailable. Selection does not establish execution, binding, complete coverage or present application behavior. Check the saved capture before inferring absence.</p>'

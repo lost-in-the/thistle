@@ -10,6 +10,16 @@ module Thistle
     # Selection, ambiguity and limits belong to the native pinned Reader.
     class ReferencesPresenter
       MAX_OUTPUT_BYTES = 262_144
+      # Reserve text, section chrome and the next-page link separately from
+      # repeated row URLs. Large labels still face the final rendered cap.
+      NON_URL_RESERVE = 65_536
+      MAX_ROW_HREFS = 12 # origin, occurrence, four candidates and a follow-up
+
+      def self.page_limit(navigation, maximum:, candidate: false)
+        hrefs = candidate ? 2 : MAX_ROW_HREFS
+        fit = (MAX_OUTPUT_BYTES - NON_URL_RESERVE) / (hrefs * navigation.reference_url_bytes)
+        [[fit, 1].max, maximum].min
+      end
 
       def initialize(generation:, mount:, schema_version: nil, files: [], navigation: nil)
         @generation, @mount = generation, mount
@@ -126,7 +136,11 @@ module Thistle
       end
 
       def href(path, id)
-        @navigation.url(path, 'id' => id)
+        controls = { 'id' => id }
+        # Recorded origins and label candidates lead to their outgoing evidence,
+        # including a candidate whose id equals the incoming anchor itself.
+        controls['direction'] = nil if path == '/links'
+        @navigation.url(path, controls)
       end
 
       def navigation(fact, candidate: true)

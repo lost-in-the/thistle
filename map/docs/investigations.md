@@ -72,20 +72,29 @@ escaped codes, without hiding the collection's Remove links.
 
 ## Browser continuation
 
-The brief's **Browse saved … beyond the brief prefix** links open
+The brief's **Browse all saved …, eight per page** links open
 `/brief/columns`, `/brief/associations` or `/brief/registry_candidates`. They use
 the existing `Reader#model_brief` family/cursor API, eight items per page and a
 32 KiB encoded response. A **Next … page** link advances that same saved scope.
 The root, generation, family, coverage, omission counts and uncertainty remain
-visible; an empty page does not establish absence. Unsupported Readers refuse.
+visible; an empty page does not establish absence. The initial link starts at
+position zero, so it repeats the brief's prefix before Next reaches later items.
+Unsupported Readers refuse.
 
 Recorded references continue at `/references/incoming` or
-`/references/outgoing`, with eight rows per request through `Reader#references`.
+`/references/outgoing`, with at most eight rows per request through `Reader#references`.
 **Browse recorded label candidates** follows the particular outgoing relationship
 and can page beyond its initial candidate prefix. Candidate identity remains a
-label match with binding unknown. Reference responses have a 2 MiB total web
-admission cap; rendered content/page caps remain 256/320 KiB. The existing Links
-overview keeps its own 50-row display limit; continuation does not expand full
+label match with binding unknown. Reference responses undergo a 2 MiB post-response
+validation; native output and scratch admission remain Core-owned. Reference
+summaries remain capped at 256 KiB; complete continuation pages at 320 KiB.
+Before calling Reader, Map reduces the
+Links limit (at most 50) and continuation limit (at most eight) using the encoded
+collection/search size and at most 12 repeated hrefs per relationship row. A
+64 KiB reserve allows for non-URL text, chrome and Next; unusually large labels still
+face the final rendered cap. Full collections retain their search and selection
+through smaller pinned pages rather than forcing a single 50-row response.
+Continuation does not expand full
 facts, source or all model families. Each continuation request makes one Reader
 operation with the existing native work budgets, not an automatic multi-page loop.
 

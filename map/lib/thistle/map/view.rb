@@ -152,7 +152,8 @@ module Thistle
 
       def references_page(scope)
         raise Limit, 'Reference continuation is unavailable with this Reader; no other evidence was substituted.' unless @reader.respond_to?(:references)
-        options = { direction: scope.fetch(:direction), cursor: @params['cursor'], limit: 8 }
+        limit = ReferencesPresenter.page_limit(@navigation, maximum: 8, candidate: !scope[:candidate].nil?)
+        options = { direction: scope.fetch(:direction), cursor: @params['cursor'], limit: limit }
         options[:candidate_link] = scope[:candidate] if scope[:candidate]
         result = @reader.references(@params.fetch('id'), **options)
         unless result['generation'] == @generation && result.dig('anchor', 'id') == @params['id'] &&
@@ -160,10 +161,10 @@ module Thistle
           raise Thistle::InvalidSnapshot, 'Reference continuation identity mismatch'
         end
         rows = scope[:candidate] ? result.fetch('candidates') : result.fetch('relationships')
-        raise Limit, 'Reference continuation exceeds its eight-row budget.' if rows.length > 8
+        raise Limit, 'Reference continuation exceeds its requested row budget.' if rows.length > limit
         raise Limit, 'Reference continuation exceeds the Reader response budget.' if JSON.generate(result).bytesize > 2_097_152
         raise Thistle::InvalidSnapshot, 'Reference continuation made no progress' if result['next_cursor'] && result['next_cursor'] == @params['cursor']
-        body = +'<h1 class="t1">Saved reference continuation</h1><p>At most eight rows from this saved evidence scope. No source or full fact was expanded by this page.</p>'
+        body = +"<h1 class=\"t1\">Saved reference continuation</h1><p>At most #{limit} rows from this saved evidence scope. No source or full fact was expanded by this page.</p>"
         body << ReferencesPresenter.new(generation: @generation, mount: @mount, schema_version: @reader.manifest['schema_version'],
           files: @reader.manifest['files'], navigation: @navigation).render(result)
         bounded_evidence_page('References', body, fact: result.fetch('anchor'))
@@ -194,12 +195,16 @@ module Thistle
       def links
         id = @params.fetch('id')
         direction = @params.fetch('direction', 'outgoing')
+        reference_limit = ReferencesPresenter.page_limit(@navigation, maximum: 50)
         references_limited = false
         references = begin
-          @reader.references(id, direction: direction) if @reader.respond_to?(:references)
+          @reader.references(id, direction: direction, limit: reference_limit) if @reader.respond_to?(:references)
         rescue Thistle::LimitExceeded
           references_limited = true
           nil
+        end
+        if references && references.fetch('relationships').length > reference_limit
+          raise Limit, 'References exceed the requested row budget.'
         end
         # Incoming navigation needs identity only. Reader#fact expands the entire
         # outgoing link tree, which must not accompany the bounded incoming query.
@@ -615,13 +620,13 @@ module Thistle
         when 'references'
           direction = followup.fetch('direction')
           raise Thistle::InvalidSnapshot, 'Invalid reference direction' unless %w[incoming outgoing].include?(direction)
-          "<p><a href=\"#{h(url("/references/#{direction}", 'id' => id, 'cursor' => followup['cursor']))}\">Inspect #{h(direction)} relationships in Links</a></p>"
+          "<p><a href=\"#{h(url("/references/#{direction}", 'id' => id, 'cursor' => followup['cursor']))}\">Inspect #{h(direction)} references, up to eight per page</a></p>"
         when 'callback_effects'
           "<p><a href=\"#{h(url('/links', 'id' => id, 'direction' => 'outgoing'))}\">Inspect registered callback evidence in Links</a></p>"
         when 'model_brief'
           family = followup.fetch('family')
           raise Thistle::InvalidSnapshot, 'Invalid model family' unless NavigationContext::FAMILIES.include?(family)
-          "<p><a href=\"#{h(url("/brief/#{family}", 'id' => id, 'cursor' => followup['cursor']))}\">Browse saved #{h(family.tr('_', ' '))} beyond the brief prefix</a></p>"
+          "<p><a href=\"#{h(url("/brief/#{family}", 'id' => id, 'cursor' => followup['cursor']))}\">Browse all saved #{h(family.tr('_', ' '))}, eight per page</a></p>"
         else ''
         end
       end

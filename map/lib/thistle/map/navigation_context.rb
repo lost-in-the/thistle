@@ -30,6 +30,9 @@ module Thistle
       def url(path, extra = {}, selection: @selection, **destination)
         extra = extra.merge(destination) unless destination.empty?
         controls = @current.merge(extra)
+        if extra.key?('id') && extra['id'] != @current['id']
+          %w[direction page cursor candidate].each { |key| controls.delete(key) unless extra.key?(key) }
+        end
         destination = case path
                       when '/source'
                         if extra.key?('file') || extra.key?('path')
@@ -69,6 +72,14 @@ module Thistle
         raise Investigation::Limit, 'Navigation exceeds the URL budget; no selections were removed.' if query.bytesize > Investigation::MAX_QUERY_BYTES || count > MAX_FIELDS
 
         "#{@mount}#{path}?#{query}"
+      end
+
+      # Bound a repeated row href without constructing URLs or consulting saved
+      # facts. Row destinations need at most 96 encoded control bytes; next-page
+      # cursors are covered by the presenter's separate non-row reserve.
+      def reference_url_bytes
+        query = [Investigation::MAX_QUERY_BYTES, @state.bytesize + @search_query.bytesize + 96].min
+        @mount.bytesize * 6 + 32 + query + MAX_FIELDS * 4
       end
 
       # Route names carry family/direction so continuation still fits nine fields.

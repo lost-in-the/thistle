@@ -112,6 +112,29 @@ class NavigationJourneyTest < Minitest::Test
     end
   end
 
+  # Unlike the small journey double, this models a populated result set and
+  # honors the requested limit and cursor. A default 50-row page must not hide
+  # a collection-size rendering refusal behind a one-row fixture.
+  class FullReferencesReader < Reader
+    def references(id, direction:, cursor: nil, limit: 50, candidate_link: nil)
+      return super if candidate_link
+
+      @calls << [:references, id, { direction: direction, cursor: cursor, limit: limit }]
+      offset = cursor ? JSON.parse(cursor)[3] : 0
+      count = [limit, 50 - offset].min
+      rows = Array.new(count) do |n|
+        { 'origin' => identity(ORIGIN),
+          'link' => { 'relation' => 'references', 'target' => "recorded-row-#{offset + n + 1}", 'resolution' => 'unresolved' },
+          'detail_omitted' => false, 'candidate_matches' => 4, 'candidate_search_complete' => true,
+          'candidates' => [FACT_ID, ORIGIN, TARGET, REGISTRY].map { |target| identity(target) } }
+      end
+      { 'generation' => generation, 'anchor' => identity(id), 'direction' => direction, 'relationships' => rows,
+        'coverage' => { 'known_matches' => 50, 'known_omitted' => 50 - offset - count,
+          'scan_complete' => offset + count == 50, 'capture_partial' => true },
+        'next_cursor' => offset + count < 50 ? self.cursor(['references', id, direction == 'incoming', nil], offset + count) : nil }
+    end
+  end
+
   def query(extra = {})
     URI.encode_www_form(SEARCH.merge('generation' => GENERATION, 'selection' => SELECTION).merge(extra))
   end
@@ -175,8 +198,89 @@ class NavigationJourneyTest < Minitest::Test
     # Empty selection needs no identity method on this old Reader double.
     _, _, collection = request(app, '/investigation', query: query('selection' => ''))
     focus = href(collection, 'Reopen this investigation')
+    assert_includes collection, "This page's address can also carry your search"
     assert_equal({ 'generation' => GENERATION, 'selection' => '' }, URI.decode_www_form(focus.query).to_h)
     assert_equal SEARCH, URI.decode_www_form(href(collection, 'Find').query).to_h.slice(*SEARCH.keys)
+  end
+
+  def test_full_collection_links_and_next_page_fit_without_discarding_search_or_selection
+    selected = (16...40).map { |n| n.to_s(16).rjust(64, '0') }.join(',')
+    ['app/', '雪' * 150].each do |prefix|
+      %w[incoming outgoing].each do |direction|
+        reader = FullReferencesReader.new
+        app = make_app(reader)
+        search = SEARCH.merge('prefix' => prefix)
+        encoded = URI.encode_www_form(search.merge('generation' => GENERATION,
+          'selection' => selected, 'id' => FACT_ID, 'direction' => direction))
+        assert_operator encoded.bytesize, :<=, 4096
+        status, _, page = request(app, '/links', query: encoded)
+        assert_equal 200, status
+        call = reader.calls.find { |entry| entry.first == :references }
+        assert_operator call.last[:limit], :<, 50
+        assert_operator call.last[:limit], :>=, 1
+        target = href(page, 'Next recorded references page')
+        parameters = URI.decode_www_form(target.query).to_h
+        assert_equal selected, parameters['selection']
+        assert_equal search, parameters.slice(*search.keys)
+        assert_equal call.last[:limit], JSON.parse(parameters.fetch('cursor'))[3]
+        status, _, next_page = follow(app, target)
+        assert_equal 200, status
+        assert_includes next_page, "recorded-row-#{call.last[:limit] + 1}"
+        assert_equal 2, reader.closes
+      end
+    end
+  end
+
+  def test_small_navigation_context_keeps_the_existing_fifty_row_links_limit
+    reader = FullReferencesReader.new
+    status, _, page = request(make_app(reader), '/links',
+      query: query('selection' => '', 'id' => FACT_ID, 'direction' => 'incoming'))
+    assert_equal 200, status
+    assert_equal 50, reader.calls.find { |entry| entry.first == :references }.last[:limit]
+    assert_includes page, 'recorded-row-50'
+    refute_includes page, 'Next recorded references page'
+  end
+
+  def test_incoming_recorded_origin_links_open_outgoing_with_the_collection_intact
+    reader = FullReferencesReader.new
+    app = make_app(reader)
+    status, _, page = request(app, '/links', query: query('id' => FACT_ID, 'direction' => 'incoming'))
+    assert_equal 200, status
+    origin = href(page, 'Inspection#inspect (method)')
+    assert_context(origin)
+    refute URI.decode_www_form(origin.query).to_h.key?('direction')
+    assert_equal ORIGIN, URI.decode_www_form(origin.query).to_h['id']
+    anchor_candidate = href(page, 'Order (rails_model); name match / binding unknown')
+    assert_equal FACT_ID, URI.decode_www_form(anchor_candidate.query).to_h['id']
+    refute URI.decode_www_form(anchor_candidate.query).to_h.key?('direction')
+    status, _, = follow(app, origin)
+    assert_equal 200, status
+    assert_equal 'outgoing', reader.calls.reverse.find { |entry| entry.first == :references }.last[:direction]
+  end
+
+  def test_brief_entry_labels_describe_prefix_replay_and_reference_destinations
+    reader = Reader.new
+    def reader.model_brief(id, **options)
+      super.tap do |result|
+        next if options[:family]
+        result['families']['incoming']['followup'] = { 'operation' => 'references',
+          'generation' => generation, 'id' => id, 'direction' => 'incoming', 'cursor' => nil }
+      end
+    end
+    app = make_app(reader)
+    status, _, model = request(app, '/source', query: query('id' => FACT_ID))
+    assert_equal 200, status
+    columns = href(model, 'Browse all saved columns, eight per page')
+    assert_equal '/brief/columns', columns.path
+    assert_context(columns)
+    status, _, first_page = follow(app, columns)
+    assert_equal 200, status
+    assert_includes first_page, 'column1'
+    assert_includes first_page, 'column8'
+    refute_includes first_page, 'column9'
+    references = href(model, 'Inspect incoming references, up to eight per page')
+    assert_equal '/references/incoming', references.path
+    assert_context(references)
   end
 
   def test_model_family_and_reference_pages_reach_beyond_eight_without_expansion

@@ -75,7 +75,7 @@ class MapConstantOccurrenceTest < Minitest::Test
     def reader.links(*) = raise('Incoming occurrence expanded links')
     def reader.source(*) = raise('Incoming occurrence expanded Source')
     fact = origin
-    reader.define_singleton_method(:references) do |id, direction:|
+    reader.define_singleton_method(:references) do |id, direction:, limit: 50|
       { 'generation' => generation, 'anchor' => fact, 'direction' => direction,
         'coverage' => { 'known_matches' => 2, 'known_omitted' => 1, 'scan_complete' => false, 'capture_partial' => true },
         'relationships' => links.map { |link| { 'origin' => fact, 'link' => link, 'detail_omitted' => false,
@@ -116,7 +116,7 @@ class MapConstantOccurrenceTest < Minitest::Test
     reader = reader_with([link], content)
     reads = 0
     reader.define_singleton_method(:source) { |id| reads += 1; super(id) }
-    reader.define_singleton_method(:references) do |id, direction:|
+    reader.define_singleton_method(:references) do |id, direction:, limit: 50|
       { 'generation' => generation, 'anchor' => fact, 'direction' => direction,
         'coverage' => { 'known_matches' => 1, 'known_omitted' => 0, 'scan_complete' => true, 'capture_partial' => true },
         'relationships' => [{ 'origin' => fact, 'link' => link, 'detail_omitted' => false,
@@ -145,7 +145,7 @@ class MapConstantOccurrenceTest < Minitest::Test
       def reader.fact(*) = raise('Incoming occurrence expanded fact')
       def reader.links(*) = raise('Incoming occurrence expanded links')
       def reader.source(*) = raise('Incoming occurrence expanded Source')
-      reader.define_singleton_method(:references) do |id, direction:|
+      reader.define_singleton_method(:references) do |id, direction:, limit: 50|
         { 'generation' => generation, 'anchor' => fact, 'direction' => direction,
           'coverage' => { 'known_matches' => 1, 'known_omitted' => 0, 'scan_complete' => true, 'capture_partial' => true },
           'relationships' => [{ 'origin' => fact, 'link' => link, 'detail_omitted' => false,
