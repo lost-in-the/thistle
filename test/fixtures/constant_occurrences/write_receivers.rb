@@ -1,0 +1,9 @@
+Config.timeout ||= WriteValue
+Config.timeout &&= WriteValue
+Config.timeout += WriteValue
+Config.timeout, other = WriteValue
+Config[WriteKey] ||= WriteValue
+Config[WriteKey] &&= WriteValue
+Config[WriteKey] += WriteValue
+Config[WriteKey], other = WriteValue
+factory(InnerValue).timeout ||= WriteValue

@@ -16,6 +16,86 @@ fn run(reader: &Reader, id: usize, direction: &str, limit: usize) -> Result<Valu
     let request=json!({"id":format!("{id:064x}"),"direction":direction,"limit":limit});
     select(reader, &Query::parse(&request)?)
 }
+
+fn constant_occurrence_fixture(version: u64, extension: u64) -> Value {
+    let mut data = fixture(version);
+    let source = "::User; ::User";
+    data["files"] = json!([{"path":"a.rb","bytes":source.len(),"content":source,"sha256":schema::digest(source.as_bytes()),"encoding":"UTF-8"}]);
+    let mut facts = (1..=6).map(|id| fact(id, "User", json!([]))).collect::<Vec<_>>();
+    facts.push(fact(7, "Other::User", json!([])));
+    let links = [0, 8].map(|start| json!({"relation":"references_constant","target":"::User","resolution":"unresolved",
+        "attributes":{"thistle_constant":{"version":extension,"syntax":"::User","rooted":true,
+            "lexical_scope":null,"role":"value","location":[start,start+6,1,1]}}}));
+    let mut origin = fact(20, "a.rb", json!(links));
+    origin["kind"] = json!("file"); origin["path"] = json!("a.rb");
+    origin["location"] = json!({"start_byte":0,"end_byte":source.len(),"start_line":1,"end_line":1});
+    facts.push(origin); data["facts"] = json!(facts); data
+}
+
+#[test]
+fn constant_occurrence_root_matching_is_context_bound_and_opaque_labels_stay_literal() {
+    for (version, extension, expected) in [(1,1,0), (2,1,0), (3,8,0), (3,1,2)] {
+        let temp = tempfile::tempdir().unwrap();
+        let data = constant_occurrence_fixture(version, extension);
+        store::publish(temp.path(), &data).unwrap();
+        let reader = Reader::open(temp.path(), None).unwrap();
+        assert_eq!(run(&reader,1,"incoming",50).unwrap()["relationships"].as_array().unwrap().len(), expected);
+        assert!(run(&reader,7,"incoming",50).unwrap()["relationships"].as_array().unwrap().is_empty());
+        let outgoing = run(&reader,20,"outgoing",50).unwrap();
+        assert_eq!(outgoing["relationships"][0]["link"], data["facts"][7]["links"][0]);
+        assert_eq!(outgoing["relationships"][0]["candidate_label"], "::User");
+        assert_eq!(outgoing["relationships"][0]["candidate_matches"], if expected == 2 {6} else {0});
+    }
+}
+
+#[test]
+fn distinct_occurrence_pages_and_late_candidates_remain_pinned_after_publication() {
+    let temp = tempfile::tempdir().unwrap();
+    let data = constant_occurrence_fixture(3, 1);
+    let generation = store::publish(temp.path(), &data).unwrap()["generation"].as_str().unwrap().to_owned();
+    let reader = Reader::open(temp.path(), Some(&generation)).unwrap();
+    let first = run(&reader,1,"incoming",1).unwrap();
+    assert!(first["next_cursor"].is_string());
+    let second = select(&reader, &Query::parse(&json!({"id":format!("{:064x}",1),"direction":"incoming","limit":1,"cursor":first["next_cursor"]})).unwrap()).unwrap();
+    assert_eq!(first["relationships"].as_array().unwrap().len(), 1);
+    assert_eq!(second["relationships"].as_array().unwrap().len(), 1);
+    assert_ne!(first["relationships"][0]["link_ordinal"], second["relationships"][0]["link_ordinal"]);
+    assert_eq!(second["coverage"]["scan_complete"], true);
+    let outgoing = run(&reader,20,"outgoing",50).unwrap();
+    assert_eq!(outgoing["relationships"][0]["candidates"].as_array().unwrap().len(), 4);
+    assert_eq!(outgoing["relationships"][0]["candidate_matches"], 6);
+    let mut changed = data; changed["producer"]["changed"] = json!(true);
+    store::publish(temp.path(), &changed).unwrap();
+    let pinned = Reader::open(temp.path(), Some(&generation)).unwrap();
+    let mut cursor = Value::Null; let mut ids = Vec::new();
+    for _ in 0..6 {
+        let page = select(&pinned, &Query::parse(&json!({"id":format!("{:064x}",20),"candidate_link":0,"limit":1,"cursor":cursor})).unwrap()).unwrap();
+        assert_eq!(page["generation"], generation);
+        assert_eq!(page["candidate_status"], "ambiguous");
+        ids.push(page["candidates"][0]["id"].as_str().unwrap().to_owned());
+        cursor = page["next_cursor"].clone();
+    }
+    assert!(cursor.is_null()); ids.sort(); ids.dedup(); assert_eq!(ids.len(), 6);
+    assert_eq!(pinned.source(&format!("{:064x}",20)).unwrap()["content"], "::User; ::User");
+    assert_eq!(run(&pinned,1,"incoming",50).unwrap()["relationships"].as_array().unwrap().len(), 2);
+}
+
+#[test]
+fn constant_occurrence_matching_and_lookup_charge_original_rooted_bytes() {
+    let data = constant_occurrence_fixture(3, 1);
+    let link = &data["facts"][7]["links"][0];
+    let view = SemanticLinkView::from_semantic(link, 3, "static").unwrap();
+    let target = label(&view).unwrap();
+    assert_eq!((target.original, target.key), ("::User", "User"));
+    let mut work = Work { comparisons:0, bytes:MAX_LABEL_BYTES - 9 };
+    assert!(work.compare_scoped(target, "User", None).is_none()); // original6 + name4
+    assert_eq!(work.comparisons, 0);
+    let temp = tempfile::tempdir().unwrap();
+    store::publish(temp.path(), &data).unwrap();
+    let reader = Reader::open(temp.path(), None).unwrap();
+    assert!(lookup(&reader, target, 0, 1, &mut work, None).is_err());
+    assert_eq!(work.comparisons, 0); // kind=None adapter did not charge the shorter key
+}
 #[test]
 fn incoming_outgoing_duplicates_namespace_and_no_source() {
     let temp = tempfile::tempdir().unwrap();
@@ -209,4 +289,110 @@ fn pinned_cursor_survives_current_change_and_inflight_reader_survives_close() {
     let reopened=Reader::open(temp.path(),old["generation"].as_str()).unwrap();
     let result=run(&reopened,4,"outgoing",50).unwrap();
     assert_eq!(result["cost"]["recorded_directory"]["built_this_request"],true);
+}
+
+fn constant_call(name: &str, metadata_version: u64) -> Value {
+    let location = json!({"start_byte":0,"end_byte":6,"start_line":1,"end_line":1});
+    let extension = if metadata_version == 1 {
+        json!({"version":1,"receiver":{"kind":"constant","name":name,"omitted_limit":false},
+            "safe_navigation":false,"call_location":location,"receiver_location":location})
+    } else {
+        json!({"version":2,"data":["constant",name,false,false,[0,6,1,1],[0,6,1,1]]})
+    };
+    json!({"relation":"calls","target":"build","resolution":"unresolved",
+        "attributes":{"thistle_call":extension}})
+}
+fn rooted_fixture(version: u64, metadata_version: u64) -> Value {
+    let mut data = fixture(version);
+    data["files"] = json!([{"path":"a.rb","bytes":6,"sha256":schema::digest(b"::User"),"content":"::User","encoding":"UTF-8"}]);
+    data["facts"] = json!([fact(1,"User",json!([])), fact(2,"Admin::User",json!([])),
+        fact(3,"Plain",json!([constant_call("User",metadata_version)])),
+        fact(4,"Rooted",json!([constant_call("::User",metadata_version)])),
+        fact(5,"Other::Nested",json!([constant_call("::User",metadata_version)])),
+        fact(6,"Namespaced",json!([constant_call("::Admin::User",metadata_version)])),
+        fact(7,"RelativeNamespaced",json!([constant_call("Admin::User",metadata_version)])),
+        fact(8,"User",json!([]))]);
+    for index in 2..7 { data["facts"][index]["path"] = json!("a.rb"); }
+    data
+}
+#[test]
+fn recognized_rooted_receivers_share_incoming_outgoing_and_candidate_pages() {
+    for (version, metadata) in [(1,1),(2,1),(2,2),(3,2)] {
+        let temp = tempfile::tempdir().unwrap();
+        let data = rooted_fixture(version,metadata);
+        let saved = store::publish(temp.path(),&data).unwrap();
+        let reader = Reader::open(temp.path(),None).unwrap();
+        let mut request = json!({"id":format!("{:064x}",1),"direction":"incoming","limit":1});
+        let mut origins = Vec::new();
+        for _ in 0..4 {
+            let page = select(&reader,&Query::parse(&request).unwrap()).unwrap();
+            for row in page["relationships"].as_array().unwrap() {
+                origins.push(row["origin"]["name"].as_str().unwrap().to_owned());
+                assert_eq!(row["match_basis"],"label_match_binding_unknown");
+                assert_eq!(row["candidate_search_complete"],false);
+            }
+            if page["next_cursor"].is_null() { break; }
+            request["cursor"] = page["next_cursor"].clone();
+        }
+        assert_eq!(origins,vec!["Plain","Rooted","Other::Nested"]);
+        let rooted = run(&reader,4,"outgoing",1).unwrap();
+        let row = &rooted["relationships"][0];
+        assert_eq!(row["candidate_label"],"::User");
+        assert_eq!(row["link"],data["facts"][3]["links"][0]);
+        assert_eq!(row["candidate_matches"],2);
+        assert_eq!(row["candidates"][0]["id"],format!("{:064x}",1));
+        let mut candidates = json!({"id":format!("{:064x}",4),"candidate_link":0,"limit":1});
+        let first = select(&reader,&Query::parse(&candidates).unwrap()).unwrap();
+        assert_eq!(first["candidate_status"],"ambiguous");
+        assert!(first["next_cursor"].is_string());
+        let mut changed = data.clone(); changed["facts"][0]["name"] = json!("Changed");
+        store::publish(temp.path(),&changed).unwrap();
+        let reopened = Reader::open(temp.path(),saved["generation"].as_str()).unwrap();
+        candidates["cursor"] = first["next_cursor"].clone();
+        let last = select(&reopened,&Query::parse(&candidates).unwrap()).unwrap();
+        assert_eq!(last["generation"],saved["generation"]);
+        assert_eq!(last["candidate_matches"],2);
+        assert_eq!(last["candidates"][0]["id"],format!("{:064x}",8));
+        assert!(last["next_cursor"].is_null());
+        let namespaced = run(&reopened,2,"incoming",50).unwrap();
+        assert_eq!(namespaced["relationships"].as_array().unwrap().len(),2);
+        assert_eq!(run(&reopened,6,"outgoing",1).unwrap()["relationships"][0]["candidates"][0]["name"],"Admin::User");
+    }
+}
+#[test]
+fn opaque_and_nonconstant_labels_never_gain_root_normalization() {
+    for version in 1..=3 {
+        let temp = tempfile::tempdir().unwrap();
+        let mut data = rooted_fixture(version,2);
+        let mut opaque = constant_call("::User",2);
+        opaque["target"] = json!("::User");
+        if version > 1 { opaque["attributes"]["thistle_call"]["version"] = json!(99); }
+        let mut local = constant_call("::User",2);
+        local["attributes"]["thistle_call"]["data"][0] = json!("local");
+        data["facts"][3]["links"] = json!([opaque,local,
+            {"relation":"references","target":"::User","resolution":"unresolved"}]);
+        store::publish(temp.path(),&data).unwrap();
+        let reader = Reader::open(temp.path(),None).unwrap();
+        let output = run(&reader,4,"outgoing",50).unwrap();
+        for row in output["relationships"].as_array().unwrap() { assert_eq!(row["candidate_matches"],0); }
+        let incoming = run(&reader,1,"incoming",50).unwrap();
+        assert!(!incoming["relationships"].as_array().unwrap().iter().any(|row| row["origin"]["name"] == "Rooted"));
+        assert_eq!(output["relationships"][0]["link"],data["facts"][3]["links"][0]);
+    }
+}
+#[test]
+fn rooted_comparisons_charge_original_bytes_and_keep_refusals() {
+    let target = Label { original:"::User",key:recorded_domain::constant_label("::User") };
+    let mut work = Work { comparisons:0,bytes:0 };
+    assert_eq!(work.compare_scoped(target,"User",None),Some(true));
+    assert_eq!((work.comparisons,work.bytes),(1,10));
+    let mut work = Work { comparisons:0,bytes:MAX_LABEL_BYTES-9 };
+    assert_eq!(work.compare_scoped(target,"User",None),None);
+    let mut work = Work { comparisons:0,bytes:0 };
+    let mut labels = ScopedLabels { work:&mut work,shared:None,original:target.original };
+    assert_eq!(recorded_domain::LabelWork::compare(&mut labels,"User",target.key).unwrap(),std::cmp::Ordering::Equal);
+    assert_eq!((work.comparisons,work.bytes),(1,10));
+    let mut work = Work { comparisons:MAX_COMPARISONS,bytes:0 };
+    let mut labels = ScopedLabels { work:&mut work,shared:None,original:target.original };
+    assert_eq!(recorded_domain::LabelWork::compare(&mut labels,"User",target.key).unwrap_err().code,"limit_exceeded");
 }

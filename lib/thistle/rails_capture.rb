@@ -2,13 +2,14 @@
 
 require "digest"
 require "json"
+require_relative 'rails_compatibility'
 
 module Thistle
   # Observes the supplied application's route set. It does not boot, reload,
   # eager-load or execute a request. The caller owns application authority.
   class RailsCapture
     # The mapper wrapper is nodoc Rails internals, verified against this release.
-    CONSTRAINT_RAILS_VERSIONS = ["8.1.4"].freeze
+    CONSTRAINT_RAILS_VERSIONS = RailsCompatibility::OBSERVATION_VERSIONS
     MAX_CONSTRAINTS = 32
     MAX_CONSTRAINT_BYTES = 8_192
     def initialize(app:, limits:, evidence_budget: Capture::MAX_EVIDENCE_BYTES)

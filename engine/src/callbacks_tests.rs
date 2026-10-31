@@ -7,6 +7,26 @@ fn context() -> Value {
 }
 
 #[test]
+fn exact_cohort_provenance_is_preserved_and_unknown_versions_are_refused() {
+    // Primitive validation only; this does not simulate or qualify Rails 7.1.
+    for version in ["7.1.6", "8.1.4"] {
+        let mut obs = observation(); obs["active_record_version"] = json!(version);
+        let result = batch(&context(), &obs).unwrap();
+        assert_eq!(result["callback_observer"]["active_record_version"], version);
+        let fact = &result["facts"][0];
+        assert_eq!(fact["attributes"]["callbacks"]["active_record_version"], version);
+        validate_fact(fact).unwrap();
+        for unsupported in ["7.1.5", "7.2.4", "8.1.5", "7.1.6-custom"] {
+            obs["active_record_version"] = json!(unsupported);
+            assert!(batch(&context(), &obs).is_err());
+            let mut forged = fact.clone();
+            forged["attributes"]["callbacks"]["active_record_version"] = json!(unsupported);
+            assert!(validate_fact(&forged).is_err());
+        }
+    }
+}
+
+#[test]
 fn normalizes_registered_positions_and_keeps_hints_separate_from_source_proof() {
     let result = batch(&context(), &observation()).unwrap();
     let fact = &result["facts"][0];

@@ -55,23 +55,38 @@ module Thistle
       nil
     end
 
-    # Rails 8.1.4 class_attribute stores each value in a generated private
-    # closure. Read only that known value-reader code, never a model accessor.
+    # Rails 7.1 recompiles each class_attribute declaration, so a fresh probe
+    # has a different ISeq identity. Accept only its pure captured-value block.
+    # Rails 8.1 shares the private-reader code and retains the identity guard.
     # An override or an unrecognized VM/layout makes this chain unavailable.
     def stored_chains(model)
       return unless defined?(RubyVM::InstructionSequence)
+      reader = rails71? ? :__callbacks : :__class_attr___callbacks
       singleton = Object.instance_method(:singleton_class).bind_call(model)
-      getter = Module.instance_method(:instance_method).bind_call(singleton, :__class_attr___callbacks)
+      getter = Module.instance_method(:instance_method).bind_call(singleton, reader)
+      code = RubyVM::InstructionSequence.of(getter)
+      if rails71?
+        return unless captured_value_reader?(code)
+        return getter.bind_call(model)
+      end
       unless @storage_reader_code
         probe = Class.new
         Class.instance_method(:class_attribute).bind_call(probe, :__callbacks, instance_accessor: false)
         probe_singleton = Object.instance_method(:singleton_class).bind_call(probe)
-        probe_getter = Module.instance_method(:instance_method).bind_call(probe_singleton, :__class_attr___callbacks)
+        probe_getter = Module.instance_method(:instance_method).bind_call(probe_singleton, reader)
         @storage_reader_code = RubyVM::InstructionSequence.of(probe_getter)
       end
-      code = RubyVM::InstructionSequence.of(getter)
       return unless code && code.equal?(@storage_reader_code)
       getter.bind_call(model)
+    end
+
+    # No sends, ivar reads, branches or nested code: only return the captured
+    # value argument. Unknown VM layouts refuse rather than dispatching a reader.
+    def captured_value_reader?(code)
+      return false unless code
+      data = RubyVM::InstructionSequence.instance_method(:to_a).bind_call(code)
+      data[9] == :block && data[11] == {} && data[12] == [] && data[13].is_a?(Array) &&
+        data[13].grep(Array) == [[:getlocal_WC_1, 3], [:leave]]
     end
 
     def observe_callbacks(model)

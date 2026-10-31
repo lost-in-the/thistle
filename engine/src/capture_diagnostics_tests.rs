@@ -5,7 +5,7 @@ use crate::store::{self, Reader};
 fn empty(limits: Value) -> Capture {
     Capture {
         limits: effective_limits(&limits).unwrap(),
-        files: vec![], facts: vec![], diagnostics: vec![],
+        files: vec![], facts: vec![], kinds: vec![], diagnostics: vec![],
         diagnostic_bytes: 2, diagnostic_occurrences: 0,
         entries: 0, total_bytes: 0, nodes: 0, links: 0, evidence_bytes: 2,
         link_keys: HashSet::new(), call_keys: HashMap::new(),
@@ -65,6 +65,28 @@ fn real_declaration_mixin_and_path_groups_remain_distinct() {
         }
     }
     assert_eq!(capture(root.path(), json!({"max_diagnostics":3})).unwrap_err().code, "limit_exceeded");
+}
+
+#[test]
+fn mixed_groups_preserve_lifo_order_and_published_generation() {
+    let root = tempfile::tempdir().unwrap();
+    std::fs::write(root.path().join("a.rb"),
+        "class Demo; some_block do; def hidden; end; include A; end; end\n").unwrap();
+    let captured = capture(root.path(), json!({})).unwrap();
+    let expected = json!([
+        {"code":"dynamic_scope", "message":MIXIN_SCOPE_MESSAGE, "path":"a.rb", "occurrences":1},
+        {"code":"dynamic_scope", "message":DECLARATION_SCOPE_MESSAGE, "path":"a.rb", "occurrences":1}
+    ]);
+    assert_eq!(captured["diagnostics"], expected);
+    let error = capture(root.path(), json!({"max_diagnostics":1})).unwrap_err();
+    assert_eq!(error.code, "limit_exceeded");
+    assert!(error.message.contains("retained groups"));
+    let actual = store::publish(&root.path().join("actual"), &captured).unwrap();
+    assert_eq!(actual["diagnostics"], expected);
+    let mut reordered = captured.clone();
+    reordered["diagnostics"].as_array_mut().unwrap().reverse();
+    let changed = store::publish(&root.path().join("reordered"), &reordered).unwrap();
+    assert_ne!(actual["generation"], changed["generation"]);
 }
 
 #[test]

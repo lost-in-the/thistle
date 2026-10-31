@@ -31,6 +31,7 @@ const PARSER_POLICY: &str = "prism-default-guarded";
 const PARSER_STACK_BYTES: usize = 64 * 1024 * 1024;
 const DECLARATION_SCOPE_MESSAGE: &str = "A declaration inside a dynamic block or singleton receiver was not assigned a speculative owner";
 const MIXIN_SCOPE_MESSAGE: &str = "A mixin call in a block or singleton namespace has an unverified owner and was not attached to the ordinary class";
+const CONSTANT_PATH_MESSAGE: &str = "A constant path with an expression parent or beyond the supported label or depth limits has no static target label";
 // Provisional operational traversal ceiling, not a parser or process-memory bound.
 const MAX_NODES_CEILING: usize = 5_000_000;
 static CAPTURE_ACTIVE: AtomicBool = AtomicBool::new(false);
@@ -56,10 +57,30 @@ struct Scope {
     dynamic: bool,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ConstantRole { Value, Argument, Predicate, RescueClass, Excluded }
+
+impl ConstantRole {
+    fn label(self) -> &'static str {
+        match self {
+            Self::Value => "value", Self::Argument => "argument",
+            Self::Predicate => "predicate", Self::RescueClass => "rescue_class",
+            Self::Excluded => unreachable!("excluded constants are not recorded"),
+        }
+    }
+}
+
+/// Owning fact, target, receiver kind, receiver name, safe navigation and the
+/// distinct site for receivers that do not group.
+type CallKey = (usize, String, &'static str, Option<String>, bool, Option<(usize, usize)>);
+
 struct Capture {
     limits: HashMap<String, usize>,
     files: Vec<Value>,
     facts: Vec<Value>,
+    /// Kind of each fact by index, so scope checks on every node do not
+    /// search the fact object.
+    kinds: Vec<FactKind>,
     diagnostics: Vec<Value>,
     diagnostic_bytes: usize,
     diagnostic_occurrences: u64,
@@ -69,9 +90,18 @@ struct Capture {
     links: usize,
     evidence_bytes: usize,
     link_keys: HashSet<(usize, String, String)>,
-    call_keys: HashMap<(usize, String, String, Option<String>, bool, Option<(usize, usize)>), usize>,
+    call_keys: HashMap<CallKey, usize>,
     inventory_partial: bool,
     declarations_partial: bool,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum FactKind { File, Class, Module, Method }
+
+impl FactKind {
+    fn label(self) -> &'static str {
+        match self { Self::File => "file", Self::Class => "class", Self::Module => "module", Self::Method => "method" }
+    }
 }
 
 struct CapturePermit;
@@ -126,41 +156,70 @@ fn capture_inner(root: &Path, effective: HashMap<String, usize>) -> Result<Value
     let directory = open_root(&canonical)?;
     let mut capture = Capture {
         limits: effective,
-        files: Vec::new(), facts: Vec::new(), diagnostics: Vec::new(), diagnostic_bytes: 2, diagnostic_occurrences: 0,
+        files: Vec::new(), facts: Vec::new(), kinds: Vec::new(), diagnostics: Vec::new(), diagnostic_bytes: 2, diagnostic_occurrences: 0,
         entries: 0, total_bytes: 0, nodes: 0, links: 0, evidence_bytes: 2,
         link_keys: HashSet::new(), call_keys: HashMap::new(), inventory_partial: false, declarations_partial: false,
     };
     capture.walk(&directory, "", 0)?;
-    capture.files.sort_by(|a, b| a["path"].as_str().cmp(&b["path"].as_str()));
-    capture.facts.sort_by(|a, b| {
-        (a["path"].as_str(), a["location"]["start_byte"].as_u64(), a["kind"].as_str(), a["name"].as_str(), a["id"].as_str())
-            .cmp(&(b["path"].as_str(), b["location"]["start_byte"].as_u64(), b["kind"].as_str(), b["name"].as_str(), b["id"].as_str()))
+    // Prism's ASTs are gone. Release grouping-only keys before expanding the
+    // compact call rows into the public semantic objects. Keeping both expanded
+    // links and a large AST live can exhaust the parser process's address space.
+    capture.materialize_links()?;
+    // Sort keys are read once per element. Comparing through string-keyed
+    // lookups on every comparison dominated the walk for large inventories.
+    let order = sort_order(&capture.files, |file| file["path"].as_str());
+    apply_order(&mut capture.files, order);
+    let order = sort_order(&capture.facts, |fact| {
+        (fact["path"].as_str(), fact["location"]["start_byte"].as_u64(), fact["kind"].as_str(), fact["name"].as_str(), fact["id"].as_str())
     });
+    apply_order(&mut capture.facts, order);
     for fact in &mut capture.facts {
         if let Some(links) = fact["links"].as_array_mut() {
-            links.sort_by(|a, b| {
-                call_sort_key(a).cmp(&call_sort_key(b))
-            });
+            if links.len() < 2 { continue; }
+            let order = sort_order(links, call_sort_key);
+            apply_order(links, order);
         }
     }
     let coverage = capture.coverage();
-    Ok(json!({
-        "schema_version": schema::VERSION,
-        "root_id": schema::digest(canonical_text.as_bytes()),
-        "files": capture.files, "facts": capture.facts,
-        "coverage": coverage, "diagnostics": capture.diagnostics,
-        "evidence_accounting": {"schema_version":schema::VERSION,"fact_bytes_upper_bound":capture.evidence_bytes},
-        "producer": { "name": "thistle", "engine": "rust", "core_version": env!("CARGO_PKG_VERSION"), "capture_schema": 1,
-            "call_target_schema":2, "link_encoding_schema":1, "prism_version": PRISM_VERSION, "ruby_syntax_version": RUBY_SYNTAX_VERSION, "parser_policy": PARSER_POLICY, "parser_stack_bytes":PARSER_STACK_BYTES, "capture_concurrency":1,
-            "effective_limits": capture.limits, "visited_nodes": capture.nodes }
-    }))
+    let producer = json!({ "name": "thistle", "engine": "rust", "core_version": env!("CARGO_PKG_VERSION"), "capture_schema": 1,
+        "call_target_schema":2, "link_encoding_schema":1, "prism_version": PRISM_VERSION, "ruby_syntax_version": RUBY_SYNTAX_VERSION, "parser_policy": PARSER_POLICY, "parser_stack_bytes":PARSER_STACK_BYTES, "capture_concurrency":1,
+        "effective_limits": capture.limits, "visited_nodes": capture.nodes });
+    // Move the retained inventory into the response. `json!` would serialize
+    // every file body and fact tree into a second copy before dropping the first.
+    let mut output = serde_json::Map::new();
+    output.insert("schema_version".to_owned(), json!(schema::VERSION));
+    output.insert("root_id".to_owned(), Value::String(schema::digest(canonical_text.as_bytes())));
+    output.insert("files".to_owned(), Value::Array(capture.files));
+    output.insert("facts".to_owned(), Value::Array(capture.facts));
+    output.insert("coverage".to_owned(), coverage);
+    output.insert("diagnostics".to_owned(), Value::Array(capture.diagnostics));
+    output.insert("evidence_accounting".to_owned(), json!({"schema_version":schema::VERSION,"fact_bytes_upper_bound":capture.evidence_bytes}));
+    output.insert("producer".to_owned(), producer);
+    Ok(Value::Object(output))
+}
+
+/// Stable order by a key computed once per element. Keys may borrow the
+/// values; `apply_order` moves them after those borrows end.
+fn sort_order<'a, K: Ord>(values: &'a [Value], key: impl Fn(&'a Value) -> K) -> Vec<usize> {
+    let keys: Vec<K> = values.iter().map(key).collect();
+    let mut order: Vec<usize> = (0..values.len()).collect();
+    order.sort_by(|a, b| keys[*a].cmp(&keys[*b]));
+    order
+}
+
+fn apply_order(values: &mut Vec<Value>, order: Vec<usize>) {
+    if order.iter().enumerate().all(|(position, index)| position == *index) { return; }
+    let mut slots: Vec<Option<Value>> = std::mem::take(values).into_iter().map(Some).collect();
+    values.extend(order.into_iter().map(|index| slots[index].take().expect("each index moves once")));
 }
 
 fn call_sort_key(link: &Value) -> (Option<&str>, Option<&str>, Option<&str>, Option<&str>, Option<bool>, Option<u64>, Option<u64>) {
     let call = schema::call_metadata(&link["attributes"]["thistle_call"], schema::VERSION).expect("captured call metadata");
+    let constant = &link["attributes"]["thistle_constant"]["location"];
     (link["relation"].as_str(), link["target"].as_str(), call.as_ref().map(|c| c.kind),
         call.as_ref().and_then(|c| c.name), call.as_ref().map(|c| c.safe_navigation),
-        call.as_ref().map(|c| c.location.start_byte), call.as_ref().map(|c| c.location.end_byte))
+        call.as_ref().map(|c| c.location.start_byte).or_else(|| constant[0].as_u64()),
+        call.as_ref().map(|c| c.location.end_byte).or_else(|| constant[1].as_u64()))
 }
 
 fn open_root(root: &Path) -> Result<File> {
@@ -291,23 +350,24 @@ impl Capture {
         }
         self.total_bytes += content.len();
         if self.total_bytes > self.limit("max_total_bytes") { return Err(CoreError::limit("Source inventory exceeds max_total_bytes")); }
-        let text = match std::str::from_utf8(&content) {
+        let text = match String::from_utf8(content) {
             Ok(text) => text,
             Err(_) => {
                 self.inventory_partial = true; self.declarations_partial = true;
                 return self.diagnostic("unsupported_encoding", "Only source whose exact bytes are valid UTF-8 is captured", path);
             }
         };
+        let content = text.as_bytes();
+        let digest = schema::digest(content);
         if path.ends_with(".rs") {
-            let lines = LineIndex::new(&content);
-            let digest = schema::digest(&content);
-            self.add_fact("file", path, path, json!({
-                "start_line":1, "end_line":lines.file_end_line(&content), "start_byte":0, "end_byte":content.len()
+            let lines = LineIndex::new(content);
+            self.add_fact(FactKind::File, path, path, json!({
+                "start_line":1, "end_line":lines.file_end_line(content), "start_byte":0, "end_byte":content.len()
             }), json!({"sha256":digest,"bytes":content.len(),"language":"rust","parse_status":"not_parsed"}))?;
-            self.files.push(json!({"path":path,"sha256":digest,"bytes":content.len(),"encoding":"UTF-8","content":text}));
+            self.files.push(file_record(path, digest, text));
             return Ok(());
         }
-        let parsed = ruby_prism::parse(&content);
+        let parsed = ruby_prism::parse(content);
         for comment in parsed.magic_comments() {
             let key = String::from_utf8_lossy(comment.key()).to_ascii_lowercase();
             if key == "coding" || key == "encoding" {
@@ -318,52 +378,63 @@ impl Capture {
                 }
             }
         }
-        let lines = LineIndex::new(&content);
+        let lines = LineIndex::new(content);
         let errors: Vec<_> = parsed.errors().take(self.limit("max_diagnostics") + 1).collect();
         if errors.len() > self.limit("max_diagnostics") { return Err(CoreError::limit("Capture exceeds max_diagnostics")); }
-        let file_position = json!({"start_line":1, "end_line":lines.file_end_line(&content), "start_byte":0, "end_byte":content.len()});
-        self.add_fact("file", path, path, file_position, json!({
-            "sha256":schema::digest(&content), "bytes":content.len(), "language":"ruby", "parse_status":if errors.is_empty() { "valid" } else { "invalid" }
+        let file_position = json!({"start_line":1, "end_line":lines.file_end_line(content), "start_byte":0, "end_byte":content.len()});
+        let file_index = self.add_fact(FactKind::File, path, path, file_position, json!({
+            "sha256":digest, "bytes":content.len(), "language":"ruby", "parse_status":if errors.is_empty() { "valid" } else { "invalid" }
         }))?;
-        self.files.push(json!({ "path":path, "sha256":schema::digest(&content), "bytes":content.len(), "encoding":"UTF-8", "content":text }));
-        if !errors.is_empty() {
+        let extracted = if errors.is_empty() {
+            self.extract(parsed.node(), path, &lines, file_index)
+        } else {
             self.declarations_partial = true;
-            for error in errors {
+            errors.iter().try_for_each(|error| {
                 let message = format!("Line {}: {}", lines.line(error.location().start_offset()), error.message());
                 self.admit_diagnostic(json!({"code":"syntax_error", "message":message, "path":path,
                     "prism_version":PRISM_VERSION, "ruby_syntax_version":RUBY_SYNTAX_VERSION,
-                    "parser_policy":PARSER_POLICY}))?;
-            }
-            return Ok(());
-        }
-        self.extract(parsed.node(), path, &lines)
+                    "parser_policy":PARSER_POLICY}))
+            })
+        };
+        // The parse result borrows the source; release it before moving the
+        // validated text into the inventory without another copy.
+        drop(errors);
+        drop(parsed);
+        extracted?;
+        self.files.push(file_record(path, digest, text));
+        Ok(())
     }
 
-    fn extract<'pr>(&mut self, root: Node<'pr>, path: &str, lines: &LineIndex) -> Result<()> {
-        let initial = Rc::new(Scope { owner:"Object".to_owned(), namespace:None, singleton:false, current:None, dynamic:false });
-        let mut pending = vec![(root, initial)];
-        while let Some((node, scope)) = pending.pop() {
+    fn extract<'pr>(&mut self, root: Node<'pr>, path: &str, lines: &LineIndex, file_index: usize) -> Result<()> {
+        // Otherwise ownerless calls belong to the already admitted source file.
+        // Class/module/method scopes replace this lexical origin; blocks retain
+        // it without proving dynamic self, declarations or execution.
+        let initial = Rc::new(Scope { owner:"Object".to_owned(), namespace:None, singleton:false, current:Some(file_index), dynamic:false });
+        // Preserve the historical LIFO encounter order: diagnostic groups and
+        // admission/refusal boundaries depend on more than the final fact sort.
+        let mut pending = vec![(root, initial, ConstantRole::Value)];
+        while let Some((node, scope, role)) = pending.pop() {
             self.nodes += 1;
             if self.nodes > self.limit("max_nodes") { return Err(CoreError::limit("Parsed sources exceed max_nodes")); }
             if let Some(class) = node.as_class_node() {
                 if scope.dynamic || scope.singleton { self.uncertain_scope(path)?; continue; }
                 let raw = constant_expression(&class.constant_path());
                 let (name, resolution) = declaration_name(&raw, scope.namespace.as_deref());
-                let index = self.add_fact("class", &name, path, lines.location(&class.location()), json!({
+                let index = self.add_fact(FactKind::Class, &name, path, lines.location(&class.location()), json!({
                     "declaration_name":raw, "lexical_scope":scope.namespace.iter().collect::<Vec<_>>(), "name_resolution":resolution
                 }))?;
                 if let Some(parent) = class.superclass() { self.add_link(index, "inherits", parent.location().as_slice(), path)?; }
                 let next = Rc::new(Scope { owner:name.clone(), namespace:Some(name), singleton:false, current:Some(index), dynamic:false });
-                if let Some(body) = class.body() { pending.push((body, next)); }
+                if let Some(body) = class.body() { pending.push((body, next, ConstantRole::Value)); }
             } else if let Some(module) = node.as_module_node() {
                 if scope.dynamic || scope.singleton { self.uncertain_scope(path)?; continue; }
                 let raw = constant_expression(&module.constant_path());
                 let (name, resolution) = declaration_name(&raw, scope.namespace.as_deref());
-                let index = self.add_fact("module", &name, path, lines.location(&module.location()), json!({
+                let index = self.add_fact(FactKind::Module, &name, path, lines.location(&module.location()), json!({
                     "declaration_name":raw, "lexical_scope":scope.namespace.iter().collect::<Vec<_>>(), "name_resolution":resolution
                 }))?;
                 let next = Rc::new(Scope { owner:name.clone(), namespace:Some(name), singleton:false, current:Some(index), dynamic:false });
-                if let Some(body) = module.body() { pending.push((body, next)); }
+                if let Some(body) = module.body() { pending.push((body, next, ConstantRole::Value)); }
             } else if let Some(method) = node.as_def_node() {
                 if scope.dynamic { self.uncertain_scope(path)?; continue; }
                 let (owner, singleton, resolution) = if let Some(receiver) = method.receiver() {
@@ -377,25 +448,58 @@ impl Capture {
                 let method_name = text(method.name().as_slice());
                 let name = format!("{owner}{}{method_name}", if singleton { "." } else { "#" });
                 let parameters = method.parameters().map(|parameters| text(parameters.location().as_slice()));
-                let index = self.add_fact("method", &name, path, lines.location(&method.location()), json!({
+                let index = self.add_fact(FactKind::Method, &name, path, lines.location(&method.location()), json!({
                     "owner":owner, "singleton":singleton, "method_name":method_name,
                     "name_resolution":resolution, "lexical_scope":scope.namespace.iter().collect::<Vec<_>>(), "parameters_source":parameters
                 }))?;
                 let next = Rc::new(Scope { current:Some(index), ..(*scope).clone() });
-                if let Some(body) = method.body() { pending.push((body, Rc::clone(&next))); }
-                if let Some(parameters) = method.parameters() { pending.push((parameters.as_node(), next)); }
+                if let Some(body) = method.body() { pending.push((body, Rc::clone(&next), ConstantRole::Value)); }
+                if let Some(parameters) = method.parameters() { pending.push((parameters.as_node(), next, ConstantRole::Value)); }
             } else if let Some(singleton) = node.as_singleton_class_node() {
                 if singleton.expression().as_self_node().is_some() && !scope.dynamic && !scope.singleton && !self.in_method(&scope) {
-                    if let Some(body) = singleton.body() { pending.push((body, Rc::new(Scope { singleton:true, ..(*scope).clone() }))); }
+                    if let Some(body) = singleton.body() { pending.push((body, Rc::new(Scope { singleton:true, ..(*scope).clone() }), ConstantRole::Value)); }
                 } else { self.uncertain_scope(path)?; }
             } else if node.as_block_node().is_some() || node.as_lambda_node().is_some() {
                 let next = Rc::new(Scope { dynamic:true, ..(*scope).clone() });
-                children::for_each_child(&node, |child| pending.push((child, Rc::clone(&next))));
+                children::for_each_child(&node, |child| pending.push((child, Rc::clone(&next), ConstantRole::Value)));
             } else {
                 if let Some(call) = node.as_call_node() { self.collect_call(&call, &scope, path, lines)?; }
-                children::for_each_child(&node, |child| pending.push((child, Rc::clone(&scope))));
+                if role != ConstantRole::Excluded && (node.as_constant_read_node().is_some() || node.as_constant_path_node().is_some()) {
+                    self.collect_constant(&node, &scope, role, path, lines)?;
+                }
+                let mixin = node.as_call_node().is_some_and(|call|
+                    scope.current.is_some_and(|i| matches!(self.kinds[i], FactKind::Class | FactKind::Module)) &&
+                    call.receiver().map_or(true, |receiver| receiver.as_self_node().is_some()) &&
+                    matches!(call.name().as_slice(), b"include" | b"extend" | b"prepend"));
+                children::for_each_child(&node, |child| {
+                    let next_role = constant_child_role(&node, &child, role, mixin);
+                    pending.push((child, Rc::clone(&scope), next_role));
+                });
             }
         }
+        Ok(())
+    }
+
+    fn collect_constant(&mut self, node: &Node<'_>, scope: &Scope, role: ConstantRole, path: &str, lines: &LineIndex) -> Result<()> {
+        let Some(current) = scope.current else { return Ok(()); };
+        let (kind, name, omitted) = classify_receiver(node);
+        if kind != "constant" || omitted {
+            self.declarations_partial = true;
+            return self.diagnostic("constant_path_unavailable", CONSTANT_PATH_MESSAGE, path);
+        }
+        let name = name.expect("named constant syntax");
+        let links = self.links.checked_add(1).filter(|n| *n <= self.limit("max_links"))
+            .ok_or_else(|| CoreError::limit("Capture exceeds max_links"))?;
+        // An occurrence is a distinct source site, never an invented call or a
+        // deduplicated (origin, label) group. Existing call maps are untouched.
+        self.reserve_link(current)?;
+        let link = json!({"relation":"references_constant", "target":name, "resolution":"unresolved",
+            "attributes":{"thistle_constant":{"version":1, "syntax":text(node.location().as_slice()),
+                "rooted":name.starts_with("::"), "lexical_scope":scope.namespace, "role":role.label(),
+                "location":lines.call_location(&node.location())}}});
+        self.charge_link(&link)?;
+        self.links = links;
+        self.facts[current]["links"].as_array_mut().expect("fact links array").push(link);
         Ok(())
     }
 
@@ -405,7 +509,7 @@ impl Capture {
         if method_name.as_slice().len() > 4096 { return Err(CoreError::limit("Call method exceeds 4096 bytes")); }
         let name = text(method_name.as_slice());
         let receiver_is_self = call.receiver().map_or(true, |receiver| receiver.as_self_node().is_some());
-        let namespace = matches!(self.facts[current]["kind"].as_str(), Some("class") | Some("module"));
+        let namespace = matches!(self.kinds[current], FactKind::Class | FactKind::Module);
         if (scope.dynamic || scope.singleton) && receiver_is_self && namespace && matches!(name.as_str(), "include" | "extend" | "prepend") {
             self.declarations_partial = true;
             return self.diagnostic("dynamic_scope", MIXIN_SCOPE_MESSAGE, path);
@@ -427,19 +531,37 @@ impl Capture {
             let end = location.end_offset();
             let simple = matches!(kind, "implicit" | "self") || (matches!(kind, "constant" | "local" | "instance_variable") && name.is_some());
             let site = (!simple).then_some((start, end));
-            let key = (current, target.clone(), kind.to_owned(), name.clone(), call.is_safe_navigation(), site);
-            let receiver_location = receiver.as_ref().map(|node| lines.call_location(&node.location()));
-            let metadata = json!({"version":2, "data":(kind, name, omitted,
-                call.is_safe_navigation(), lines.call_location(&location), receiver_location)});
-            let link = json!({"relation":"calls", "target":target, "resolution":"unresolved", "attributes":{"thistle_call":metadata}});
+            let key = (current, target, kind, name, call.is_safe_navigation(), site);
+            // Build the link only on admission or when the current site
+            // replaces a later saved representative of this group.
+            let link = |key: &CallKey| -> Result<Value> {
+                let receiver_location = receiver.as_ref().map(|node| lines.call_location(&node.location()));
+                let metadata = json!({"version":2, "data":(kind, &key.3, omitted,
+                    call.is_safe_navigation(), lines.call_location(&location), receiver_location)});
+                let mut attributes = serde_json::Map::new();
+                attributes.insert("thistle_call".to_owned(), metadata);
+                let mut link = serde_json::Map::new();
+                link.insert("relation".to_owned(), Value::String("calls".to_owned()));
+                link.insert("target".to_owned(), Value::String(key.1.clone()));
+                link.insert("resolution".to_owned(), Value::String("unresolved".to_owned()));
+                link.insert("attributes".to_owned(), Value::Object(attributes));
+                // Reuse the existing schema-3 projection, not a second encoder.
+                // Only this compact value is retained while Prism is live.
+                Ok(serde_json::to_value(crate::link_encoding::WireLink::new(
+                    &Value::Object(link), schema::VERSION, "static")?)?)
+            };
             if let Some(&index) = self.call_keys.get(&key) {
                 let old = &self.facts[current]["links"][index];
-                if schema::call_metadata(&old["attributes"]["thistle_call"], schema::VERSION)?.expect("captured call").location.start_byte > start as u64 {
-                    self.replace_link(current, index, link)?;
+                if crate::link_encoding::SemanticLinkView::from_wire(old, schema::VERSION, "static")?
+                    .call_metadata().expect("captured call").location.start_byte > start as u64 {
+                    self.replace_link(current, index, link(&key)?)?;
                 }
             } else {
                 let links = self.links.checked_add(1).filter(|n| *n <= self.limit("max_links"))
                     .ok_or_else(|| CoreError::limit("Capture exceeds max_links"))?;
+                self.call_keys.try_reserve(1).map_err(|_| CoreError::limit("Capture call index allocation unavailable"))?;
+                self.reserve_link(current)?;
+                let link = link(&key)?;
                 self.charge_link(&link)?;
                 self.links = links;
                 let links = self.facts[current]["links"].as_array_mut().expect("fact links array");
@@ -451,23 +573,33 @@ impl Capture {
         Ok(())
     }
 
-    fn add_fact(&mut self, kind: &str, name: &str, path: &str, position: Value, attributes: Value) -> Result<usize> {
+    fn add_fact(&mut self, kind: FactKind, name: &str, path: &str, position: Value, attributes: Value) -> Result<usize> {
+        let label = kind.label();
         if self.facts.len() >= self.limit("max_facts") { return Err(CoreError::limit("Capture exceeds max_facts")); }
         if name.is_empty() || name.len() > 4_096 { return Err(CoreError::limit("Declaration name is empty or exceeds 4096 bytes")); }
-        let identity = serde_json::to_vec(&json!(["ruby", kind, name, path, position["start_byte"]]))?;
+        // The same compact JSON array as before, serialized without an
+        // intermediate tree; fact identities are stable.
+        let identity = serde_json::to_vec(&("ruby", label, name, path, &position["start_byte"]))?;
         let index = self.facts.len();
-        let fact = json!({
-            "id":schema::digest(&identity), "kind":kind, "name":name, "path":path,
-            "location":position, "evidence":"static", "attributes":attributes, "links":[]
-        });
+        let mut fact = serde_json::Map::new();
+        fact.insert("id".to_owned(), Value::String(schema::digest(&identity)));
+        fact.insert("kind".to_owned(), Value::String(label.to_owned()));
+        fact.insert("name".to_owned(), Value::String(name.to_owned()));
+        fact.insert("path".to_owned(), Value::String(path.to_owned()));
+        fact.insert("location".to_owned(), position);
+        fact.insert("evidence".to_owned(), Value::String("static".to_owned()));
+        fact.insert("attributes".to_owned(), attributes);
+        fact.insert("links".to_owned(), Value::Array(Vec::new()));
+        let fact = Value::Object(fact);
         self.charge_evidence(schema::encoded_bytes(&crate::link_encoding::WireFact::new(&fact, schema::VERSION)?, schema::MAX_FACTS_BYTES)?
             .checked_add(1).ok_or_else(|| CoreError::limit("Capture evidence size overflow"))?)?;
         self.facts.push(fact);
+        self.kinds.push(kind);
         Ok(index)
     }
 
     fn in_method(&self, scope: &Scope) -> bool {
-        scope.current.is_some_and(|index| self.facts[index]["kind"] == "method")
+        scope.current.is_some_and(|index| self.kinds[index] == FactKind::Method)
     }
 
     fn add_link(&mut self, current: usize, relation: &str, target: &[u8], path: &str) -> Result<()> {
@@ -480,6 +612,8 @@ impl Capture {
         if self.link_keys.contains(&key) { return Ok(()); }
         let links = self.links.checked_add(1).filter(|n| *n <= self.limit("max_links"))
             .ok_or_else(|| CoreError::limit("Capture exceeds max_links"))?;
+        self.link_keys.try_reserve(1).map_err(|_| CoreError::limit("Capture link index allocation unavailable"))?;
+        self.reserve_link(current)?;
         let link = json!({"relation":relation,"target":target,"resolution":"unresolved"});
         self.charge_link(&link)?;
         self.links = links;
@@ -492,8 +626,8 @@ impl Capture {
     // the shared projected charge, refusing before either bytes or link mutate.
     fn replace_link(&mut self, current: usize, index: usize, link: Value) -> Result<()> {
         let old = &self.facts[current]["links"][index];
-        let old_len = schema::encoded_bytes(&crate::link_encoding::WireLink::new(old, schema::VERSION, "static")?, schema::MAX_FACTS_BYTES)?;
-        let new_len = schema::encoded_bytes(&crate::link_encoding::WireLink::new(&link, schema::VERSION, "static")?, schema::MAX_FACTS_BYTES)?;
+        let old_len = Self::link_bytes(old)?;
+        let new_len = Self::link_bytes(&link)?;
         if new_len > old_len { self.charge_evidence(new_len - old_len)?; }
         else { self.evidence_bytes = self.evidence_bytes.checked_sub(old_len - new_len)
             .ok_or_else(|| CoreError::limit("Capture evidence refund underflow"))?; }
@@ -502,8 +636,35 @@ impl Capture {
     }
 
     fn charge_link(&mut self, link: &Value) -> Result<()> {
-        let bytes = schema::encoded_bytes(&crate::link_encoding::WireLink::new(link, schema::VERSION, "static")?, schema::MAX_FACTS_BYTES)?;
+        let bytes = Self::link_bytes(link)?;
         self.charge_evidence(bytes.checked_add(1).ok_or_else(|| CoreError::limit("Capture evidence size overflow"))?)
+    }
+
+    fn link_bytes(link: &Value) -> Result<usize> {
+        if link.is_array() {
+            crate::link_encoding::SemanticLinkView::from_wire(link, schema::VERSION, "static")?;
+            schema::encoded_bytes(link, schema::MAX_FACTS_BYTES)
+        } else {
+            schema::encoded_bytes(&crate::link_encoding::WireLink::new(link, schema::VERSION, "static")?, schema::MAX_FACTS_BYTES)
+        }
+    }
+
+    fn reserve_link(&mut self, current: usize) -> Result<()> {
+        self.facts[current]["links"].as_array_mut().expect("fact links array")
+            .try_reserve(1).map_err(|_| CoreError::limit("Capture link allocation unavailable"))
+    }
+
+    fn materialize_links(&mut self) -> Result<()> {
+        self.call_keys = HashMap::new();
+        self.link_keys = HashSet::new();
+        for fact in &mut self.facts {
+            for link in fact["links"].as_array_mut().expect("fact links array") {
+                if link.is_array() {
+                    *link = crate::link_encoding::SemanticLinkView::from_wire(link, schema::VERSION, "static")?.materialize()?;
+                }
+            }
+        }
+        Ok(())
     }
 
     fn charge_evidence(&mut self, bytes: usize) -> Result<()> {
@@ -528,13 +689,16 @@ impl Capture {
         let total = self.diagnostic_occurrences.checked_add(count)
             .ok_or_else(|| CoreError::limit("Diagnostic occurrence count overflow"))?;
         record["occurrences"] = json!(count);
-        // Only these two known recoverable classes coalesce. Compare ALL fields
+        // Only known recoverable classes coalesce. Compare ALL fields
         // except the count, preserving future reason/location/provenance fields.
         // A bounded scan avoids a second retained key/map and its memory budget.
-        let grouped = record["code"] == "dynamic_scope" && matches!(record["message"].as_str(),
-            Some(DECLARATION_SCOPE_MESSAGE) | Some(MIXIN_SCOPE_MESSAGE));
+        // Exact provenance has at most one group; start at the newest group to
+        // favor repeated sites from the current file without changing its index.
+        let grouped = (record["code"] == "dynamic_scope" && matches!(record["message"].as_str(),
+            Some(DECLARATION_SCOPE_MESSAGE) | Some(MIXIN_SCOPE_MESSAGE))) ||
+            (record["code"] == "constant_path_unavailable" && record["message"] == CONSTANT_PATH_MESSAGE);
         let existing = if grouped {
-            self.diagnostics.iter().position(|prior| {
+            self.diagnostics.iter().rposition(|prior| {
                 let (Some(a), Some(b)) = (prior.as_object(), record.as_object()) else { return false; };
                 a.len() == b.len() && a.iter().all(|(key, value)| key == "occurrences" || b.get(key) == Some(value))
             })
@@ -578,6 +742,9 @@ impl Capture {
               "scope":"Explicit Ruby class, module and method syntax in captured valid source; names are lexical labels",
               "prism_version":PRISM_VERSION, "ruby_syntax_version":RUBY_SYNTAX_VERSION, "parser_policy":PARSER_POLICY,
               "reason":if self.declarations_partial {Some("Some declarations or relationships were unavailable; see diagnostics")} else {None} },
+            { "family":"ruby_constant_occurrences", "status":if self.declarations_partial {"partial"} else {"complete"},
+              "scope":"Maximal static constant reads in admitted lexical bodies; excludes call receivers, declaration names, superclass and mixin labels; no prefix or runtime binding",
+              "reason":if self.declarations_partial {Some("Some lexical bodies or constant labels were unavailable; see diagnostics")} else {None} },
             { "family":"dynamic_resolution", "status":"unavailable", "scope":"Ruby constant lookup, metaprogramming, visibility, dispatch and generated methods",
               "reason":"Static capture does not evaluate application code; relationship targets are unresolved" },
             { "family":"execution_trace", "status":"unavailable", "scope":"Observed execution", "reason":"A syntax relationship is not evidence that a call executed" },
@@ -589,6 +756,59 @@ impl Capture {
               "reason":"Facts are derived from stored bytes. File reads detect ordinary concurrent writes, but capture does not certify a globally immutable tree or currentness after capture" }
         ])
     }
+}
+
+// Keep the generated child visitor and its LIFO scheduling unchanged. Roles
+// describe the immediate syntax edge, not runtime argument/namespace semantics.
+fn constant_child_role(parent: &Node<'_>, child: &Node<'_>, inherited: ConstantRole, mixin: bool) -> ConstantRole {
+    let constant = child.as_constant_read_node().is_some() || child.as_constant_path_node().is_some();
+    if constant && (parent.as_constant_path_node().is_some() || parent.as_constant_path_target_node().is_some()) {
+        return ConstantRole::Excluded; // maximal exact path only; never prefixes/assignment names
+    }
+    let same_site = |node: Node<'_>| node.location().start_offset() == child.location().start_offset() &&
+        node.location().end_offset() == child.location().end_offset();
+    // Prism exposes these assignment targets as ordinary ConstantPathNode
+    // children. Exclude the target edge, not the independent value expression.
+    let target = parent.as_constant_path_write_node().map(|n| n.target().as_node())
+        .or_else(|| parent.as_constant_path_and_write_node().map(|n| n.target().as_node()))
+        .or_else(|| parent.as_constant_path_or_write_node().map(|n| n.target().as_node()))
+        .or_else(|| parent.as_constant_path_operator_write_node().map(|n| n.target().as_node()));
+    if target.is_some_and(same_site) { return ConstantRole::Excluded; }
+    // Setter/index write forms have receiver syntax too, even though this
+    // slice does not invent call links for their read/write operations.
+    let receiver = parent.as_call_node().and_then(|n| n.receiver())
+        .or_else(|| parent.as_call_and_write_node().and_then(|n| n.receiver()))
+        .or_else(|| parent.as_call_or_write_node().and_then(|n| n.receiver()))
+        .or_else(|| parent.as_call_operator_write_node().and_then(|n| n.receiver()))
+        .or_else(|| parent.as_call_target_node().map(|n| n.receiver()))
+        .or_else(|| parent.as_index_and_write_node().and_then(|n| n.receiver()))
+        .or_else(|| parent.as_index_or_write_node().and_then(|n| n.receiver()))
+        .or_else(|| parent.as_index_operator_write_node().and_then(|n| n.receiver()))
+        .or_else(|| parent.as_index_target_node().map(|n| n.receiver()));
+    if receiver.is_some_and(same_site) { return ConstantRole::Excluded; }
+    if parent.as_call_node().is_some() && child.as_arguments_node().is_some() {
+        return if mixin { ConstantRole::Excluded } else { ConstantRole::Argument };
+    }
+    if parent.as_arguments_node().is_some() {
+        return if inherited == ConstantRole::Excluded { inherited } else { ConstantRole::Argument };
+    }
+    if constant && parent.as_rescue_node().is_some() { return ConstantRole::RescueClass; }
+    let predicate = parent.as_if_node().map(|n| n.predicate())
+        .or_else(|| parent.as_unless_node().map(|n| n.predicate()))
+        .or_else(|| parent.as_while_node().map(|n| n.predicate()))
+        .or_else(|| parent.as_until_node().map(|n| n.predicate()));
+    if predicate.is_some_and(same_site) { return ConstantRole::Predicate; }
+    ConstantRole::Value
+}
+
+fn file_record(path: &str, digest: String, content: String) -> Value {
+    let mut record = serde_json::Map::new();
+    record.insert("path".to_owned(), Value::String(path.to_owned()));
+    record.insert("sha256".to_owned(), Value::String(digest));
+    record.insert("bytes".to_owned(), json!(content.len()));
+    record.insert("encoding".to_owned(), Value::String("UTF-8".to_owned()));
+    record.insert("content".to_owned(), Value::String(content));
+    Value::Object(record)
 }
 
 fn source_name(name: &str) -> bool {
@@ -697,6 +917,14 @@ impl LineIndex {
 }
 
 #[cfg(test)]
+#[path = "capture_origins_tests.rs"]
+mod origins_tests;
+
+#[cfg(test)]
+#[path = "capture_constant_occurrences_tests.rs"]
+mod constant_occurrences_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use std::os::unix::fs::symlink;
@@ -709,7 +937,7 @@ mod tests {
     fn empty_capture() -> Capture {
         Capture {
             limits: effective_limits(&json!({})).unwrap(),
-            files: vec![], facts: vec![], diagnostics: vec![], diagnostic_bytes: 2, diagnostic_occurrences: 0,
+            files: vec![], facts: vec![], kinds: vec![], diagnostics: vec![], diagnostic_bytes: 2, diagnostic_occurrences: 0,
             entries: 0, total_bytes: 0, nodes: 0, links: 0, evidence_bytes: 2,
             link_keys: HashSet::new(), call_keys: HashMap::new(), inventory_partial: false, declarations_partial: false,
         }
@@ -725,20 +953,20 @@ mod tests {
         let first = calls[0].as_call_node().unwrap();
         let last = calls[1].as_call_node().unwrap();
         let mut capture = empty_capture();
-        capture.add_fact("method", "run", "a.rb", Value::Null, json!({})).unwrap();
+        capture.add_fact(FactKind::Method, "run", "a.rb", Value::Null, json!({})).unwrap();
         let scope = Scope { owner: "run".into(), namespace: None, singleton: false, current: Some(0), dynamic: false };
         let lines = LineIndex::new(source);
         capture.collect_call(&last, &scope, "a.rb", &lines).unwrap();
-        let later_bytes = schema::encoded_bytes(&crate::link_encoding::WireLink::new(&capture.facts[0]["links"][0], schema::VERSION, "static").unwrap(), schema::MAX_FACTS_BYTES).unwrap();
+        let later_bytes = Capture::link_bytes(&capture.facts[0]["links"][0]).unwrap();
         capture.facts[0]["links"] = json!([]); capture.call_keys.clear(); capture.links = 0;
         capture.evidence_bytes = schema::MAX_FACTS_BYTES - later_bytes - 1;
         capture.collect_call(&last, &scope, "a.rb", &lines).unwrap();
         assert_eq!(capture.evidence_bytes, schema::MAX_FACTS_BYTES);
         capture.collect_call(&first, &scope, "a.rb", &lines).unwrap();
         let earliest = &capture.facts[0]["links"][0];
-        assert_eq!(schema::call_metadata(&earliest["attributes"]["thistle_call"], 2).unwrap().unwrap().location.start_byte, 0);
+        assert_eq!(crate::link_encoding::SemanticLinkView::from_wire(earliest, schema::VERSION, "static").unwrap().call_metadata().unwrap().location.start_byte, 0);
         assert_eq!(capture.links, 1);
-        let early_bytes = schema::encoded_bytes(&crate::link_encoding::WireLink::new(earliest, schema::VERSION, "static").unwrap(), schema::MAX_FACTS_BYTES).unwrap();
+        let early_bytes = Capture::link_bytes(earliest).unwrap();
         assert_eq!(capture.evidence_bytes, schema::MAX_FACTS_BYTES - later_bytes + early_bytes);
         capture.collect_call(&last, &scope, "a.rb", &lines).unwrap();
         assert_eq!(capture.evidence_bytes, schema::MAX_FACTS_BYTES - later_bytes + early_bytes);
@@ -748,7 +976,7 @@ mod tests {
     #[test]
     fn projected_replacement_and_append_refuse_before_mutating_capture_state() {
         let mut capture = empty_capture();
-        capture.add_fact("method", "run", "a.rb", Value::Null, json!({})).unwrap();
+        capture.add_fact(FactKind::Method, "run", "a.rb", Value::Null, json!({})).unwrap();
         let old = json!({"relation":"calls","target":"héllo\"\\","resolution":"unresolved",
             "attributes":{"thistle_call":{"version":2,"data":["implicit",null,false,false,[0,5,1,1],null]}}});
         let mut bigger = old.clone();
@@ -805,6 +1033,23 @@ mod tests {
         let reader = crate::store::Reader::open(&path, None).unwrap();
         for fact in facts { assert_eq!(reader.fact(fact["id"].as_str().unwrap()).unwrap(), *fact); }
         reader.check().unwrap();
+    }
+
+    #[test]
+    fn fact_identity_is_the_digest_of_the_compact_identity_array() {
+        let root = tempfile::tempdir().unwrap();
+        std::fs::write(root.path().join("demo.rb"), "module Demo
+  def self.run; end
+end
+").unwrap();
+        let result = capture(root.path(), &json!({})).unwrap();
+        let facts = result["facts"].as_array().unwrap();
+        for (kind, name, start) in [("file", "demo.rb", 0), ("module", "Demo", 0), ("method", "Demo.run", 14)] {
+            let fact = facts.iter().find(|fact| fact["kind"] == kind && fact["name"] == name).unwrap();
+            assert_eq!(fact["location"]["start_byte"], start);
+            let identity = format!(r#"["ruby","{kind}","{name}","demo.rb",{start}]"#);
+            assert_eq!(fact["id"], schema::digest(identity.as_bytes()));
+        }
     }
 
     #[test]

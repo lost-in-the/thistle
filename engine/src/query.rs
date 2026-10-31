@@ -26,6 +26,10 @@ pub(crate) const MAX_WORK: usize = 32 * 1024 * 1024;
 const INDEX_BYTES: usize = 32 * 1024 * 1024;
 const FIELD_BYTES: usize = 4096;
 
+// Borrow the String allocation, not a fat str plus a cached kind. Two pointers
+// per fact keep the 100,000-fact sort inside the existing 2 MiB scratch base.
+type MetadataFact<'a> = (&'a String, &'a Value);
+
 pub(crate) struct Query<'a> { text: &'a str, pub limit: usize, kind: Option<&'a str>, path: Option<&'a str>, domain: &'a str }
 impl<'a> Query<'a> {
     pub(crate) fn parse(request: &'a Value) -> Result<Self> {
@@ -86,14 +90,43 @@ impl Index {
 
 // ASCII-only folding leaves UTF-8 bytes and their original positions intact.
 // A comparison budget bounds even adversarial repeated-prefix input.
+// Windows whose first byte cannot match cost exactly the one comparison the
+// byte-by-byte scan would have spent on them; they are skipped and charged in
+// bulk, after limiting lookahead to the already admitted comparison allowance.
+fn first_candidate(bytes: impl Iterator<Item = u8>, lower: u8, upper: u8, admitted: usize) -> Option<usize> {
+    bytes.take(admitted).position(|byte| byte == lower || byte == upper)
+}
+
 fn literal(text: &str, query: &str, work: &mut usize) -> Result<Option<usize>> {
-    for (start, window) in text.as_bytes().windows(query.len()).enumerate() {
+    fn charge(work: &mut usize, comparisons: usize) -> Result<()> {
+        match work.checked_sub(comparisons) {
+            Some(remaining) => { *work = remaining; Ok(()) }
+            // The reference scan stops at the comparison that finds no budget.
+            None => { *work = 0; Err(CoreError::limit("Find comparison budget exhausted")) }
+        }
+    }
+    let (text, query) = (text.as_bytes(), query.as_bytes());
+    let Some(last_start) = text.len().checked_sub(query.len()) else { return Ok(None); };
+    let Some(&first) = query.first() else { return Ok(None); };
+    let (lower, upper) = (first.to_ascii_lowercase(), first.to_ascii_uppercase());
+    let mut start = 0;
+    while start <= last_start {
+        if *work == 0 { return Err(CoreError::limit("Find comparison budget exhausted")); }
+        let admitted = (*work).min(last_start - start + 1);
+        let Some(skipped) = first_candidate(text[start..=last_start].iter().copied(), lower, upper, admitted) else {
+            charge(work, admitted)?;
+            start += admitted;
+            continue;
+        };
+        charge(work, skipped)?;
+        start += skipped;
         let mut matched = true;
-        for (a, b) in window.iter().zip(query.bytes()) {
-            *work = work.checked_sub(1).ok_or_else(|| CoreError::limit("Find comparison budget exhausted"))?;
-            if !a.eq_ignore_ascii_case(&b) { matched = false; break; }
+        for (a, b) in text[start..start + query.len()].iter().zip(query) {
+            charge(work, 1)?;
+            if !a.eq_ignore_ascii_case(b) { matched = false; break; }
         }
         if matched { return Ok(Some(start)); }
+        start += 1;
     }
     Ok(None)
 }
@@ -105,11 +138,11 @@ fn snippet(text: &str, start: usize) -> &str {
 
 // Fixed paths only. Borrow accepted names; never traverse defaults/options or
 // allocate a per-model field list. One result per fact keeps legacy precedence.
-fn model_names(fact: &Value) -> impl Iterator<Item = (&'static str, usize, &Value)> {
+fn model_names(fact: &Value, model: bool) -> impl Iterator<Item = (&'static str, usize, &Value)> {
     [
         ("columns", "attributes.model.columns.entries[].name"),
         ("associations", "attributes.model.associations.entries[].name"),
-    ].into_iter().filter(move |_| fact["kind"] == "rails_model").flat_map(move |(family, field)| {
+    ].into_iter().filter(move |_| model).flat_map(move |(family, field)| {
         fact["attributes"]["model"][family]["entries"].as_array().into_iter()
             .flatten().enumerate().map(move |(index, entry)| (field, index, &entry["name"]))
     })
@@ -162,29 +195,36 @@ fn search_with_work(reader: &Reader, q: &Query<'_>, budget: &Arc<Budget>, mut wo
         if results.len() < limit { results.push(make()); }
     }
     if q.domain != "source" {
-        let mut facts: Vec<&Value> = reader.facts.iter().collect();
-        facts.sort_unstable_by(|a,b| a["id"].as_str().cmp(&b["id"].as_str()));
+        // Cache the borrowed id without enlarging the admitted sort storage.
+        // Kind is read once per pass, rather than again for every field.
+        let mut facts: Vec<MetadataFact<'_>> = reader.facts.iter().map(|fact| {
+            let Value::String(id) = &fact["id"] else { unreachable!("validated fact id") };
+            (id, fact)
+        }).collect();
+        facts.sort_unstable_by(|a, b| a.0.cmp(b.0));
         // Constant work per fact/family, even when comparison work runs out.
         // These are capture statuses, not a claim that entries were searched.
-        for fact in &facts {
-            if !q.accepts(fact["kind"].as_str().unwrap(), fact["path"].as_str()) { continue; }
+        for (_, fact) in &facts {
+            let kind = fact["kind"].as_str().unwrap();
+            if !q.accepts(kind, fact["path"].as_str()) { continue; }
             metadata_eligible += 1;
-            if fact["kind"] == "rails_model" {
+            if kind == "rails_model" {
                 columns.record(fact["attributes"]["model"]["columns"]["status"].as_str());
                 associations.record(fact["attributes"]["model"]["associations"]["status"].as_str());
             }
         }
-        'facts: for fact in facts {
+        'facts: for (_, fact) in facts {
+            let kind = fact["kind"].as_str().unwrap();
             let path = fact["path"].as_str();
-            if !q.accepts(fact["kind"].as_str().unwrap(), path) { continue; }
+            if !q.accepts(kind, path) { continue; }
+            let (is_route, is_model) = (kind == "route", kind == "rails_model");
             let identity = ["name", "kind", "path", "id"].into_iter().map(|key| (key, &fact[key]));
             let attrs = &fact["attributes"];
             let route = ["controller", "action", "route_path", "route_name", "verb", "source_status", "coherence"]
-                .into_iter().filter(|_| fact["kind"] == "route").map(|key| (key, &attrs[key]));
-            let status = std::iter::once(("route_constraints.status", &attrs["route_constraints"]["status"]))
-                .filter(|_| fact["kind"] == "route");
+                .into_iter().filter(move |_| is_route).map(|key| (key, &attrs[key]));
+            let status = is_route.then(|| ("route_constraints.status", &attrs["route_constraints"]["status"])).into_iter();
             let ordinary = identity.chain(route).chain(status).map(|(field, value)| (field, None, value));
-            let model = model_names(fact).map(|(field, index, value)| (field, Some(index), value));
+            let model = model_names(fact, is_model).map(|(field, index, value)| (field, Some(index), value));
             for (field, entry, value) in ordinary.chain(model) {
                 // Charge field/entry visits, including short or omitted strings
                 // for which the literal matcher needs no byte comparisons.
@@ -307,10 +347,75 @@ mod tests {
         assert_eq!(b.used.load(Ordering::Acquire), 0);
     }
     #[test]
+    fn maximum_metadata_sort_fits_limit_one_scratch() {
+        let request = json!({"query":"x", "limit":1, "domain":"metadata"});
+        let scratch = Query::parse(&request).unwrap().scratch().unwrap();
+        let b = Budget::new(scratch);
+        let reservation = b.reserve(scratch).unwrap();
+        // Use actual Vec capacity/type layout at the supported fact ceiling.
+        // The previous fat-reference tuple exceeded the sorting allowance.
+        let slots: Vec<MetadataFact<'_>> = Vec::with_capacity(100_000);
+        let sort_bytes = slots.capacity() * std::mem::size_of::<MetadataFact<'_>>();
+        assert!(sort_bytes <= 2 * 1024 * 1024);
+        assert!(sort_bytes + 128 * 1024 <= scratch);
+        assert!(b.reserve(1).is_err());
+        drop(slots);
+        drop(reservation);
+        assert_eq!(b.used.load(Ordering::Acquire), 0);
+    }
+    #[test]
+    fn first_byte_lookahead_visits_only_admitted_prefix() {
+        let text = format!("{}z", "a".repeat(4096));
+        for admitted in [0, 1, 8] {
+            let mut visits = 0;
+            let bytes = text.bytes().inspect(|_| visits += 1);
+            assert_eq!(first_candidate(bytes, b'z', b'Z', admitted), None);
+            assert_eq!(visits, admitted);
+            let mut work = admitted;
+            assert!(literal(&text, "z", &mut work).is_err());
+            assert_eq!(work, 0);
+        }
+        let mut visits = 0;
+        assert_eq!(first_candidate(b"aZignored".iter().copied().inspect(|_| visits += 1), b'z', b'Z', 2), Some(1));
+        assert_eq!(visits, 2);
+        assert_eq!(literal("aaaa", "z", &mut 4).unwrap(), None);
+    }
+    #[test]
     fn literal_preserves_unicode_bytes_and_bounds_adversarial_work() {
         assert_eq!(literal("é <Hello> İ", "HELLO", &mut 100).unwrap(), Some(4));
         assert_eq!(literal("É", "é", &mut 100).unwrap(), None);
         assert!(literal("aaaaaaaaaaaa", "aaaaab", &mut 4).is_err());
+    }
+    // The window-skipping scan must report the same match, the same remaining
+    // budget and the same exhaustion point as one comparison per visited byte.
+    fn literal_reference(text: &str, query: &str, work: &mut usize) -> Result<Option<usize>> {
+        for (start, window) in text.as_bytes().windows(query.len()).enumerate() {
+            let mut matched = true;
+            for (a, b) in window.iter().zip(query.bytes()) {
+                *work = work.checked_sub(1).ok_or_else(|| CoreError::limit("exhausted"))?;
+                if !a.eq_ignore_ascii_case(&b) { matched = false; break; }
+            }
+            if matched { return Ok(Some(start)); }
+        }
+        Ok(None)
+    }
+    #[test]
+    fn literal_scan_matches_the_byte_by_byte_reference_including_work() {
+        let alphabet = ["a", "A", "b", "é", " ", "ab", "aab"];
+        let mut seed = 0x9E37_79B9u32;
+        let mut next = move |bound: usize| { seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5; seed as usize % bound };
+        for _ in 0..2000 {
+            let text: String = (0..next(24)).map(|_| alphabet[next(alphabet.len())]).collect();
+            let query: String = (1..=next(4) + 1).map(|_| alphabet[next(alphabet.len())]).collect();
+            for budget in [0usize, 1, 2, 3, 5, 8, 13, 100] {
+                let (mut work, mut reference) = (budget, budget);
+                let actual = literal(&text, &query, &mut work);
+                let expected = literal_reference(&text, &query, &mut reference);
+                assert_eq!(actual.as_ref().ok(), expected.as_ref().ok(), "{text:?} {query:?} {budget}");
+                assert_eq!(actual.is_err(), expected.is_err(), "{text:?} {query:?} {budget}");
+                assert_eq!(work, reference, "{text:?} {query:?} {budget}");
+            }
+        }
     }
     fn capture() -> Value {
         let content = "# é\nneedle <script>\n";
@@ -358,7 +463,7 @@ mod tests {
         assert_eq!(run(&reader, json!({"query":"state","domain":"source"}))["total_matches"], 0);
         assert_eq!(run(&reader, json!({"query":"state","path_prefix":"app/"}))["total_matches"], 0);
         assert_eq!(run(&reader, json!({"query":"Order"}))["results"][0]["field"], "name");
-        let names: Vec<_> = model_names(&data["facts"][0]).collect();
+        let names: Vec<_> = model_names(&data["facts"][0], true).collect();
         assert!(std::ptr::eq(names[0].2, &data["facts"][0]["attributes"]["model"]["columns"]["entries"][0]["name"]));
     }
     #[test]
@@ -406,7 +511,7 @@ mod tests {
             assert_eq!(result["search_coverage"]["metadata_facts_not_searched"], 0);
         }
         let missing = json!({"kind":"rails_model","attributes":{}});
-        assert_eq!(model_names(&missing).count(), 0);
+        assert_eq!(model_names(&missing, true).count(), 0);
         let mut coverage = ModelCoverage::default();
         coverage.record(missing["attributes"]["model"]["columns"]["status"].as_str());
         assert_eq!(coverage.value()["unknown"], 1);
