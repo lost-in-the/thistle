@@ -158,6 +158,15 @@ route is callable without constraints. Static capture never boots Rails itself.
 
 ## Optional Map
 
+Map can [collect and reopen a small investigation](map/docs/investigations.md)
+using one saved generation and up to 24 selected fact IDs. Ordinary GET links
+support collecting, removing and reopening evidence without JavaScript. The
+focus URL carries only the generation and IDs and grants no access; recipients
+need an authorized Map mount with that saved capture. Missing evidence and
+uncertainty remain explicit. Source opens captured bytes at the pinned
+generation even after CURRENT changes. This requires the matching Core with
+the bounded [fact identity operation](docs/development/fact-identity.md).
+
 `map/` contains an independent read-only companion gem. It uses Thistle's reader
 API and an approved source-view component from Woods Map. It has no Woods runtime
 dependency. Its [repository README](https://github.com/lost-in-the/thistle/blob/main/map/README.md) covers local mounting, access boundaries and keyboard use.

@@ -698,3 +698,16 @@ Native PR watch ends on merge/close; the
 names the outstanding-check owner and explicitly records any native-event wake
 gap without claiming acceptance or blocking disjoint source work. Reconsider
 only for concrete tool-contract or workflow changes.
+
+## Selected saved investigations (PR 119)
+
+Use a bounded generation-and-ID focus URL and ordinary Map navigation, with no
+new state framework, server collection, notes channel or dependency. The
+[investigation contract](../../map/docs/investigations.md#fit-and-maintenance-decision)
+records alternatives, repeated-URL/output budgets and maintenance boundaries.
+The supporting [Core identity projection](fact-identity.md) uses the Reader's
+existing ID index; asking for one relationship would also demand optional
+whole-domain name-directory work. Reader open retains its existing validation
+and indexing cost. Reconsider the state format only for a changed selection
+outcome, rather than bypassing its 24-ID/query ceilings. These bounds are not
+whole-request latency/RSS evidence or capability qualification.
