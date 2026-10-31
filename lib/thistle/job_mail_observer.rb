@@ -4,7 +4,7 @@ require_relative 'model_observer'
 
 module Thistle
   # Raw registries from an explicit loaded-app inventory. No descendant lookup,
-  # constant resolution, public registry getter, handler or action dispatch.
+  # constant resolution, application-controlled getter, handler or action dispatch.
   class JobMailObserver < ModelObserver
     def initialize(app:, root:, jobs:, mailers:, framework_version:, **options)
       super(**options)
@@ -39,7 +39,8 @@ module Thistle
     # The private 8.1 class_attribute leaf shares its ISeq across all attributes.
     # Compare it to a framework-created probe before binding. 7.1 has per-reader
     # code; accept only its framework-file, pure captured-value leaf. Unknown VM
-    # or overridden storage stays unavailable. Never call the public getter.
+    # or overridden storage stays unavailable. No application-controlled getter runs;
+    # 7.1 binds only the verified public pure-storage leaf, 8.1 the private leaf.
     def registry(klass, attribute)
       return unless defined?(RubyVM::InstructionSequence)
       reader = @version == '7.1.6' ? attribute : "__class_attr_#{attribute}".to_sym

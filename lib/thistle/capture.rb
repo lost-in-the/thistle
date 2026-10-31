@@ -41,7 +41,7 @@ module Thistle
       fact_bytes = native_evidence_bytes(result)
       effective = result.fetch("producer").fetch("effective_limits").transform_keys(&:to_sym)
       if @job_mail
-        @job_mail_entries = result.fetch('producer').fetch('inventory_entries')
+        @job_mail_entries = result.fetch('producer')['explicit_template_entries']
         unless @job_mail_entries.instance_of?(Integer) && (0..effective.fetch(:max_entries)).cover?(@job_mail_entries)
           raise InvalidInput, 'Missing or invalid explicit-template inventory accounting'
         end
@@ -106,7 +106,7 @@ module Thistle
         observations = JobMailObserver.new(app: @rails, root: File.expand_path(@root),
           jobs: @job_mail.fetch(:jobs), mailers: @job_mail.fetch(:mailers),
           framework_version: defined?(Rails::VERSION::STRING) ? Rails::VERSION::STRING : nil,
-          limits: observation_limits(effective, result),
+          limits: observation_limits(effective, result, family: 'job_mail'),
           evidence_budget: MAX_EVIDENCE_BYTES - fact_bytes).call
         fact_bytes, links = append_observations(result, effective, 'job_mail', observations, fact_bytes, links)
         result.fetch('evidence_accounting')['fact_bytes_upper_bound'] = fact_bytes
@@ -119,9 +119,9 @@ module Thistle
 
     private
 
-    def observation_limits(effective, result)
+    def observation_limits(effective, result, family: nil)
       limits = effective.merge(max_facts: effective[:max_facts] - result.fetch('facts').length)
-      limits[:max_entries] -= @job_mail_entries if @job_mail
+      limits[:max_entries] -= @job_mail_entries if family == 'job_mail'
       limits
     end
 
@@ -198,7 +198,7 @@ module Thistle
         "schema_version" => result.fetch("schema_version")
       }))
       charge = added.fetch('appended')
-      if @job_mail
+      if family == 'job_mail'
         entries = charge.fetch('entries')
         unless entries.instance_of?(Integer) && entries >= 0 && @job_mail_entries + entries <= effective.fetch(:max_entries)
           raise LimitExceeded, 'Combined job/mail capture exceeds max_entries'

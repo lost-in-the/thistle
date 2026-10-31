@@ -96,3 +96,19 @@ separate from a served browser task.
 
 Broader mail defaults/callbacks, HAML/alternate template languages, historical
 changes, test relevance and full Passage remain explicit parent obligations.
+
+
+R121 source corrections: first installed fixture/cards require Rails 8.1.4 (both
+current Ruby cohorts); 7.1.6 compatibility guard is present/unverified here. No
+application-controlled getter dispatch is permitted. Bare ERB names remain local
+or helper candidates, and other receiverless calls remain call or helper
+candidates; binding/execution stays unknown. Oversized option display is explicitly
+truncated while physical Source remains original. Template scan allowance returns
+bounded_partial and unsearched coverage rather than erasing prior rows. Native
+filesystem coverage distinguishes ordinary walk from separately supplied ERB.
+
+Busy source analysis renders 503 with Retry-After:1 and “retry this page” text;
+GET/HEAD/close/access and saved generation stay intact, without automatic retries.
+Conventional implicit mail defaults, template_name-only and positional render are
+PRIORITIZED PARENT follow-ups; unsupported selection is not a resolved candidate.
+Actual native/installed/served execution remains UNRUN pending Root's finite gate.

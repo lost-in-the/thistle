@@ -217,7 +217,7 @@ pub(crate) fn select(reader: &Reader, query: &Query<'_>) -> Result<Value> {
         let mut labels = Vec::new();
         if let Some(name) = class["name"].as_str() {
             labels.push(("local_class",name.to_owned(),"class"));
-            labels.push(("perform",format!("{name}#perform"),"method"));
+            if class["kind"] == "job" { labels.push(("perform",format!("{name}#perform"),"method")); }
         }
         if let Some(name) = class["superclass"].as_str() { labels.push(("superclass",name.to_owned(),"class")); }
         if next.0 > labels.len() || next.0 == labels.len() && next.1 != 0 { return Err(CoreError::input("Declaration cursor outside labels")); }
@@ -329,6 +329,7 @@ fn select_source(reader: &Reader, query: &Query<'_>, fact: &Value, position: (us
     if next == position && !complete { return Err(CoreError::limit("Job/mail source page cannot fit one item")); }
     response(reader,query,fact,items,json!({"analysis_status":analysis["status"],"reason":analysis["reason"],
         "source_scan_complete":analysis.get("scan_complete").cloned().unwrap_or(json!(analysis["status"]=="partial")),
+        "unsearched":analysis["unsearched"],
         "capture":capture_coverage(reader)?,"execution":"unavailable",
         "scope":"Selected saved declaration or ERB source only; inherited declarations require their selected source. No effective dispatch or complete mail resolver claim."}),next,complete,
         json!({"source_bytes":file["bytes"],"parser_stack_bytes":64*1024*1024,"label_bytes":work.bytes,"label_comparisons":work.comparisons,"directories":directories}))

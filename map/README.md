@@ -84,6 +84,11 @@ saved A/CURRENT B/fresh Reader/served Map task, desktop/narrow screenshots,
 keyboard/no-JavaScript and applicable person checks remain pending. Broader mail
 defaults/callbacks, alternate/HAML templates, history and full Passage remain
 parent scope; this increment does not establish complete Woods replacement.
+First installed cards pin Rails 8.1.4. Bare ERB names are local-or-helper candidates;
+other receiverless calls are call-or-helper candidates. Worker contention returns
+503/Retry-After:1 with explicit retry-page text; the page is not missing evidence.
+Conventional implicit mail/template_name-only/positional render resolution is a
+prioritized parent follow-up.
 
 ## Repository validation
 

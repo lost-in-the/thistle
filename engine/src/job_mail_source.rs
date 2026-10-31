@@ -81,7 +81,12 @@ fn value(node: Node<'_>) -> Value {
             node.as_integer_node().is_some() || node.as_float_node().is_some() ||
             node.as_true_node().is_some() || node.as_false_node().is_some() || node.as_nil_node().is_some() { "literal_syntax" }
         else { "dynamic_unknown" };
-    json!({"kind":kind,"source":text(node.location().as_slice())})
+    // Display is bounded independently of literal decoding and physical spans.
+    let location = node.location();
+    let raw = std::str::from_utf8(location.as_slice()).expect("validated UTF-8 source span");
+    let mut end = raw.len().min(256);
+    while !raw.is_char_boundary(end) { end -= 1; }
+    json!({"kind":kind,"source":&raw[..end],"source_bytes":raw.len(),"truncated":end < raw.len()})
 }
 
 /// Annotation of an already validated captured class/module/method declaration.
@@ -119,7 +124,7 @@ pub(crate) fn analyze(declaration: &Value, content: &str) -> Result<Value> {
             let name = text(call.name().as_slice());
             let here = spans.span(node.location(), start);
             if !method && call.receiver().is_none() && matches!(name.as_str(), "retry_on"|"discard_on"|"rescue_from") {
-                let args: Vec<_> = arguments(&call)?.into_iter().map(value).collect();
+                let args: Vec<_> = arguments(&call)?.into_iter().filter(|n| n.as_keyword_hash_node().is_none()).map(value).collect();
                 let exceptions: Vec<_> = arguments(&call)?.into_iter().filter(|n| n.as_keyword_hash_node().is_none()).map(value).collect();
                 let mut options = serde_json::Map::new();
                 for key in ["wait","attempts","queue","priority","jitter","report","with"] {
@@ -148,9 +153,14 @@ pub(crate) fn analyze(declaration: &Value, content: &str) -> Result<Value> {
                     let selection = keyword(&call,"template_path")?;
                     let template = keyword(&call,"template_name")?.or(keyword(&call,"template")?);
                     let label = template.as_ref().and_then(literal_string);
+                    let directory = selection.as_ref().and_then(literal_string);
+                    let status = if label.as_ref().zip(directory.as_ref()).is_some_and(|(name,path)|
+                        schema::path(name).is_ok() && schema::path(path).is_ok()) { "literal_candidate" }
+                        else if label.is_some() { "unsupported_selection_unknown" }
+                        else if template.is_some() || selection.is_some() { "dynamic_unknown" }
+                        else { "unsupported_selection_unknown" };
                     rows.push(json!({"kind":"template_selection","operation":name,"span":here,
-                        "template":label,"template_path":selection.as_ref().and_then(literal_string),
-                        "status":if label.is_some() {"literal_candidate"} else if template.is_some() || selection.is_some() {"dynamic_unknown"} else {"implicit_or_unsupported"},
+                        "template":label,"template_path":directory,"status":status,
                         "provenance":"source_potential","binding":"unknown"}));
                 }
             }
@@ -165,13 +175,13 @@ pub(crate) fn analyze(declaration: &Value, content: &str) -> Result<Value> {
     Ok(result)
 }
 
-pub(crate) fn walk<'a>(root: Node<'a>, mut visit: impl FnMut(&Node<'a>) -> Result<()>) -> Result<usize> {
+pub(crate) fn walk<'a>(root: Node<'a>, mut visit: impl FnMut(&Node<'a>) -> Result<bool>) -> Result<(usize,bool)> {
     let mut pending = vec![root]; let mut count = 0;
     while let Some(node) = pending.pop() {
         count += 1;
-        if count > MAX_NODES { return Err(CoreError::limit("Template AST node limit")); }
-        visit(&node)?;
+        if count > MAX_NODES { return Ok((count-1,false)); }
+        if !visit(&node)? { return Ok((count,false)); }
         children::for_each_child(&node, |child| pending.push(child));
     }
-    Ok(count)
+    Ok((count,true))
 }

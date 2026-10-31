@@ -28,7 +28,7 @@ inferred from pure mocked routes or static package selectors.
 
 | Location | Current source integration / remaining ownership |
 | --- | --- |
-| `engine/src/lib.rs` | Modules and `job_mail_batch`, `erb_template_admit`, public `job_mail` selection and `Query::scratch()` admission implemented. Reservation uses the existing native envelope/response-serialization lifetime. Optional `capture.templates` selects the narrow existing-inventory extension. No second public source dispatcher. |
+| `engine/src/lib.rs` | Modules and `job_mail_batch`, public `job_mail` selection and `Query::scratch()` admission implemented. Reservation uses the existing native envelope/response-serialization lifetime. Optional `capture.templates` selects the narrow existing-inventory extension. No second public source dispatcher. |
 | `engine/src/capture.rs` | Source helper implemented: `pub(crate) fn parser_worker<T: Send + 'static>(name: &'static str, task: impl FnOnce() -> Result<T> + Send + 'static) -> Result<T>`. Existing capture delegates with unchanged effective-limit validation and capture recipe. Capture and selected source share one atomic try-admission, 64 MiB stack, spawn/join/panic mapping and RAII release. Busy is immediate; no queue/retry/fallback. Native execution remains UNRUN. |
 | `engine/src/schema.rs`, `recorded_domain.rs` | Strict `rails_job_mail` validator is called by the common publication/fresh-open validation path. Runtime rows have no source location; handler locations are hints. One adjacent anonymous-label exclusion in `candidate_name` prevents anonymous registry display names from becoming candidate identity. |
 | `lib/thistle.rb`, `capture.rb` | Optional explicit `job_mail` context is validated/copied before Native calls and forwarded within the supplied app/root. Existing Rails and LOS147 observation order/delta accounting is preserved. Loaded jobs/mailers, guarded framework version, remaining limits and byte budget reach `JobMailObserver`; no descendant lookup or eager loading. `rails_capture.rb` is unchanged. |
@@ -54,13 +54,18 @@ framework resolver. The native request receives only root/limits/paths, never
 earlier source/fact payloads. Duplicate paths cannot replace an accepted source
 or add duplicate facts. Excluded directories and paths outside the root refuse.
 
-With explicit job/mail context, native `inventory_entries` plus every observation
-batch's `appended.entries` are checked cumulatively against the existing entry
-ceiling before result mutation/publication. Remaining observer limits, facts,
-links and fact bytes use incremental counters, including prior LOS147 batches;
-old fact metadata is not reserialized per family. The initial native capture
-also charges selected templates to its existing files/source-byte/fact/evidence
-limits. Store independently validates the eventual full publication.
+Entry budgets have two scopes/units. The existing filesystem `max_entries`
+counts ordinary directory entries plus explicitly traversed template components
+on the SAME native Capture counter; it is never reset or raised. Native reports
+`explicit_template_entries` as the exact before/after `read_templates` delta,
+separately from `inventory_entries` (the total filesystem count). Missing,
+noninteger, negative or oversized delta accounting refuses before publication.
+Ruby combines ONLY that component delta and `job_mail` batch `appended.entries`
+for the job/mail observer's own entry allowance. Model, Callback and Source
+Ownership keep their prior full per-batch entry allowances; neither filesystem
+walk entries nor other observer batches reduce them. Facts/links/bytes/diagnostics
+remain globally cumulative and incrementally charged, with no old-fact metadata
+reserialization per family. Store independently validates full publication.
 
 ## Raw observation DTO and validators
 
@@ -86,14 +91,18 @@ actual publication. Native validation does not trust Ruby's version allowlist.
 hint = {path:string,line:positive_u32}
 ```
 
-Supported layouts are exactly Rails **7.1.6 / 8.1.4**, matching the existing
-observation cohorts, not a broad framework support claim. The private storage
-reader must match the guarded framework class-attribute leaf. Public getters
-are never called. Unknown VM/layout/overridden storage is unavailable, never
-an empty observed registry. Bound builtins and fresh primitive copies avoid
-singleton overrides on supplied class arrays, rows and descriptors. The app
-token establishes explicit caller authority; it does not prove every supplied
-class belongs exclusively to that app. The inventory scope is supplied classes.
+Compatibility leaf guards are present for Rails **7.1.6 / 8.1.4**, not a broad
+framework support claim. The FIRST installed fixture/cards are explicitly pinned
+to **Rails 8.1.4** (both current CI cohorts: Ruby 4.0.9 and 3.4.12). The harness
+asserts Rails.version after boot and before card answers. The 7.1.6 path remains
+present but UNVERIFIED by this fixture; version-specific cards and actual evidence
+are needed before a broader claim. No plausible 7.1 failure was reproduced here.
+No APPLICATION-controlled getter is dispatched: 7.1 binds only the verified
+framework-generated public pure-storage leaf, 8.1 uses the verified private leaf.
+Public overrides on 7.1 and unknown VM/layout/overridden storage stay unavailable,
+never an empty observed registry. Bound builtins and fresh primitive copies avoid
+singleton overrides on supplied arrays/rows/descriptors. The supplied app token
+establishes caller authority, not proof every class belongs only to that app.
 
 `job_mail::batch(context, observation)` strips external/unsafe hint paths without
 opening them, derives `rails_job_mail` identities and preserves registry array
@@ -113,24 +122,12 @@ Retry/discard wrappers remain opaque Procs. No closure binding is inspected.
 Shared superclass row identity is inheritance evidence, not a registration site
 or proof of the active exception handler. Exception labels are never constantized.
 
-Raw template transport:
-
-```text
-{path:relative_path, content_bytes:[u8...], bytes:u64, sha256:hex,
- provenance:'raw_template_bytes'}
-```
-
-The optional raw-byte helper/`erb_template_admit` seam uses numeric bytes to
-preserve invalid UTF-8 across JSON without a Ruby encoding/parser policy.
-`erb_template::admit_raw` validates byte range, 256 KiB cap, exact length
-and digest, safe ERB path, provenance and strict UTF-8. It returns a normal
-`{path,content,bytes,sha256,encoding:'UTF-8'}` source record. The transport has an
-explicit allocation/serialization cost: up to 262,144 Ruby integer slots and
-numeric JSON bytes per file. This transport is **not** used by the integrated
-capture path: explicit paths go to Rust, whose existing anchored reader passes
-bounded bytes directly to shared `admit_bytes` admission. This avoids Ruby
-integer arrays and numeric JSON copies in the normal job/mail capture. No new
-dependency or engine coupling is introduced here.
+Raw template admission has ONE integrated path: explicit root-relative paths
+reach Rust's existing descriptor-anchored reader, which passes bounded bytes to
+`erb_template::admit_bytes`. It validates the ERB path, 256 KiB cap, digest and
+strict UTF-8 and returns normal `{path,content,bytes,sha256,encoding:'UTF-8'}`
+source records. The unused numeric-array helper/native op/admission/tests were
+removed in R121-04; there is no second transport or Ruby file traversal.
 
 ## Public answer and family allowlist
 
@@ -146,7 +143,7 @@ refuse. The native result is encoded and checked against the requested budget.
 | `declarations` | `rails_job_mail` | Exact saved own-class, `name#perform` and superclass-class candidates. All duplicate identities retained. Missing local perform does not mean absent inherited behavior. No parsing. |
 | `policy` | captured class/module | Source `retry_on`/`discard_on`/`rescue_from` calls, exception syntax, supported literal/dynamic option syntax and opaque blocks. Registration association, defaults and conditions remain unknown. Nested declarations have their own selected anchors. |
 | `handoff` | captured method | Constant-receiver/action and delivery-style call-site candidates, explicit `mail`/`render` template selection. Receiver framework role, binding, invocation, branch satisfaction and delivery remain unknown. |
-| `template_references` | captured `.erb` file fact | Original physical spans for instance-variable reads, receiverless helper candidates and explicit slash-qualified partial candidates. Values/binding/execution unknown. |
+| `template_references` | captured `.erb` file fact | Original physical spans for instance-variable reads, receiverless local-or-helper / call-or-helper candidates and explicit slash-qualified partial candidates. Values/binding/execution unknown. |
 
 Envelope:
 
@@ -232,8 +229,22 @@ budget for the envelope; final encoding can still refuse oversized metadata.
 All parser/AST caps are operational and partly **after parsing**. Neither the
 96 MiB reservation nor a large stack is a hard CPU/RSS/heap sandbox or deadline.
 No latency/memory improvement has been measured. Source work does not admit a
-host execution window. Busy/error paths preserve the failure; oversized or
+host execution window. A parser `busy` code maps to `Thistle::Busy`; Map returns 503 with Retry-After:1 and explicit retry-page text, without retry/queue/fallback. GET/HEAD/access-before-open/close remain. Other error paths preserve the failure; oversized or
 analysis-limited source gives explicit unknown coverage, never complete absence.
+
+Display option snippets are at most 256 UTF-8 bytes, with `truncated` and original
+`source_bytes`; keyword hashes are not duplicated in `arguments`. Original
+physical spans and strict literal decoding/target identities remain untouched.
+ERB's 200-reference/20k-node allowance returns retained `bounded_partial` evidence,
+`scan_complete:false` and explicit remaining unsearched work, never empty complete
+absence. Large parse allocation/CPU still depends on admitted host execution.
+
+Conventional implicit `mail(to:)`, `mail(template_name:)` without explicit path,
+and positional `render 'dir/name'` remain unsupported selection, with aligned
+`unsupported_selection_unknown` status and no candidate. Supporting these normal
+mailer defaults/resolver forms is a PRIORITIZED PARENT follow-up, not resolved
+binding, new cards or a completion claim. Mailer registry declarations do not
+invent a perform method; jobs may offer the recorded perform-label candidate.
 
 ## Independent expected journey and evidence state
 
@@ -265,7 +276,7 @@ checks in that attempt; current-candidate CI/native evidence remains required.
 Phase 3 pure wiring checks: new job/mail stdlib-double suite 11 tests/22
 assertions PASS; existing LOS147 stdlib wiring regression 7/14 PASS; changed Ruby
 syntax PASS. These cover explicit app/config copying, thin Reader/closed-handle
-forwarding, nil defaults, ordered incremental composition, cumulative entries,
+forwarding, nil defaults, ordered incremental composition, prior entry accounting,
 no old-fact rewalk/reserialization, and failure propagation before publication.
 They load neither native code nor Rails and perform no actual capture/store IO.
 Phase 4 pure mocked checks: Map job navigation 3/75, isolated routes 16/32,
@@ -310,3 +321,35 @@ effective inherited mail dispatch and full template resolver parity remain paren
 scope. Static selectors/link checks do not build an archive, install either gem,
 exercise Native or qualify customer task answers. Root owns one full initial
 review and the settled candidate's finite execution; Leah owns acceptance.
+
+
+## R121 correction checkpoint (source only)
+
+R121-01 typed busy/503; R121-02 Rails 8.1.4 fixture pin and honest7.1 guard wording;
+R121-03 separate entry scopes; R121-04 unused transport removal; R121-05 neutral
+bare/local/call labels and job-only perform; R121-06 bounded display/partial ERB;
+R121-07 synchronized guides/notes/coverage; R121-08 code-specific path/component
+regressions and relative safe errors; R121-09 aligned unsupported status and
+prioritized conventional resolver follow-up are implemented in source. The
+native regression cases remain authored UNRUN; source mocks do not prove them.
+
+Exact f0749f13 source CI ALL8 succeeded (required124668996745, minimum124668106510,
+primary124668106482, ARM124668106302, Automation124668074203, Plan124668074042,
+PII124668075208/124668060892). CodeRabbit SKIPPED was not approval. This exact
+prior-head evidence and historical4b failures do not transfer to a correction head.
+
+The retained initial report SHA256 is
+`a5fe0c69b0eb571209791f2fcf18f814400607f73101d9bff1cb48ee7b3c8fdb` (16812B).
+Preserve its 870s/300s target overrun, partial reads, five 0644 scratch files totaling
+145725B subsequently deleted, EROFS fallback and unenforced tool-output aggregate
+(estimated below 1 MiB). These exceptions were not a clean procedure. Root owns
+ONE changed-scope R2; no source author self-approval or acceptance build is implied.
+
+Focused R121 correction source checks:42 job/mail stdlib/mock tests104 assertions
+PASS (Busy mapping1/1, composition17/34, Map17/34, observer4/10, presenter3/25),
+plus unchanged LOS147 mocked wiring7/14 and installed-document link test PASS.
+Changed Ruby syntax, exact shared-hunk/ordinary-walk/anchored-IO/default/parser
+byte invariants, notes and whitespace pass. One trailing-space check failed and
+was corrected; its attempt is retained. No Rust/native/framework/app/archive/
+install/server/browser execution occurred. These checks do not execute the new
+native safe-error/component-delta/large-handler/200-reference regressions.

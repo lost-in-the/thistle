@@ -208,7 +208,9 @@ fn capture_inner_templates(root: &Path, effective: HashMap<String, usize>, templ
         link_keys: HashSet::new(), call_keys: HashMap::new(), inventory_partial: false, declarations_partial: false,
     };
     capture.walk(&directory, "", 0)?;
+    let ordinary_entries = capture.entries;
     if let Some(paths) = templates.as_ref() { capture.read_templates(&directory, paths)?; }
+    let explicit_template_entries = capture.entries - ordinary_entries;
     // Prism's ASTs are gone. Release grouping-only keys before expanding the
     // compact call rows into the public semantic objects. Keeping both expanded
     // links and a large AST live can exhaust the parser process's address space.
@@ -241,7 +243,10 @@ fn capture_inner_templates(root: &Path, effective: HashMap<String, usize>, templ
     let mut producer = json!({ "name": "thistle", "engine": "rust", "core_version": env!("CARGO_PKG_VERSION"), "capture_schema": 1,
         "call_target_schema":2, "link_encoding_schema":1, "prism_version": PRISM_VERSION, "ruby_syntax_version": RUBY_SYNTAX_VERSION, "parser_policy": PARSER_POLICY, "parser_stack_bytes":PARSER_STACK_BYTES, "capture_concurrency":1,
         "effective_limits": capture.limits, "visited_nodes": capture.nodes });
-    if templates.is_some() { producer["inventory_entries"] = json!(capture.entries); }
+    if templates.is_some() {
+        producer["inventory_entries"] = json!(capture.entries);
+        producer["explicit_template_entries"] = json!(explicit_template_entries);
+    }
     // Move the retained inventory into the response. `json!` would serialize
     // every file body and fact tree into a second copy before dropping the first.
     let mut output = serde_json::Map::new();
@@ -336,7 +341,8 @@ impl Capture {
                 if self.entries > self.limit("max_entries") { return Err(CoreError::limit("Explicit template inventory exceeds max_entries")); }
                 let name = CString::new(*component).map_err(|_| CoreError::input("Template path contains NUL"))?;
                 let final_component = index + 1 == components.len();
-                let mut child = open_at(&parent, &name, !final_component)?;
+                let mut child = open_at(&parent, &name, !final_component)
+                    .map_err(|error| CoreError::new(error.code, format!("Cannot open explicit template {path}: {}", error.code)))?;
                 if final_component {
                     let before = child.metadata()?;
                     if !before.is_file() { return Err(CoreError::new("unsafe_path","Template source must be a regular file")); }
@@ -833,7 +839,7 @@ impl Capture {
     fn coverage(&self) -> Value {
         json!([
             { "family":"source_inventory", "status":if self.inventory_partial {"partial"} else {"complete"},
-              "scope":format!("Regular UTF-8 *.rb, *.rake, *.gemspec, *.rs, Gemfile and Rakefile; excludes {}; no symlinks",EXCLUDED.join(", ")),
+              "scope":format!("Ordinary walk: regular UTF-8 *.rb, *.rake, *.gemspec, *.rs, Gemfile and Rakefile; excludes {}; no symlinks. Separately supplied ERB bytes are reported by erb_template_source when requested",EXCLUDED.join(", ")),
               "reason":if self.inventory_partial {Some("Some source entries were unavailable; see diagnostics")} else {None} },
             { "family":"ruby_declarations", "status":if self.declarations_partial {"partial"} else {"complete"},
               "scope":"Explicit Ruby class, module and method syntax in captured valid source; names are lexical labels",

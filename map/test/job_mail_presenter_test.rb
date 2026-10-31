@@ -60,3 +60,16 @@ class JobMailPresenterTest < Minitest::Test
     assert_raises(Thistle::InvalidSnapshot) { presenter.render(bad) }
   end
 end
+
+
+class JobMailPresenterTest
+  def test_neutral_local_and_call_labels_preserve_uncertainty
+    presenter = Thistle::Map::JobMailPresenter.new(generation: GENERATION, navigation: Navigation.new)
+    { 'local_or_helper_candidate' => 'Local or helper candidate', 'call_or_helper_candidate' => 'Call or helper candidate' }.each do |kind, label|
+      value = answer
+      value['family'] = 'template_references'
+      value['items'][0]['evidence'] = { 'kind' => kind, 'name' => 'recipient', 'binding' => 'unknown', 'span' => { 'start_line' => 10 } }
+      assert_includes presenter.render(value), label
+    end
+  end
+end

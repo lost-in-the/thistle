@@ -105,12 +105,24 @@ fn explicit_inert_templates_deduplicate_and_survive_saved_reader_admission() {
     context["fact_bytes"] = captured["evidence_accounting"]["fact_bytes_upper_bound"].clone();
     let added = batch(&context,&observation()).unwrap();
     let registry = added["facts"][0].clone();
+    let mut mailer = observation();
+    mailer["classes"][0]["kind"] = json!("mailer");
+    mailer["classes"][0]["name"] = json!("ReceiptMailer");
+    let mailer = batch(&context,&mailer).unwrap();
+    let mailer_registry = mailer["facts"][0].clone();
+    captured["facts"].as_array_mut().unwrap().extend(mailer["facts"].as_array().unwrap().iter().cloned());
     captured["facts"].as_array_mut().unwrap().extend(added["facts"].as_array().unwrap().iter().cloned());
     captured["coverage"].as_array_mut().unwrap().extend(added["coverage"].as_array().unwrap().iter().cloned());
     let store = tempfile::tempdir().unwrap();
     let manifest = crate::store::publish(store.path(),&captured).unwrap();
     let reader = Reader::open(store.path(),manifest["generation"].as_str()).unwrap();
     assert_eq!(reader.source_file("receipt.erb").unwrap()["content"],content);
+    let query = json!({"id":mailer_registry["id"],"family":"declarations","limit":16});
+    let answer = select(&reader,&Query::parse(&query).unwrap()).unwrap();
+    assert!(answer["items"].as_array().unwrap().iter().all(|row| row["role"] != "perform"));
+    let query = json!({"id":registry["id"],"family":"declarations","limit":16});
+    let answer = select(&reader,&Query::parse(&query).unwrap()).unwrap();
+    assert!(answer["items"].as_array().unwrap().iter().any(|row| row["role"] == "perform"));
     let query = json!({"id":file_fact["id"],"family":"template_references","limit":1});
     let answer = select(&reader,&Query::parse(&query).unwrap()).unwrap();
     assert_eq!(answer["generation"],manifest["generation"]);
@@ -132,12 +144,66 @@ fn explicit_template_paths_cannot_escape_or_bypass_existing_inventory_limits() {
     std::fs::write(outside.path().join("outside.erb"),"outside").unwrap();
     std::os::unix::fs::symlink(outside.path(),root.path().join("linked")).unwrap();
     std::os::unix::fs::symlink(outside.path().join("outside.erb"),root.path().join("linked.erb")).unwrap();
-    for path in ["../outside.erb","linked/outside.erb","linked.erb","vendor/hidden.erb","unsupported.haml"] {
-        assert!(crate::capture::capture_with_templates(root.path(),&json!({}),&json!([path])).is_err(),"{path}");
+    for (path,code) in [("../outside.erb","unsafe_path"),("linked/outside.erb","unsafe_path"),("linked.erb","unsafe_path"),
+        ("vendor/hidden.erb","invalid_input"),("unsupported.haml","invalid_input")] {
+        let error = crate::capture::capture_with_templates(root.path(),&json!({}),&json!([path])).unwrap_err();
+        assert_eq!(error.code,code,"{path}");
+        assert!(!error.message.contains(root.path().to_str().unwrap()));
+        assert!(!error.message.contains(outside.path().to_str().unwrap()));
     }
-    std::fs::write(root.path().join("regular.erb"),"<%= inert %>").unwrap();
-    assert!(crate::capture::capture_with_templates(root.path(),&json!({"max_file_bytes":1}),&json!(["regular.erb"])).is_err());
-    assert!(crate::capture::capture_with_templates(root.path(),&json!({"max_entries":1}),&json!(["regular.erb"])).is_err());
+    let error = crate::capture::capture_with_templates(root.path(),&json!({}),&json!(["missing.erb"])).unwrap_err();
+    assert_eq!(error.code,"not_found");
+    assert!(error.message.contains("missing.erb"));
+    assert!(!error.message.contains(root.path().to_str().unwrap()));
+    // A separate one-entry root makes ordinary walk succeed BEFORE explicit
+    // component traversal exhausts the SAME counter; no whole large inventory.
+    let small = tempfile::tempdir().unwrap();
+    std::fs::write(small.path().join("regular.erb"),"<%= inert %>").unwrap();
+    crate::capture::capture(small.path(),&json!({"max_entries":1})).unwrap();
+    let error = crate::capture::capture_with_templates(small.path(),&json!({"max_entries":1}),&json!(["regular.erb"])).unwrap_err();
+    assert_eq!(error.code,"limit_exceeded");
+    assert_eq!(error.message,"Explicit template inventory exceeds max_entries");
+    let accepted = crate::capture::capture_with_templates(small.path(),&json!({"max_entries":2}),&json!(["regular.erb","regular.erb"])).unwrap();
+    assert_eq!(accepted["producer"]["inventory_entries"],2);
+    assert_eq!(accepted["producer"]["explicit_template_entries"],1);
+    let error = crate::capture::capture_with_templates(small.path(),&json!({"max_file_bytes":1}),&json!(["regular.erb"])).unwrap_err();
+    assert_eq!(error.code,"limit_exceeded");
     let anonymous = json!({"kind":"rails_job_mail","name":"Anonymous job 0","attributes":{"job_mail":{"class":{"name":null}}}});
     assert!(recorded_domain::candidate_name(&anonymous).is_none());
+}
+
+
+#[test]
+fn oversized_handler_display_is_bounded_without_losing_options_or_source_witness() {
+    let _guard = crate::CAPTURE_FIXTURE_LOCK.lock().unwrap();
+    let body = "雪".repeat(4_000);
+    let source = format!("class ReceiptJob; rescue_from DeliveryTimeout, with: ->(e) {{ '{body}' }}; end");
+    let fact = json!({"id":"a".repeat(64),"kind":"class","location":{"start_byte":0,"end_byte":source.len()}});
+    let answer = parse_source(&fact,"app/jobs/receipt_job.rb",&source).unwrap();
+    let row = &answer["rows"][0];
+    assert_eq!(row["arguments"].as_array().unwrap().len(),1); // no duplicated keyword hash
+    assert_eq!(row["options"]["with"]["truncated"],true);
+    assert!(row["options"]["with"]["source"].as_str().unwrap().len() <= 256);
+    assert!(row["options"]["with"]["source_bytes"].as_u64().unwrap() > 8_000);
+    assert_eq!(row["span"]["start_byte"],source.find("rescue_from").unwrap());
+    assert!(schema::encoded_bytes(row,4_096).is_ok());
+    for source in ["def receipt; mail(template_name: 'receipt'); end", "def receipt; mail(to: @recipient); end", "def receipt; render 'receipt_mailer/receipt'; end"] {
+        let fact = json!({"id":"b".repeat(64),"kind":"method","location":{"start_byte":0,"end_byte":source.len()}});
+        let answer = parse_source(&fact,"app/mailers/receipt_mailer.rb",source).unwrap();
+        assert_eq!(answer["rows"][0]["status"],"unsupported_selection_unknown");
+        assert!(candidate_key(&answer["rows"][0]).is_none());
+    }
+}
+
+
+#[test]
+fn original_template_target_is_not_a_truncated_display_value() {
+    let _guard = crate::CAPTURE_FIXTURE_LOCK.lock().unwrap();
+    let name = "r".repeat(300);
+    let source = format!("def receipt; mail(template_path: 'receipt_mailer', template_name: '{name}'); end");
+    let fact = json!({"id":"d".repeat(64),"kind":"method","location":{"start_byte":0,"end_byte":source.len()}});
+    let answer = parse_source(&fact,"app/mailers/receipt_mailer.rb",&source).unwrap();
+    let row = &answer["rows"][0];
+    assert_eq!(row["template"],name);
+    assert_eq!(candidate_key(row).unwrap().0,format!("app/views/receipt_mailer/{name}.html.erb"));
 }

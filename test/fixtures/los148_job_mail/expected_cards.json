@@ -1,5 +1,6 @@
 {
   "authoring": "Independent expected customer answers, written before native/framework execution; not generated from implementation output",
+  "framework_cohort": "Rails 8.1.4; first installed fixture only; Rails 7.1.6 compatibility path unverified",
   "job": "ReceiptJob",
   "registry": {
     "exceptions_in_registered_order": ["DeliveryTimeout", "MissingRecipient", "UnloadedDeliveryError"],
@@ -22,7 +23,7 @@
   "template": {
     "path": "app/views/receipt_mailer/receipt.html.erb",
     "instance_variable": "@recipient",
-    "helper_candidate": "receipt_heading",
+    "call_or_helper_candidate": "receipt_heading",
     "partial": "app/views/receipt_mailer/_footer.html.erb",
     "not_references": ["@comment_only", "@escaped_only", "imaginary_helper"],
     "values": "unknown", "helper_binding": "unknown", "execution": "unknown"

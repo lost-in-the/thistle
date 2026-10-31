@@ -42,7 +42,8 @@ class JobMailWiringTest < Minitest::Test
         end
       end
       class ModelObserver
-        def initialize(**); end
+        class << self; attr_accessor :options; end
+        def initialize(**options) = self.class.options = options
         def call = { 'stub' => 'model' }
       end
       class CallbackObserver < ModelObserver; end
@@ -86,7 +87,7 @@ class JobMailWiringTest < Minitest::Test
     Thistle::Native.calls = []
     Thistle::Native.static = {
       'schema_version' => 3, 'facts' => [{ 'id' => 'static', 'attributes' => NoSerialization.new, 'links' => old_links }],
-      'coverage' => [], 'diagnostics' => [], 'producer' => { 'inventory_entries' => 2, 'effective_limits' => {
+      'coverage' => [], 'diagnostics' => [], 'producer' => { 'inventory_entries' => 70_000, 'explicit_template_entries' => 2, 'effective_limits' => {
         'max_facts' => 20, 'max_links' => 100, 'max_entries' => 100, 'max_diagnostics' => 10 } },
       'evidence_accounting' => { 'schema_version' => 3, 'fact_bytes_upper_bound' => 11 } }
     Thistle::Native.family_results = {
@@ -124,12 +125,22 @@ class JobMailWiringTest < Minitest::Test
       end
       Thistle::Native.refuse = 'capture' if mode == 'template_refusal'
       Thistle::Native.refuse = 'job_mail_batch' if mode == 'batch_refusal'
-      Thistle::Native.static['producer']['effective_limits']['max_entries'] = 17 if mode == 'entry_limit'
-      Thistle::Native.static['producer'].delete('inventory_entries') if mode == 'missing_inventory_charge'
+      Thistle::Native.static['producer']['effective_limits']['max_entries'] = 5 if mode == 'entry_limit'
+      Thistle::Native.static['producer'].delete('explicit_template_entries') if mode == 'missing_inventory_charge'
+      if mode == 'large_families'
+        Thistle::Native.static['producer']['effective_limits']['max_entries'] = 100_000
+        Thistle::Native.family_results['model_batch']['appended']['entries'] = 40_000
+        Thistle::Native.family_results['callback_batch']['appended']['entries'] = 50_000
+        Thistle::Native.family_results['source_comprehension_batch']['appended']['entries'] = 60_000
+      end
+      charge_mode = { 'negative_template_charge' => -1, 'float_template_charge' => 2.0, 'string_template_charge' => '2',
+        'overflow_template_charge' => 101 }
+      Thistle::Native.static['producer']['explicit_template_entries'] = charge_mode[mode] if charge_mode.key?(mode)
+      Thistle::Native.family_results['job_mail_batch']['appended']['entries'] = '4' if mode == 'invalid_job_charge'
       begin
         result = Thistle.capture(root: '/fixture', output: '/store', rails: app, job_mail: config,
           source_comprehension: { models: [LoadedJob], stop_before: LoadedBoundary })
-        check(%w[composed hostile_config].include?(mode), 'Refused input published')
+        check(%w[composed hostile_config large_families].include?(mode), 'Refused input published')
         check(Thistle::Native.calls.map { |r| r['op'] } == %w[capture model_batch callback_batch source_comprehension_batch job_mail_batch publish], 'Wrong hook order')
         initial = Thistle::Native.calls.first
         check(initial.fetch('templates') == ['app/views/receipt_mailer/receipt.html.erb'], 'Paths were not forwarded to Rust IO')
@@ -137,10 +148,13 @@ class JobMailWiringTest < Minitest::Test
         check(batch.fetch('context').values_at('facts','links','fact_bytes') == [5,12,67], '147 incremental charges lost')
         check(result.fetch('capture').fetch('evidence_accounting').fetch('fact_bytes_upper_bound') == 90, 'Final charge lost')
         check(old_links.length_calls == 1, 'Earlier facts walked again')
+        [Thistle::ModelObserver, Thistle::CallbackObserver, Thistle::SourceComprehensionObserver].each do |observer|
+          check(observer.options.fetch(:limits).fetch(:max_entries) == (mode == 'large_families' ? 100_000 : 100), 'Legacy per-batch entry allowance changed')
+        end
         check(Thistle::JobMailObserver.options.values_at(:app,:root,:jobs,:mailers) == [app,'/fixture',[LoadedJob],[LoadedMailer]], 'Explicit observer boundary lost')
-        check(Thistle::JobMailObserver.options.fetch(:limits).fetch(:max_entries) == 86, 'Inventory/prior family entries uncharged')
+        check(Thistle::JobMailObserver.options.fetch(:limits).fetch(:max_entries) == (mode == 'large_families' ? 99_998 : 98), 'Job allowance includes unrelated entries')
       rescue Thistle::InvalidInput, Thistle::LimitExceeded, KeyError
-        check(!%w[composed hostile_config].include?(mode), 'Unexpected refusal')
+        check(!%w[composed hostile_config large_families].include?(mode), 'Unexpected refusal')
         check(Thistle::Native.calls.none? { |r| r['op'] == 'publish' }, 'Publication followed refusal')
         check(Thistle::Native.calls.empty?, 'Invalid config reached capture') if %w[missing_app invalid_class invalid_keys].include?(mode)
       end
@@ -150,7 +164,7 @@ class JobMailWiringTest < Minitest::Test
     puts JSON.generate('mode' => mode, 'operations' => Thistle::Native.calls.map { |r| r['op'] }, 'scope' => 'stdlib doubles only')
   RUBY
 
-  %w[default reader composed hostile_config missing_app invalid_class invalid_keys template_refusal batch_refusal entry_limit missing_inventory_charge].each do |mode|
+  %w[default reader composed hostile_config missing_app invalid_class invalid_keys template_refusal batch_refusal entry_limit missing_inventory_charge large_families negative_template_charge float_template_charge string_template_charge overflow_template_charge invalid_job_charge].each do |mode|
     define_method("test_#{mode}") do
       out, err, status = Open3.capture3(RbConfig.ruby, '-e', PROGRAM, File.expand_path('..', __dir__), mode)
       assert status.success?, "#{mode}: #{err}"

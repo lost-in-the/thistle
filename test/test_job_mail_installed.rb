@@ -41,6 +41,7 @@ if $PROGRAM_NAME == __FILE__
     installed!
     require File.join(fixture, 'booted_app.rb')
     app = JobMailFixture.boot
+    demand(Rails.version == '8.1.4', 'LOS148 first installed fixture requires Rails 8.1.4')
     require 'thistle/job_mail_observer'
     observed = Thistle::JobMailObserver.new(app: app, root: fixture,
       jobs: [ReceiptJob, RegistryOverrideJob], mailers: [ReceiptMailer], framework_version: Rails.version,
@@ -71,7 +72,7 @@ if $PROGRAM_NAME == __FILE__
       declarations = pages(reader, registry.fetch('id'), 'declarations')
       parent = declarations.find { |r| r['role'] == 'superclass' }.fetch('candidate')
       policy = pages(reader, parent.fetch('id'), 'policy')
-      demand(policy.any? { |r| r.dig('evidence', 'operation') == 'retry_on' && JSON.generate(r['evidence']).include?('attempts: 4') }, 'Pinned A did not retain inherited retry options')
+      demand(policy.any? { |r| r.dig('evidence', 'operation') == 'retry_on' && r.dig('evidence', 'options', 'attempts', 'source') == '4' }, 'Pinned A did not retain inherited retry options')
       perform = declarations.find { |r| r['role'] == 'perform' }.fetch('candidate')
       handoffs = pages(reader, perform.fetch('id'), 'handoff')
       %w[receipt archive digest dynamic_receipt].zip([1, 2, 0, 1]).each do |action, count|

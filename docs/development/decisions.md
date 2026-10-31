@@ -17,9 +17,17 @@ for source evidence), Ruby ERB compilation/analysis (a second semantic owner), o
 another parser/runtime dependency (additional maintenance without a demonstrated
 need for this ERB slice). Reusing existing anchored inventory/source/fact admission
 for explicit template paths also avoids a second filesystem authority. The
-initial numeric-byte JSON transport remains an optional raw-admission seam;
-normal capture instead passes explicit paths to the existing Rust reader and
-shares bounded native byte admission, avoiding Ruby integer arrays/JSON copies.
+initial unused numeric-byte JSON seam was removed under R121-04. Normal capture
+passes explicit paths to the existing Rust reader and shares native byte admission;
+no Ruby integer arrays or second template transport are retained.
+
+Entry limits deliberately preserve two scopes/units: filesystem directory entries
+and explicit-template components share the existing native counter/ceiling;
+separately, job/mail combines ONLY its exact explicit-template component delta
+with its own registry batch entries. Legacy Model/Callback/Source Ownership keep
+full prior PER-BATCH entry allowances; filesystem walks or other families do not
+reduce those allowances. Facts/links/bytes/diagnostics remain globally cumulative,
+incremental and charged before publication without rescanning old metadata.
 
 Operating cost includes inventory/path/read/digest accounting, selected source
 loads, projection/Prism parse and destruction, native/Ruby response copies, and
@@ -30,7 +38,13 @@ from existing admission; these are not hard heap/RSS/CPU bounds. Selected source
 is capped at 256 KiB, with post-parse 20k pending-node pops/200 derived rows and
 separately bounded argument/keyword/constant inspections. Public pages default
 to 8 rows/32 KiB (ceilings 16/64 KiB); web output/URL admission retains existing
-limits. No speed or memory improvement is claimed from source checks.
+limits. Display snippets cap at 256 safe UTF-8 bytes with truncation flags; decoded
+literal targets/spans remain original. ERB scan caps retain bounded partial rows.
+Typed busy admission yields 503/retry-after1, never queue/retry or missing-evidence
+claims. First installed cards pin Rails 8.1.4 for both current Ruby cohorts; 7.1.6
+compatibility guards remain present/unverified by that fixture. No application-
+controlled getter dispatch is permitted. No speed or memory improvement is claimed
+from source checks.
 
 Reconsider the projection for demonstrated unsupported ERB syntax or another
 template language; reconsider transport/index/work shape only with exact-artifact

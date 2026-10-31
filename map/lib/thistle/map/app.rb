@@ -112,6 +112,8 @@ module Thistle
         finish(env, 400, e.message)
       rescue View::Limit, Investigation::Limit => e
         finish(env, 422, e.message)
+      rescue Thistle::Busy
+        finish(env, 503, 'Source analysis is busy; retry this page.', extra: { 'retry-after' => '1' })
       rescue Thistle::Error => e
         status = e.is_a?(Thistle::NotFound) ? 404 : 422
         finish(env, status, 'The requested evidence is missing or invalid. No other capture has been substituted.')

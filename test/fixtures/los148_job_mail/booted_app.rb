@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 # Real framework fixture. Authoring this file does not execute or qualify it.
+gem 'rails', '= 8.1.4'
 require 'rails'
 require 'action_mailer/railtie'
 require 'active_job/railtie'

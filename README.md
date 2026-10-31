@@ -213,11 +213,15 @@ Thistle.capture(root: Rails.root.to_s,
 ```
 
 Pass classes the application has already loaded; Thistle performs no descendant
-discovery, autoload or application getter/job/handler/mail delivery invocation
+discovery, autoload or APPLICATION-controlled getter/job/handler/mail delivery invocation
 for this registration family. Rust reads declared ERB files through the existing
 anchored inventory guards and stores inert bytes/spans; it never evaluates ERB
 or helpers. `job_mail: nil` retains the prior capture path. This opt-in does not
 prove source/runtime coherence or qualify broader Rails/mail/template behavior.
+First installed job/mail cards require Rails 8.1.4; the 7.1.6 compatibility leaf guard
+is present but unverified by this fixture. Application overrides stay unavailable.
+A busy source-analysis worker yields a transient Map 503 with Retry-After:1; retry
+the page explicitly. No automatic retry, queue or capture substitution occurs.
 
 ## Optional Map
 

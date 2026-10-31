@@ -48,6 +48,11 @@ class JobMailObserverTest < Minitest::Test
     assert_equal({ 'status' => 'unavailable', 'entries' => [] }, result.fetch('classes').first['rescue_handlers'])
   end
 
+  def test_public_override_is_unavailable_on_unverified_71_path_without_dispatch
+    result = Thistle::JobMailObserver.new(**options.merge(framework_version: '7.1.6')).call
+    assert_equal({ 'status' => 'unavailable', 'entries' => [] }, result.fetch('classes').first['rescue_handlers'])
+  end
+
   def test_no_boundary_unknown_framework_and_limits_are_not_empty_success
     assert_equal 'unavailable', Thistle::JobMailObserver.new(**options.merge(app: nil)).call['status']
     assert_equal 'unavailable', Thistle::JobMailObserver.new(**options.merge(framework_version: 'future')).call['status']

@@ -56,6 +56,7 @@ class JobMailAppTest < Minitest::Test
       def job_mail(id,**options)
         @calls << [:job_mail,id,options]
         raise Thistle::InvalidInput, 'Unknown native operation' if @mode == 'native_unavailable'
+        raise Thistle::Busy, 'Source worker busy' if @mode == 'busy'
         family = options.fetch(:family)
         root = identity(id)
         items = case family
@@ -71,7 +72,7 @@ class JobMailAppTest < Minitest::Test
           evidence = if family == 'policy'
             {'kind'=>'policy_declaration','operation'=>'retry_on','span'=>root['span']}
           elsif family == 'template_references'
-            {'kind'=>'helper_candidate','name'=>'receipt_heading','span'=>root['span']}
+            {'kind'=>'call_or_helper_candidate','name'=>'receipt_heading','span'=>root['span']}
           else
             {'kind'=>'mailer_action_candidate','receiver'=>'ReceiptMailer','action'=>'receipt','span'=>root['span']}
           end
@@ -157,6 +158,19 @@ class JobMailAppTest < Minitest::Test
       demand(get(app,base.merge('REQUEST_METHOD'=>'POST'),'/job-mail/handoff',params)[0] == 405,'Mutation method allowed')
       demand(get(app,base.merge('REMOTE_ADDR'=>'192.0.2.1'),'/job-mail/handoff',params)[0] == 403,'Access gate weakened')
       demand(readers.empty?,'Refusal opened ReaderFactory')
+    elsif mode == 'busy'
+      lengths = []
+      %w[GET HEAD].each do |method|
+        status, headers, body = get(app,base.merge('REQUEST_METHOD'=>method),'/job-mail/handoff',params)
+        demand(status == 503 && headers['retry-after'] == '1','Busy was not transient503')
+        lengths << headers.fetch('content-length')
+        demand(method == 'HEAD' ? body.empty? : body.include?('Source analysis is busy; retry this page.'),'Busy body/HEAD mismatch')
+        demand(readers.last.closed && readers.last.calls.map(&:first) == [:job_mail],'Busy retried or leaked Reader')
+      end
+      demand(lengths.uniq.length == 1,'Busy HEAD content length changed')
+      before = readers.length
+      demand(get(app,base.merge('REMOTE_ADDR'=>'192.0.2.1'),'/job-mail/handoff',params)[0] == 403,'Busy bypassed access')
+      demand(readers.length == before,'Unauthorized busy request opened Reader')
     elsif mode == 'head'
       status,headers,body = get(app,base.merge('REQUEST_METHOD'=>'HEAD'),'/job-mail/handoff',params)
       demand(status == 200 && body.empty? && headers.fetch('content-length').to_i > 0 && readers.last.closed,'HEAD/close contract changed')
@@ -202,7 +216,7 @@ class JobMailAppTest < Minitest::Test
     puts JSON.generate('mode'=>mode,'readers'=>readers.length,'scope'=>'stdlib mocked routes only')
   RUBY
 
-  %w[routes refusals head identity_unavailable entry_links followup full_collection bad_generation bad_family bad_root bad_candidate bad_candidate_generation bad_cursor oversized reader_unavailable native_unavailable].each do |mode|
+  %w[routes refusals busy head identity_unavailable entry_links followup full_collection bad_generation bad_family bad_root bad_candidate bad_candidate_generation bad_cursor oversized reader_unavailable native_unavailable].each do |mode|
     define_method("test_#{mode}") do
       out,err,status = Open3.capture3(RbConfig.ruby,'-e',PROGRAM,File.expand_path('../..',__dir__),mode)
       assert status.success?,"#{mode}:#{err}"

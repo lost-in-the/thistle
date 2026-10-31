@@ -94,7 +94,6 @@ fn dispatch_inner(request: &Value) -> Result<Value> {
         "callback_batch" => callbacks::batch(&request["context"], &request["observation"]),
         "source_comprehension_batch" => source_comprehension::batch(&request["context"], &request["observation"], schema::string(request, "root")?),
         "job_mail_batch" => job_mail::batch(&request["context"], &request["observation"]),
-        "erb_template_admit" => erb_template::admit_raw(&request["template"]),
         "open" => {
             let requested = match request.get("generation") { None | Some(Value::Null) => None,
                 Some(value) => Some(value.as_str().ok_or_else(|| CoreError::input("Generation must be a string"))?) };
