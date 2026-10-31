@@ -54,6 +54,11 @@ module Thistle
       request("fact", "id" => id)
     end
 
+    # Fixed saved identity only: no attributes, links, source or candidate lookup.
+    def fact_identity(id)
+      request("fact_identity", "id" => id)
+    end
+
     def search(query, limit: 50)
       request("find", "query" => query, "limit" => limit)
     end

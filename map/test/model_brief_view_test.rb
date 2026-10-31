@@ -84,10 +84,10 @@ class ModelBriefViewTest < Minitest::Test
     assert_includes html, 'state&lt;雪&gt;'
     refute_includes html, '<script>雪</script>'
     assert_includes html, '&lt;script&gt;雪&lt;/script&gt;'
-    assert_includes html, "--generation #{GENERATION} --family columns"
+    assert_includes html, '/brief/columns?'
     hrefs = html.scan(/href="([^"]+)"/).flatten.map { |href| CGI.unescapeHTML(href) }
-    assert_includes hrefs, "/map/source?id=#{METHOD_ID}&generation=#{GENERATION}#L3"
-    assert hrefs.any? { |href| href.include?('direction=incoming') && href.include?("generation=#{GENERATION}") }
+    assert hrefs.any? { |href| uri = URI.parse(href); uri.path == '/map/source' && uri.fragment == 'L3' && URI.decode_www_form(uri.query).to_h == { 'generation' => GENERATION, 'id' => METHOD_ID } }
+    assert hrefs.any? { |href| href.include?('/references/incoming?') && href.include?("generation=#{GENERATION}") }
     assert_includes html, '<noscript>'
     assert_includes html, 'Skip to evidence'
   end
@@ -141,7 +141,7 @@ class ModelBriefViewTest < Minitest::Test
     data.dig('families', 'callbacks', 'items', 0, 'explanation', 'source')['bytes'] = 262_144
     status, _, html = request(make_app(BriefReader.new(data)), '/links', query: "id=#{FACT_ID}")
     assert_equal 200, status
-    assert_includes html, "href=\"/source?id=#{METHOD_ID}&amp;generation=#{GENERATION}#L3\""
+    assert_includes html, "href=\"/source?generation=#{GENERATION}&amp;id=#{METHOD_ID}#L3\""
     refute_includes html, 'Supporting source exceeds the web display budget'
   end
 

@@ -367,6 +367,25 @@ mod tests {
         data
     }
 
+    #[test]
+    fn saved_identity_uses_existing_id_lookup_without_optional_indexes() {
+        let temp = tempfile::tempdir().unwrap();
+        let data = call_fixture(3);
+        let first = publish(temp.path(), &data).unwrap();
+        let reader = Reader::open(temp.path(), None).unwrap();
+        publish(temp.path(), &fixture("NewCurrent")).unwrap();
+        let identity = crate::fact_identity::select(&reader, &"b".repeat(64)).unwrap();
+        assert_eq!(identity["generation"], first["generation"]);
+        assert_eq!(identity["fact"]["name"], "First");
+        assert!(identity["fact"].get("links").is_none());
+        assert!(identity["fact"].get("attributes").is_none());
+        assert!(reader.recorded_directory.lock().unwrap().is_none());
+        assert!(reader.method_directory.lock().unwrap().is_none());
+        assert!(reader.source_index.lock().unwrap().is_none());
+        assert_eq!(crate::fact_identity::select(&reader, &"c".repeat(64)).unwrap_err().code, "not_found");
+        assert_eq!(crate::fact_identity::select(&reader, "invalid").unwrap_err().code, "invalid_input");
+    }
+
     // Forge an internally hashed generation to exercise wire/source validation,
     // rather than allowing an unrelated digest failure to explain a refusal.
     fn forged_generation(path: &Path, manifest: &Value, facts: &[Value], version: u64) -> String {

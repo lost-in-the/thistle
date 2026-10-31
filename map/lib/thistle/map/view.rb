@@ -10,6 +10,8 @@ require_relative 'callback_presenter'
 require_relative 'find_presenter'
 require_relative 'references_presenter'
 require_relative 'constant_occurrence'
+require_relative 'investigation_presenter'
+require_relative 'investigation_evidence'
 
 module Thistle
   module Map
@@ -36,18 +38,22 @@ module Thistle
         Regexp::NOENCODING => 'binary matching'
       }.freeze
 
-      def initialize(reader:, mount:, params:)
+      def initialize(reader:, mount:, params:, selection: nil, path: '/')
         @reader = reader
         @mount = mount
         @params = params
         @generation = reader.generation
+        @selection = selection || Investigation.from_params(params.merge('generation' => @generation))
+        raise Thistle::InvalidSnapshot, 'Investigation generation mismatch' unless @selection.generation == @generation
+        @current_path = path
+        @navigation = NavigationContext.new(generation: @generation, mount: mount, params: params, selection: @selection)
       end
 
       def find
         query = @params.fetch('q', '')
         if !query.strip.empty? && @reader.respond_to?(:search_evidence)
           result = @reader.search_evidence(query, limit: PAGE_SIZE, kind: @params['kind'].to_s.empty? ? nil : @params['kind'], path: @params['prefix'].to_s.empty? ? nil : @params['prefix'], domain: @params['domain'])
-          body = FindPresenter.new(generation: @generation, mount: @mount, search: @params).render(result) do |match|
+          body = FindPresenter.new(generation: @generation, mount: @mount, search: @params, selection: @selection, navigation: @navigation).render(result) do |match|
             constraint_summary(@reader.fact(match.fetch('fact_id'))) if match['origin'] == 'metadata' && match['kind'] == 'route'
           end
           return layout('Find', body)
@@ -109,6 +115,61 @@ module Thistle
         layout('Source', body, fact: fact)
       end
 
+      def investigation
+        presenter = InvestigationPresenter.new(selection: @selection, mount: @mount, navigation: @navigation)
+        evidence = InvestigationEvidence.new(reader: @reader, selection: @selection)
+        body = presenter.render { |id| evidence.fetch(id) }
+        content = layout('Investigation', body, fact: nil)
+        raise Investigation::Limit, 'Investigation page exceeds its total output budget; no partial page was returned.' if content.bytesize > InvestigationPresenter::MAX_PAGE_BYTES
+
+        content
+      end
+
+      # Independent, single-Reader-operation pages: no fact/source expansion or
+      # automatic fan-out through other families while continuing an answer.
+      def brief_page(family)
+        raise Limit, 'Model family continuation is unavailable with this Reader; no other evidence was substituted.' unless @reader.respond_to?(:model_brief)
+        id = @params.fetch('id')
+        result = @reader.model_brief(id, family: family, cursor: @params['cursor'], limit: 8, max_bytes: 32768)
+        unless result['version'] == 1 && result['generation'] == @generation && result['family'] == family &&
+            result.dig('root', 'id') == id && result.dig('root', 'kind') == 'rails_model' &&
+            result.dig('result', 'generation') == @generation && result.dig('result', 'fact_id') == id
+          raise Thistle::InvalidSnapshot, 'Model family page identity mismatch'
+        end
+        raise Limit, 'Model family page exceeds its row budget.' if result.fetch('result').fetch('items').length > 8
+        raise Limit, 'Model family response exceeds its byte budget.' if JSON.generate(result).bytesize > 32768
+        body = "<h1 class=\"t1\">Saved model family: #{h(family)}</h1><p>#{brief_identity(result.fetch('root'))}</p>"
+        body << "<p class=\"notice ui\">#{h(result.fetch('uncertainty'))}</p><p>Capture partial or unknown: #{h(result.fetch('capture_partial_or_unknown'))}. This page starts at saved position #{h(result.fetch('offset'))}; at most eight items. Empty or omitted evidence does not establish absence.</p>"
+        body << brief_family_content(family, family.tr('_', ' '), result.fetch('result'))
+        if (cursor = result['next_cursor'])
+          NavigationContext.validate_cursor!(cursor, generation: @generation, scope: ['model_brief', id, family])
+          raise Thistle::InvalidSnapshot, 'Family continuation made no progress' if cursor == @params['cursor']
+          body << "<p><a href=\"#{h(url("/brief/#{family}", 'id' => id, 'cursor' => cursor))}\">Next #{h(family.tr('_', ' '))} page</a></p>"
+        end
+        body << "<details><summary>Saved family coverage and work budgets</summary><pre class=\"check-data\">#{h(JSON.pretty_generate(result.reject { |key, _| key == 'result' }))}</pre></details>"
+        bounded_evidence_page('Model family', body, fact: result.fetch('root'))
+      end
+
+      def references_page(scope)
+        raise Limit, 'Reference continuation is unavailable with this Reader; no other evidence was substituted.' unless @reader.respond_to?(:references)
+        limit = ReferencesPresenter.page_limit(@navigation, maximum: 8, candidate: !scope[:candidate].nil?)
+        options = { direction: scope.fetch(:direction), cursor: @params['cursor'], limit: limit }
+        options[:candidate_link] = scope[:candidate] if scope[:candidate]
+        result = @reader.references(@params.fetch('id'), **options)
+        unless result['generation'] == @generation && result.dig('anchor', 'id') == @params['id'] &&
+            (scope[:candidate] ? result['candidate_link'] == scope[:candidate] : result['direction'] == scope[:direction])
+          raise Thistle::InvalidSnapshot, 'Reference continuation identity mismatch'
+        end
+        rows = scope[:candidate] ? result.fetch('candidates') : result.fetch('relationships')
+        raise Limit, 'Reference continuation exceeds its requested row budget.' if rows.length > limit
+        raise Limit, 'Reference continuation exceeds the Reader response budget.' if JSON.generate(result).bytesize > 2_097_152
+        raise Thistle::InvalidSnapshot, 'Reference continuation made no progress' if result['next_cursor'] && result['next_cursor'] == @params['cursor']
+        body = +"<h1 class=\"t1\">Saved reference continuation</h1><p>At most #{limit} rows from this saved evidence scope. No source or full fact was expanded by this page.</p>"
+        body << ReferencesPresenter.new(generation: @generation, mount: @mount, schema_version: @reader.manifest['schema_version'],
+          files: @reader.manifest['files'], navigation: @navigation).render(result)
+        bounded_evidence_page('References', body, fact: result.fetch('anchor'))
+      end
+
       def source_file
         result = @reader.source_file(@params.fetch('path'))
         file = result.fetch('file')
@@ -134,12 +195,16 @@ module Thistle
       def links
         id = @params.fetch('id')
         direction = @params.fetch('direction', 'outgoing')
+        reference_limit = ReferencesPresenter.page_limit(@navigation, maximum: 50)
         references_limited = false
         references = begin
-          @reader.references(id, direction: direction) if @reader.respond_to?(:references)
+          @reader.references(id, direction: direction, limit: reference_limit) if @reader.respond_to?(:references)
         rescue Thistle::LimitExceeded
           references_limited = true
           nil
+        end
+        if references && references.fetch('relationships').length > reference_limit
+          raise Limit, 'References exceed the requested row budget.'
         end
         # Incoming navigation needs identity only. Reader#fact expands the entire
         # outgoing link tree, which must not accompany the bounded incoming query.
@@ -163,7 +228,7 @@ module Thistle
         body += "<p><a href=\"#{h(url('/links', 'direction' => 'outgoing'))}\">Outgoing references</a> · <a href=\"#{h(url('/links', 'direction' => 'incoming'))}\">Incoming references</a></p>"
         body += if references
                   ReferencesPresenter.new(generation: @generation, mount: @mount,
-                    schema_version: @reader.manifest['schema_version'], files: @reader.manifest['files']).render(references)
+                    schema_version: @reader.manifest['schema_version'], files: @reader.manifest['files'], navigation: @navigation).render(references)
                 elsif references_limited
                   '<p class="notice ui">Reference selection reached resource limits; no reference result was returned.</p>'
                 else
@@ -212,6 +277,13 @@ module Thistle
       end
 
       private
+
+      def bounded_evidence_page(title, body, fact:)
+        raise Limit, 'Evidence exceeds the rendered content budget; no partial page was returned.' if body.bytesize > InvestigationPresenter::MAX_OUTPUT_BYTES
+        page = layout(title, body, fact: fact)
+        raise Limit, 'Evidence exceeds the total page budget; no partial page was returned.' if page.bytesize > InvestigationPresenter::MAX_PAGE_BYTES
+        page
+      end
 
       # Custom readers remain trusted adapters; display checks also validate positions.
       def call_detail(link, fact, file, source_info)
@@ -342,22 +414,18 @@ module Thistle
         ERB::Util.html_escape(value.to_s)
       end
 
-      def url(path, extra = {})
-        params = @params.reject { |key, _| key == 'page' }.merge('generation' => @generation).merge(extra)
-        params.delete('direction') unless path == '/links'
-        params.delete('id') if path == '/'
-        if path == '/source' && !params['id'] && params['path']
-          params['file'] = FindPresenter.file_reference(params['path'])
+      def investigation_control(id)
+        if @selection.ids.include?(id)
+          "<a href=\"#{h(@navigation.url(@current_path, selection: @selection.remove(id)))}\">Remove from investigation</a>"
+        elsif @selection.ids.length == Investigation::MAX_SELECTIONS
+          '<span class="disabled">Collection full (24). Open Investigation to remove a selection before collecting another.</span>'
         else
-          params.delete('file')
+          "<a href=\"#{h(@navigation.url(@current_path, selection: @selection.add(id)))}\">Collect in investigation</a>"
         end
-        params.delete('path')
-        query = URI.encode_www_form(params)
-        if query.bytesize > FindPresenter::MAX_QUERY_BYTES
-          @navigation_context_omitted = true
-          query = URI.encode_www_form(params.reject { |key, _| FindPresenter::SEARCH_FIELDS.include?(key) })
-        end
-        "#{@mount}#{path}?#{query}"
+      end
+
+      def url(path, extra = {})
+        @navigation.url(path, extra)
       end
 
       def layout(title, body, fact: :from_params)
@@ -368,7 +436,11 @@ module Thistle
         links_link = selected ? nav_link('Links', '/links', title, 'g', selected['id']) : '<span class="disabled">Links <small>Choose a result</small></span>'
         brand_url = url('/')
         navigation = nav_link('Find', '/', title, 'f') + source_link + links_link + nav_link('Check', '/check', title, nil)
-        context_notice = @navigation_context_omitted ? '<p class="notice ui">Search context exceeds the navigation link budget. Narrow the query or filters in the Find form to retain them in links; Back returns to the previous page.</p>' : ''
+        navigation += "<a href=\"#{h(url('/investigation'))}\"#{' aria-current="page"' if title == 'Investigation'}>Investigation (#{@selection.ids.length})</a>"
+        if selected
+          navigation += investigation_control(selected.fetch('id'))
+        end
+        context_notice = @navigation.search_omitted ? '<p class="notice ui">Search context exceeds the navigation link budget. Narrow the query or filters in the Find form to retain them in links; Back returns to the previous page.</p>' : ''
         <<~HTML
           <!doctype html>
           <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -383,7 +455,7 @@ module Thistle
           <label for="find-domain">Domain</label><select name="domain" id="find-domain">#{%w[all source metadata].map { |value| "<option value=\"#{value}\"#{' selected' if @params.fetch('domain', 'all') == value}>#{value}</option>" }.join}</select>
           <label for="find-kind">Kind</label><input name="kind" id="find-kind" value="#{h(@params['kind'])}" placeholder="Any kind">
           <label for="find-prefix">Path prefix</label><input name="prefix" id="find-prefix" value="#{h(@params['prefix'])}" placeholder="Any captured path">
-          <input type="hidden" name="generation" value="#{h(@generation)}"><button class="btn primary" type="submit">Find</button></form></header>
+          <input type="hidden" name="generation" value="#{h(@generation)}">#{@selection.ids.empty? ? '' : "<input type=\"hidden\" name=\"selection\" value=\"#{h(@selection.ids.join(','))}\">"}<button class="btn primary" type="submit">Find</button></form></header>
           <nav aria-label="Evidence views">#{navigation}</nav>
           <main id="main" tabindex="-1"><p class="capture ui">Saved capture <code>#{h(@generation[0, 12])}</code> · live freshness not checked</p>
           #{context_notice}
@@ -418,7 +490,7 @@ module Thistle
         return identity + '<p class="notice ui">Detailed fact evidence was not loaded for this incoming view. Open Source or Outgoing references to inspect it.</p>' unless details
 
         identity + model_brief(fact) + ModelPresenter.render(fact) +
-          CallbackPresenter.new(generation: @generation, reader: @reader, mount: @mount).render(fact)
+          CallbackPresenter.new(generation: @generation, reader: @reader, mount: @mount, navigation: @navigation).render(fact)
       end
 
       # Rust selects every item and its evidence. Map only renders the bounded
@@ -447,31 +519,7 @@ module Thistle
           'outgoing' => 'Outgoing recorded relationships', 'incoming' => 'Incoming recorded relationships' }
         labels.each do |name, label|
           family = result.fetch('families').fetch(name)
-          body << "<section aria-label=\"#{h(label)}\"><h3>#{h(label)}</h3>"
-          body << "<p>Status: #{h(family.fetch('status'))} · #{h(family.fetch('reason'))}. Provenance: #{h(family.fetch('provenance'))}. "
-          body << "Known omitted: #{h(brief_value(family['known_omitted']))}; unsearched: #{h(brief_value(family['unsearched']))}; output truncated: #{h(brief_value(family.fetch('output_truncated', false)))}.</p>"
-          items = family.fetch('items')
-          if items.empty?
-            body << '<p>No items returned in this brief family. Check status, capture coverage and omissions before inferring absence.</p>'
-          elsif name == 'columns' || name == 'associations'
-            fields = name == 'columns' ? %w[name type null] : %w[name macro target polymorphic status]
-            rows = items.map { |item| '<tr>' + fields.map { |key| "<td>#{h(brief_value(item[key]))}</td>" }.join + '</tr>' }.join
-            headings = name == 'columns' ? ['Name', 'Recorded type', 'Allows null'] : ['Name', 'Macro', 'Target label', 'Polymorphic', 'Binding evidence']
-            body << table(label, headings, rows)
-          else
-            items.each do |item|
-              body << case name
-                      when 'registry_candidates' then "<p>#{brief_identity(item)}</p>"
-                      when 'callbacks' then brief_callback(item)
-                      else brief_relationship(item)
-                      end
-            end
-          end
-          body << brief_followup(family['followup'])
-          # Preserve component scan completeness, unknown counts, binding and
-          # continuation/cost metadata without interpreting them as new semantics.
-          metadata = family.reject { |key, _| key == 'items' }
-          body << "<details><summary>#{h(label)} coverage and limits</summary><pre class=\"check-data\">#{h(JSON.pretty_generate(metadata))}</pre></details></section>"
+          body << brief_family_content(name, label, family)
         end
         body << "<details><summary>Brief capture coverage and request budgets</summary><pre class=\"check-data\">#{h(JSON.pretty_generate(result.reject { |key, _| key == 'families' }))}</pre></details>"
         body + '</section>'
@@ -480,6 +528,36 @@ module Thistle
       rescue Thistle::InvalidInput => error
         raise unless error.message == 'Unknown native operation'
         heading + '<p class="notice ui">Native model brief API unavailable. Relationships and potential effects remain unknown.</p></section>'
+      end
+
+      def brief_family_content(name, label, family)
+        body = +''
+        body << "<section aria-label=\"#{h(label)}\"><h3>#{h(label)}</h3>"
+        body << "<p>Status: #{h(family.fetch('status'))} · #{h(family.fetch('reason'))}. Provenance: #{h(family.fetch('provenance'))}. "
+        body << "Known omitted: #{h(brief_value(family['known_omitted']))}; unsearched: #{h(brief_value(family['unsearched']))}; output truncated: #{h(brief_value(family.fetch('output_truncated', false)))}.</p>"
+        items = family.fetch('items')
+        if items.empty?
+          body << '<p>No items returned in this brief family. Check status, capture coverage and omissions before inferring absence.</p>'
+        elsif name == 'columns' || name == 'associations'
+          fields = name == 'columns' ? %w[name type null] : %w[name macro target polymorphic status]
+          rows = items.map { |item| '<tr>' + fields.map { |key| "<td>#{h(brief_value(item[key]))}</td>" }.join + '</tr>' }.join
+          headings = name == 'columns' ? ['Name', 'Recorded type', 'Allows null'] : ['Name', 'Macro', 'Target label', 'Polymorphic', 'Binding evidence']
+          body << table(label, headings, rows)
+        else
+          items.each do |item|
+            body << case name
+                    when 'registry_candidates' then "<p>#{brief_identity(item)}</p>"
+                    when 'callbacks' then brief_callback(item)
+                    else brief_relationship(item)
+                    end
+          end
+        end
+        body << brief_followup(family['followup'])
+        # Preserve component scan completeness, unknown counts, binding and
+        # continuation/cost metadata without interpreting them as new semantics.
+        metadata = family.reject { |key, _| key == 'items' }
+        body << "<details><summary>#{h(label)} coverage and limits</summary><pre class=\"check-data\">#{h(JSON.pretty_generate(metadata))}</pre></details></section>"
+        body
       end
 
       def brief_value(value)
@@ -540,12 +618,15 @@ module Thistle
         raise Thistle::InvalidSnapshot, 'Invalid brief follow-up ID' unless /\A[0-9a-f]{64}\z/.match?(id)
         case operation
         when 'references'
-          "<p><a href=\"#{h(url('/links', 'id' => id, 'direction' => followup.fetch('direction')))}\">Inspect #{h(followup.fetch('direction'))} relationships in Links</a></p>"
+          direction = followup.fetch('direction')
+          raise Thistle::InvalidSnapshot, 'Invalid reference direction' unless %w[incoming outgoing].include?(direction)
+          "<p><a href=\"#{h(url("/references/#{direction}", 'id' => id, 'cursor' => followup['cursor']))}\">Inspect #{h(direction)} references, up to eight per page</a></p>"
         when 'callback_effects'
           "<p><a href=\"#{h(url('/links', 'id' => id, 'direction' => 'outgoing'))}\">Inspect registered callback evidence in Links</a></p>"
         when 'model_brief'
-          command = "thistle model-brief #{id} --store STORE --generation #{@generation} --family #{followup.fetch('family')}"
-          "<p>Continue the recorded family with the matching Reader/CLI: <code>#{h(command)}</code>. Replace STORE with your saved store. Continuation requires a Core version supporting family pages.</p>"
+          family = followup.fetch('family')
+          raise Thistle::InvalidSnapshot, 'Invalid model family' unless NavigationContext::FAMILIES.include?(family)
+          "<p><a href=\"#{h(url("/brief/#{family}", 'id' => id, 'cursor' => followup['cursor']))}\">Browse all saved #{h(family.tr('_', ' '))}, eight per page</a></p>"
         else ''
         end
       end

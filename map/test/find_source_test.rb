@@ -93,6 +93,8 @@ class FindSourceTest < Minitest::Test
     navigation.scan(/href="([^"]+)"/).flatten.each do |href|
       target = URI.parse(CGI.unescapeHTML(href))
       params = URI.decode_www_form(target.query).to_h
+      # Ordinary resume navigation retains search; only the separately labelled
+      # Reopen/share focus URL omits it (covered by NavigationJourneyTest).
       assert_equal context, params.slice(*context.keys)
       refute params.key?('path')
       assert_equal target.path == '/source', params.key?('file')

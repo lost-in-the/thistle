@@ -23,6 +23,7 @@ Gem::Specification.new do |spec|
     docs/development/model-references.md
     docs/development/model-brief-markdown.md
     docs/development/recorded-domain-access.md
+    docs/development/fact-identity.md
   ]
   installed_docs.each do |path|
     raise "Missing installed document: #{path}" unless File.file?(path)
