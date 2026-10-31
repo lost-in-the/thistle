@@ -57,9 +57,9 @@ Root's subsequent incoming-large-source correction produced distinct Map bytes
 `28fbb1378c5fd98860022c2b5776f4b250bacb276911253a007fea1f62d18216`
 from exact staged source tree `2e9184d8f9fe1af07b465fe849d094a2aef4ce2e`.
 Root reported source26/428 and changed-installed-Map10/183 passing for that
-tuple; those results are parent evidence, not this host's execution. The example
-selects the new digest/tree, and intentionally requires Root's actual signed
-parent commit SHA when that handback exists. Before runtime, the private
+tuple; those results are parent evidence, not this host's execution. Root's
+signed parent handback is `67f1a4b670b949a65f4fbfaae70c1844fde7d65b`, with
+that exact tree. The example selects this new digest/tree/commit. Before runtime, the private
 `map_candidate` source SHA/tree/digest and matching `artifacts.map.gem` must agree
 with that actual handback. The controller records and
 verifies that explicit selected binding, and the installed check requires F05

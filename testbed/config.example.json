@@ -11,7 +11,7 @@
   },
   "puma_version": "8.0.2",
   "map_candidate": {
-    "source_sha": "REQUIRED_ROOT_SIGNED_PARENT_SHA",
+    "source_sha": "67f1a4b670b949a65f4fbfaae70c1844fde7d65b",
     "source_tree": "2e9184d8f9fe1af07b465fe849d094a2aef4ce2e",
     "sha256": "28fbb1378c5fd98860022c2b5776f4b250bacb276911253a007fea1f62d18216"
   },
