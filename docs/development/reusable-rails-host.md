@@ -5,9 +5,45 @@ Rails app and the five commands in `testbed/host.py`: prepare, start, status,
 test and stop. The app has one retained order, two items, an association, a
 registered callback, routes and two distinct `Order` constant sites. Installed
 Core publishes Gen A then CURRENT B from a run-owned source copy; a fresh Reader
-and Map follow saved Gen A. This is a source implementation, not accepted host
-execution. Root owns changed-scope review/runtime/integration, PM metadata and
-Leah acceptance. All 17 launch requirements remain UNQUALIFIED.
+and Map follow saved Gen A. The exact public profile below completed its scoped
+host execution on 2026-10-31. Compute is now stopped and the seeded environment
+is retained for read-only reuse. PM owns metadata and Leah applicable acceptance;
+all 17 launch requirements remain UNQUALIFIED.
+
+## Verified outcome and retained starting state
+
+Executed source `57c02a9521883c1a899b6f68178b53bb231133cf` merged through PR116 as
+`bf7c469268c4433e526668d6214d2789b9ac062b`; both have tree
+`013f0419eea63f072023e446f4a791c32dd35e54`. The 16-step phase passed first use,
+read-only stop/start reuse, one controlled nonzero failure before any producer,
+and a second clean instance using the **same artifacts and existing schema**.
+Three installed producer/fresh-consumer pairs verified saved Gen A after CURRENT
+B, Find/Source/Links/Check, and distinct line 7 (argument) and line 8 (value) `Order`
+sites with pinned Source navigation. Consumers were Rails/ActiveRecord/
+ActiveSupport/Bundler-free. Actual host HTTP pages/assets with four parallel
+workers passed. This does not qualify unseen Map artifacts or other profiles.
+
+| Retained evidence | SHA-256 |
+| --- | --- |
+| Full-host runtime report | `05546276b6a83da238efd89fcba66588789fe6d3382972c0d4ae4c9ab206ef71` |
+| Root inert raw/semantic custody disposition | `9b18db4f397d038fd88032fb9914ae2549a60c354c0c16ecbed168fb23ebe37b` |
+| Additive custody index, including nested source indexes | `1733cd2a87898b7f12c87e44c41dd09b091fa041c8b569f4313b781ddeb73df0` |
+
+The current app schema is **seeded**, not empty: `los139-schema-v1` /
+`los139-seed-v1`, tables `orders`, `items`, `host_metadata`, with respectively
+1, 2 and 1 rows and the declared index/FK. The nonsecret retained resource
+manifest records this observed starting state and `COMPUTE_STOPPED`. Data,
+accounts, private credentials, caches and failed-attempt evidence are KEEP.
+Use the retained **read-only configuration** and start **without
+`--initialize-empty`**, as shown below. Never reset or reseed to hide drift.
+
+Browser/person-performed usability, new served negative-access replays and
+protected qualification remain unestablished. Earlier failed reviews, runtime
+attempts and procedure limits remain unchanged. Exact merged main `bf7c4692`
+separately passed all nine executed CI checks (receipt
+`1977438a920d0d37915bd5ece2a2f98fa18e51f706bcffcdcb0c837d24451a6f`).
+That source-CI result does not qualify the runtime profile or erase historical
+Intel failures.
 
 ## Boundaries and current inputs
 
@@ -46,10 +82,10 @@ Maintained CI remains Ruby4.0.9/3.4.12 + Rails8.1.4.
 | Public Connector/C library, 549,096 bytes | `a373e8e8216e180e5dca24a4da6dbe7db34cc520c0693fc29319a37953a58fb2` |
 | Same-build caching SHA-2 client auth provider, 17,672 bytes | `f8723a85ab470e94c52fe5ebfc7373cb8e4b2ff782195ba2b6fca69c08f891eb` |
 
-The example selects signed parent `64eee68b736fc47369c30009a5eca022820d7caf`,
+The selected Map artifact is bound to signed source `64eee68b736fc47369c30009a5eca022820d7caf`,
 tree `6e56d58a94bc52de3ca607bc6b859e14f43cb61a`. It includes the incoming
 byte/unknown-line fallbacks, outgoing details rendered once, and navigation to
-Source's permitted final row. Root's current parent checks are source28/483
+Source's permitted final row. Dated parent checks are source28/483
 and changed-installed-Map12/238 passing; these are parent artifact evidence,
 **not this Rails host's execution**. The earlier source77/Map68d tuple had
 source26/461 and installed10/216 results; sourcea8/Map0144 had source27/472
@@ -70,10 +106,10 @@ The runtime is bound to the existing immutable image
 `f377fb86ef51f1b4b31787dc58131ad453fe306e58b36296f29e76a98487c520`.
 This is not a portable archive set. The old public71 lock
 `e69cfb4eca75663e11c95516144d4f94d2729ef07ae81017875ae7cd4c56eee2`
-(2,904 bytes) excludes Map/Puma and remains unchanged. Root separately prepares
-an actual new host lock and Puma8.0.2 native/provider set under credential-free
-controls. An available Puma archive does not establish build/install success.
-No host/cohort result is inferred from that separate preparation.
+(2,904 bytes) excludes Map/Puma and remains unchanged. Root separately prepared
+the new host lock and Puma8.0.2 native/provider set under credential-free
+controls. That preparation alone was not host execution; the successful57
+phase above supplies the later host result.
 
 The client auth provider is an explicit input, not an image default gem or an
 implicit global plugin search. Prepare verifies its artifact and stages a private
@@ -85,7 +121,8 @@ checks verify the provider file and report `mapped: false`; authenticated
 host/producer observations separately record the actual mapping and retain its
 raw bytes. A same-named provider mapped from another directory refuses.
 
-Root's bounded official-client control authenticated the unchanged project admin
+At the earlier provisioning-only checkpoint, Root's bounded official-client
+control authenticated the unchanged project admin
 credential, then observed successful Connector/C admin and new read-only account
 connections with librarya373 and mapped providerf872. It created the separate
 app schema **empty**, with schema-only bootstrap grants and SELECT/SHOW VIEW
@@ -93,11 +130,12 @@ reuse grants, and verified the original LOS67 empty tables before/after.
 Report `d8f74aaf5f0939ba50ad1fba29d011e6a3b114801ca965438c2ddbbada4c70ba`,
 index `6a6a0fd88f1cd91bf04d62ec8a2342de4510dbd9b80d9add260817c54a17dee7`.
 The server and client compute stopped; data/accounts/private credentials are
-kept. Fixture migrations/seed and the full host journey remain unexecuted.
+kept. At that checkpoint migrations/seed and the full host journey were
+unexecuted; the later57 phase completed them and recorded the seeded state above.
 Earlier connection failures remain failed attempts; this working provider tuple
 does not isolate every historical authentication cause or qualify support.
 
-Root's subsequent credential-free provider/Unix phase recorded a scoped PASS
+The earlier credential-free provider/Unix phase recorded a scoped PASS
 (report2f1ecc9766d1ce6372ebd71f3c83515f4ed0c1ee2ada2b3907459b407d71d8e6,
 index5d356986efcbf156260c636b0331518357c4906873c88ce6424bb94ae322157b).
 The selected new lock is a4381c91145870d79d56371e5bc2d4796e78d0f9e637e855aa7daa2789c16f93;
@@ -108,8 +146,10 @@ literal Unix responses with peer127/originalHost, genuine selected providers
 and private socket modes. Its whole-container peaks36,155,392B/14PIDs/0.444179
 CPU-seconds are scoped observations, not host bridge or performance acceptance.
 ManualV2 overallFAIL13ba33e4, continuationFAILfd85316 and the earlier envelope
-mode failure remain unchanged. This source phase does not replay builds/probes;
-actual Rails/Thistle/DB/TCP/harness/browser execution is still UNRUN.
+mode failure remain unchanged. At that source-phase checkpoint actual
+Rails/Thistle/DB/TCP/harness/browser execution was UNRUN. The later57 result
+supersedes that current-runtime gap without relabelling the older reports;
+browser/person acceptance remains separate.
 
 ## Private preparation contract
 
@@ -194,8 +234,33 @@ acquisition or other-platform bootstrap has been qualified here.
 
 ## Five commands and new-candidate reuse
 
-After Root's Runtime PREEXEC admission, set THISTLE_HOST_CONFIG to the private
-config path and run from the reviewed checkout:
+### Retained seeded environment: normal read-only reuse
+
+In a fresh finite resource session, set `THISTLE_HOST_CONFIG` to the retained
+**read-only reuse config**, not the bootstrap config or generic example. Run
+from the reviewed checkout bound by its `host_source.commit/tree` (source57
+for the retained successful instances). Keep credentials outside Git/evidence.
+The instance is already prepared and the schema seeded: do not run prepare
+again or pass `--initialize-empty`.
+
+```sh
+python3 -B testbed/host.py start --config "$THISTLE_HOST_CONFIG"
+python3 -B testbed/host.py status --config "$THISTLE_HOST_CONFIG"
+python3 -B testbed/host.py test --config "$THISTLE_HOST_CONFIG"
+python3 -B testbed/host.py stop --config "$THISTLE_HOST_CONFIG"
+```
+
+Source/input/schema/seed mismatches are drift to report, not permission to edit
+old instance identities or silently reset data. A newer checkout needs the
+new-instance/config procedure below; the retained data and read-only account
+stay the same. Stop compute between sessions while keeping state/credentials.
+
+### First use of a separately provisioned fresh installation only
+
+The following is historical first-use setup and is **not** the restart procedure
+for the retained seeded environment. It requires its own actual Runtime PREEXEC
+and an explicitly provisioned empty new-app schema. Use its private bootstrap
+configuration and reviewed checkout:
 
 ```sh
 python3 -B testbed/host.py prepare --config "$THISTLE_HOST_CONFIG"
@@ -225,7 +290,7 @@ failed-start diagnostics survive PID1 reuse and are retained. Python/Ruby polled
 JSON uses same-directory temporary writes plus atomic exclusive publication;
 immutable evidence is never overwritten. Mode0700/0600 is set from creation.
 
-For normal reuse, repeat start/status/test/stop **without initialize-empty**.
+For normal reuse, use the retained read-only configuration and the block above.
 For a later Map/source/cohort candidate, prepare a **new instance/config** with
 its exact inputs and current host source, pointing at the same retained app
 schema/account/credentials. Start without initialize-empty. No old schema.json,
@@ -260,9 +325,11 @@ two F05 rows. A hidden generation field plus200 cannot pass these oracles.
 The host probe issues four concurrent requests, checks all five semantic pages
 and three assets under bounded responses/deadlines, and records actual scope
 memory/task peaks. The scope stays128MiB/no swap/one CPU/32 tasks, max8 socat
-children,900s GNU timeout. Actual four-connection success, process RSS/resource
-cost, Unix peer/Host and browser/human usability remain runtime gates; mocks do
-not establish them or a speed improvement.
+children,900s GNU timeout. The successful57 phase observed the Unix peer/Host,
+actual host URL and four-worker requests. Recorded host cgroup peaks were at
+most4,886,528 bytes and6 tasks under the128MiB/32-task bounds. These are not
+isolated process RSS or a speed result. Browser/person usability remains
+unobserved; mocks alone establish none of those runtime outcomes.
 
 ## Stop, custody and failure
 
@@ -306,22 +373,29 @@ still grows and needs a separate explicit retention decision.
 
 ## Review and runtime handoff
 
+### Dated source/review checkpoints
+
 The original full R1 at c9/tree1a229/base77 was NOT ACCEPTABLE for runtime.
 Its report SHA9b9b72cec3cb30aeaecdcc05b76390a35c14bbbadbbd89716b142a21682acbf4,
 875.5s analysis overrun and setup/report-mode gaps are preserved. Root's F01
-source remedy at e67 is retained, not claimed boot-tested. The stable
+source remedy at e67 was not boot-tested at that checkpoint; the later admitted
+DB-free boot and successful57 first use now provide scoped execution. The stable
 [F01–F13 disposition ledger](../../testbed/R1-DISPOSITIONS.md) names corrections,
-source checks and remaining obligations. One changed-scope R2 belongs to Root.
+source checks and remaining obligations. Changed-scope R2 at258 remains a failed
+reviewed tuple; Root's later scoped corrections and successful57 execution do
+not rewrite it as an approval.
 
-This author phase permits only guarded controller mocks, stdlib-only helper
-checks and syntax. It runs no Rails/app/Thistle/native/gem build/install/capture/
-DB/server/container/browser workload and reads no DB secret values. No new
+That author phase permitted only guarded controller mocks, stdlib-only helper
+checks and syntax. It ran no Rails/app/Thistle/native/gem build/install/capture/
+DB/server/container/browser workload and read no DB secret values. No new
 runtime lease, evaluator approval, launch qualification or publication is implied.
 
-After R2 disposition, Root must admit exact source/artifact/cohort/private-resource
-inputs, prove real DB-free boot and Unix API/peer/Host, actual provider/client
-loading, first use, STOPPED reuse, changed-Map fresh-instance reuse, four parallel
-host requests/assets with tasks/RSS, controlled failure/nonzero/absence/KEEP,
-and final independent raw/index audit. Hosted affected CI and Leah's acceptance
-remain separate. The fixture/runner/docs stay outside shipped gem file lists and
-runtime dependencies;116.testing is repository Map-test infrastructure metadata.
+The post-review runtime obligations were subsequently exercised by the exact57
+phase above: actual source/cohort/resource admissions, installed client/provider
+identities, first use, STOPPED read-only reuse, second clean instance with the
+same artifacts, parallel host HTTP, controlled failure/absence/KEEP and inert
+raw/index readback. A changed Map artifact still needs its own applicability;
+isolated RSS, browser/person acceptance and qualification are not inferred.
+Hosted affected CI and Leah's acceptance remain separate. The fixture/runner/docs
+stay outside shipped gem file lists and runtime dependencies;116.testing is
+repository Map-test infrastructure metadata.
