@@ -26,7 +26,7 @@ module Thistle
         plain?(link, Hash) && link['relation'] == 'references_constant' && !metadata(link, origin).nil?
       end
 
-      def render(link, origin:, detail_omitted: false, source_bytes: nil, source_info: nil, verify_source: false)
+      def render(link, origin:, detail_omitted: false, source_bytes: nil, source_info: nil, verify_source: false, line_budget_unknown: false)
         return '' unless plain?(link, Hash) && link['relation'] == 'references_constant'
 
         data = metadata(link, origin)
@@ -41,9 +41,10 @@ module Thistle
         line = first == last ? "Line #{first}" : "Lines #{first}–#{last}"
         body = +"<div class=\"constant-site\"><p class=\"ui\">Recorded constant site · #{line} · Role: #{h(data['role'])} · Bytes #{a}–#{b}. Binding unknown.</p>"
         body << "<pre class=\"check-data\" aria-label=\"Recorded constant syntax\"><code>#{h(data['syntax'])}</code></pre>"
-        if over_limit
+        if over_limit || line_budget_unknown
           command = "thistle source #{origin.fetch('id')} --store STORE --generation #{@generation}"
-          body << "<p class=\"ui\">Source exceeds web display limits. For recorded line #{first}, use <code>#{h(command)}</code>. Replace STORE with your capture store.</p>"
+          reason = over_limit ? 'Source exceeds web display limits.' : 'Source line count is unavailable in this summary; web display limits are unverified.'
+          body << "<p class=\"ui\">#{reason} For recorded line #{first}, use <code>#{h(command)}</code>. Replace STORE with your capture store.</p>"
         else
           href = block_given? ? yield(origin.fetch('id')) : source_url(origin.fetch('id'))
           body << "<p><a href=\"#{h(href + "#L#{first}")}\">Captured Source line #{first}</a></p>"

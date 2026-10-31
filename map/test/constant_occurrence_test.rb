@@ -109,9 +109,12 @@ class MapConstantOccurrenceTest < Minitest::Test
     refute_includes html, '<script>'
   end
 
-  def test_incoming_sites_apply_pinned_manifest_byte_limit_without_expanding_source_or_facts
-    [Thistle::Map::View::MAX_SOURCE_BYTES, Thistle::Map::View::MAX_SOURCE_BYTES + 1].each do |bytes|
-      content = 'Widget'.ljust(bytes)
+  def test_incoming_sites_apply_web_limits_without_expanding_source_or_facts
+    contents = [Thistle::Map::View::MAX_SOURCE_LINES, Thistle::Map::View::MAX_SOURCE_LINES + 1,
+      Thistle::Map::View::MAX_SOURCE_BYTES, Thistle::Map::View::MAX_SOURCE_BYTES + 1].map { |bytes| 'Widget'.ljust(bytes) }
+    contents << 'Widget' + "\n" * (Thistle::Map::View::MAX_SOURCE_LINES + 1)
+    contents.each do |content|
+      bytes = content.bytesize
       link = occurrence(content, offset: 0, role: 'value')
       fact = origin(content)
       reader = reader_with([link], content)
@@ -132,6 +135,11 @@ class MapConstantOccurrenceTest < Minitest::Test
       if bytes > Thistle::Map::View::MAX_SOURCE_BYTES
         assert_includes html, 'Source exceeds web display limits'
         assert_includes html, "thistle source #{FACT_ID} --store STORE --generation #{GENERATION}"
+        refute_match(/#L\d/, html)
+      elsif bytes > Thistle::Map::View::MAX_SOURCE_LINES
+        assert_includes html, 'Source line count is unavailable in this summary'
+        assert_includes html, "thistle source #{FACT_ID} --store STORE --generation #{GENERATION}"
+        refute_includes html, 'Source exceeds web display limits'
         refute_match(/#L\d/, html)
       else
         assert_includes html, 'Captured Source line 1</a>'
