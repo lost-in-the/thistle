@@ -109,6 +109,28 @@ class MapConstantOccurrenceTest < Minitest::Test
     refute_includes html, '<script>'
   end
 
+  def test_outgoing_summary_leaves_one_verified_site_in_the_table
+    content = 'Widget'.ljust(Thistle::Map::View::MAX_SOURCE_LINES + 1)
+    link = occurrence(content, offset: 0, role: 'value')
+    fact = origin(content)
+    reader = reader_with([link], content)
+    reads = 0
+    reader.define_singleton_method(:source) { |id| reads += 1; super(id) }
+    reader.define_singleton_method(:references) do |id, direction:|
+      { 'generation' => generation, 'anchor' => fact, 'direction' => direction,
+        'coverage' => { 'known_matches' => 1, 'known_omitted' => 0, 'scan_complete' => true, 'capture_partial' => true },
+        'relationships' => [{ 'origin' => fact, 'link' => link, 'detail_omitted' => false,
+          'candidates' => [], 'candidate_matches' => 0, 'candidate_search_complete' => true }] }
+    end
+    html = page(reader)
+    assert_equal 1, reads
+    assert_equal 1, html.scan('class="constant-site"').length
+    assert_includes html, 'Captured Source line 1</a>'
+    refute_includes html, 'Source line count is unavailable in this summary'
+    assert_includes html, '1 known matching groups'
+    assert_includes html, 'binding unknown'
+  end
+
   def test_incoming_sites_apply_web_limits_without_expanding_source_or_facts
     contents = [Thistle::Map::View::MAX_SOURCE_LINES, Thistle::Map::View::MAX_SOURCE_LINES + 1,
       Thistle::Map::View::MAX_SOURCE_BYTES, Thistle::Map::View::MAX_SOURCE_BYTES + 1].map { |bytes| 'Widget'.ljust(bytes) }
