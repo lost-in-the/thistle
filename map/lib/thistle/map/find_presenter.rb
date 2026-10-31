@@ -3,13 +3,14 @@
 require 'erb'
 require 'uri'
 require 'digest'
+require_relative 'investigation'
 
 module Thistle
   module Map
     # Renders evidence returned by the bounded Find operation. Routing and the
     # surrounding layout remain the application's responsibility.
     class FindPresenter
-      MAX_QUERY_BYTES = 4096
+      MAX_QUERY_BYTES = Investigation::MAX_QUERY_BYTES
       SEARCH_FIELDS = %w[q domain kind prefix].freeze
 
       # The generation selects the manifest; this fixed-size key selects its path.
@@ -17,10 +18,13 @@ module Thistle
         Digest::SHA256.hexdigest(path)
       end
 
-      def initialize(generation:, mount: '', search: {})
+      def initialize(generation:, mount: '', search: {}, selection: nil)
         @generation = generation
         @mount = mount
         @search = search.slice(*SEARCH_FIELDS)
+        @selection = selection
+        raise ArgumentError, 'Find selection must be normalized investigation state' if selection && !selection.instance_of?(Investigation)
+        raise ArgumentError, 'Find selection generation mismatch' if selection && selection.generation != generation
       end
 
       def render(result)
@@ -67,6 +71,7 @@ module Thistle
         path = match['path']
         name = match['name'] || path || 'Source unavailable'
         params = { 'generation' => @generation }
+        params.merge!(@selection.parameters) if @selection && !@selection.ids.empty?
         anchor = ''
         if origin == 'source'
           span = match.fetch('span')
@@ -85,6 +90,7 @@ module Thistle
           # Keep Source usable without emitting an invalid URL or hiding the loss.
           context_omitted = query.bytesize > MAX_QUERY_BYTES
           query = URI.encode_www_form(params) if context_omitted
+          raise Investigation::Limit, 'Find destination exceeds the URL budget; no selections were removed.' if query.bytesize > MAX_QUERY_BYTES
           href = "#{@mount}/source?#{query}#{anchor}"
           link = "<a data-result-link href=\"#{h(href)}\">#{h(name)}</a>"
           link += '<small>Search context exceeds the link budget; use Back to return to these results.</small>' if context_omitted

@@ -49,10 +49,14 @@ module Thistle
           content, type = @assets.fetch(path)
           return finish(env, 200, content, type: type)
         end
-        return finish(env, 404, 'This page does not exist.') unless %w[/ /source /links /check].include?(path)
+        return finish(env, 404, 'This page does not exist.') unless %w[/ /source /links /check /investigation].include?(path)
 
         mount = mount_path(env)
         params = parameters(env.fetch('QUERY_STRING', ''))
+        if path == '/investigation' && (params.keys - %w[generation selection]).any?
+          raise BadRequest, 'Investigation URLs accept only saved generation and fact selections.'
+        end
+        selection = Investigation.from_params(params) if path == '/investigation' || params.key?('selection')
         if (path == '/links' && !params['id']) || (path == '/source' && %w[id path file].count { |key| params.key?(key) } != 1)
           raise BadRequest, 'Choose a result before opening Source or Links.'
         end
@@ -78,17 +82,19 @@ module Thistle
           params['path'] = selected
           params.delete('file')
         end
-        view = View.new(reader: reader, mount: mount, params: params)
+        selection ||= Investigation.new(generation: reader.generation)
+        view = View.new(reader: reader, mount: mount, params: params, selection: selection)
         content = case path
                   when '/' then view.find
                   when '/source' then params['path'] ? view.source_file : view.source
                   when '/links' then view.links
                   when '/check' then view.check
+                  when '/investigation' then view.investigation
                   end
         finish(env, 200, content, type: 'text/html; charset=utf-8')
-      rescue BadRequest => e
+      rescue BadRequest, Investigation::Invalid => e
         finish(env, 400, e.message)
-      rescue View::Limit => e
+      rescue View::Limit, Investigation::Limit => e
         finish(env, 422, e.message)
       rescue Thistle::Error => e
         status = e.is_a?(Thistle::NotFound) ? 404 : 422
@@ -152,10 +158,10 @@ module Thistle
         raise BadRequest, 'Malformed query encoding.' if /%(?![0-9a-f]{2})/i.match?(query)
 
         pairs = URI.decode_www_form(query, Encoding::UTF_8)
-        raise BadRequest, 'Too many query fields.' if pairs.length > 8
+        raise BadRequest, 'Too many query fields.' if pairs.length > 9
 
         pairs.each_with_object({}) do |(key, value), out|
-          raise BadRequest, 'Unknown or repeated query field.' unless %w[q id generation page path file kind prefix domain direction].include?(key) && !out.key?(key)
+          raise BadRequest, 'Unknown or repeated query field.' unless %w[q id generation page path file kind prefix domain direction selection].include?(key) && !out.key?(key)
           raise BadRequest, 'Invalid query text.' unless value.valid_encoding? && !value.include?("\0") && !value.include?("\uFFFD")
           raise BadRequest, 'Search text is too long.' if key == 'q' && value.bytesize > 256
           raise BadRequest, 'Invalid evidence identifier.' if %w[id generation file].include?(key) && !DIGEST.match?(value)

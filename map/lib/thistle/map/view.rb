@@ -10,6 +10,8 @@ require_relative 'callback_presenter'
 require_relative 'find_presenter'
 require_relative 'references_presenter'
 require_relative 'constant_occurrence'
+require_relative 'investigation_presenter'
+require_relative 'investigation_evidence'
 
 module Thistle
   module Map
@@ -36,18 +38,20 @@ module Thistle
         Regexp::NOENCODING => 'binary matching'
       }.freeze
 
-      def initialize(reader:, mount:, params:)
+      def initialize(reader:, mount:, params:, selection: nil)
         @reader = reader
         @mount = mount
         @params = params
         @generation = reader.generation
+        @selection = selection || Investigation.from_params(params.merge('generation' => @generation))
+        raise Thistle::InvalidSnapshot, 'Investigation generation mismatch' unless @selection.generation == @generation
       end
 
       def find
         query = @params.fetch('q', '')
         if !query.strip.empty? && @reader.respond_to?(:search_evidence)
           result = @reader.search_evidence(query, limit: PAGE_SIZE, kind: @params['kind'].to_s.empty? ? nil : @params['kind'], path: @params['prefix'].to_s.empty? ? nil : @params['prefix'], domain: @params['domain'])
-          body = FindPresenter.new(generation: @generation, mount: @mount, search: @params).render(result) do |match|
+          body = FindPresenter.new(generation: @generation, mount: @mount, search: @params, selection: @selection).render(result) do |match|
             constraint_summary(@reader.fact(match.fetch('fact_id'))) if match['origin'] == 'metadata' && match['kind'] == 'route'
           end
           return layout('Find', body)
@@ -107,6 +111,16 @@ module Thistle
         body = "<h1 class=\"t1\">#{h(fact.fetch('name'))}</h1>" + fact_tiles(fact)
         body += '<p class="notice ui">No file or line was captured for this fact. Links and Check show the evidence that is available.</p>'
         layout('Source', body, fact: fact)
+      end
+
+      def investigation
+        presenter = InvestigationPresenter.new(selection: @selection, mount: @mount)
+        evidence = InvestigationEvidence.new(reader: @reader, selection: @selection)
+        body = presenter.render { |id| evidence.fetch(id) }
+        content = layout('Investigation', body, fact: nil)
+        raise Investigation::Limit, 'Investigation page exceeds its total output budget; no partial page was returned.' if content.bytesize > InvestigationPresenter::MAX_PAGE_BYTES
+
+        content
       end
 
       def source_file
@@ -342,8 +356,19 @@ module Thistle
         ERB::Util.html_escape(value.to_s)
       end
 
+      def investigation_control(id)
+        if @selection.ids.include?(id)
+          "<a href=\"#{h(@selection.remove(id).url(@mount))}\">Remove from investigation</a>"
+        elsif @selection.ids.length == Investigation::MAX_SELECTIONS
+          '<span class="disabled">Collection full (24). Open Investigation to remove a selection before collecting another.</span>'
+        else
+          "<a href=\"#{h(@selection.add(id).url(@mount))}\">Collect in investigation</a>"
+        end
+      end
+
       def url(path, extra = {})
         params = @params.reject { |key, _| key == 'page' }.merge('generation' => @generation).merge(extra)
+        params.merge!(@selection.parameters) if @params.key?('selection')
         params.delete('direction') unless path == '/links'
         params.delete('id') if path == '/'
         if path == '/source' && !params['id'] && params['path']
@@ -357,6 +382,7 @@ module Thistle
           @navigation_context_omitted = true
           query = URI.encode_www_form(params.reject { |key, _| FindPresenter::SEARCH_FIELDS.include?(key) })
         end
+        raise Investigation::Limit, 'Navigation exceeds the URL budget; no selections were removed.' if query.bytesize > FindPresenter::MAX_QUERY_BYTES
         "#{@mount}#{path}?#{query}"
       end
 
@@ -368,6 +394,10 @@ module Thistle
         links_link = selected ? nav_link('Links', '/links', title, 'g', selected['id']) : '<span class="disabled">Links <small>Choose a result</small></span>'
         brand_url = url('/')
         navigation = nav_link('Find', '/', title, 'f') + source_link + links_link + nav_link('Check', '/check', title, nil)
+        navigation += "<a href=\"#{h(@selection.url(@mount))}\"#{' aria-current="page"' if title == 'Investigation'}>Investigation (#{@selection.ids.length})</a>"
+        if selected
+          navigation += investigation_control(selected.fetch('id'))
+        end
         context_notice = @navigation_context_omitted ? '<p class="notice ui">Search context exceeds the navigation link budget. Narrow the query or filters in the Find form to retain them in links; Back returns to the previous page.</p>' : ''
         <<~HTML
           <!doctype html>
@@ -383,7 +413,7 @@ module Thistle
           <label for="find-domain">Domain</label><select name="domain" id="find-domain">#{%w[all source metadata].map { |value| "<option value=\"#{value}\"#{' selected' if @params.fetch('domain', 'all') == value}>#{value}</option>" }.join}</select>
           <label for="find-kind">Kind</label><input name="kind" id="find-kind" value="#{h(@params['kind'])}" placeholder="Any kind">
           <label for="find-prefix">Path prefix</label><input name="prefix" id="find-prefix" value="#{h(@params['prefix'])}" placeholder="Any captured path">
-          <input type="hidden" name="generation" value="#{h(@generation)}"><button class="btn primary" type="submit">Find</button></form></header>
+          <input type="hidden" name="generation" value="#{h(@generation)}">#{@selection.ids.empty? ? '' : "<input type=\"hidden\" name=\"selection\" value=\"#{h(@selection.ids.join(','))}\">"}<button class="btn primary" type="submit">Find</button></form></header>
           <nav aria-label="Evidence views">#{navigation}</nav>
           <main id="main" tabindex="-1"><p class="capture ui">Saved capture <code>#{h(@generation[0, 12])}</code> · live freshness not checked</p>
           #{context_notice}
