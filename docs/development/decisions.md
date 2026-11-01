@@ -887,3 +887,36 @@ the boundaries and the separate installed/served gates. Reconsider only for a
 new independently specified effect form or measured complete-job evidence that
 justifies a bounded representation change. Broader lifecycle, history, Guide,
 HAML and qualification remain parent work; all 17 requirements stay unqualified.
+
+## One saved model's named schema and neighborhood (LOS-149)
+
+Use one bounded Rust/public Reader projection of existing saved model metadata
+and recorded references. Reuse the existing generation-local borrowed-name
+directory and scoped reference selector, sharing RequestWork; do not call the
+whole model brief's callback/source analysis or add an index/resolver/capture
+family. Model/table/key/saved-ID scope, raw typed defaults, association entries,
+original link witnesses and label-candidate uncertainty remain explicit. Default
+clause presence and physical FK/index/ON DELETE inventory were not recorded.
+
+Map reuses its attributed Woods presentation tokens for a small deterministic
+server SVG and immediately named HTML list of the exact same selected edge rows.
+The checkout has no maintained graph runtime to reuse. A new client layout engine
+would add dependency/acquisition, escaping, CSP, keyboard and no-JavaScript work
+for at most16 rows; a speculative whole-graph framework would exceed this child.
+Static row placement and a full named equivalent preserve useful names under
+narrow diagram overflow without requiring a guessed zoom threshold. Columns and
+Database facts remain heading-level actions. No Woods engine code is reused.
+
+Incoming reference cursors resume saved fact/link positions; one-row component
+calls repeat bounded anchor/scope/coverage encoding and candidate-range work.
+The existing lazy directory retains its per-Reader build/reservation cost, and
+fresh Readers rebuild it. Shared20kfact/50klink/100kcomparison/32MiBlabel/8MiBmetadata
+bounds,32MiB scratch through serialization, native16row/64KiB wire and Map64KiB
+markup ceilings stay explicit. A null component cursor with incomplete scanning
+is not completion; wire suffix cuts retain the dropped row's input position.
+No source reads, full-fact expansion, hidden graph pruning or performance/RSS
+claim is introduced. See [the exact contract](model-neighborhood.md).
+Reconsider a maintained layout library only for a separately admitted richer
+layout job with concrete fit/maintenance evidence. Whole-schema/multi-hop,
+constraints, architecture/clusters, exports, Guide and qualification remain
+named parent work. New installed/served/person acceptance remains pending.

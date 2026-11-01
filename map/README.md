@@ -126,6 +126,28 @@ generation/search/collection, Source, authorization and no-JavaScript navigation
 remain in use. See the installed [Passage guide](docs/passage.md). This is a
 source candidate; real installed/served/person acceptance remains pending.
 
+## Saved model schema and neighborhood
+
+Choose **Model neighborhood**, **Columns** or **Database facts** beside a saved
+Rails model heading. `/model-neighborhood/FAMILY/DIRECTION/TYPE` validates the
+selected generation/model and filter/candidate cursor before opening a Reader.
+The first edge view names related models/source sites in an accessible HTML
+list; its optional finite server SVG uses exactly those same Rust-selected rows.
+Unknown/unloaded/polymorphic targets and candidate representations are explicit,
+not silently resolved into model definitions or runtime bindings. Incoming and
+Outgoing, Associations and References have native continuation; no hidden
+label/graph-only pruning changes the list's meaning.
+
+Columns show raw tagged defaults, SQL type and nullability. Missing values,
+literal null/false/zero/empty strings, expressions and opaque data stay distinct;
+SQL DEFAULT-clause presence was not recorded. Database facts explicitly retain
+unavailable physical FK/index/ON DELETE evidence. Rails association options are
+not those database constraints. Generation/search/collection, exact Source,
+ordinary keyboard/no-JavaScript navigation and existing access controls remain.
+See the installed [model neighborhood guide](docs/model-neighborhood.md).
+Pure mocked source checks do not establish the authored real Rails, installed,
+served/narrow/zoom or person journey; those gates remain pending.
+
 ## Repository validation
 
 From the core project root after installing development dependencies:

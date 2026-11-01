@@ -43,5 +43,5 @@ Pure mocked source checks do not establish real framework, installed or served
 usability. The dedicated producer/consumer, answer cards and visible served
 protocol are authored **UNRUN** here. Root owns independent review and later
 finite actual gates; Leah owns applicable acceptance. All 17 launch capabilities
-remain unqualified. See the [Core contract](../../docs/development/model-neighborhood.md)
+remain unqualified. See the [Core contract](https://github.com/lost-in-the/thistle/blob/2c8a9a2377882e4140b7a9cd12cf26d64f7fc839/docs/development/model-neighborhood.md)
 for exact DTOs, cursor scopes, admission, alternatives and operational costs.

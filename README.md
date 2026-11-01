@@ -253,6 +253,19 @@ registration is not an execution step; `controller_filters: nil` keeps the prior
 capture path. The [Passage contract](docs/development/passage.md) describes which
 selected-action source witnesses can qualify a related save contribution.
 
+For one saved `rails_model`, `reader.model_neighborhood(model_id)` returns
+bounded named association/reference edges, evidence witnesses and candidate
+continuations. Incoming/Outgoing and Association/Reference filters retain their
+own cursor scopes. `family: 'columns'` preserves raw typed defaults, SQL type and
+nullability; `family: 'database'` explicitly reports unrecorded physical database
+constraints. A literal null does not prove a DEFAULT clause was declared, and
+Rails association options are not physical foreign keys or ON DELETE evidence.
+Map presents the same selected edges in an immediately named list and optional
+server SVG, with direct **Columns** and **Database facts** actions. See the
+[model neighborhood contract](docs/development/model-neighborhood.md). This
+source increment has no new capture/schema, resolver, index or graph runtime;
+its new installed/served/person evidence remains pending.
+
 ## Optional Map
 
 Map can [collect and reopen a small investigation](https://github.com/lost-in-the/thistle/blob/main/map/docs/investigations.md)
