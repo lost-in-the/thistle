@@ -9,12 +9,12 @@ require_relative "thistle/reader"
 module Thistle
   autoload :Capture, File.expand_path("thistle/capture", __dir__)
 
-  def self.capture(root:, output:, rails: nil, limits: {}, source_comprehension: nil, job_mail: nil)
+  def self.capture(root:, output:, rails: nil, limits: {}, source_comprehension: nil, job_mail: nil, controller_filters: nil)
     root = Native.path(root)
     output = Native.path(output)
-    if rails || !source_comprehension.nil? || !Object.instance_method(:instance_of?).bind_call(job_mail, NilClass)
+    if rails || !source_comprehension.nil? || !Object.instance_method(:instance_of?).bind_call(job_mail, NilClass) || !Object.instance_method(:instance_of?).bind_call(controller_filters, NilClass)
       Store.new(output).publish(Capture.new(root: root, rails: rails, limits: limits,
-        source_comprehension: source_comprehension, job_mail: job_mail).call)
+        source_comprehension: source_comprehension, job_mail: job_mail, controller_filters: controller_filters).call)
     else
       Native.call("op" => "capture_publish", "root" => root, "path" => output, "limits" => Capture.copy_limits(limits))
     end

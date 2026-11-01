@@ -52,6 +52,7 @@ module Thistle
         continuation_path = /\A\/(?:brief\/(?:columns|associations|registry_candidates)|references\/(?:incoming|outgoing)|comprehension\/(?:contributions|methods))\z/.match?(path)
         continuation_path ||= path.start_with?('/job-mail/') && NavigationContext::JOB_MAIL_FAMILIES.include?(path.delete_prefix('/job-mail/'))
         continuation_path ||= path == '/route-actions'
+        continuation_path ||= %w[/passage/sequence /passage/export].include?(path)
         return finish(env, 404, 'This page does not exist.') unless continuation_path || %w[/ /source /links /check /investigation].include?(path)
 
         mount = mount_path(env)
@@ -60,7 +61,7 @@ module Thistle
           raise BadRequest, 'Investigation accepts only saved selection and bounded search context.'
         end
         continuation = NavigationContext.continuation(path, params) if continuation_path
-        if !continuation_path && (params.key?('cursor') || params.key?('candidate'))
+        if !continuation_path && (params.key?('cursor') || params.key?('candidate') || params.key?('action'))
           raise BadRequest, 'Continuation controls require a dedicated evidence page.'
         end
         selection = Investigation.from_params(params) if path == '/investigation' || params.key?('selection')
@@ -92,7 +93,9 @@ module Thistle
         selection ||= Investigation.new(generation: reader.generation)
         view = View.new(reader: reader, mount: mount, params: params, selection: selection, path: path)
         content = if continuation
-                    if continuation[:route_actions]
+                    if continuation[:passage]
+                      view.passage_page(continuation[:passage])
+                    elsif continuation[:route_actions]
                       view.route_actions_page
                     elsif continuation[:job_mail]
                       view.job_mail_page(continuation[:job_mail])
@@ -182,10 +185,10 @@ module Thistle
         raise BadRequest, 'Too many query fields.' if pairs.length > NavigationContext::MAX_FIELDS
 
         pairs.each_with_object({}) do |(key, value), out|
-          raise BadRequest, 'Unknown or repeated query field.' unless %w[q id generation page path file kind prefix domain direction selection cursor candidate].include?(key) && !out.key?(key)
+          raise BadRequest, 'Unknown or repeated query field.' unless %w[q id generation page path file kind prefix domain direction selection cursor candidate action].include?(key) && !out.key?(key)
           raise BadRequest, 'Invalid query text.' unless value.valid_encoding? && !value.include?("\0") && !value.include?("\uFFFD")
           raise BadRequest, 'Search text is too long.' if key == 'q' && value.bytesize > 256
-          raise BadRequest, 'Invalid evidence identifier.' if %w[id generation file].include?(key) && !DIGEST.match?(value)
+          raise BadRequest, 'Invalid evidence identifier.' if %w[id generation file action].include?(key) && !DIGEST.match?(value)
           raise BadRequest, 'Invalid page number.' if key == 'page' && !/\A[1-9][0-9]{0,3}\z/.match?(value)
 
           raise BadRequest, 'Invalid reference direction.' if key == 'direction' && !%w[incoming outgoing].include?(value)

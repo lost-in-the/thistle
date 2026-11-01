@@ -119,6 +119,11 @@ module Thistle
         "cursor" => cursor, "max_bytes" => max_bytes)
     end
 
+    def passage(id, action: nil, family: 'sequence', limit: 8, cursor: nil, max_bytes: 32768)
+      request('passage', 'id' => id, 'action' => action, 'family' => family,
+        'limit' => limit, 'cursor' => cursor, 'max_bytes' => max_bytes)
+    end
+
     private
 
     def request(operation, arguments = {})
