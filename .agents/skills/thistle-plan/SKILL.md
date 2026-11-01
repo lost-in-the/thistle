@@ -5,6 +5,9 @@ description: Shape a bounded Thistle customer outcome, prepare Ready work, or sp
 
 # Plan
 
+Use the [startup routing](../../../AGENTS.md#read-before-work) for applicable
+policy sections; load specialist history only for the assigned question.
+
 Use repository-relative paths from the checkout root. Read the assigned issue,
 current claims, `docs/MISSION.md`, and the applicable sections of
 `docs/development/agent-workflow.md`. Apply the assigned

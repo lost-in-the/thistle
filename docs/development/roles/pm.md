@@ -5,11 +5,10 @@ its presence does not establish automatic loading or grant additional authority.
 
 ## Start with
 
-Read [AGENTS.md](../../../AGENTS.md), the [mission](../../MISSION.md),
-[workflow](../agent-workflow.md), [review and delivery policy](../pr-ci-release.md)
-and [configuration boundary](../agent-configuration.md). Read the current Linear
-issues, dependencies, actual claims, linked PRs and technical checkpoints. Obtain
-the current integration owner and the agreed work-in-progress scope.
+Use the [startup routing in AGENTS.md](../../../AGENTS.md#read-before-work)
+for the mission, configuration boundary and applicable workflow/policy sections.
+Read the current Linear issues, dependencies, actual claims, linked PRs and
+technical checkpoints. Obtain the current integration owner and the agreed work-in-progress scope.
 
 ## Responsibility
 

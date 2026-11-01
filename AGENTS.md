@@ -5,8 +5,8 @@ implementation task. The current owner request and actual repository state take
 precedence over dated handoff snapshots.
 
 Follow the canonical [mission](docs/MISSION.md) and the
-[public/private configuration boundary](docs/development/agent-configuration.md).
-Linked policy is read explicitly; a link does not establish runtime autoloading.
+[public/private configuration boundary](docs/development/agent-configuration.md#public-contracts-and-private-values).
+Read applicable policy explicitly; a link does not establish runtime autoloading.
 
 For reusable assignments, use the [agent team](docs/development/agent-team.md):
 five role prompts and shared Plan, Build, Review, Check, and Hand off procedures.
@@ -17,15 +17,22 @@ authority; the team pack adds no approval stage or automatic host/provider acces
 
 1. Read the assigned issue, its dependencies, active claims, linked PRs, and the
    current branch/base commits. Check whether another agent already owns the work.
-2. Read [the project and agent workflow](docs/development/agent-workflow.md) and
-   [the PR, CI, and release flow](docs/development/pr-ci-release.md).
-3. Read the current README, applicable implementation contract, capability-ledger
-   rows, and experiment policy. Restored source uses `docs/handoff/CODEX_HANDOFF.md`,
-   `docs/handoff/IMPLEMENTATION.md`, `docs/handoff/EVALUATOR_HANDOFF.md`, and
-   `docs/handoff/ARCHITECTURE_PLAN.md`. Check `docs/handoff/RESTORATION.md` and
-   `docs/handoff/BASELINE_ACCEPTANCE.md` for newer evidence and dispositions.
-   Only an older bootstrap checkout keeps those four handoff files at the root;
-   use the paths present in the actual checkout rather than restoring old copies.
+2. Read the mission and configuration boundary above, the assigned role/skill,
+   and the workflow's [claim protocol](docs/development/agent-workflow.md#claim-protocol)
+   and [status/acceptance rules](docs/development/agent-workflow.md#status-and-acceptance).
+3. Use the routing below for relevant sections of the current README, contracts,
+   and policies. Role/skill references to a policy follow this same routing;
+   they do not require reading every section or historical handoff on every task.
+
+| Task | Additional reading before the affected action |
+| --- | --- |
+| Scope or product planning | [Project scope index](docs/PROJECT_SCOPE.md), affected [ledger rows](docs/capability-ledger.md), current Linear task and dependencies. |
+| Implementation | README's affected interface, the changed boundary's contract under `docs/development/` or `map/docs/`, [PR flow](docs/development/pr-ci-release.md#pr-flow) and [affected CI lanes](docs/development/pr-ci-release.md#ci-execution-model). |
+| Review or QA | Assigned contract, [review standard](docs/development/pr-ci-release.md#review-standard), and [artifact policy](docs/development/pr-ci-release.md#artifact-reuse-and-evidence) when inspecting package/qualification claims. |
+| Delegation, handoff or stateful verification | Applicable [workflow sections](docs/development/agent-workflow.md#multi-agent-operation) and [team procedure](docs/development/agent-team.md); verify execution controls before launch. |
+| Signing, provider setup, hooks or private evidence | Relevant [configuration sections](docs/development/agent-configuration.md) and existing authority before access or mutation. |
+| Release or evaluation | Applicable [qualification](docs/development/pr-ci-release.md#independent-qualification-contract), [release](docs/development/pr-ci-release.md#release-flow) or [experiment policy](docs/experiment-001.md), plus the exact candidate's retained evidence. |
+| Restoration or historical experiment investigation | [Historical sources](docs/PROJECT_SCOPE.md#historical-design-and-evidence); inspect newer dispositions before acting on an old next step. |
 
 Baseline restoration and Experiment 001 landed through PRs #1 and #2; the current
 CI flow landed through PR #26. Review integrated source and issue #20 checks

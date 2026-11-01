@@ -5,9 +5,12 @@ description: Implement an assigned Thistle outcome or lead bounded Rust, Ruby, C
 
 # Build
 
+Use the [startup routing](../../../AGENTS.md#read-before-work) for applicable
+policy sections; load specialist history only for the assigned question.
+
 Read `AGENTS.md`, the assigned issue/contract and
 [Dev Lead](../../../docs/development/roles/lead.md). Follow
-`docs/development/pr-ci-release.md` for actual gates.
+the applicable sections of `docs/development/pr-ci-release.md` for actual gates.
 
 1. Verify the admitted base, workspace and current claims before editing. Record
    the real task identity and obtain explicit ownership of shared files/interfaces.
@@ -41,7 +44,10 @@ slot with its integration owner rather than launch one from the writer.
 
 Supply a complete brief: read-only role and no delegation, customer outcome,
 contract, exact head/base and complete diff, owned/excluded paths, raw evidence,
-permitted checks and resource limits, known gaps, and return format. Do not rely
+permitted checks and resource limits, known gaps, and return format. Verify
+requested versus enforced controls at launch using the
+[execution-control procedure](../../../docs/development/agent-team.md#verify-execution-controls-at-launch);
+name unsupported tool/delegation or deadline controls explicitly. Do not rely
 on inherited history. Apply [Review](../thistle-review/SKILL.md) and retain stable
 finding IDs with severity, evidence and disposition: open, fixed, disputed or
 deferred with a responsible owner.

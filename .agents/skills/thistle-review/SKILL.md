@@ -5,6 +5,9 @@ description: Independently review a Thistle change for correctness, security, re
 
 # Review
 
+Use the [startup routing](../../../AGENTS.md#read-before-work) for applicable
+policy sections; load specialist history only for the assigned question.
+
 Read the [Reviewer role](../../../docs/development/roles/reviewer.md), the assigned
 contract and the [review standard](../../../docs/development/pr-ci-release.md#review-standard).
 Inspect the actual candidate and raw evidence before adopting the author's
@@ -41,7 +44,10 @@ reviewed identity and any applicability limits; missing or failed required
 evidence cannot become approval. Reviewers never subscribe to PR watches.
 
 Review is read-only unless the assignment separately grants a correction scope.
-A prompt or approval-required mode is not an enforced read-only sandbox. Do not
+A prompt or approval-required mode is not an enforced read-only sandbox.
+Use the [launch-control record](../../../docs/development/agent-team.md#verify-execution-controls-at-launch)
+to distinguish requested limits, verified controls and gaps; return actual
+overruns or partial work honestly. Do not
 run candidate code with credentials or claim evaluator independence merely
 because another agent/provider performed the review.
 

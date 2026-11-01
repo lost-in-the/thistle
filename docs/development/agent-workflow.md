@@ -158,6 +158,23 @@ claim from an observed running task. If Linear access is unavailable, preserve a
 bounded technical handoff in the linked PR and report the access gap to the PM.
 Do not resume GitHub-board maintenance or claim that Linear was updated.
 
+### One current checkpoint
+
+At a meaningful transition, the PM replaces the issue body's current summary;
+the technical owner reconciles the PR summary. Keep the task contract and
+provenance, plus one current result, exact candidate/evidence, unresolved
+acceptance, next owner/action and claim state. Do not append another competing
+current status section or retain a cleared blocker as the next action.
+
+Preserve detailed attempts in their original reports or dated comments and link
+them from the current checkpoint. When compacting an accumulated issue body,
+first retain its historical sections verbatim in a dated receipt/comment and
+verify that the saved record and link are accessible before replacing them.
+Keep failed attempts, review dispositions and evidence identities unchanged;
+historical instructions are context, not active assignments. A completed issue
+stays Done unless new work is explicitly assigned. Workers send the PM the
+proposed summary and preservation links rather than editing planning metadata.
+
 ## Notifications
 
 Treat notifications as prompts to inspect current state. Batch deliveries and
