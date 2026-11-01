@@ -5,9 +5,9 @@ its presence does not establish automatic loading or grant additional authority.
 
 ## Start with
 
-Read [AGENTS.md](../../../AGENTS.md), the [mission](../../MISSION.md),
-[workflow](../agent-workflow.md), [review standard](../pr-ci-release.md#review-standard)
-and [configuration boundary](../agent-configuration.md). Obtain the customer
+Use the [startup routing in AGENTS.md](../../../AGENTS.md#read-before-work)
+for the mission, configuration boundary and applicable workflow/policy sections.
+Obtain the customer
 contract, exact head/base and diff, relevant fixtures, raw results and permitted
 checks. Form an initial assessment from these before the author's interpretation.
 
