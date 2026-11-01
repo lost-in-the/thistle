@@ -232,6 +232,8 @@ module Thistle
         raise Limit, "#{error.message} Open exact Source or narrow the evidence page; no source was substituted."
       rescue SourceComprehensionPresenter::InvalidProjection => error
         raise Thistle::InvalidSnapshot, error.message
+      rescue Thistle::LimitExceeded => error
+        raise Limit, "Source comprehension resource limit: #{error.message}. No source was substituted."
       end
 
       def model_reading_page(family = nil)
@@ -248,6 +250,8 @@ module Thistle
         raise Limit, "#{error.message} Open exact Source or narrow the evidence page; no source was substituted."
       rescue SourceComprehensionPresenter::InvalidProjection => error
         raise Thistle::InvalidSnapshot, error.message
+      rescue Thistle::LimitExceeded => error
+        raise Limit, "Model reading resource limit: #{error.message}. No source was substituted."
       end
 
       # One explicit registry, selected by the user from Core's candidates. The

@@ -201,6 +201,56 @@ class ModelReadingAppTest < Minitest::Test
     refute_includes body, 'missing or invalid'
   end
 
+  def test_core_resource_refusals_on_model_and_legacy_comprehension_are_limits
+    ["/models/#{MODEL}/source", "/models/#{MODEL}/comprehension/methods", '/comprehension/contributions'].each do |path|
+      reader = Reader.new
+      reader.define_singleton_method(:source_comprehension) do |*|
+        @calls << [:comprehension]
+        raise Thistle::LimitExceeded, 'Encoded JSON exceeds byte budget'
+      end
+      status, _, body = request(reader, path)
+      assert_equal 422, status
+      assert_includes body, 'resource limit: Encoded JSON exceeds byte budget'
+      refute_includes body, 'missing or invalid'
+      assert_equal [[:comprehension]], reader.calls
+      assert reader.closed
+    end
+  end
+
+  def test_dense_highlighting_preserves_named_outline_and_exact_file_recovery
+    reader = Reader.new
+    content = "class Order\n" + ('  value = call(1,2,3) # <&> xyz' + "\n") * 1998 + "end\n"
+    reader.use_content(content)
+    assert_equal 2000, content.lines.length
+    assert_operator content.bytesize, :<=, 65_536
+    assert_operator content.bytesize, :>, 60_000
+    colour = ->(text, **) { text.lines.map { |line| line.chomp.chars.map { |char| '<span class="op">' + ERB::Util.html_escape(char) + '</span>' }.join } }
+    file = Digest::SHA256.hexdigest(PATH)
+    ids = [MODEL, METHOD] + (1..22).map { |n| n.to_s(16).rjust(64, '0') }
+    original = Thistle::Map::Highlighter.method(:lines)
+    begin
+      Thistle::Map::Highlighter.define_singleton_method(:lines, colour)
+      status, _, html = request(reader, "/models/#{MODEL}/at/#{file}/2/source", { 'selection' => ids.join(','), 'q' => 'q' * 256 })
+    ensure
+      Thistle::Map::Highlighter.define_singleton_method(:lines, original)
+    end
+    assert_equal 200, status
+    assert_includes html, '<h1 class="t1">Order</h1>'
+    assert_includes html, 'Order#schedule_receipt'
+    assert_includes html, 'source not admitted on this page'
+    assert_includes html, 'Complete highlighted file exceeds the remaining display allowance'
+    assert_includes html, 'Open exact Source'
+    assert_includes html, 'Open the exact captured file at line 2'
+    assert_includes html, "id=\"reading-position-unavailable-#{file}-L2\""
+    refute_includes html, 'class="source-row'
+    assert_operator html.bytesize, :<=, Thistle::Map::SourceComprehensionPresenter::MAX_BODY_BYTES + 65_536
+    assert_equal [:comprehension, :comprehension, :source], reader.calls.map(&:first)
+    targets = html.scan(/href="([^"]+)"/).flatten.map { |href| URI(CGI.unescapeHTML(href)) }
+    recovery = targets.find { |url| url.fragment == 'L2' && URI.decode_www_form(url.query || '').to_h['file'] == file }
+    refute_nil recovery
+    assert_equal [G, ids.join(','), 'q' * 256], URI.decode_www_form(recovery.query).to_h.values_at('generation', 'selection', 'q')
+  end
+
   def test_legacy_brief_keeps_partial_capture_and_absence_qualification_visible
     reader = Reader.new
     reader.define_singleton_method(:model_brief) do |id, **options|

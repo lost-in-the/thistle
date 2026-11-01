@@ -29,27 +29,45 @@ module Thistle
         'no_saved_definition_candidate' => 'No saved definition candidate',
         'saved_candidates' => 'Saved candidates'
       }.freeze
+      attr_reader :displayed_paths
 
       # navigation.url(path, extras) is the shared context authority. Comprehension
       # continuations require an explicitly supplied Root route adapter.
       # sources are independently admitted Reader.source responses; nil means no
       # source was admitted, never an empty source file. No Reader calls here.
-      def initialize(projection:, sources:, navigation:, highlighter:, continuation_url: nil, source_states: {}, reading: false)
+      def initialize(projection:, sources:, navigation:, highlighter:, continuation_url: nil, source_states: {}, reading: false, max_body_bytes: MAX_BODY_BYTES)
         @data, @sources, @navigation, @highlighter = projection, sources, navigation, highlighter
         @continuation_url = continuation_url
         @source_states = source_states
         @reading = reading
+        raise DisplayLimit, 'No room for source comprehension' unless max_body_bytes.is_a?(Integer) && max_body_bytes.positive?
+        @max_body_bytes = [max_body_bytes, MAX_BODY_BYTES].min
       end
 
       def render
         validate
         @body = +''
         @anchors = {}
+        @displayed_paths = []
         append '<section aria-label="Model source comprehension">'
         unless @reading
           append "<h2 class=\"t2\">Read #{h(@data.fetch('owner'))}</h2>"
           append '<p class="notice ui">Identified contributions. Loaded ownership and saved definitions are separate evidence; source/runtime coherence is unknown.</p>'
           append '<p class="ui">Each code block retains its captured path and physical lines. These blocks are not a concatenated effective runtime class.</p>'
+        end
+        if @reading
+          # Reserve the actual coverage/continuation suffix before admitting any
+          # complete highlighted file. Outer reading chrome is reserved by its caller.
+          prefix = @body
+          @body = +''
+          trailer
+          suffix = @body
+          @body = prefix
+          @max_body_bytes -= suffix.bytesize
+          reading_files
+          @max_body_bytes += suffix.bytesize
+          append suffix
+          return @body
         end
         rendered = {}
         @data.fetch('contributions').each do |contribution|
@@ -67,6 +85,13 @@ module Thistle
             append link('Open exact Source', contribution.fetch('source'), line: fact.dig('location', 'start_line'), path: fact['path']) + '</p>'
           end
         end
+        trailer
+        @body
+      end
+
+      private
+
+      def trailer
         append '<p>No saved definitions returned on this page. This does not prove behavior is absent.</p>' if @data.fetch('contributions').empty?
         @data.fetch('observed_only').each do |method|
           status = method.fetch('status', 'no_saved_definition_candidate')
@@ -75,10 +100,49 @@ module Thistle
         outline unless @reading
         context
         append '</section>'
-        @body
       end
 
-      private
+      def reading_files
+        seen = {}
+        entries = @data.fetch('contributions').filter_map do |row|
+          fact = row.fetch('fact')
+          source = @sources[fact.fetch('id')]
+          state = @source_states[fact.fetch('id')] || {}
+          next if state['status'] == 'shared_file'
+          next if source && seen[source.fetch('fact').fetch('path')]
+          seen[fact['path']] = true if source
+          label = source || state['status'] == 'not_admitted' ? 'source not admitted on this page' : 'source unavailable'
+          reason = source ? 'Complete highlighted file exceeds the remaining display allowance.' : state['reason']
+          notice = "<p class=\"notice ui\">#{h(fact.fetch('name'))}: #{h(label)}. #{h(reason)} " +
+            link('Open exact Source', row.fetch('source'), line: fact.dig('location', 'start_line'), path: fact['path']) + '</p>'
+          [row, source, notice]
+        end
+        # Every remaining file keeps its recovery link even if a preceding file
+        # consumes its complete code allowance. No partial file/line prefix wins.
+        reserved = entries.sum { |_, _, notice| notice.bytesize }
+        raise DisplayLimit, 'Source recovery links exceed display allowance' if @body.bytesize + reserved > @max_body_bytes
+        entries.each do |row, source, notice|
+          reserved -= notice.bytesize
+          if source
+            parent, maximum, anchors = @body, @max_body_bytes, @anchors.dup
+            @body = +''
+            @max_body_bytes = maximum - parent.bytesize - reserved
+            begin
+              code(source, row, admitted_rows(source.fetch('fact').fetch('path')))
+              @displayed_paths << source.fetch('fact').fetch('path')
+              file = @body
+            rescue DisplayLimit
+              @anchors = anchors
+              file = notice
+            ensure
+              @body, @max_body_bytes = parent, maximum
+            end
+            append file
+          else
+            append notice
+          end
+        end
+      end
 
       def validate
         raise InvalidProjection, 'Unknown source comprehension format' unless @data['version'] == 1 && @data['composition'] == 'identified_contributions'
@@ -232,7 +296,7 @@ module Thistle
       end
 
       def append(fragment)
-        raise DisplayLimit, 'Source comprehension display allowance exceeded' if @body.bytesize + fragment.bytesize > MAX_BODY_BYTES
+        raise DisplayLimit, 'Source comprehension display allowance exceeded' if @body.bytesize + fragment.bytesize > @max_body_bytes
         @body << fragment
       end
 

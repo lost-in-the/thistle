@@ -5,6 +5,7 @@ require 'json'
 require 'uri'
 require 'digest'
 require_relative 'navigation_context'
+require_relative 'constant_occurrence'
 
 module Thistle
   module Map
@@ -145,7 +146,7 @@ module Thistle
           raise Thistle::InvalidSnapshot, 'Invalid callback physical source line'
         end
         return notice('Supporting Source exceeds this web view byte/line budget; use the Reader Source interface.') if
-          line > MAX_SOURCE_LINES || source.fetch('lines') > MAX_SOURCE_LINES || source.fetch('bytes', 0) > MAX_BYTES
+          line > MAX_SOURCE_LINES || source.fetch('lines') > MAX_SOURCE_LINES || source.fetch('bytes', 0) > ConstantOccurrence::WEB_SOURCE_BYTES
         file = Digest::SHA256.hexdigest(source.fetch('path'))
         target = if @navigation.model_id
                    @navigation.url('/source', { 'id' => nil, 'file' => file }, source_position: [file, line])

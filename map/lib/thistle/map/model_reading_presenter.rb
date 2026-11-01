@@ -22,12 +22,8 @@ module Thistle
           body << link(label, path, { 'id' => id })
         end
         body << '</nav>'
-        body << position_notice
-        body << '<div class="reading-layout"><div class="reading-source">'
-        body << SourceComprehensionPresenter.new(projection: data, sources: @reading.admission.sources,
-          source_states: @reading.admission.states, navigation: @navigation, highlighter: @highlighter,
-          reading: true, continuation_url: method(:continuation)).render
-        body << '</div><aside class="reading-outline" aria-label="Contribution and method outline"><h2>Contributions and methods</h2>'
+        prefix = body + '<div class="reading-layout"><div class="reading-source">'
+        body = +'</div><aside class="reading-outline" aria-label="Contribution and method outline"><h2>Contributions and methods</h2>'
         body << '<p>Each named candidate opens its own physical Source. Multiple candidates remain alternatives.</p><ul>'
         outline(body, data)
         body << '</ul>'
@@ -42,6 +38,15 @@ module Thistle
         end
         body << link('Browse saved methods', '/comprehension/methods', { 'id' => id, 'cursor' => nil })
         body << '</aside></div></section>'
+        # Build the bounded named outline first: code admission uses the actual
+        # remaining page bytes, including a possible missing-position notice.
+        notice = position_notice(displayed_paths: [])
+        available = SourceComprehensionPresenter::MAX_BODY_BYTES - prefix.bytesize - body.bytesize - notice.bytesize
+        presenter = SourceComprehensionPresenter.new(projection: data, sources: @reading.admission.sources,
+          source_states: @reading.admission.states, navigation: @navigation, highlighter: @highlighter,
+          reading: true, continuation_url: method(:continuation), max_body_bytes: available)
+        source = presenter.render
+        body = prefix + position_notice(displayed_paths: presenter.displayed_paths) + source + body
         raise SourceComprehensionPresenter::DisplayLimit, 'Model reading display budget exceeded' if body.bytesize > SourceComprehensionPresenter::MAX_BODY_BYTES
         body
       end
@@ -70,13 +75,13 @@ module Thistle
         "<p><a href=\"#{h(continuation(data.fetch('continuation')))}\">More saved methods</a></p>"
       end
 
-      def position_notice
+      def position_notice(displayed_paths:)
         position = @navigation.source_position
         return '' unless position
         file, line = position
         present = @reading.admission.sources.values.any? do |source|
           content = source.fetch('content')
-          Digest::SHA256.hexdigest(source.dig('fact', 'path')) == file &&
+          displayed_paths.include?(source.dig('fact', 'path')) && Digest::SHA256.hexdigest(source.dig('fact', 'path')) == file &&
             line <= content.count("\n") + (content.end_with?("\n") ? 0 : 1)
         end
         return '' if present
