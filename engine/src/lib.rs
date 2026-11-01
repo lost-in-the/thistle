@@ -9,6 +9,7 @@ mod route_actions;
 mod passage;
 mod controller_filters;
 mod source_comprehension;
+mod source_freshness;
 mod job_mail;
 mod job_mail_source;
 mod erb_template;
@@ -64,6 +65,7 @@ fn request_scratch(request: &Value) -> Result<Option<query::Reservation>> {
         Some("references") => references::Query::parse(request)?.scratch(),
         Some("find_evidence") => query::Query::parse(request)?.scratch()?,
         Some("source_file") => reader(request)?.source_file_scratch(schema::string(request, "file_path")?)?,
+        Some("source_freshness") => { source_freshness::Query::parse(request)?; source_freshness::SCRATCH },
         _ => return Ok(None),
     };
     Ok(Some(query::budget().reserve(bytes)?))
@@ -133,6 +135,7 @@ fn dispatch_inner(request: &Value) -> Result<Value> {
         }
         "find_evidence" => query::search(&*reader(request)?, &query::Query::parse(request)?),
         "source_file" => reader(request)?.source_file(schema::string(request, "file_path")?),
+        "source_freshness" => source_freshness::select(&*reader(request)?, &source_freshness::Query::parse(request)?),
         "source" => reader(request)?.source(schema::string(request, "id")?),
         "links" => reader(request)?.links(schema::string(request, "id")?),
         "model_brief" => model_brief::select(&*reader(request)?, &model_brief::Query::parse(request)?),

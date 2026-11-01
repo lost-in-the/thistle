@@ -78,6 +78,13 @@ module Thistle
       request("source_file", "file_path" => path)
     end
 
+    # Explicit point-in-time comparison with the recorded digest. Never expand
+    # a root here: nil and relative roots must retain their native semantics.
+    def source_freshness(file_path, workspace_root: nil, max_bytes: 2_097_152)
+      request("source_freshness", "file_path" => file_path,
+        "workspace_root" => workspace_root, "max_bytes" => max_bytes)
+    end
+
     def source(id)
       request("source", "id" => id)
     end
