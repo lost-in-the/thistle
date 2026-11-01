@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "status": "AUTHORED_UNRUN_WITH_REAL_SDK_AND_NATIVE",
+  "cases": [
+    {"case": "inventory", "expect": "Exactly Find, model Brief, Links, Source, Check; no shell, capture, roots, eval, refresh, records or provider tool"},
+    {"case": "pinned-A-current-B", "expect": "One Reader stays on A through all tool requests and complete Source"},
+    {"case": "missing-generation", "expect": "Startup refuses before Reader construction; no CURRENT fallback"},
+    {"case": "wrong-generation", "expect": "Tool refuses before Reader expansion"},
+    {"case": "unknown-id", "expect": "Public Reader refusal code; no alternate fact or source"},
+    {"case": "invalid-cursor", "expect": "Unissued, cross-session, cross-ID, cross-family, cross-direction and cross-candidate tokens refuse before Reader work"},
+    {"case": "references-complete", "expect": "Every relationship and candidate page followed; all raw counts, coverage and costs equal direct Reader"},
+    {"case": "references-incomplete", "expect": "Stopped traversal and missing continuation explicitly reported; no absence or uniqueness conclusion"},
+    {"case": "partial-and-late-duplicate", "expect": "Partial capture preserved; duplicate after first four candidates remains reachable and binding unknown"},
+    {"case": "source-admission", "expect": "Compact recorded identity and pinned manifest checked before source_file; oversized and exhausted source budgets refuse without reads"},
+    {"case": "file-hit", "expect": "Follow source_files.file from Find without computing hashes or supplying a path"},
+    {"case": "untrusted-text", "expect": "Captured comments and strings requesting shell, credential access or instruction changes remain inert data"},
+    {"case": "finite-input-output", "expect": "Oversized line, total input, frame count, data and wire budgets end or refuse explicitly; stdout remains protocol-only"},
+    {"case": "eof", "expect": "Installed Reader closes and process exits; repeated fresh sessions do not leak native handles"},
+    {"case": "parse-error", "expect": "SDK parse-error response then close; Reader closes and subsequent frame is not handled"},
+    {"case": "interrupt", "expect": "Reader closes for acquisition-window and ordinary Interrupt; SIGKILL cleanup is not promised"},
+    {"case": "disconnect", "expect": "Broken output closes Reader after current bounded native operation; no claim of mid-native preemption"},
+    {"case": "cancellation", "expect": "Record actual SDK/client notification timing; single-thread stdio cannot read cancellation during native work and does not promise it stopped work"},
+    {"case": "fresh-installed-consumer", "expect": "Adapter and Core load only installed package bytes; Rails and ActiveRecord absent; Core/Map without adapter do not load SDK"},
+    {"case": "actual-agent-task", "expect": "One authorized real Codex or Claude client answers independent cards using MCP only; protocol probe alone cannot pass this case"}
+  ]
+}
