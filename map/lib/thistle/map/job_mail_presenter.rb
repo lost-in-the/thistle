@@ -160,7 +160,12 @@ module Thistle
           body << candidate(item)
         when 'source_evidence'
           evidence = item.fetch('evidence')
-          body << "<h3>#{h(EVIDENCE_LABELS.fetch(evidence.fetch('kind')))}</h3>"
+          if evidence['kind'] == 'policy_declaration'
+            body << "<h3>Declared policy: <code>#{h(policy_signature(evidence))}</code></h3>"
+            body << '<p>Recorded source syntax. Registration association unknown; defaults not captured.</p>'
+          else
+            body << "<h3>#{h(EVIDENCE_LABELS.fetch(evidence.fetch('kind')))}</h3>"
+          end
           body << details(evidence.reject { |key, _| key == 'span' })
           body << "<p>Saved source SHA-256: <code>#{h(item.fetch('sha256'))}</code></p>"
           body << source_links(item.fetch('root'), evidence['span'])
@@ -177,9 +182,37 @@ module Thistle
           check_identity(identity)
           body << "<p>#{h(identity.fetch('kind'))}: #{h(identity.fetch('name'))}</p>"
           body << source_links(identity)
-          body << request_link(item.fetch('request'), 'Inspect this saved candidate')
+          body << request_link(item.fetch('request'), "Inspect saved #{identity.fetch('kind')} #{bounded_text(identity.fetch('name'), 160)}")
         end
         body
+      end
+
+      # Display only the syntax fields supplied by Core. Never decode literals,
+      # infer defaults, or associate declarations with loaded registrations.
+      def policy_signature(evidence)
+        exceptions = evidence['exceptions'].is_a?(Array) ? evidence['exceptions'] : []
+        labels = exceptions.first(4).map { |value| recorded_syntax(value) || '[syntax unavailable]' }
+        labels << '…' if exceptions.length > 4
+        text = bounded_text(evidence['operation'] || '[operation unavailable]')
+        text += ' ' + (labels.empty? ? '[no exception syntax recorded]' : labels.join(', '))
+        options = evidence['options'].is_a?(Hash) ? evidence['options'] : {}
+        %w[wait attempts queue priority jitter report with].each do |key|
+          syntax = recorded_syntax(options[key])
+          text += ", #{key}: #{syntax}" if syntax
+        end
+        text += ' (opaque block)' if evidence['handler'] == 'opaque_block'
+        bounded_text(text)
+      end
+
+      def recorded_syntax(value)
+        return unless value.is_a?(Hash) && value['source'].is_a?(String)
+        text = bounded_text(value['source'])
+        value['truncated'] ? text + '… [truncated]' : text
+      end
+
+      def bounded_text(value, bytes = 512)
+        text = value.to_s
+        text.bytesize > bytes ? text.byteslice(0, bytes).scrub('') + '…' : text
       end
 
       def check_identity(identity)
