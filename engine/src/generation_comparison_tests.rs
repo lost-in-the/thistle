@@ -108,8 +108,15 @@ fn recognized_link_encoding_and_physical_offset_changes_preserve_semantic_relati
         "receiver_location":{"start_byte":13,"end_byte":17,"start_line":1,"end_line":1}}}}]);
     b["facts"][0]["links"]=json!([{"relation":"calls","target":"find","resolution":"unresolved","attributes":{"thistle_call":{
         "version":2,"data":["constant","User",false,false,[13,22,1,1],[13,17,1,1]]}}}]);
+    // Missing schema_version is legacy schema 1: compact v2 is opaque there,
+    // so it must not compare equal to recognized v1 metadata.
     let (_dir,left,right)=readers(&a,&b);
-    assert_eq!(run(&left,&right,request("Order"))["comparison"]["relationships"]["status"],"unchanged");
+    assert_eq!(run(&left,&right,request("Order"))["comparison"]["relationships"]["status"],"changed");
+    for version in [2,3] {
+        a["schema_version"]=json!(version);b["schema_version"]=json!(version);
+        let (_dir,left,right)=readers(&a,&b);
+        assert_eq!(run(&left,&right,request("Order"))["comparison"]["relationships"]["status"],"unchanged");
+    }
     // Schema-3 v2 extension extras must survive, including a key also used by
     // the older v1 contract. They are not heuristically discarded as offsets.
     b["facts"][0]["links"][0]["attributes"]["thistle_call"]["receiver"]=json!("new opaque evidence");

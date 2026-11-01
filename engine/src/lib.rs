@@ -257,7 +257,9 @@ mod tests {
     fn comparison_pair_arcs_survive_closing_both_registry_entries() {
         let dir = tempfile::tempdir().unwrap();
         let capture = json!({"root_id":schema::digest(b"pair-boundary"),
-            "producer":{"name":"public-pair-boundary"},"files":[],"facts":[],"coverage":[],"diagnostics":[]});
+            "producer":{"name":"public-pair-boundary"},"files":[],"facts":[],
+            "coverage":[{"family":"source_inventory","status":"complete","scope":"empty public pair fixture","reason":null},
+                {"family":"ruby_declarations","status":"complete","scope":"empty public pair fixture","reason":null}],"diagnostics":[]});
         let generation = store::publish(dir.path(), &capture).unwrap()["generation"].as_str().unwrap().to_owned();
         let open = json!({"op":"open","path":dir.path(),"generation":generation});
         let left = dispatch(&open).unwrap()["handle"].as_u64().unwrap();
