@@ -38,7 +38,7 @@ module Thistle
       def self.layout_reserve(navigation)
         # Unchanged View layout: brand + five navigation links + collection = 7;
         # form values cost <=2 encoded-query units. Include its cursor and markup.
-        4096 + 9 * url_bytes(navigation) + CURSOR_BYTES
+        4096 + (navigation.model_id ? 10 : 9) * url_bytes(navigation) + CURSOR_BYTES
       end
 
       def self.row_links(family, direction)
@@ -111,7 +111,12 @@ module Thistle
         root = @answer.fetch('root')
         body = "<section class=\"model-neighborhood\"><h1 class=\"t1\">#{h(root.fetch('name'))}: model neighborhood</h1>"
         body << controls
-        body << "<p>Saved model #{h(@id)} · Table #{value(@answer.dig('model', 'table'))} · Primary key #{value(@answer.dig('model', 'primary_key'))}. Generation #{h(@generation)}.</p>"
+        if @navigation.model_id
+          body << "<p>Table #{value(@answer.dig('model', 'table'))} · Primary key #{value(@answer.dig('model', 'primary_key'))}.</p>"
+          body << "<details><summary>Saved model identity</summary><p>#{h(@id)} · Generation #{h(@generation)}</p></details>"
+        else
+          body << "<p>Saved model #{h(@id)} · Table #{value(@answer.dig('model', 'table'))} · Primary key #{value(@answer.dig('model', 'primary_key'))}. Generation #{h(@generation)}.</p>"
+        end
         if @family == 'edges'
           body << "<p>Showing: #{h(@direction.capitalize)} · #{h(type_label(@type))}.</p>"
           body << unavailable('associations', 'Selected model association')

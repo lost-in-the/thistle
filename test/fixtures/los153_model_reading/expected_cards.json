@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "framework": "8.1.4",
+  "model": "Order",
+  "question_before_hints": "I want to change how an Order schedules its receipt. Where is that behavior declared, what contributes it, and which model data/relationships should I check?",
+  "cards": [
+    {
+      "question": "Where would you change the receipt scheduling registration or its guard?",
+      "owner": "Order",
+      "path": "app/models/order.rb",
+      "line": 6,
+      "source_contains": "after_save :schedule_receipt, if: :receipt_due?",
+      "evidence": "As-written registration; a separate saved Rails save-chain observation names schedule_receipt and its condition.",
+      "unknowns": "This registration is not proof that a save, condition or callback ran; source/runtime binding remains unknown."
+    },
+    {
+      "question": "Where would you change the contributed scheduling body, and who supplies it?",
+      "owner": "ReceiptPolicy",
+      "method": "ReceiptPolicy#schedule_receipt",
+      "path": "app/models/concerns/receipt_policy.rb",
+      "line": 5,
+      "source_contains": "def schedule_receipt",
+      "evidence": "Physical concern method; captured loaded-class ownership observes the contribution. The next line contains ReceiptJob.perform_later(id).",
+      "unknowns": "ReceiptJob is deliberately not defined or captured. Invocation, enqueue, worker behavior and delivery remain unknown."
+    },
+    {
+      "question": "What does the guard read, and where can you check the model declarations?",
+      "owner": "Order",
+      "method": "Order#receipt_due?",
+      "path": "app/models/order.rb",
+      "line": 8,
+      "source_contains": "def receipt_due?",
+      "next_line": "receipt_enabled && user_id.present?",
+      "columns": { "receipt_enabled": "boolean", "user_id": "integer", "receipt_state": "string" },
+      "associations": { "user": ["belongs_to", "User"], "line_items": ["has_many", "LineItem"] },
+      "evidence": "Saved typed columns and Rails association declarations; raw defaults are compared with the producer's post-A adapter oracle, not cast values.",
+      "unknowns": "The person may read the condition in Source; Map must not evaluate it. Physical FK/index/ON DELETE inventory was not recorded."
+    }
+  ],
+  "recipient_question": "You have received a saved Order reading URL. Without shell commands, identify the concern method and the registration you would edit, then return from exact Source to the same saved model evidence. What is still unknown about receipt delivery?",
+  "scope": "Handwritten fixture oracles independent of UI; not Woods parity, human acceptance, measured performance or launch qualification."
+}

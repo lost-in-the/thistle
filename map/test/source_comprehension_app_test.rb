@@ -71,8 +71,8 @@ class SourceComprehensionAppTest < Minitest::Test
     reader = ComprehensionReader.new
     status, _, html = request(make_app(reader), '/source', query: query)
     assert_equal 200, status
-    assert_equal [:identity, :comprehension, :source], reader.calls.map(&:first)
-    assert_includes html, 'Model source comprehension'
+    assert_equal [:identity, :comprehension, :comprehension, :source], reader.calls.map(&:first)
+    assert_includes html, 'aria-label="Model reading"'
   end
 
   def test_bad_scope_access_method_and_query_are_refused_before_reader_factory

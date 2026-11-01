@@ -2,6 +2,7 @@
 
 require 'erb'
 require 'digest'
+require 'json'
 
 module Thistle
   module Map
@@ -32,10 +33,11 @@ module Thistle
       # continuations require an explicitly supplied Root route adapter.
       # sources are independently admitted Reader.source responses; nil means no
       # source was admitted, never an empty source file. No Reader calls here.
-      def initialize(projection:, sources:, navigation:, highlighter:, continuation_url: nil, source_states: {})
+      def initialize(projection:, sources:, navigation:, highlighter:, continuation_url: nil, source_states: {}, reading: false)
         @data, @sources, @navigation, @highlighter = projection, sources, navigation, highlighter
         @continuation_url = continuation_url
         @source_states = source_states
+        @reading = reading
       end
 
       def render
@@ -43,9 +45,11 @@ module Thistle
         @body = +''
         @anchors = {}
         append '<section aria-label="Model source comprehension">'
-        append "<h2 class=\"t2\">Read #{h(@data.fetch('owner'))}</h2>"
-        append '<p class="notice ui">Identified contributions. Loaded ownership and saved definitions are separate evidence; source/runtime coherence is unknown.</p>'
-        append '<p class="ui">Each code block retains its captured path and physical lines. These blocks are not a concatenated effective runtime class.</p>'
+        unless @reading
+          append "<h2 class=\"t2\">Read #{h(@data.fetch('owner'))}</h2>"
+          append '<p class="notice ui">Identified contributions. Loaded ownership and saved definitions are separate evidence; source/runtime coherence is unknown.</p>'
+          append '<p class="ui">Each code block retains its captured path and physical lines. These blocks are not a concatenated effective runtime class.</p>'
+        end
         rendered = {}
         @data.fetch('contributions').each do |contribution|
           fact = contribution.fetch('fact')
@@ -59,7 +63,7 @@ module Thistle
           else
             label = state['status'] == 'not_admitted' ? 'source not admitted on this page' : 'source unavailable'
             append "<p class=\"notice ui\">#{h(fact.fetch('name'))}: #{h(label)}. #{h(state['reason'])} "
-            append link('Open exact Source', contribution.fetch('source')) + '</p>'
+            append link('Open exact Source', contribution.fetch('source'), line: fact.dig('location', 'start_line'), path: fact['path']) + '</p>'
           end
         end
         append '<p>No saved definitions returned on this page. This does not prove behavior is absent.</p>' if @data.fetch('contributions').empty?
@@ -67,7 +71,7 @@ module Thistle
           status = method.fetch('status', 'no_saved_definition_candidate')
           append "<p class=\"notice ui\">#{h(method.fetch('name'))}: observed method; #{h(ROW_LABELS.fetch(status).downcase)}. Source unavailable; source/runtime coherence unknown.</p>"
         end
-        outline
+        outline unless @reading
         context
         append '</section>'
         @body
@@ -143,7 +147,10 @@ module Thistle
         content = source.fetch('content')
         display_lines = content.count("\n") + (content.end_with?("\n") ? 0 : 1)
         append "<h3 class=\"t3\">#{h(fact.fetch('path'))}</h3>"
-        append "<p class=\"ui\">Captured file · #{link('Exact Source', contribution.fetch('source'))}</p>"
+        if @reading
+          rows.each { |row| append "<p class=\"ui\">#{h(row.fetch('fact').fetch('name'))} · #{h(LABELS.fetch(row.fetch('status')))}; runtime binding unknown.</p>" }
+        end
+        append "<p class=\"ui\">Captured file · #{link('Exact Source', contribution.fetch('source'), line: fact.dig('location', 'start_line'), path: fact['path'])}</p>"
         append "<div class=\"cvwrap\" role=\"region\" tabindex=\"0\" aria-label=\"Captured source #{h(fact.fetch('path'))}\"><div class=\"cv codeview\">"
         spans = rows.map do |row|
           physical = row.fetch('fact')
@@ -162,10 +169,11 @@ module Thistle
           # One extra anchor per shared contribution at its actual physical start;
           # the representative file still has exactly one numbered row per line.
           extra = spans.filter_map { |from, _, id| "<span id=\"#{h(@anchors.fetch(id))}\"></span>" if from == number && id != fact.fetch('id') }.join
+          extra << "<span id=\"reading-file-#{Digest::SHA256.hexdigest(fact.fetch('path'))}-L#{number}\"></span>" if @reading
           append "<div class=\"source-row#{selected ? ' selected' : ''}\" id=\"#{h(anchor)}\">#{extra}<a class=\"ln\" href=\"##{h(anchor)}\" aria-label=\"Line #{number}\">#{number}</a><code class=\"src\">#{line}</code></div>"
         end
         append '</div></div>'
-        append "<p class=\"digest\">Captured source SHA-256: #{h(source.fetch('sha256'))}</p>"
+        append "<details><summary>Captured source identity</summary><p class=\"digest\">Captured source SHA-256: #{h(source.fetch('sha256'))}</p></details>"
       end
 
       def context
@@ -182,6 +190,10 @@ module Thistle
         append '</ol>'
         coverage = @data.fetch('coverage')
         append "<p>#{h(coverage.fetch('returned'))} saved candidates shown; #{h(coverage.fetch('candidate_matches_seen'))} matches witnessed. Range complete: #{h(coverage.fetch('range_complete'))}. #{h(coverage.fetch('scope'))}.</p>"
+        if @reading
+          identities = { 'ownership_evidence_ids' => @data['ownership_evidence_ids'], 'facts' => @data.fetch('contributions').map { |row| row.fetch('fact') } }
+          append "<pre class=\"check-data\">#{h(JSON.generate(identities))}</pre>"
+        end
         append '</details>'
         if @data['continuation'] && @continuation_url
           validate_selector(@data['continuation'])
@@ -196,10 +208,15 @@ module Thistle
         # View after the code surface. Their facts are never re-derived here.
       end
 
-      def link(label, selector, line: nil)
+      def link(label, selector, line: nil, path: nil)
         operation = selector.fetch('operation')
         href = case operation
-        when 'source' then @navigation.url('/source', { 'id' => selector.fetch('id') })
+        when 'source'
+          if @reading && path && line && line <= 10_000
+            @navigation.url('/source', { 'id' => selector.fetch('id') }, source_position: [Digest::SHA256.hexdigest(path), line])
+          else
+            @navigation.url('/source', { 'id' => selector.fetch('id') })
+          end
         when 'references' then @navigation.url('/links', { 'id' => selector.fetch('id'), 'direction' => selector.fetch('direction') })
         else raise InvalidProjection, 'Unknown witness route'
         end

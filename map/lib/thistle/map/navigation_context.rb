@@ -17,9 +17,18 @@ module Thistle
       MAX_FIELDS = 9
       MAX_CURSOR_BYTES = 512
       NEIGHBORHOOD_ROUTE = %r{\A/model-neighborhood/(edges|columns|database|candidates)/(incoming|outgoing)/(all|association|reference)\z}.freeze
-      attr_reader :search_omitted
+      MODEL_ROUTE = %r{\A/models/(?<model>[0-9a-f]{64})(?:/from/(?<family>contributions|methods)/(?<return_cursor>first|(?:[0-9a-f]{2}){1,512}))?(?:/at/(?<file>[0-9a-f]{64})/(?<line>[1-9][0-9]{0,4}))?(?<page>/.*)\z}.freeze
+      MODEL_PAGES = %w[/source /links /check /comprehension/contributions /comprehension/methods /brief/columns /brief/associations /brief/registry_candidates /model-callbacks].freeze
+      attr_reader :search_omitted, :model_id, :source_position, :reading_family, :reading_cursor
 
-      def initialize(generation:, mount: '', params: {}, selection: nil)
+      def initialize(generation:, mount: '', params: {}, selection: nil, model_id: nil, source_position: nil, reading_family: 'contributions', reading_cursor: nil)
+        raise Investigation::Invalid, 'Invalid model reading identity.' if model_id && !Investigation::DIGEST.match?(model_id)
+        @model_id = model_id
+        @source_position = source_position
+        validate_position!(source_position) if source_position
+        @reading_family, @reading_cursor = reading_family, reading_cursor
+        raise Investigation::Invalid, 'Invalid model reading family.' unless COMPREHENSION_FAMILIES.include?(reading_family)
+        self.class.validate_cursor!(reading_cursor, generation: generation, scope: ['source_comprehension', model_id, reading_family]) if reading_cursor
         @generation, @mount, @selection = generation, mount, selection
         @current = params.slice('id', 'file', 'path', 'direction', 'page', 'cursor', 'candidate', 'action')
         @search = params.slice(*SEARCH_FIELDS)
@@ -30,7 +39,8 @@ module Thistle
         @search_omitted = false
       end
 
-      def url(path, extra = {}, selection: @selection, **destination)
+      def url(path, extra = {}, selection: @selection, source_position: @source_position, **destination)
+        validate_position!(source_position) if source_position
         if path.start_with?('/model-neighborhood/') && !NEIGHBORHOOD_ROUTE.match?(path)
           raise Investigation::Invalid, 'Unknown model neighborhood route.'
         end
@@ -72,7 +82,7 @@ module Thistle
                       when '/comprehension/contributions', '/comprehension/methods' then controls.slice('id', 'cursor')
                       when %r{\A/job-mail/(?:overview|registrations|declarations|policy|handoff|template_references)\z} then controls.slice('id', 'cursor')
                       when '/references/incoming', '/references/outgoing' then controls.slice('id', 'cursor', 'candidate')
-                      when '/check' then controls.slice('id')
+                      when '/check', '/model-callbacks' then controls.slice('id')
                       else {}
                       end.compact
         # A new anchor/direction starts at the first page unless explicitly set.
@@ -94,7 +104,25 @@ module Thistle
         end
         raise Investigation::Limit, 'Navigation exceeds the URL budget; no selections were removed.' if query.bytesize > Investigation::MAX_QUERY_BYTES || count > MAX_FIELDS
 
-        "#{@mount}#{path}?#{query}"
+        prefix = @model_id && self.class.model_page?(path) ? "/models/#{@model_id}" : ''
+        family, cursor = @reading_family, @reading_cursor
+        if COMPREHENSION_FAMILIES.any? { |name| path == "/comprehension/#{name}" } && destination['id'] == @model_id
+          family, cursor = path.delete_prefix('/comprehension/'), destination['cursor']
+        end
+        if !prefix.empty? && (family != 'contributions' || cursor)
+          token = cursor ? cursor.unpack1('H*') : 'first'
+          prefix += "/from/#{family}/#{token}"
+        end
+        prefix += "/at/#{source_position[0]}/#{source_position[1]}" if !prefix.empty? && source_position
+        "#{@mount}#{prefix}#{path}?#{query}"
+      end
+
+      def reading_url
+        url("/comprehension/#{@reading_family}", 'id' => @model_id, 'cursor' => @reading_cursor)
+      end
+
+      def self.model_page?(path)
+        MODEL_PAGES.include?(path) || NEIGHBORHOOD_ROUTE.match?(path) || %w[/references/incoming /references/outgoing].include?(path)
       end
 
       # Bound a repeated row href without constructing URLs or consulting saved
@@ -102,11 +130,21 @@ module Thistle
       # cursors are covered by the presenter's separate non-row reserve.
       def reference_url_bytes
         query = [Investigation::MAX_QUERY_BYTES, @state.bytesize + @search_query.bytesize + 96].min
-        @mount.bytesize * 6 + 32 + query + MAX_FIELDS * 4
+        context = @model_id ? 8 + 64 : 0
+        context += 7 + @reading_family.bytesize + 1 + (@reading_cursor ? @reading_cursor.bytesize * 2 : 5) if @model_id && (@reading_family != 'contributions' || @reading_cursor)
+        context += 4 + 64 + 1 + 5 if @model_id && @source_position
+        @mount.bytesize * 6 + context + 32 + query + MAX_FIELDS * 4
       end
 
       # Route names carry family/direction so continuation still fits nine fields.
       def self.continuation(path, params)
+        if path == '/model-callbacks'
+          unless (params.keys - (%w[generation id selection] + SEARCH_FIELDS)).empty? &&
+              %w[generation id].all? { |key| Investigation::DIGEST.match?(params[key].to_s) }
+            raise Investigation::Invalid, 'Registered callbacks require an exact saved generation and registry.'
+          end
+          return { model_callbacks: true }
+        end
         return nil unless path == '/route-actions' || path.start_with?('/brief/', '/references/', '/comprehension/', '/job-mail/', '/passage/', '/model-neighborhood/')
         if path.start_with?('/model-neighborhood/')
           match = NEIGHBORHOOD_ROUTE.match(path)
@@ -200,6 +238,13 @@ module Thistle
       end
 
       private
+
+      def validate_position!(position)
+        unless position.is_a?(Array) && position.length == 2 && Investigation::DIGEST.match?(position[0].to_s) &&
+            position[1].is_a?(Integer) && position[1].between?(1, 10_000)
+          raise Investigation::Invalid, 'Invalid model reading source position.'
+        end
+      end
 
       def state(selection)
         if selection && (!selection.instance_of?(Investigation) || selection.generation != @generation)
