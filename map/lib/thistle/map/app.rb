@@ -53,6 +53,7 @@ module Thistle
         continuation_path ||= path.start_with?('/job-mail/') && NavigationContext::JOB_MAIL_FAMILIES.include?(path.delete_prefix('/job-mail/'))
         continuation_path ||= path == '/route-actions'
         continuation_path ||= %w[/passage/sequence /passage/export].include?(path)
+        continuation_path ||= NavigationContext::NEIGHBORHOOD_ROUTE.match?(path)
         return finish(env, 404, 'This page does not exist.') unless continuation_path || %w[/ /source /links /check /investigation].include?(path)
 
         mount = mount_path(env)
@@ -93,7 +94,9 @@ module Thistle
         selection ||= Investigation.new(generation: reader.generation)
         view = View.new(reader: reader, mount: mount, params: params, selection: selection, path: path)
         content = if continuation
-                    if continuation[:passage]
+                    if continuation[:neighborhood]
+                      view.model_neighborhood_page(**continuation[:neighborhood])
+                    elsif continuation[:passage]
                       view.passage_page(continuation[:passage])
                     elsif continuation[:route_actions]
                       view.route_actions_page

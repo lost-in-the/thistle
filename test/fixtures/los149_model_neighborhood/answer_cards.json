@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "framework": "8.1.4",
+  "root": "Order",
+  "associations": {
+    "user": ["belongs_to", "User"],
+    "items": ["has_many", "Item"],
+    "item_users": ["has_many", "User"],
+    "owner": ["has_one", "User"],
+    "subject": ["belongs_to", null],
+    "ghosts": ["has_many", "NotLoadedGhost"],
+    "reviewers": ["has_many", "User"],
+    "editors": ["has_many", "User"],
+    "approvers": ["has_many", "User"],
+    "watchers": ["has_many", "User"],
+    "admins": ["has_many", "Admin::User"],
+    "attachments": ["has_many", "Attachment"]
+  },
+  "cycle": [["Order", "items", "Item"], ["Item", "order", "Order"]],
+  "raw_default_policy": "Compare to independent producer raw Order.columns values without typecasting; SQLite may record string 0 rather than boolean false or integer 0.",
+  "native_presenter_only_default_tags": ["literal:false", "literal:0", "literal:empty", "literal:null", "expression", "opaque", "missing-presenter-only"],
+  "user_declaration_site_minimum": 6,
+  "user_runtime_class_count": 1,
+  "candidate_count_unit": "saved_representations_not_distinct_model_definitions",
+  "unavailable": ["default_clause_presence", "physical_foreign_keys", "indexes", "database_on_delete", "binding", "execution"],
+  "source_marker_a": "saved_a",
+  "source_marker_b": "saved_b"
+}

@@ -16,6 +16,7 @@ module Thistle
       JOB_MAIL_FAMILIES = %w[overview registrations declarations policy handoff template_references].freeze
       MAX_FIELDS = 9
       MAX_CURSOR_BYTES = 512
+      NEIGHBORHOOD_ROUTE = %r{\A/model-neighborhood/(edges|columns|database|candidates)/(incoming|outgoing)/(all|association|reference)\z}.freeze
       attr_reader :search_omitted
 
       def initialize(generation:, mount: '', params: {}, selection: nil)
@@ -30,6 +31,9 @@ module Thistle
       end
 
       def url(path, extra = {}, selection: @selection, **destination)
+        if path.start_with?('/model-neighborhood/') && !NEIGHBORHOOD_ROUTE.match?(path)
+          raise Investigation::Invalid, 'Unknown model neighborhood route.'
+        end
         if path.start_with?('/job-mail/') && !JOB_MAIL_FAMILIES.include?(path.delete_prefix('/job-mail/'))
           raise Investigation::Invalid, 'Unknown job/mail route.'
         end
@@ -61,6 +65,9 @@ module Thistle
                       when '/links' then controls.slice('id', 'direction', 'page')
                       when '/route-actions' then controls.slice('id', 'cursor')
                       when '/passage/sequence', '/passage/export' then controls.slice('id', 'action', 'cursor')
+                       when NEIGHBORHOOD_ROUTE
+                         fields = path.include?('/candidates/') ? %w[id candidate cursor] : %w[id cursor]
+                         controls.slice(*fields)
                       when %r{\A/brief/(?:columns|associations|registry_candidates)\z} then controls.slice('id', 'cursor')
                       when '/comprehension/contributions', '/comprehension/methods' then controls.slice('id', 'cursor')
                       when %r{\A/job-mail/(?:overview|registrations|declarations|policy|handoff|template_references)\z} then controls.slice('id', 'cursor')
@@ -100,7 +107,27 @@ module Thistle
 
       # Route names carry family/direction so continuation still fits nine fields.
       def self.continuation(path, params)
-        return nil unless path == '/route-actions' || path.start_with?('/brief/', '/references/', '/comprehension/', '/job-mail/', '/passage/')
+        return nil unless path == '/route-actions' || path.start_with?('/brief/', '/references/', '/comprehension/', '/job-mail/', '/passage/', '/model-neighborhood/')
+        if path.start_with?('/model-neighborhood/')
+          match = NEIGHBORHOOD_ROUTE.match(path)
+          unless match && (params.keys - (%w[generation id selection cursor candidate] + SEARCH_FIELDS)).empty? &&
+              %w[generation id].all? { |key| Investigation::DIGEST.match?(params[key].to_s) }
+            raise Investigation::Invalid, 'Model neighborhood requires exact saved generation, model and destination fields.'
+          end
+          family, direction, type = match.captures
+          if %w[columns database].include?(family) && [direction, type] != %w[outgoing all]
+            raise Investigation::Invalid, 'Schema families require outgoing/all scope.'
+          end
+          candidate = params['candidate']
+          if (family == 'candidates') != !candidate.nil? ||
+              (family == 'candidates' && (direction != 'outgoing' || !/\A[ar]:(?:0|[1-9][0-9]{0,5})\z/.match?(candidate) ||
+                type == 'reference' && candidate.start_with?('a:')))
+            raise Investigation::Invalid, 'Invalid model neighborhood candidate scope.'
+          end
+          scope = ['model_neighborhood', params['id'], family, direction, type, candidate]
+          validate_cursor!(params['cursor'], generation: params['generation'], scope: scope) if params.key?('cursor')
+          return { neighborhood: { family: family, direction: direction, type: type, candidate: candidate } }
+        end
         if path.start_with?('/passage/')
           family = path.delete_prefix('/passage/')
           unless %w[sequence export].include?(family) && (params.keys - (%w[generation id action selection cursor] + SEARCH_FIELDS)).empty? &&

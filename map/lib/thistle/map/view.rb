@@ -16,6 +16,7 @@ require_relative 'source_comprehension_sources'
 require_relative 'job_mail_presenter'
 require_relative 'route_actions_presenter'
 require_relative 'passage_presenter'
+require_relative 'model_neighborhood_presenter'
 
 module Thistle
   module Map
@@ -180,6 +181,7 @@ module Thistle
         continuation_url.call(result['continuation']) if result['continuation']
         admission = SourceComprehensionSources.new(reader: @reader, generation: @generation).call(result.fetch('contributions'))
         body = "<h1 class=\"t1\">#{h(root.fetch('name'))}</h1>" + comprehension_navigation(id)
+        body << model_neighborhood_navigation(root) if root['kind'] == 'rails_model'
         body << SourceComprehensionPresenter.new(projection: result, sources: admission.sources, source_states: admission.states,
           navigation: @navigation, highlighter: Highlighter.method(:lines), continuation_url: continuation_url).render
         # Supporting families remain explicit progressive actions. Do not query
@@ -199,6 +201,31 @@ module Thistle
         content
       rescue SourceComprehensionPresenter::InvalidProjection => error
         raise Thistle::InvalidSnapshot, error.message
+      end
+
+      def model_neighborhood_page(family:, direction:, type:, candidate: nil)
+        raise Limit, 'Saved model neighborhood is unavailable with this Reader.' unless @reader.respond_to?(:model_neighborhood)
+
+        limit = ModelNeighborhoodPresenter.page_limit(@navigation)
+        max_bytes = ModelNeighborhoodPresenter.request_bytes(@navigation, limit)
+        result = @reader.model_neighborhood(@params.fetch('id'), family: family, direction: direction,
+          type: type, candidate: candidate, cursor: @params['cursor'], limit: limit, max_bytes: max_bytes)
+        presenter = ModelNeighborhoodPresenter.new(result, navigation: @navigation, generation: @generation,
+          id: @params.fetch('id'), family: family, direction: direction, type: type, candidate: candidate,
+          cursor: @params['cursor'], limit: limit, max_bytes: max_bytes)
+        content = layout('Model neighborhood', presenter.render, fact: result.fetch('root'))
+        raise Limit, 'Model neighborhood page exceeds its display budget.' if content.bytesize > ModelNeighborhoodPresenter::MAX_BODY_BYTES
+
+        content
+      end
+
+      def model_neighborhood_navigation(fact)
+        return '' unless fact['kind'] == 'rails_model' && @reader.respond_to?(:model_neighborhood)
+
+        '<nav aria-label="Saved model schema and neighborhood"><p>' +
+          { 'edges' => 'Model neighborhood', 'columns' => 'Columns', 'database' => 'Database facts' }.map do |family, label|
+            "<a href=\"#{h(url("/model-neighborhood/#{family}/outgoing/all", 'id' => fact.fetch('id'), 'cursor' => nil))}\">#{label}</a>"
+          end.join(' · ') + '</p></nav>'
       end
 
       def investigation
@@ -652,6 +679,7 @@ module Thistle
         end.join + '</div>'
         identity += job_mail_navigation(fact)
         identity += route_actions_navigation(fact)
+        identity += model_neighborhood_navigation(fact)
         return identity + '<p class="notice ui">Detailed fact evidence was not loaded for this incoming view. Open Source or Outgoing references to inspect it.</p>' unless details
 
         identity + model_brief(fact) + ModelPresenter.render(fact) +
