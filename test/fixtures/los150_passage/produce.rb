@@ -19,6 +19,10 @@ Dir.mkdir(work, 0700)
 root = File.join(work, 'app_source')
 Dir.mkdir(root, 0700)
 FileUtils.cp_r(File.join(__dir__, 'app'), root)
+# Rails' Active Record railtie reads this before the explicit connection below.
+# This new public fixture directory owns only an ephemeral in-memory database.
+FileUtils.mkdir_p(File.join(root, 'config'))
+File.write(File.join(root, 'config/database.yml'), "#{Rails.env}:\n  adapter: sqlite3\n  database: ':memory:'\n")
 class PassageFixtureApp < Rails::Application
   config.eager_load = false
   config.secret_key_base = 'public-fixture-only-not-a-real-secret'
