@@ -42,28 +42,38 @@ An optional `reader_factory` is a trusted adapter, not a sandbox. It must preser
 
 Source, labels and query text are escaped. A strict self-only script/style policy, no inline script, no-referrer and no-store headers apply. Only GET and HEAD are accepted. There is no filesystem path endpoint, command execution endpoint or mutation endpoint.
 
-For saved model/class comprehension, Source reading links open
-`/comprehension/contributions` or `/comprehension/methods`. Code comes before the
-owner outline and progressive schema/association/callback/reference follow-ups.
-The routes retain generation/search/investigation through the shared navigation
-authority. They show identified contributions, not a concatenated effective runtime
-class; duplicate definitions, precedence and source/runtime binding can remain
-unknown. Runtime-model Source uses this surface when the capture includes the
-optional explicit loaded-class ownership family; default captures are unchanged.
+## One coherent model reading
 
-Each page requests up to eight Core row/candidate slots with a 32 KiB response
-limit. Empty/generated/unknown rows cost one slot; duplicate candidates each cost
-one. A compact outline and Core continuation retain the exact suffix. Anonymous
-or repeated owner labels stay unknown without blocking later owners. Selected
-files reserve a total of 64 KiB before deduplicated reads, then validate exact
-identity/digest/bytes and at most 2000 aggregate display lines before highlighting.
-An over-line file is wholly not admitted; missing source is a separate state.
-Shared-file contributions use one code block with their span highlights and
-physical in-page anchors, plus exact Source follow-ups.
-These and the finite HTML body limit are display controls, not RSS or complete
-native heap bounds. See the [source comprehension contract](docs/source-comprehension.md).
-Native, installed/served, independent task and person acceptance for this new
-journey remains pending; source wiring and pure checks do not qualify it.
+For a saved model with explicit loaded source ownership, Source shows full
+admitted physical source and a concise named contribution/method outline.
+Columns, Associations and registered callbacks are progressive evidence choices.
+Selecting a callback registry shows actual registered names, conditions, owners
+and qualified Source witnesses. Registration position is not execution chronology.
+Candidates stay distinct; Map does not concatenate an effective class or guess
+runtime binding. Default captures without this observation retain their existing
+Source behavior.
+
+Validated model-context routes retain generation, query and full ordered
+selection. Return links also retain the selected comprehension family/cursor and
+supported physical file/line position. A position outside the admitted reading
+page produces a notice and exact Source recovery. The search input remains
+visible while secondary filters and diagnostics can collapse. No empty annotation
+track competes with source text.
+
+The initial canonical page makes two comprehension queries (contributions and
+methods, each eight row/candidate slots and 32 KiB), then at most eight unique
+source reads admitted under 64 KiB/2000 aggregate lines before highlighting.
+Continuation and selected evidence pages query their own bounded family. Exact
+Source keeps its separate 256 KiB/10,000-line ceiling. Files are shown in full or
+explicitly not admitted, with physical Source recovery; duplicate paths are not
+read or highlighted again within the page. Reader open, lazy directories,
+callback internals, highlighting and repeated GETs still add work and allocations.
+These controls do not establish native heap bounds or task performance.
+
+See [model reading](docs/model-reading.md) and the underlying
+[source comprehension contract](docs/source-comprehension.md). This presentation's
+installed, served, browser and person gates remain pending; pure source checks do
+not qualify the journey or complete the broader replacement contract.
 
 ## Saved job, mailer and template investigation
 
