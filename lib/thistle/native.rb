@@ -9,7 +9,8 @@ module Thistle
     ERROR_TYPES = {
       "invalid_input" => InvalidInput, "invalid_snapshot" => InvalidSnapshot,
       "not_found" => NotFound, "unsafe_path" => UnsafePath,
-      "limit_exceeded" => LimitExceeded, "unsupported_platform" => UnsupportedPlatform
+      "limit_exceeded" => LimitExceeded, "unsupported_platform" => UnsupportedPlatform,
+      "busy" => Busy
     }.freeze
 
     def self.path(value)

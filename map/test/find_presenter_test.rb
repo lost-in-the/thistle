@@ -4,6 +4,35 @@ require 'minitest/autorun'
 require_relative '../lib/thistle/map/find_presenter'
 
 class FindPresenterTest < Minitest::Test
+  def test_selection_survives_search_context_omission_and_file_anchor_navigation
+    generation = 'a' * 64
+    selection = Thistle::Map::Investigation.new(generation: generation, ids: ['b' * 64, 'c' * 64])
+    presenter = Thistle::Map::FindPresenter.new(generation: generation, mount: '/map', selection: selection,
+      search: { 'q' => 'needle', 'prefix' => 'x' * 4000, 'selection' => 'untrusted' })
+    rows = [
+      { 'origin' => 'metadata', 'name' => 'Fact', 'fact_id' => 'd' * 64 },
+      { 'origin' => 'source', 'path' => 'lib/fact.rb', 'span' => { 'start_line' => 3 } }
+    ]
+    html = presenter.render('generation' => generation, 'status' => 'complete', 'truncated' => false, 'results' => rows)
+    hrefs = html.scan(/data-result-link href="([^"]+)"/).flatten.map { |href| URI.parse(href.gsub('&amp;', '&')) }
+    hrefs.each do |href|
+      params = URI.decode_www_form(href.query).to_h
+      assert_equal generation, params['generation']
+      assert_equal selection.ids.join(','), params['selection']
+      refute params.key?('q')
+      refute params.key?('prefix')
+      assert_operator href.query.bytesize, :<=, 4096
+    end
+    assert_equal 'd' * 64, URI.decode_www_form(hrefs.first.query).to_h['id']
+    assert_equal 'L3', hrefs.last.fragment
+    assert_equal Thistle::Map::FindPresenter.file_reference('lib/fact.rb'), URI.decode_www_form(hrefs.last.query).to_h['file']
+    assert_includes html, 'Search context exceeds the link budget'
+    refute_includes html, 'untrusted'
+    assert_raises(ArgumentError) do
+      Thistle::Map::FindPresenter.new(generation: 'e' * 64, selection: selection)
+    end
+  end
+
   def test_model_entry_and_capture_coverage_are_explicit_and_escaped
     presenter = Thistle::Map::FindPresenter.new(generation: 'old')
     families = { 'inventory' => 'partial', 'columns' => { 'observed' => 1, 'unavailable' => 1, 'unknown' => 0 },

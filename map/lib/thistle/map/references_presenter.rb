@@ -3,19 +3,36 @@
 require 'erb'
 require 'uri'
 require_relative 'constant_occurrence'
+require_relative 'navigation_context'
 
 module Thistle
   module Map
     # Selection, ambiguity and limits belong to the native pinned Reader.
     class ReferencesPresenter
-      def initialize(generation:, mount:, schema_version: nil, files: [])
+      MAX_OUTPUT_BYTES = 262_144
+      # Reserve text, section chrome and the next-page link separately from
+      # repeated row URLs. Large labels still face the final rendered cap.
+      NON_URL_RESERVE = 65_536
+      MAX_ROW_HREFS = 12 # origin, occurrence, four candidates and a follow-up
+
+      def self.page_limit(navigation, maximum:, candidate: false)
+        hrefs = candidate ? 2 : MAX_ROW_HREFS
+        fit = (MAX_OUTPUT_BYTES - NON_URL_RESERVE) / (hrefs * navigation.reference_url_bytes)
+        [[fit, 1].max, maximum].min
+      end
+
+      def initialize(generation:, mount:, schema_version: nil, files: [], navigation: nil)
         @generation, @mount = generation, mount
         @files = files
-        @occurrences = ConstantOccurrence.new(generation: generation, mount: mount, schema_version: schema_version)
+        @navigation = navigation || NavigationContext.new(generation: generation, mount: mount)
+        @occurrences = ConstantOccurrence.new(generation: generation, mount: mount, schema_version: schema_version, navigation: @navigation)
       end
 
       def render(result)
         raise Thistle::InvalidSnapshot, 'References substituted a different generation' unless result.fetch('generation') == @generation
+        return candidate_page(result) if result.key?('candidate_link')
+
+        raise Investigation::Limit, 'Reference page exceeds the row budget.' if result.fetch('relationships').length > 50
 
         coverage = result.fetch('coverage')
         body = +'<section aria-label="Recorded references"><h2 class="t2">Recorded references</h2>'
@@ -49,13 +66,54 @@ module Thistle
           body << 'Additional candidates not searched. ' unless row.fetch('candidate_search_complete')
           body << 'Some known candidates omitted. ' if row.fetch('candidate_matches') > candidates.length
           body << 'No supported candidate to follow. ' if candidates.empty?
+          raise Investigation::Limit, 'Reference row exceeds its candidate budget.' if candidates.length > 4
           body << candidates.map { |candidate| "#{navigation(candidate)} · #{source(candidate)}" }.join('; ')
+          if (followup = row['candidate_followup']) && row.fetch('candidate_matches') > candidates.length
+            unless followup['generation'] == @generation && followup['id'] == origin['id'] && followup['candidate_link'].instance_of?(Integer) && followup['candidate_link'] >= 0
+              raise Thistle::InvalidSnapshot, 'Invalid candidate continuation'
+            end
+            target = @navigation.url('/references/outgoing', 'id' => origin['id'], 'candidate' => followup['candidate_link'].to_s, 'cursor' => nil)
+            body << " · <a href=\"#{h(target)}\">Browse recorded label candidates</a>"
+          end
           body << '</p></article>'
+          check_budget!(body)
         end
-        body << '</section>'
+        body << next_link(result, direction: result.fetch('direction')) << '</section>'
+        check_budget!(body)
+        body
       end
 
       private
+
+      def candidate_page(result)
+        candidates = result.fetch('candidates')
+        raise Investigation::Limit, 'Candidate page exceeds the row budget.' if candidates.length > 8
+        body = +'<section><h2>Recorded label candidates</h2><p>Names do not establish binding or runtime dispatch. '
+        body << "#{h(result.fetch('candidate_matches'))} known matches; status #{h(result.fetch('candidate_status'))}. "
+        body << "Search complete: #{h(result.fetch('candidate_search_complete'))}; capture partial: #{h(result.dig('coverage', 'capture_partial'))}.</p>"
+        body << "<p>#{candidates.length} candidates returned on this page. An empty or shortened page does not establish absence.</p>"
+        candidates.each do |fact|
+          body << "<p>#{navigation(fact)} · #{source(fact)}</p>"
+          check_budget!(body)
+        end
+        body << '<p>No candidate returned in this page; capture coverage and omitted evidence remain separate.</p>' if candidates.empty?
+        body << next_link(result, direction: 'outgoing', candidate: result.fetch('candidate_link')) << '</section>'
+        check_budget!(body)
+        body
+      end
+
+      def next_link(result, direction:, candidate: nil)
+        cursor = result['next_cursor']
+        return '' unless cursor
+        id = result.fetch('anchor').fetch('id')
+        NavigationContext.validate_cursor!(cursor, generation: @generation, scope: ['references', id, direction == 'incoming', candidate])
+        target = @navigation.url("/references/#{direction}", 'id' => id, 'cursor' => cursor, 'candidate' => candidate&.to_s)
+        "<p><a href=\"#{h(target)}\">Next recorded #{candidate ? 'candidates' : 'references'} page</a> · More saved evidence remains; this page does not establish absence.</p>"
+      end
+
+      def check_budget!(body)
+        raise Investigation::Limit, 'References exceed the rendered output budget; no partial page was returned.' if body.bytesize > MAX_OUTPUT_BYTES
+      end
 
       def source_sizes(rows)
         # One pass over the already-pinned manifest, retaining only this page's
@@ -78,7 +136,11 @@ module Thistle
       end
 
       def href(path, id)
-        "#{@mount}#{path}?#{URI.encode_www_form('generation' => @generation, 'id' => id)}"
+        controls = { 'id' => id }
+        # Recorded origins and label candidates lead to their outgoing evidence,
+        # including a candidate whose id equals the incoming anchor itself.
+        controls['direction'] = nil if path == '/links'
+        @navigation.url(path, controls)
       end
 
       def navigation(fact, candidate: true)

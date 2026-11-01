@@ -12,7 +12,7 @@ Gem::Specification.new do |spec|
   spec.required_ruby_version = '>= 3.4'
   spec.files = Dir.chdir(__dir__) do
     # Installed presentation contract and required reuse provenance.
-    installed_docs = %w[docs/MODELS.md docs/REUSE.md]
+    installed_docs = %w[docs/MODELS.md docs/REUSE.md docs/investigations.md docs/source-comprehension.md docs/job-mail-template.md]
     installed_docs.each do |path|
       raise "Missing installed document: #{path}" unless File.file?(path)
     end

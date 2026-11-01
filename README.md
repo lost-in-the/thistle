@@ -142,6 +142,27 @@ The [loaded-model contract](docs/development/loaded-model-evidence.md#model-inve
 describes its evidence and work limits. Ruby exposes the same operation as
 `reader.model_brief(model_id, limit: 8, max_bytes: 32768)` on its pinned handle.
 
+For a saved model or class, `reader.source_comprehension(model_id,
+family: "contributions", limit: 8, cursor: nil, max_bytes: 32768)` returns
+identified owner/declaration contributions; `family: "methods"` pages recorded
+method-owner candidates. Each page has up to eight row/candidate slots by default,
+including compact rows for generated methods or unknown anonymous/repeated owner
+labels. Follow the exact returned continuation on the same Reader; unknown owners
+do not hide later concern/superclass rows.
+Duplicate definitions, unsupported precedence and source/runtime coherence remain
+explicit unknowns. See the [source comprehension contract](docs/development/source-comprehension.md).
+
+For a saved job/mail registry, class/module, method or ERB file fact,
+`reader.job_mail(id, family: nil, limit: 8, cursor: nil, max_bytes: 32768)`
+returns one bounded family. Use an explicitly generation-pinned Reader; `nil`
+selects a parse-free overview. Families are `overview`, `registrations`,
+`declarations`, `policy`, `handoff` and `template_references`. The public ceilings
+are 16 rows/64 KiB. Follow Native's continuation on the same saved generation.
+Registered handlers, source-declared options, potential mailer/template candidates
+and execution are separate; duplicate/unloaded targets and dynamic selection
+remain explicit unknowns. See the [job/mail/ERB contract](docs/development/job-mail-template.md).
+Native, installed and served acceptance for this source-wired journey is pending.
+
 Use `export-model-brief` to share that saved model summary as deterministic
 Markdown, with explicit uncertainty and generation-pinned literal evidence
 commands. It requires the generation and embeds no captured source bodies or
@@ -167,7 +188,70 @@ records observed runtime facts and unknown source/runtime coherence. It does not
 fabricate source positions, prove immutable application boot, or claim that a
 route is callable without constraints. Static capture never boots Rails itself.
 
+To include model/concern ownership, explicitly supply already loaded classes and
+a boundary; this optional family performs no class discovery or method execution:
+
+```ruby
+Thistle.capture(root: Rails.root.to_s,
+                output: Rails.root.join(".thistle").to_s,
+                rails: Rails.application,
+                source_comprehension: { models: [Order], stop_before: ActiveRecord::Base })
+```
+
+The default `source_comprehension: nil` preserves the existing capture path.
+Explicit context is also honored with `rails: nil`; it does not bind captured
+source methods to the loaded registry. Native, installed and served acceptance
+for this new journey remains pending.
+
+Job/mail observation also requires an explicit already-loaded inventory and the
+supplied Rails app. Template paths are explicit and root-relative:
+
+```ruby
+Thistle.capture(root: Rails.root.to_s,
+                output: Rails.root.join(".thistle").to_s,
+                rails: Rails.application,
+                job_mail: { jobs: [ReceiptJob], mailers: [ReceiptMailer],
+                            templates: ["app/views/receipt_mailer/receipt.html.erb",
+                                        "app/views/receipt_mailer/_footer.html.erb"] })
+```
+
+Pass classes the application has already loaded; Thistle performs no descendant
+discovery, autoload or APPLICATION-controlled getter/job/handler/mail delivery invocation
+for this registration family. Rust reads declared ERB files through the existing
+anchored inventory guards and stores inert bytes/spans; it never evaluates ERB
+or helpers. `job_mail: nil` retains the prior capture path. This opt-in does not
+prove source/runtime coherence or qualify broader Rails/mail/template behavior.
+First installed job/mail cards require Rails 8.1.4; the 7.1.6 compatibility leaf guard
+is present but unverified by this fixture. Application overrides stay unavailable.
+A busy source-analysis worker yields a transient Map 503 with Retry-After:1; retry
+the page explicitly. No automatic retry, queue or capture substitution occurs.
+
 ## Optional Map
+
+Map can [collect and reopen a small investigation](https://github.com/lost-in-the/thistle/blob/main/map/docs/investigations.md)
+using one saved generation and up to 24 selected fact IDs. Ordinary GET links
+support collecting, removing and reopening evidence without JavaScript. The
+focus URL carries only the generation and IDs and grants no access; recipients
+need an authorized Map mount with that saved capture. Missing evidence and
+uncertainty remain explicit. Source opens captured bytes at the pinned
+generation even after CURRENT changes. This requires the matching Core with
+the bounded [fact identity operation](docs/development/fact-identity.md).
+
+Code-first model reading uses `/comprehension/contributions` and
+`/comprehension/methods`, with generation/search/investigation retained by shared
+navigation. Selected files reserve at most 64 KiB before reads; 2000 aggregate
+display lines are checked on bounded responses before highlighting. Unknown
+ownership and files not admitted for display remain explicit. See the
+[reading contract](docs/development/source-comprehension.md) for limits and the
+pending installed/served/person acceptance boundary.
+
+Saved job/mail investigation uses `/job-mail/overview` and its explicit policy,
+registration/declaration, handoff and template-reference family routes. Source
+and Links offer supported typed entry actions without automatically parsing all
+job families. Generation/search/collected IDs use the same navigation authority;
+see the [job/mail/ERB contract](docs/development/job-mail-template.md). Actual
+installed/served answers, keyboard/no-JavaScript/narrow-screen acceptance and
+broader defaults, callbacks, HAML, history and full Passage remain outstanding.
 
 `map/` contains an independent read-only companion gem. It uses Thistle's reader
 API and an approved source-view component from Woods Map. It has no Woods runtime

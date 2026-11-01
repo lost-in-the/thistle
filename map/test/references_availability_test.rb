@@ -14,7 +14,7 @@ class ThistleReferencesAvailabilityTest < Minitest::Test
 
   def test_incoming_uses_only_the_pinned_compact_anchor
     reader = incoming_reader
-    reader.define_singleton_method(:references) do |id, direction:|
+    reader.define_singleton_method(:references) do |id, direction:, limit: 50|
       raise 'Wrong incoming query' unless id == FACT_ID && direction == 'incoming'
       { 'generation' => generation, 'anchor' => {
           'id' => id, 'name' => '<Demo>', 'kind' => 'class', 'evidence' => 'static',
@@ -44,7 +44,7 @@ class ThistleReferencesAvailabilityTest < Minitest::Test
   def test_incoming_runtime_anchors_explain_unloaded_details_without_invalid_metadata_notices
     %w[rails_model rails_save_callbacks].each do |kind|
       reader = incoming_reader
-      reader.define_singleton_method(:references) do |id, direction:|
+      reader.define_singleton_method(:references) do |id, direction:, limit: 50|
         { 'generation' => generation, 'anchor' => {
             'id' => id, 'name' => 'Demo', 'kind' => kind, 'evidence' => 'runtime', 'path' => nil, 'location' => nil
           }, 'direction' => direction, 'relationships' => [],
@@ -62,6 +62,28 @@ class ThistleReferencesAvailabilityTest < Minitest::Test
   def test_incoming_rejects_substituted_anchor_identity
     reader = incoming_reader
     def reader.references(*) = { 'generation' => generation, 'anchor' => { 'id' => 'c' * 64 } }
+    assert_equal 422, request(make_app(reader), '/links', query: "id=#{FACT_ID}&direction=incoming").first
+  end
+
+  def test_reference_shape_refuses_before_row_accounting_without_expanding_the_anchor
+    [nil, {}, 'not an array'].each do |relationships|
+      reader = incoming_reader
+      reader.define_singleton_method(:references) do |id, direction:, limit:|
+        { 'generation' => generation, 'anchor' => { 'id' => id }, 'direction' => direction,
+          'relationships' => relationships,
+          'coverage' => { 'known_matches' => 0, 'known_omitted' => 0, 'scan_complete' => true, 'capture_partial' => true } }
+      end
+      assert_equal 422, request(make_app(reader), '/links', query: "id=#{FACT_ID}&direction=incoming").first
+    end
+  end
+
+  def test_incoming_rejects_a_reference_result_from_the_other_direction
+    reader = incoming_reader
+    reader.define_singleton_method(:references) do |id, direction:, limit:|
+      { 'generation' => generation, 'anchor' => { 'id' => id }, 'direction' => 'outgoing',
+        'relationships' => [],
+        'coverage' => { 'known_matches' => 0, 'known_omitted' => 0, 'scan_complete' => true, 'capture_partial' => true } }
+    end
     assert_equal 422, request(make_app(reader), '/links', query: "id=#{FACT_ID}&direction=incoming").first
   end
 

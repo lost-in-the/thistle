@@ -1,0 +1,5 @@
+<h1><%= receipt_heading(@recipient) %></h1>
+<%= render partial: 'receipt_mailer/footer', locals: { recipient: @recipient } %>
+<%# @comment_only and imaginary_helper are not Ruby references %>
+<%%= @escaped_only %>
+<% raise 'LOS148 ERB evaluated' %>

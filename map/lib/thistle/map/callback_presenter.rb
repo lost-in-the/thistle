@@ -4,6 +4,7 @@ require 'erb'
 require 'json'
 require 'uri'
 require 'digest'
+require_relative 'navigation_context'
 
 module Thistle
   module Map
@@ -16,8 +17,9 @@ module Thistle
       MAX_SOURCE_FILES = 16
       MAX_SOURCE_BYTES = 1_048_576
 
-      def initialize(generation:, mount: '', reader: nil)
+      def initialize(generation:, mount: '', reader: nil, navigation: nil)
         @generation, @mount, @reader = generation, mount, reader
+        @navigation = navigation || NavigationContext.new(generation: generation, mount: mount)
       end
 
       def render(fact)
@@ -99,8 +101,8 @@ module Thistle
               # Core verified the saved bytes/spans. The established File Source
               # destination has a separate 10,000-line display ceiling.
               if source.fetch('lines') <= MAX_SOURCE_LINES && location.fetch('start_line') <= MAX_SOURCE_LINES
-                query = URI.encode_www_form('generation' => @generation, 'file' => Digest::SHA256.hexdigest(source.fetch('path')))
-                body << "<p><a href=\"#{h(@mount)}/source?#{h(query)}#L#{location.fetch('start_line')}\">Supporting captured source (coherence unknown)</a></p>"
+                target = @navigation.url('/source', 'id' => nil, 'file' => Digest::SHA256.hexdigest(source.fetch('path')))
+                body << "<p><a href=\"#{h(target)}#L#{location.fetch('start_line')}\">Supporting captured source (coherence unknown)</a></p>"
               end
             end
             body << notice("Known potential effects omitted: #{analysis.fetch('known_effects_omitted')}") if analysis.fetch('known_effects_omitted').positive?
@@ -141,13 +143,15 @@ module Thistle
         when 'opaque' then 'Opaque reference; not evaluated or formatted'
         else 'Reference unavailable; not evaluated'
         end
-        result = +h(text)
+        # ActiveSupport's html_escape may return a SafeBuffer whose << escapes
+        # appended markup. Own a plain String, keeping untrusted text escaped.
+        result = String.new(h(text))
         hint = value['source']
         return result + ' · Source unavailable' unless hint
         result << " · location hint #{h(hint.fetch('path'))}:#{h(hint.fetch('line'))}"
         if captured_line?(hint)
-          query = URI.encode_www_form('generation' => @generation, 'file' => Digest::SHA256.hexdigest(hint.fetch('path')))
-          result << " · <a href=\"#{h(@mount)}/source?#{h(query)}#L#{hint.fetch('line')}\">Captured source (coherence unknown)</a>"
+          target = @navigation.url('/source', 'id' => nil, 'file' => Digest::SHA256.hexdigest(hint.fetch('path')))
+          result << " · <a href=\"#{h(target)}#L#{hint.fetch('line')}\">Captured source (coherence unknown)</a>"
         else
           result << ' · Captured source unavailable or outside display budget'
         end

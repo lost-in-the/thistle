@@ -26,20 +26,33 @@ module Thistle
       end.freeze
     end
 
-    def initialize(root:, rails: nil, limits: {})
+    def initialize(root:, rails: nil, limits: {}, source_comprehension: nil, job_mail: nil)
       @root = root.to_s
       @rails = rails
       @limits = self.class.copy_limits(limits)
+      @source_comprehension = source_comprehension_context(source_comprehension)
+      @job_mail = job_mail_context(job_mail)
     end
 
     def call
-      result = Native.call("op" => "capture", "root" => @root, "limits" => @limits)
+      capture_request = { "op" => "capture", "root" => @root, "limits" => @limits }
+      capture_request["templates"] = @job_mail.fetch(:templates) if @job_mail
+      result = Native.call(capture_request)
       fact_bytes = native_evidence_bytes(result)
       effective = result.fetch("producer").fetch("effective_limits").transform_keys(&:to_sym)
+      if @job_mail
+        @job_mail_entries = result.fetch('producer')['explicit_template_entries']
+        unless @job_mail_entries.instance_of?(Integer) && (0..effective.fetch(:max_entries)).cover?(@job_mail_entries)
+          raise InvalidInput, 'Missing or invalid explicit-template inventory accounting'
+        end
+      end
+      # One initial link count for explicit observation paths. Append uses native
+      # delta charges and never rewalks/serializes earlier facts for each family.
+      links = (@rails || @source_comprehension) ? result.fetch("facts").sum { |fact| fact.fetch("links").length } : 0
       if @rails
         require_relative "rails_capture"
         static_fact_count = result.fetch("facts").length
-        static_links = result.fetch("facts").sum { |fact| fact.fetch("links").length }
+        static_links = links
         remaining = effective.merge(
           max_facts: effective[:max_facts] - static_fact_count,
           max_links: effective[:max_links] - static_links,
@@ -65,18 +78,38 @@ module Thistle
         fact_bytes += route_bytes
         links = static_links + runtime.fetch("facts").sum { |fact| fact.fetch("links").length }
         observations = ModelObserver.new(
-          limits: effective.merge(max_facts: effective[:max_facts] - result.fetch("facts").length),
+          limits: observation_limits(effective, result),
           evidence_budget: MAX_EVIDENCE_BYTES - fact_bytes
         ).call
         fact_bytes, links = append_observations(result, effective, "model", observations, fact_bytes, links)
         require_relative "callback_observer"
         callbacks = CallbackObserver.new(
           root: File.expand_path(@root),
-          limits: effective.merge(max_facts: effective[:max_facts] - result.fetch("facts").length),
+          limits: observation_limits(effective, result),
           evidence_budget: MAX_EVIDENCE_BYTES - fact_bytes
         ).call
-        fact_bytes, = append_observations(result, effective, "callback", callbacks, fact_bytes, links)
+        fact_bytes, links = append_observations(result, effective, "callback", callbacks, fact_bytes, links)
         result.fetch("evidence_accounting")["fact_bytes_upper_bound"] = fact_bytes
+      end
+      if @source_comprehension
+        require_relative "source_comprehension_observer"
+        observations = SourceComprehensionObserver.new(
+          limits: observation_limits(effective, result),
+          evidence_budget: MAX_EVIDENCE_BYTES - fact_bytes
+        ).call(**@source_comprehension)
+        fact_bytes, links = append_observations(result, effective, "source_comprehension", observations, fact_bytes, links,
+          { "root" => File.expand_path(@root) })
+        result.fetch("evidence_accounting")["fact_bytes_upper_bound"] = fact_bytes
+      end
+      if @job_mail
+        require_relative 'job_mail_observer'
+        observations = JobMailObserver.new(app: @rails, root: File.expand_path(@root),
+          jobs: @job_mail.fetch(:jobs), mailers: @job_mail.fetch(:mailers),
+          framework_version: defined?(Rails::VERSION::STRING) ? Rails::VERSION::STRING : nil,
+          limits: observation_limits(effective, result, family: 'job_mail'),
+          evidence_budget: MAX_EVIDENCE_BYTES - fact_bytes).call
+        fact_bytes, links = append_observations(result, effective, 'job_mail', observations, fact_bytes, links)
+        result.fetch('evidence_accounting')['fact_bytes_upper_bound'] = fact_bytes
       end
       raise LimitError, "Capture exceeds max_facts" if result["facts"].length > effective[:max_facts]
       raise LimitError, "Capture exceeds max_diagnostics" if result["diagnostics"].length > effective[:max_diagnostics]
@@ -85,6 +118,61 @@ module Thistle
     end
 
     private
+
+    def observation_limits(effective, result, family: nil)
+      limits = effective.merge(max_facts: effective[:max_facts] - result.fetch('facts').length)
+      limits[:max_entries] -= @job_mail_entries if family == 'job_mail'
+      limits
+    end
+
+    def job_mail_context(value)
+      exact = Object.instance_method(:instance_of?)
+      return nil if exact.bind_call(value, NilClass)
+      unless @rails && exact.bind_call(value, Hash) && Hash.instance_method(:size).bind_call(value) == 3 &&
+          %i[jobs mailers templates].all? { |key| Hash.instance_method(:key?).bind_call(value, key) }
+        raise InvalidInput, 'Job/mail requires a supplied Rails app and exactly jobs, mailers and templates'
+      end
+      %i[jobs mailers templates].to_h do |key|
+        values = Hash.instance_method(:fetch).bind_call(value, key)
+        ceiling = key == :templates ? 10_000 : 100_000
+        unless exact.bind_call(values, Array) && Array.instance_method(:length).bind_call(values) <= ceiling
+          raise InvalidInput, 'Job/mail requires bounded explicit arrays'
+        end
+        copy = []
+        Array.instance_method(:each).bind_call(values) do |item|
+          if key == :templates
+            raise InvalidInput, 'Template path must be a String' unless exact.bind_call(item, String)
+            raise LimitExceeded, 'Template path exceeds 4096 bytes' if String.instance_method(:bytesize).bind_call(item) > 4096
+            copy << String.instance_method(:dup).bind_call(item).freeze
+          else
+            raise InvalidInput, 'Job/mail inventory requires already loaded Classes' unless exact.bind_call(item, Class)
+            copy << item
+          end
+        end
+        [key, copy.freeze]
+      end.freeze
+    end
+
+    def source_comprehension_context(value)
+      exact = Object.instance_method(:instance_of?)
+      return nil if exact.bind_call(value, NilClass)
+      unless exact.bind_call(value, Hash) && Hash.instance_method(:size).bind_call(value) == 2 &&
+          Hash.instance_method(:key?).bind_call(value, :models) && Hash.instance_method(:key?).bind_call(value, :stop_before)
+        raise InvalidInput, "Source comprehension requires exactly models and stop_before"
+      end
+      models = Hash.instance_method(:fetch).bind_call(value, :models)
+      boundary = Hash.instance_method(:fetch).bind_call(value, :stop_before)
+      unless exact.bind_call(models, Array) && Array.instance_method(:length).bind_call(models) <= 100_000 &&
+          (exact.bind_call(boundary, Class) || exact.bind_call(boundary, Module))
+        raise InvalidInput, "Source comprehension requires explicit loaded classes and a stop boundary"
+      end
+      copy = []
+      Array.instance_method(:each).bind_call(models) do |model|
+        raise InvalidInput, "Source comprehension model must be a loaded Class" unless exact.bind_call(model, Class)
+        copy << model
+      end
+      { models: copy.freeze, stop_before: boundary }.freeze
+    end
 
     # Advisory native context only; Store independently validates actual facts.
     # This path is for this package's explicit schema3 native capture, not legacy
@@ -102,19 +190,26 @@ module Thistle
       bytes
     end
 
-    def append_observations(result, effective, family, observation, fact_bytes, links)
-      added = Native.call("op" => "#{family}_batch", "observation" => observation, "context" => {
+    def append_observations(result, effective, family, observation, fact_bytes, links, additional_request_fields = {})
+      added = Native.call(additional_request_fields.merge("op" => "#{family}_batch", "observation" => observation, "context" => {
         "limits" => effective.slice(:max_facts, :max_links, :max_entries, :max_diagnostics),
         "facts" => result.fetch("facts").length, "links" => links,
         "diagnostics" => result.fetch("diagnostics").length, "fact_bytes" => fact_bytes,
         "schema_version" => result.fetch("schema_version")
-      })
+      }))
+      charge = added.fetch('appended')
+      if family == 'job_mail'
+        entries = charge.fetch('entries')
+        unless entries.instance_of?(Integer) && entries >= 0 && @job_mail_entries + entries <= effective.fetch(:max_entries)
+          raise LimitExceeded, 'Combined job/mail capture exceeds max_entries'
+        end
+        @job_mail_entries += entries
+      end
       result.fetch("facts").concat(added.fetch("facts"))
       families = added.fetch("coverage").map { |entry| entry.fetch("family") }
       result.fetch("coverage").reject! { |entry| families.include?(entry["family"]) }
       result.fetch("coverage").concat(added.fetch("coverage"))
       result.fetch("producer")["#{family}_observer"] = added.fetch("#{family}_observer")
-      charge = added.fetch("appended")
       [fact_bytes + charge.fetch("fact_bytes"), links + charge.fetch("links")]
     end
   end

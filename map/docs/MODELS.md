@@ -1,5 +1,14 @@
 # Loaded model details
 
+For code-first model reading, use the [saved source comprehension views](source-comprehension.md).
+Optional captured ownership observations identify concern/superclass contributions
+and method-owner candidates while preserving unknown source/runtime binding and
+duplicate definitions. Code precedes the outline and explicit progressive links
+to recorded schema/association/callback/reference context. The table presenter
+below remains the detailed metadata surface; it is not composed source or runtime
+dispatch evidence. Actual native/installed/served and person acceptance of the new
+reading journey remains pending.
+
 The model presenter shows the captured table, primary key, base/STI labels,
 columns and named associations in Source and Links. Missing source is explicit;
 model details remain useful on the source-unavailable page. Targets are labels,

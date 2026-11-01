@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'minitest/autorun'
+require 'cgi'
 require_relative '../../lib/thistle/errors'
 require_relative '../lib/thistle/map/callback_presenter'
 
@@ -46,6 +47,45 @@ class ThistleCallbackPresenterTest < Minitest::Test
     refute_includes html, '<script>'
     refute_includes html, '<img '
     assert_equal ['records.rb'], reader.reads
+  end
+
+  # Pure double of the append contract observed in ActiveSupport's retained
+  # ERBUtil/SafeBuffer source, not a claim of executing Rails compatibility.
+  class EscapingBuffer < String
+    def <<(value)
+      super(CGI.escapeHTML(value.to_s))
+    end
+  end
+
+  class SafeBufferPresenter < Thistle::Map::CallbackPresenter
+    private
+    def h(value) = EscapingBuffer.new(CGI.escapeHTML(value.to_s))
+  end
+
+  def test_safe_buffer_escaping_append_keeps_controlled_anchor_and_untrusted_label_distinct
+    shim = EscapingBuffer.new('escaped')
+    shim << '<a>'
+    assert_includes shim, '&lt;a&gt;'
+    selection = Thistle::Map::Investigation.new(generation: GENERATION, ids: ['b' * 64])
+    context = Thistle::Map::NavigationContext.new(generation: GENERATION, mount: '/map', selection: selection,
+      params: { 'id' => 'c' * 64, 'q' => 'Order', 'domain' => 'metadata', 'kind' => 'rails_model', 'prefix' => 'app/' })
+    html = SafeBufferPresenter.new(generation: GENERATION, mount: '/map', reader: SavedReader.new, navigation: context).render(fact)
+    assert_match(/<a href="[^"]+">Captured source \(coherence unknown\)<\/a>/, html)
+    refute_includes html, '&lt;a href='
+    assert_includes html, '&lt;img onerror=evil&gt;'
+    refute_includes html, '<img'
+    href = CGI.unescapeHTML(html[/<a href="([^"]+)"/, 1])
+    uri = URI.parse(href)
+    target = URI.decode_www_form(uri.query).to_h
+    assert_equal '/map/source', uri.path
+    assert_equal 'L1', uri.fragment
+    refute target.key?('id')
+    assert_equal Digest::SHA256.hexdigest('records.rb'), target['file']
+    assert_equal selection.ids.join(','), target['selection']
+    assert_equal 'Order', target['q']
+    assert_equal 'metadata', target['domain']
+    assert_equal 'rails_model', target['kind']
+    assert_equal 'app/', target['prefix']
   end
 
   def test_mismatch_absent_or_invalid_source_never_becomes_a_link

@@ -1,5 +1,108 @@
 # Development tooling and cohort decisions
 
+## Saved job/mail policy and inert ERB evidence (PR 121 / LOS-148)
+
+Reuse maintained vendored Prism 1.9.0, its existing generated child visitor,
+saved-fact/name directories and the shared capture parser worker. A small inert
+ERB delimiter projection preserves original bytes/lines while masking HTML,
+comments and escaped tags; Prism analyzes Ruby syntax without ERB compilation or
+evaluation. Ruby supplies guarded loaded-registry descriptors only; Rust owns
+validation, source semantics, selection, typed candidates and continuation. Map
+uses one public family projection and the existing NavigationContext, not a Ruby
+analyzer, runtime resolver or parallel URL policy. See the
+[bounded contract](job-mail-template.md).
+
+Alternatives were template/handler execution (outside authority and unnecessary
+for source evidence), Ruby ERB compilation/analysis (a second semantic owner), or
+another parser/runtime dependency (additional maintenance without a demonstrated
+need for this ERB slice). Reusing existing anchored inventory/source/fact admission
+for explicit template paths also avoids a second filesystem authority. The
+initial unused numeric-byte JSON seam was removed under R121-04. Normal capture
+passes explicit paths to the existing Rust reader and shares native byte admission;
+no Ruby integer arrays or second template transport are retained.
+
+Entry limits deliberately preserve two scopes/units: filesystem directory entries
+and explicit-template components share the existing native counter/ceiling;
+separately, job/mail combines ONLY its exact explicit-template component delta
+with its own registry batch entries. Legacy Model/Callback/Source Ownership keep
+full prior PER-BATCH entry allowances; filesystem walks or other families do not
+reduce those allowances. Facts/links/bytes/diagnostics remain globally cumulative,
+incremental and charged before publication without rescanning old metadata.
+
+Operating cost includes inventory/path/read/digest accounting, selected source
+loads, projection/Prism parse and destruction, native/Ruby response copies, and
+the lazy name directory's charged whole-domain construction/sort on first use.
+One atomic try-permit/64 MiB stack is shared with capture, with no queue or second
+worker authority. Parse-free families reserve 32 MiB and source families 96 MiB
+from existing admission; these are not hard heap/RSS/CPU bounds. Selected source
+is capped at 256 KiB, with post-parse 20k pending-node pops/200 derived rows and
+separately bounded argument/keyword/constant inspections. Public pages default
+to 8 rows/32 KiB (ceilings 16/64 KiB); web output/URL admission retains existing
+limits. Display snippets cap at 256 safe UTF-8 bytes with truncation flags; decoded
+literal targets/spans remain original. ERB scan caps retain bounded partial rows.
+Typed busy admission yields 503/retry-after1, never queue/retry or missing-evidence
+claims. First installed cards pin Rails 8.1.4 for both current Ruby cohorts; 7.1.6
+compatibility guards remain present/unverified by that fixture. No application-
+controlled getter dispatch is permitted. No speed or memory improvement is claimed
+from source checks.
+
+Reconsider the projection for demonstrated unsupported ERB syntax or another
+template language; reconsider transport/index/work shape only with exact-artifact
+complete-investigation cost or refusal evidence. Preserve raw physical source,
+ambiguity, separate registration/source/coherence/execution claims, guarded IO
+and one Rust semantic owner. Current source and package selectors do not establish
+native/framework/installed/served acceptance or qualify any launch capability.
+
+## Saved model source comprehension (PR 120 / LOS-147)
+
+Reuse the existing Rust saved-method directory with an additive bounded
+candidate-position page, the existing recorded-label directory and pinned Reader
+identities. The previous unique/ambiguity witness stops at the second match and
+cannot enumerate all saved alternatives. A second owner index or Ruby resolver
+would duplicate semantic authority, retention, invalidation and maintenance cost.
+See the [Core contract](source-comprehension.md) and
+[Map contract](../../map/docs/source-comprehension.md).
+
+The chosen page preserves duplicate candidates and physical spans, charges every
+visit/comparison/label byte through Work, and releases the directory mutex before
+Source I/O or projection. Directory construction remains lazy whole-domain
+validation/visit/sort work, not zero-scan retrieval. Positional pages repeat their
+bounded prefix traversal and charge it again. Reader open, lazy build and request
+work remain separate costs; no speed, RSS or full native heap result is claimed.
+Reconsider the cursor/index shape only if measured complete investigations show
+material repeated-prefix cost, preserving identity and ambiguity rather than
+raising limits or promoting a prefix to a complete answer.
+
+The caller explicitly supplies already loaded classes and a stop boundary. Bound
+builtin Module/Class/UnboundMethod reflection observes direct/effective descriptors
+without application getters, autoload, discovery or method execution. Rust strictly
+validates/adopts the DTO and owns selection. Executing inspected source or adding
+a general Ruby method analyzer would add authority and cost without proving
+source/runtime coherence. Observed owner order and descriptor hints do not bind a
+saved body to a loaded registry; unsupported precedence stays unknown. Reconsider
+the observer only for a changed supported reflection contract or a concrete
+customer question beyond this bounded model/concern slice.
+
+Map reuses the existing highlighter, attributed Field Guide tokens/reading pattern
+and single NavigationContext.url authority, rather than a new renderer or URL
+framework. It requests one bounded projection and exposes explicit supporting
+family/reference actions. Selected pinned files reserve aggregate 64 KiB before
+deduplicated Source reads. Exact response identity/digest/byte count and aggregate
+2000 display lines are checked before highlighting/HTML; an over-line file is
+wholly not admitted and keeps its byte reservation. Manifests have no line counts,
+so lines are a post-response display guard, not pre-read eligibility. Body and
+envelope limits charge expanded markup/URLs; existing Native Source scratch remains
+Core-owned. The operating cost includes one pinned manifest pass, bounded source
+hash/line checks, highlighting and copied display output. Reconsider pre-read line
+metadata only if actual investigation evidence justifies its capture/storage cost.
+
+Both packages explicitly include their source-comprehension guide; package selectors
+and installed-manifest assertions share the same exact doc sets. Cross-package
+guide links use explicit pinned source URLs instead of escaping installed roots.
+Native, installed/served, independent investigator and person acceptance remains
+pending. This source increment does not qualify L04/L14 or complete Field Guide
+discovery, all Rails annotations, schema/graph/history/Trail or optional Guide.
+
 ## Saved-model Markdown presentation (PR 118)
 
 Present one bounded Rust-selected `model_brief` using the existing CLI and a
@@ -711,3 +814,16 @@ Native PR watch ends on merge/close; the
 names the outstanding-check owner and explicitly records any native-event wake
 gap without claiming acceptance or blocking disjoint source work. Reconsider
 only for concrete tool-contract or workflow changes.
+
+## Selected saved investigations (PR 119)
+
+Use a bounded generation-and-ID focus URL and ordinary Map navigation, with no
+new state framework, server collection, notes channel or dependency. The
+[investigation contract](../../map/docs/investigations.md#fit-and-maintenance-decision)
+records alternatives, repeated-URL/output budgets and maintenance boundaries.
+The supporting [Core identity projection](fact-identity.md) uses the Reader's
+existing ID index; asking for one relationship would also demand optional
+whole-domain name-directory work. Reader open retains its existing validation
+and indexing cost. Reconsider the state format only for a changed selection
+outcome, rather than bypassing its 24-ID/query ceilings. These bounds are not
+whole-request latency/RSS evidence or capability qualification.

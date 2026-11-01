@@ -111,22 +111,40 @@ impl Drop for CapturePermit {
 
 pub fn capture(root: &Path, limits: &Value) -> Result<Value> {
     let effective = effective_limits(limits)?;
+    let root = root.to_path_buf();
+    parser_worker("thistle-capture", move || capture_inner(&root, effective))
+}
+
+/// One process-wide, non-queued parser admission shared by capture and saved
+/// source queries. Parsing and AST destruction must both finish inside task;
+/// only owned Send results cross the join. This is not a CPU/RSS sandbox.
+pub(crate) fn parser_worker<T: Send + 'static>(
+    name: &'static str,
+    task: impl FnOnce() -> Result<T> + Send + 'static,
+) -> Result<T> {
     if CAPTURE_ACTIVE.compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire).is_err() {
-        return Err(CoreError::new("busy", "A native capture is already active; retry after it completes"));
+        return Err(CoreError::new("busy", if name == "thistle-capture" {
+            "A native capture is already active; retry after it completes"
+        } else {
+            "A native parser worker is already active; retry after it completes"
+        }));
     }
     let _permit = CapturePermit;
-    let root = root.to_path_buf();
     // Prism's C parser and AST destructor recurse. Ruby worker stacks are much
     // smaller than its depth guard assumes. Keep parsing and destruction on one
-    // explicitly sized native stack, and bound concurrency to one capture.
+    // explicitly sized native stack, and bound concurrency to one parser worker.
     // This is not a sandbox or a CPU deadline; controller workers remain needed
     // for hostile-input qualification and enforced process resource limits.
     std::thread::Builder::new()
-        .name("thistle-capture".to_owned())
+        .name(name.to_owned())
         .stack_size(PARSER_STACK_BYTES)
-        .spawn(move || capture_inner(&root, effective))?
+        .spawn(task)?
         .join()
-        .map_err(|_| CoreError::new("internal_error", "Native capture worker panicked; no result was published"))?
+        .map_err(|_| CoreError::new("internal_error", if name == "thistle-capture" {
+            "Native capture worker panicked; no result was published"
+        } else {
+            "Native source parser worker panicked; no result was returned"
+        }))?
 }
 
 fn effective_limits(limits: &Value) -> Result<HashMap<String, usize>> {
@@ -151,6 +169,35 @@ fn effective_limits(limits: &Value) -> Result<HashMap<String, usize>> {
 }
 
 fn capture_inner(root: &Path, effective: HashMap<String, usize>) -> Result<Value> {
+    capture_inner_templates(root, effective, None)
+}
+
+/// Explicit inert template paths share the ordinary inventory's anchored file
+/// authority and all counters. Nil/default capture does not select ERB files.
+pub(crate) fn capture_with_templates(root: &Path, limits: &Value, paths: &Value) -> Result<Value> {
+    let effective = effective_limits(limits)?;
+    let values = paths.as_array().ok_or_else(|| CoreError::input("Explicit templates must be an array"))?;
+    if values.len() > effective["max_files"].min(effective["max_entries"]) {
+        return Err(CoreError::limit("Explicit template paths exceed inventory limits"));
+    }
+    let mut templates = Vec::with_capacity(values.len());
+    for value in values {
+        let path = value.as_str().ok_or_else(|| CoreError::input("Template path must be a string"))?;
+        schema::path(path)?;
+        if !path.ends_with(".erb") || path.split('/').any(|part| EXCLUDED.contains(&part)) {
+            return Err(CoreError::input("Explicit template is outside the supported ERB inventory scope"));
+        }
+        if path.split('/').count() > effective["max_depth"] + 1 {
+            return Err(CoreError::limit("Explicit template path exceeds max_depth"));
+        }
+        templates.push(path.to_owned());
+    }
+    templates.sort(); templates.dedup();
+    let root = root.to_path_buf();
+    parser_worker("thistle-capture", move || capture_inner_templates(&root, effective, Some(templates)))
+}
+
+fn capture_inner_templates(root: &Path, effective: HashMap<String, usize>, templates: Option<Vec<String>>) -> Result<Value> {
     let canonical = std::fs::canonicalize(root)?;
     let canonical_text = canonical.to_str().ok_or_else(|| CoreError::input("Capture root must be valid UTF-8"))?;
     let directory = open_root(&canonical)?;
@@ -161,6 +208,9 @@ fn capture_inner(root: &Path, effective: HashMap<String, usize>) -> Result<Value
         link_keys: HashSet::new(), call_keys: HashMap::new(), inventory_partial: false, declarations_partial: false,
     };
     capture.walk(&directory, "", 0)?;
+    let ordinary_entries = capture.entries;
+    if let Some(paths) = templates.as_ref() { capture.read_templates(&directory, paths)?; }
+    let explicit_template_entries = capture.entries - ordinary_entries;
     // Prism's ASTs are gone. Release grouping-only keys before expanding the
     // compact call rows into the public semantic objects. Keeping both expanded
     // links and a large AST live can exhaust the parser process's address space.
@@ -180,10 +230,23 @@ fn capture_inner(root: &Path, effective: HashMap<String, usize>) -> Result<Value
             apply_order(links, order);
         }
     }
-    let coverage = capture.coverage();
-    let producer = json!({ "name": "thistle", "engine": "rust", "core_version": env!("CARGO_PKG_VERSION"), "capture_schema": 1,
+    let mut coverage = capture.coverage();
+    if let Some(paths) = templates.as_ref() {
+        let saved: HashSet<_> = capture.files.iter().filter_map(|file| file["path"].as_str().filter(|path| path.ends_with(".erb"))).collect();
+        let included = paths.iter().filter(|path| saved.contains(path.as_str())).count();
+        coverage.as_array_mut().expect("capture coverage array").push(json!({"family":"erb_template_source",
+            "status":if included == paths.len() {"complete"} else {"partial"},
+            "scope":"Only explicitly supplied root-relative ERB file bytes; no resolver, template evaluation or execution",
+            "reason":if included == paths.len() {"Inert source captured; selection/binding/runtime coherence unknown"} else {"Some explicitly supplied source unavailable; see diagnostics"},
+            "requested_unique_paths":paths.len(),"captured_paths":included}));
+    }
+    let mut producer = json!({ "name": "thistle", "engine": "rust", "core_version": env!("CARGO_PKG_VERSION"), "capture_schema": 1,
         "call_target_schema":2, "link_encoding_schema":1, "prism_version": PRISM_VERSION, "ruby_syntax_version": RUBY_SYNTAX_VERSION, "parser_policy": PARSER_POLICY, "parser_stack_bytes":PARSER_STACK_BYTES, "capture_concurrency":1,
         "effective_limits": capture.limits, "visited_nodes": capture.nodes });
+    if templates.is_some() {
+        producer["inventory_entries"] = json!(capture.entries);
+        producer["explicit_template_entries"] = json!(explicit_template_entries);
+    }
     // Move the retained inventory into the response. `json!` would serialize
     // every file body and fact tree into a second copy before dropping the first.
     let mut output = serde_json::Map::new();
@@ -262,6 +325,37 @@ fn metadata_signature(meta: &Metadata) -> (u64, u64, u64, i64, i64, i64, i64) {
 
 impl Capture {
     fn limit(&self, key: &str) -> usize { self.limits[key] }
+
+    fn read_templates(&mut self, directory: &File, paths: &[String]) -> Result<()> {
+        if paths.is_empty() { return Ok(()); }
+        let mut captured: HashSet<String> = self.files.iter().filter_map(|file| file["path"].as_str()
+            .filter(|path| path.ends_with(".erb")).map(str::to_owned)).collect();
+        for path in paths {
+            // An already accepted source is preserved; repeated paths cannot
+            // reread/replace it or add another fact/source record.
+            if captured.contains(path) { continue; }
+            let mut parent = directory.try_clone()?;
+            let components: Vec<_> = path.split('/').collect();
+            for (index, component) in components.iter().enumerate() {
+                self.entries += 1;
+                if self.entries > self.limit("max_entries") { return Err(CoreError::limit("Explicit template inventory exceeds max_entries")); }
+                let name = CString::new(*component).map_err(|_| CoreError::input("Template path contains NUL"))?;
+                let final_component = index + 1 == components.len();
+                let mut child = open_at(&parent, &name, !final_component)
+                    .map_err(|error| CoreError::new(error.code, format!("Cannot open explicit template {path}: {}", error.code)))?;
+                if final_component {
+                    let before = child.metadata()?;
+                    if !before.is_file() { return Err(CoreError::new("unsafe_path","Template source must be a regular file")); }
+                    if before.len() > crate::job_mail_source::MAX_BYTES as u64 {
+                        return Err(CoreError::limit("Template source exceeds 256 KiB"));
+                    }
+                    self.read_file(&mut child, path, &before)?;
+                } else { parent = child; }
+            }
+            captured.insert(path.clone());
+        }
+        Ok(())
+    }
 
     fn walk(&mut self, directory: &File, relative: &str, depth: usize) -> Result<()> {
         if depth > self.limit("max_depth") { return Err(CoreError::limit("Source tree exceeds max_depth")); }
@@ -359,6 +453,15 @@ impl Capture {
         };
         let content = text.as_bytes();
         let digest = schema::digest(content);
+        if path.ends_with(".erb") {
+            let admitted = crate::erb_template::admit_bytes(path, content, &digest)?;
+            let lines = LineIndex::new(content);
+            self.add_fact(FactKind::File, path, path, json!({
+                "start_line":1,"end_line":lines.file_end_line(content),"start_byte":0,"end_byte":content.len()
+            }),json!({"sha256":digest,"bytes":content.len(),"language":"erb","parse_status":"inert"}))?;
+            self.files.push(admitted);
+            return Ok(());
+        }
         if path.ends_with(".rs") {
             let lines = LineIndex::new(content);
             self.add_fact(FactKind::File, path, path, json!({
@@ -736,7 +839,7 @@ impl Capture {
     fn coverage(&self) -> Value {
         json!([
             { "family":"source_inventory", "status":if self.inventory_partial {"partial"} else {"complete"},
-              "scope":format!("Regular UTF-8 *.rb, *.rake, *.gemspec, *.rs, Gemfile and Rakefile; excludes {}; no symlinks",EXCLUDED.join(", ")),
+              "scope":format!("Ordinary walk: regular UTF-8 *.rb, *.rake, *.gemspec, *.rs, Gemfile and Rakefile; excludes {}; no symlinks. Separately supplied ERB bytes are reported by erb_template_source when requested",EXCLUDED.join(", ")),
               "reason":if self.inventory_partial {Some("Some source entries were unavailable; see diagnostics")} else {None} },
             { "family":"ruby_declarations", "status":if self.declarations_partial {"partial"} else {"complete"},
               "scope":"Explicit Ruby class, module and method syntax in captured valid source; names are lexical labels",

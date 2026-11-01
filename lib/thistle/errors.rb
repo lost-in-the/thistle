@@ -13,5 +13,6 @@ module Thistle
   class NotFound < Error; end
   class UnsafePath < Error; end
   class LimitExceeded < Error; end
+  class Busy < Error; end
   class UnsupportedPlatform < Error; end
 end

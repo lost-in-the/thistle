@@ -49,10 +49,20 @@ module Thistle
           content, type = @assets.fetch(path)
           return finish(env, 200, content, type: type)
         end
-        return finish(env, 404, 'This page does not exist.') unless %w[/ /source /links /check].include?(path)
+        continuation_path = /\A\/(?:brief\/(?:columns|associations|registry_candidates)|references\/(?:incoming|outgoing)|comprehension\/(?:contributions|methods))\z/.match?(path)
+        continuation_path ||= path.start_with?('/job-mail/') && NavigationContext::JOB_MAIL_FAMILIES.include?(path.delete_prefix('/job-mail/'))
+        return finish(env, 404, 'This page does not exist.') unless continuation_path || %w[/ /source /links /check /investigation].include?(path)
 
         mount = mount_path(env)
         params = parameters(env.fetch('QUERY_STRING', ''))
+        if path == '/investigation' && (params.keys - (%w[generation selection] + NavigationContext::SEARCH_FIELDS)).any?
+          raise BadRequest, 'Investigation accepts only saved selection and bounded search context.'
+        end
+        continuation = NavigationContext.continuation(path, params) if continuation_path
+        if !continuation_path && (params.key?('cursor') || params.key?('candidate'))
+          raise BadRequest, 'Continuation controls require a dedicated evidence page.'
+        end
+        selection = Investigation.from_params(params) if path == '/investigation' || params.key?('selection')
         if (path == '/links' && !params['id']) || (path == '/source' && %w[id path file].count { |key| params.key?(key) } != 1)
           raise BadRequest, 'Choose a result before opening Source or Links.'
         end
@@ -78,18 +88,32 @@ module Thistle
           params['path'] = selected
           params.delete('file')
         end
-        view = View.new(reader: reader, mount: mount, params: params)
-        content = case path
-                  when '/' then view.find
-                  when '/source' then params['path'] ? view.source_file : view.source
-                  when '/links' then view.links
-                  when '/check' then view.check
+        selection ||= Investigation.new(generation: reader.generation)
+        view = View.new(reader: reader, mount: mount, params: params, selection: selection, path: path)
+        content = if continuation
+                    if continuation[:job_mail]
+                      view.job_mail_page(continuation[:job_mail])
+                    elsif continuation[:comprehension]
+                      view.source_comprehension_page(continuation[:comprehension])
+                    else
+                      continuation[:family] ? view.brief_page(continuation[:family]) : view.references_page(continuation)
+                    end
+                  else
+                    case path
+                    when '/' then view.find
+                    when '/source' then params['path'] ? view.source_file : view.source
+                    when '/links' then view.links
+                    when '/check' then view.check
+                    when '/investigation' then view.investigation
+                    end
                   end
         finish(env, 200, content, type: 'text/html; charset=utf-8')
-      rescue BadRequest => e
+      rescue BadRequest, Investigation::Invalid => e
         finish(env, 400, e.message)
-      rescue View::Limit => e
+      rescue View::Limit, Investigation::Limit => e
         finish(env, 422, e.message)
+      rescue Thistle::Busy
+        finish(env, 503, 'Source analysis is busy; retry this page.', extra: { 'retry-after' => '1' })
       rescue Thistle::Error => e
         status = e.is_a?(Thistle::NotFound) ? 404 : 422
         finish(env, status, 'The requested evidence is missing or invalid. No other capture has been substituted.')
@@ -152,10 +176,10 @@ module Thistle
         raise BadRequest, 'Malformed query encoding.' if /%(?![0-9a-f]{2})/i.match?(query)
 
         pairs = URI.decode_www_form(query, Encoding::UTF_8)
-        raise BadRequest, 'Too many query fields.' if pairs.length > 8
+        raise BadRequest, 'Too many query fields.' if pairs.length > NavigationContext::MAX_FIELDS
 
         pairs.each_with_object({}) do |(key, value), out|
-          raise BadRequest, 'Unknown or repeated query field.' unless %w[q id generation page path file kind prefix domain direction].include?(key) && !out.key?(key)
+          raise BadRequest, 'Unknown or repeated query field.' unless %w[q id generation page path file kind prefix domain direction selection cursor candidate].include?(key) && !out.key?(key)
           raise BadRequest, 'Invalid query text.' unless value.valid_encoding? && !value.include?("\0") && !value.include?("\uFFFD")
           raise BadRequest, 'Search text is too long.' if key == 'q' && value.bytesize > 256
           raise BadRequest, 'Invalid evidence identifier.' if %w[id generation file].include?(key) && !DIGEST.match?(value)
