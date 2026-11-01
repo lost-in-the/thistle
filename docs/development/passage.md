@@ -56,8 +56,8 @@ helper/association/variable/relative-constant chains and unknown calls are expli
 boundaries. Parameters/default expressions are not parsed as action body steps.
 Every operation distinguishes `no_enclosing_branch_syntax` from
 `inside_branch_syntax`. The latter carries its nearest branch kind and saved
-physical span (`branch`), including conditionals, short-circuit expressions,
-loops and rescue alternatives. These are syntactic enclosures, not predicate
+physical span (`branch`), including conditionals, short-circuit expressions and
+assignments, safe-navigation calls, loops and rescue alternatives. These are syntactic enclosures, not predicate
 truth or execution evidence. The direct-create and conditional-create cards must
 have different Reader, Map and export meanings. Unsupported block/lambda bodies
 are not scanned; whether, when and how often they run remains unknown.
@@ -78,14 +78,19 @@ Its source-matched callback witnesses are exact edit locations, while
 model-to-registry identity and runtime/source coherence remain unknown. A callback
 with an opaque condition remains conditional. Save contribution does not imply
 that the callback, its potential enqueue or anything downstream ran.
-Passage projects at most four compact callback summaries from the unchanged
-eight-row callback component. Each retains callback/registry identity and
+Passage requests at most four callbacks from the unchanged callback component
+and projects at most four compact summaries. Unsearched callback registrations
+remain explicit in component coverage; hidden rows do not consume source work.
+Each retains callback/registry identity and
 provenance, descriptor label/owner, inherited status, condition-kind counts,
 binding/status/reason, exact matched method witness and returned/omitted effect
-counts. Full effect bodies and source excerpts are not copied into this DTO.
+counts. The effect unit is `representative_potential_perform_later_call_groups`,
+capped at eight per callback and non-exhaustive, not occurrences or invocations.
+`effect_absence` says that no supported match does not prove no effect is possible.
+Full effect bodies and source excerpts are not copied into this DTO.
 `component_callbacks_returned`, `summaries_omitted`, `summary_limit` and component
 coverage keep projection omissions separate from unsearched/omitted component
-rows. The full component still performs and charges its existing work before
+rows. The component still performs and charges all requested work before
 this compact projection. The saved registry's existing Source context is the
 followup for full callback evidence; this is not a second resolver or family.
 
@@ -179,11 +184,13 @@ directory statistics are not measured heap, CPU, RSS or speed results.
 Public limits are 1–16 rows and up to 64 KiB wire bytes including the native
 success envelope and one byte of headroom. Map admits at most 8 rows/32 KiB,
 possibly fewer for long full-collection links, under its unchanged 64 KiB display
-budget. Passage alone reduces request bytes using the admitted row/href allowance,
-an 8 KiB markup reserve and a conservative rendering allowance; it never raises
-the 32 KiB web response ceiling. Export renders its report instead of repeating
-item details. Remaining original route metadata uses compact JSON. Actual total
-display admission still refuses oversized pages. Mandatory-envelope/first-row overflow refuses rather than skipping a
+budget. Sequence reduces request bytes using its row/href allowance, an 8 KiB
+markup reserve and a conservative rendering allowance. Selected-action export
+reserves only its rendered Source/continuation controls and markup; it does not
+charge row links or a second rendering of the duplicate items. Both retain the
+32 KiB web response ceiling. Export renders its report instead of item details.
+Original route metadata uses compact JSON. Actual total display admission still
+refuses oversized pages. Mandatory-envelope/first-row overflow refuses rather than skipping a
 row. Suffix cuts return the exact first unreturned ordinal. No zero-progress
 self cursor is emitted. Known per-file/declaration-size or local encoded-analysis
 limits produce `analysis_status: unknown`, a specific reason and an explicit

@@ -13,6 +13,13 @@ fn branch_kind(node:&Node<'_>)->Option<&'static str> {
         Node::CaseNode{..}|Node::CaseMatchNode{..}=>Some("case"),
         Node::WhenNode{..}=>Some("when"),Node::InNode{..}=>Some("in"),
         Node::AndNode{..}=>Some("and"),Node::OrNode{..}=>Some("or"),
+        Node::LocalVariableOrWriteNode{..}|Node::InstanceVariableOrWriteNode{..}|Node::ClassVariableOrWriteNode{..}|
+        Node::GlobalVariableOrWriteNode{..}|Node::ConstantOrWriteNode{..}|Node::ConstantPathOrWriteNode{..}|
+        Node::CallOrWriteNode{..}|Node::IndexOrWriteNode{..}=>Some("or_write"),
+        Node::LocalVariableAndWriteNode{..}|Node::InstanceVariableAndWriteNode{..}|Node::ClassVariableAndWriteNode{..}|
+        Node::GlobalVariableAndWriteNode{..}|Node::ConstantAndWriteNode{..}|Node::ConstantPathAndWriteNode{..}|
+        Node::CallAndWriteNode{..}|Node::IndexAndWriteNode{..}=>Some("and_write"),
+        Node::CallNode{..} if node.as_call_node().unwrap().is_safe_navigation()=>Some("safe_navigation"),
         Node::WhileNode{..}=>Some("while"),Node::UntilNode{..}=>Some("until"),Node::ForNode{..}=>Some("for"),
         Node::RescueNode{..}|Node::RescueModifierNode{..}=>Some("rescue"),Node::EnsureNode{..}=>Some("ensure"),
         Node::BeginNode{..} if node.as_begin_node().unwrap().rescue_clause().is_some()=>Some("begin_rescue"),_=>None,

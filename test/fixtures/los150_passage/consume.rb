@@ -102,6 +102,29 @@ begin
     demand(rendered.include?('Captured filter registry label candidate'),'Local registry status missing')
     demand(rendered.include?('Selected action source scan complete'),'Local source completeness missing')
     demand(sources.include?(candidate.fetch('id')),'No real action Source')
+    # Exercise the actual family-specific Map export admission, not just Reader
+    # export or a standalone renderer. Keep its explicit same-family cursor.
+    export_rows = []; export_cursor = nil; export_seen = []; export_complete = false
+    64.times do
+      export_params = params.merge('cursor'=>export_cursor)
+      export_html,_ = rack(app,'/passage/export',export_params)
+      demand(export_html.include?('Potential request Passage'),'Actual Map export missing')
+      nav = Thistle::Map::NavigationContext.new(generation:generation,mount:'/map',params:export_params,
+        selection:Thistle::Map::Investigation.from_params(export_params))
+      export = reader.passage(route.fetch('id'),action:candidate.fetch('id'),family:'export',
+        limit:Thistle::Map::PassagePresenter.page_limit(nav),cursor:export_cursor,
+        max_bytes:Thistle::Map::PassagePresenter.request_bytes(nav,family:'export',action:candidate.fetch('id')))
+      export_rows.concat(export.fetch('items'))
+      if export.dig('coverage','page_complete')
+        export_complete = true
+        break
+      end
+      next_cursor = export.fetch('next_cursor')
+      demand(next_cursor && next_cursor != export_cursor && !export_seen.include?(next_cursor),'Export made no finite progress')
+      export_seen << next_cursor; export_cursor = next_cursor
+    end
+    demand(export_complete,'Fixture export exceeded finite64-page allowance')
+    demand(export_rows == rows,'Actual Map-family export and sequence changed selected-action evidence')
     if action_name == 'create'
       demand(saves.any? { |r| r.dig('save_contribution','callbacks').any? { |c| c.dig('witness','name') == 'Order#queue_receipt' && c.dig('effects','details') == 'not_projected' } },'Actual compact model callback contribution absent')
       demand(rows.any? { |r| r.dig('witness','name') == 'ApplicationController#authenticate' },'Inherited filter edit witness absent')

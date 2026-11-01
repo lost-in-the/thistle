@@ -26,7 +26,11 @@ branch syntax was found. Predicate truth and execution remain unknown. Unsupport
 block/lambda bodies are not scanned, without asserting that they never run.
 
 Callback contributions show at most four compact summaries with exact witnesses,
-condition/binding status, effect counts and explicit projection/component omissions.
+condition/binding status and explicit projection/component omissions. Counts name
+representative potential perform_later call groups, capped at eight and
+non-exhaustive; they are not occurrence or invocation counts. No supported match
+does not prove no possible effect. Only the four displayed callbacks are requested;
+remaining registrations stay explicitly unsearched.
 Use the saved registry link for the existing full callback evidence. Full effect
 bodies are not repeated here. A related service method remains framework-role and
 binding unknown; neutral continuation does not label it as a mailer.
@@ -37,6 +41,10 @@ typed rows as plain escaped text. Continue with the export family's own cursor
 for further rows. The link appears only after action selection. Export renders
 the report once instead of repeating detailed rows; equivalent parsed JSON is
 accepted regardless of serializer ordering. Exporting does not share/upload/publish anything.
+Selected-action export reserves its selected Source/continuation controls, rather
+than unused row links or a second rendering of items; its request may use the
+existing 32 KiB ceiling. Sequence retains its separate link/markup reservation.
+The 64 KiB display cap still refuses exceptional escaping inflation.
 
 `/passage/sequence` and `/passage/export` make exactly one public Reader call per
 page. Native owns selection/joins/interpretation. The presenter receives only the

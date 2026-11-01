@@ -34,7 +34,9 @@ fn bounded_syntax_keeps_a_physical_prefix_and_names_the_first_unvisited_region()
     assert_eq!(rows.len(),200);assert_eq!(rows[0]["span"]["start_line"],2);assert_eq!(rows[199]["span"]["start_line"],201);
     assert_eq!(result["status"],"bounded_partial");assert_eq!(result["unsearched_from_byte"],result["stop_region"]["start_byte"]);
     assert!(result["unsearched_from_byte"].as_u64().unwrap()>=rows[199]["span"]["start_byte"].as_u64().unwrap());
-    for (code,kind) in [("unless ready?; ::Order.create!; end","unless"),("while ready?; ::Order.create!; end","while"),("ready? && ::Order.create!","and")] {
+    for (code,kind) in [("unless ready?; ::Order.create!; end","unless"),("while ready?; ::Order.create!; end","while"),("ready? && ::Order.create!","and"),
+        ("@order ||= ::Order.create!","or_write"),("memo = nil; memo &&= ::Order.create!","and_write"),
+        ("receiver&.notify(::Order.create!)","safe_navigation")] {
         let answer=parsed(code);let row=answer["rows"].as_array().unwrap().iter().find(|r|r["kind"]=="save_operation").unwrap();assert_eq!(row["branch"]["kind"],kind);
     }
     let wide=(0..200).map(|n|format!("{}{n}()\n","a".repeat(1000))).collect::<String>();
@@ -85,7 +87,11 @@ fn compact_save_filter_witness_joins_related_boundaries_and_export_byte_edges() 
         assert_eq!(answer["filters"]["status"],"captured");
         let contribution=&answer["items"][1]["save_contribution"];
         assert_eq!(contribution["status"],"potential_save_callback_contribution");assert_eq!(contribution["callbacks"].as_array().unwrap().len(),4);
-        assert_eq!(contribution["summaries_omitted"],4);assert_eq!(contribution["callbacks"][0]["effects"]["returned_count"],8);
+        assert_eq!(contribution["component_callbacks_returned"],4);assert_eq!(contribution["summaries_omitted"],0);
+        assert_eq!(contribution["coverage"]["rows_not_searched"],4);
+        assert_eq!(contribution["callbacks"][0]["effects"]["returned_count"],8);
+        assert_eq!(contribution["callbacks"][0]["effects"]["unit"],"representative_potential_perform_later_call_groups");
+        assert!(contribution["effect_absence"].as_str().unwrap().contains("does not prove"));
         assert_eq!(contribution["callbacks"][0]["witness"]["name"],"Order#queue_receipt");
         assert_eq!(contribution["callbacks"][0]["conditions"]["if"]["kinds"]["opaque"],1);
         let encoded=serde_json::to_string(contribution).unwrap();assert!(!encoded.contains("source_excerpt"));assert!(!encoded.contains(&"x".repeat(480)));

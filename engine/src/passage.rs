@@ -121,6 +121,7 @@ fn callback_contribution(reader:&Reader,registry:&Value,answer:&Value,work:&mut 
             if let Some(value)=callback["filter"].get(key) {work.metadata(value)?;filter.insert(key.into(),value.clone());}
         }
         let mut effects=json!({"returned_count":explanation["effects"].as_array().map_or(0,Vec::len),
+            "unit":"representative_potential_perform_later_call_groups",
             "search_complete":explanation["links_search_complete"]==true,"details":"not_projected","non_exhaustive":true});
         if let Some(omitted)=explanation.get("known_effects_omitted") {effects["known_omitted"]=omitted.clone();}
         summaries.push(json!({"callback_id":callback["callback_id"],"registry_id":callback["registry_id"],
@@ -138,6 +139,7 @@ fn callback_contribution(reader:&Reader,registry:&Value,answer:&Value,work:&mut 
         "registry":identity(registry,&reader.generation,work)?,"registry_status":answer["registry_status"],
         "callbacks":summaries,"component_callbacks_returned":callbacks.len(),"summaries_omitted":callbacks.len().saturating_sub(CALLBACK_SUMMARIES),
         "summary_limit":CALLBACK_SUMMARIES,"coverage":coverage,
+        "effect_absence":"No supported match does not prove that no effect is possible.",
         "scope":"Compact registered callback/source summaries only; effect bodies not projected. Source on this registry exposes existing full callback evidence. Conditions, model identity and execution remain unknown."}))
 }
 fn operation_row(reader:&Reader,operation:&Value,ordinal:usize,action:&Value,work:&mut Work)->Result<Value> {
@@ -154,7 +156,7 @@ fn operation_row(reader:&Reader,operation:&Value,ordinal:usize,action:&Value,wor
             let (registry,matches)=work.unique(reader,label,"rails_save_callbacks")?;
             row["callback_registry_candidates"]=json!(matches);
             if let Some(registry)=registry {
-                let request=json!({"id":registry["id"],"limit":8});
+                let request=json!({"id":registry["id"],"limit":CALLBACK_SUMMARIES});
                 let answer=callback_effects::select_scoped(reader,&callback_effects::Query::parse(&request)?,crate::query::budget(),Some(&mut work.shared))?;
                 // The unchanged component charges all its work before projection;
                 // copying compact summaries never refunds discarded effect bodies.

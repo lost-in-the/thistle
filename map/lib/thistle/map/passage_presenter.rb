@@ -21,7 +21,14 @@ module Thistle
         [[(MAX_BODY_BYTES / 3) / (navigation.reference_url_bytes * 7), 1].max, 8].min
       end
 
-      def self.request_bytes(navigation)
+      def self.request_bytes(navigation, family: 'sequence', action: nil)
+        if family == 'export' && action
+          # Export renders the report, not the duplicate items or their row links.
+          # Reserve the selected Source link, continuation and one spare control.
+          # The final HTML cap still refuses exceptional escaping inflation.
+          hrefs = 3 * navigation.reference_url_bytes
+          return [[MAX_BODY_BYTES - hrefs - 8192, 1024].max, 32768].min
+        end
         # Four compact callback links + action/model/registry per row, plus page
         # controls. Reserve markup and escaped DTO/report space separately.
         hrefs = (page_limit(navigation) * 7 + 4) * navigation.reference_url_bytes
@@ -68,7 +75,7 @@ module Thistle
             if evidence['condition'] == 'inside_branch_syntax'
               branch = evidence['branch']
               unless branch.instance_of?(Hash) && branch.keys.sort == %w[kind span] &&
-                  %w[if unless case when in and or while until for rescue ensure begin_rescue].include?(branch['kind'])
+                  %w[if unless case when in and or or_write and_write safe_navigation while until for rescue ensure begin_rescue].include?(branch['kind'])
                 raise Thistle::InvalidSnapshot, 'Missing enclosing branch syntax'
               end
               span_within!(branch['span'], selected)
@@ -101,8 +108,10 @@ module Thistle
                       callback['conditions'].instance_of?(Hash) && callback['binding'].instance_of?(String) &&
                       callback['effects'].instance_of?(Hash) && callback.dig('effects','returned_count').instance_of?(Integer) &&
                       callback.dig('effects','returned_count') >= 0 && callback.dig('effects','details') == 'not_projected' &&
+                      callback.dig('effects','returned_count') <= 8 &&
+                      callback.dig('effects','unit') == 'representative_potential_perform_later_call_groups' &&
                       [true,false].include?(callback.dig('effects','search_complete')) &&
-                      (callback['effects'].keys - %w[returned_count search_complete details non_exhaustive known_omitted]).empty? &&
+                      (callback['effects'].keys - %w[returned_count unit search_complete details non_exhaustive known_omitted]).empty? &&
                       callback.dig('effects','non_exhaustive') == true && !callback.key?('explanation') &&
                       (callback['filter'].keys - %w[kind name owner]).empty? &&
                       %w[method proc opaque unavailable].include?(callback['filter']['kind']) &&
@@ -122,7 +131,8 @@ module Thistle
                 unless contribution['summary_limit'] == 4 && contribution['callbacks'].length <= 4 &&
                     contribution['summaries_omitted'].instance_of?(Integer) && contribution['summaries_omitted'] >= 0 &&
                     contribution['component_callbacks_returned'] == contribution['callbacks'].length + contribution['summaries_omitted'] &&
-                    contribution['coverage'].instance_of?(Hash)
+                    contribution['coverage'].instance_of?(Hash) &&
+                    contribution['effect_absence'] == 'No supported match does not prove that no effect is possible.'
                   raise Thistle::InvalidSnapshot, 'Invalid callback summary omissions'
                 end
               end
@@ -272,7 +282,10 @@ module Thistle
             evidence = row.fetch('evidence')
             body << "<strong>#{h(evidence.fetch('operation'))}</strong><p>#{h(evidence.fetch('reason'))}</p>"
             if evidence['branch']
-              body << "<p>Inside #{h(evidence.dig('branch','kind'))} branch syntax at saved line #{h(evidence.dig('branch','span','start_line'))}; predicate truth and execution unknown.</p>"
+              kind = evidence.dig('branch','kind')
+              label = {'or_write'=>'short-circuit ||= assignment', 'and_write'=>'short-circuit &&= assignment',
+                'safe_navigation'=>'safe-navigation (&.) call'}.fetch(kind, kind.tr('_', ' '))
+              body << "<p>Inside #{h(label)} branch syntax at saved line #{h(evidence.dig('branch','span','start_line'))}; predicate truth and execution unknown.</p>"
             else
               body << '<p>No enclosing branch syntax in the scanned body; execution remains unknown.</p>'
             end
@@ -289,10 +302,12 @@ module Thistle
                 href = @navigation.url('/source','id'=>contribution.fetch('registry').fetch('id'))
                 body << "<p><a href=\"#{h(href)}\">Inspect full recorded callback evidence</a></p>"
                 body << "<p>Callback summaries omitted: #{h(contribution.fetch('summaries_omitted'))}. Component coverage: #{h(JSON.generate(contribution.fetch('coverage')))}</p>"
+                body << "<p>#{h(contribution.fetch('effect_absence'))}</p>"
               end
               contribution.fetch('callbacks', []).each do |callback|
                 filter = callback.fetch('filter')
                 body << "<p>Registered callback #{h(filter['name'] || filter.fetch('kind'))}; observed owner #{h(filter['owner'] || 'unavailable')}.</p>"
+                body << "<p>Representative potential perform_later call groups: #{h(callback.dig('effects','returned_count'))}; capped at 8, non-exhaustive. This is not a count of invocations.</p>"
                 body << "<pre class=\"check-data\">#{h(JSON.generate(callback.slice('conditions','binding','status','reason','effects','inherited')))}</pre>"
                 body << witness(callback['witness'], 'Inspect potential model callback definition') if callback['witness']
               end

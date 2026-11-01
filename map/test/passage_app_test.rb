@@ -26,6 +26,7 @@ class PassageAppTest < Minitest::Test
       @calls << [id,args]
       raise Thistle::Busy,'busy' if @mode == :busy
       answer = PassageAnswers.page(save:args[:action] == PassageAnswers::ACTION,selected:!!args[:action],family:args[:family])
+      answer = PassageAnswers.contributed(family:args[:family]) if @mode == :contributed
       if args[:action] == PassageAnswers::OTHER
         answer['selected_action']['id'] = args[:action]
       end
@@ -60,6 +61,19 @@ class PassageAppTest < Minitest::Test
     assert_equal '1',headers['retry-after']
     assert @readers.last.closed
   end
+  def test_selected_export_uses_its_family_budget_with_retained_context
+    @mode = :contributed
+    selected = [PassageAnswers::ACTION,PassageAnswers::OTHER].join(',')
+    status,_,body = request({'q'=>'orders','domain'=>'all','selection'=>selected},path:'/passage/export')
+    assert_equal 200,status
+    assert_equal 1,@readers.last.calls.length
+    assert_equal 'export',@readers.last.calls.first.last.fetch(:family)
+    assert_equal 32768,@readers.last.calls.first.last.fetch(:max_bytes)
+    assert @readers.last.closed
+    refute_includes body.join,'<ol>'
+    assert_includes body.join,'representative_potential_perform_later_call_groups'
+  end
+
   def test_scope_access_and_methods_refuse_before_reader_factory
     require_relative 'passage_navigation_test'
     token = PassageNavigationTest.new('unused').cursor

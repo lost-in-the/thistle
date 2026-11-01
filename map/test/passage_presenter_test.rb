@@ -46,12 +46,14 @@ module PassageAnswers
         'filter'=>{'kind'=>'method','name'=>"queue_receipt_#{n}",'owner'=>'Order'},'registry_provenance'=>'registered_metadata',
         'conditions'=>{'if'=>{'status'=>'recorded','count'=>1,'kinds'=>{'proc'=>1},'evaluation'=>'unknown'},'unless'=>{'status'=>'recorded','count'=>0,'kinds'=>{},'evaluation'=>'unknown'}},
         'binding'=>'descriptor_matched_captured_declaration','status'=>'supported_potential','reason'=>'recorded_constant_receiver_perform_later',
-        'witness'=>witness,'effects'=>{'returned_count'=>8,'known_omitted'=>2,'search_complete'=>true,'details'=>'not_projected','non_exhaustive'=>true}}
+        'witness'=>witness,'effects'=>{'returned_count'=>8,'unit'=>'representative_potential_perform_later_call_groups',
+          'known_omitted'=>2,'search_complete'=>true,'details'=>'not_projected','non_exhaustive'=>true}}
     end
     item['save_contribution'] = {'status'=>'potential_save_callback_contribution','model_binding'=>'unknown',
       'registry'=>runtime.call(registry,'rails_save_callbacks'),'registry_status'=>'observed','callbacks'=>callbacks,
-      'summary_limit'=>4,'summaries_omitted'=>4,'component_callbacks_returned'=>8,
-      'coverage'=>{'rows_attempted'=>8,'rows_not_searched'=>2,'rows_metadata_omitted'=>0,'rows_output_omitted'=>0,'truncated'=>true}}
+      'summary_limit'=>4,'summaries_omitted'=>0,'component_callbacks_returned'=>4,
+      'effect_absence'=>'No supported match does not prove that no effect is possible.',
+      'coverage'=>{'rows_attempted'=>4,'rows_not_searched'=>4,'rows_metadata_omitted'=>0,'rows_output_omitted'=>0,'truncated'=>true}}
     report!(answer) if family == 'export'
     answer
   end
@@ -150,7 +152,10 @@ class PassagePresenterTest < Minitest::Test
   def test_compact_large_save_and_export_render_once_with_exact_witnesses_and_omissions
     answer = PassageAnswers.contributed
     html = render(validate(answer))
-    assert_includes html,'Callback summaries omitted: 4'
+    assert_includes html,'Callback summaries omitted: 0'
+    assert_includes html,'Representative potential perform_later call groups: 8'
+    assert_includes html,'This is not a count of invocations.'
+    assert_includes html,'No supported match does not prove that no effect is possible.'
     assert_equal 4,html.scan('Inspect potential model callback definition').length
     refute_includes html,'source_excerpt'
     exported = PassageAnswers.contributed(family:'export')
@@ -187,6 +192,47 @@ class PassagePresenterTest < Minitest::Test
     bad['report'] << 'x'*65536
     assert_raises(Thistle::InvalidSnapshot) {validate(bad,family:'export')}
   end
+  def test_export_admission_uses_rendered_links_and_a_full_rust_shaped_summary
+    params = {'generation'=>PassageAnswers::GENERATION,'q'=>'orders','domain'=>'all',
+      'selection'=>[PassageAnswers::ACTION,PassageAnswers::OTHER].join(',')}
+    nav = Thistle::Map::NavigationContext.new(generation:PassageAnswers::GENERATION,mount:'/map',params:params,
+      selection:Thistle::Map::Investigation.from_params(params))
+    klass = Thistle::Map::PassagePresenter
+    old_sequence_cap = klass.request_bytes(nav)
+    cap = klass.request_bytes(nav,family:'export',action:PassageAnswers::ACTION)
+    assert_equal 32768,cap
+    assert_operator cap,:>,old_sequence_cap
+    assert_equal old_sequence_cap,klass.request_bytes(nav,family:'export',action:nil)
+    answer = PassageAnswers.contributed(family:'export')
+    # Include real DTO categories omitted by the former small mock: full-length
+    # semantics, directory/open usage, component coverage, and long descriptors.
+    answer['semantics'] = 'Registry order, lexical order, conditions, model identity, source coherence, invocation, persistence and delivery remain unknown. ' * 3
+    answer['usage'] = {'selection_fact_visits'=>70,'selection_comparisons'=>400,'selection_label_bytes'=>16000,
+      'scratch_reservation'=>100663296,'reader_open'=>{'facts'=>120,'links'=>200,'method_key_bytes'=>9000},
+      'directories'=>%w[method rails_model rails_save_callbacks rails_controller_filters].map { |kind|
+        {'family'=>kind,'built'=>true,'facts'=>120,'retained_bytes'=>4096,'capacity'=>128,'comparisons'=>400} },
+      'scope'=>'Route, saved-source and callback work share finite admission; directories build lazily and source prefixes repeat per page. No runtime or performance evidence.'}
+    contribution = answer['items'].first.fetch('save_contribution')
+    contribution['coverage'].merge!('capture_partial_or_unknown'=>false,'declaration_scan_complete'=>true,
+      'candidate_ranges_complete'=>true,'source_rows_not_searched'=>0,'facts_visited'=>70,'links_visited'=>100,
+      'compared_label_bytes'=>16000,'source_files_attempted'=>1,'source_bytes_charged'=>4096)
+    contribution.fetch('callbacks').each_with_index do |callback,n|
+      name = "deliver_order_receipt_#{n}_" + 'subscriber_retry_policy_' * 8
+      callback['filter']['name'] = name
+      callback['witness']['name'] = "Order##{name}"
+    end
+    PassageAnswers.report!(answer)
+    wire = JSON.generate(answer).bytesize
+    assert_operator wire,:>,old_sequence_cap, 'Regression must exceed the old export admission'
+    assert_operator wire,:<=,cap
+    klass.validate!(answer,generation:PassageAnswers::GENERATION,id:PassageAnswers::ROUTE,
+      action:PassageAnswers::ACTION,family:'export',max_bytes:cap)
+    html = klass.new(navigation:nav).render(answer)
+    assert_operator html.bytesize,:<,klass::MAX_BODY_BYTES
+    refute_includes html,'<ol>'
+    assert_equal 1,html.scan('Selected action:').length
+  end
+
   def test_filter_descriptor_is_visible_without_a_source_witness_and_service_is_neutral
     answer = PassageAnswers.page
     answer['filters'].merge!('status'=>'captured','registry_candidates'=>1)
