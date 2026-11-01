@@ -106,7 +106,7 @@ begin
     # export or a standalone renderer. Keep its explicit same-family cursor.
     export_rows = []; export_cursor = nil; export_seen = []; export_complete = false
     64.times do
-      export_params = params.merge('cursor'=>export_cursor)
+      export_params = params.merge('cursor'=>export_cursor).compact
       export_html,_ = rack(app,'/passage/export',export_params)
       demand(export_html.include?('Potential request Passage'),'Actual Map export missing')
       nav = Thistle::Map::NavigationContext.new(generation:generation,mount:'/map',params:export_params,
