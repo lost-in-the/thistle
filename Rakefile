@@ -52,7 +52,10 @@ desc "Run optional MCP admission contracts without SDK/native activation"
 task :mcp do
   paths = %w[session tools stdio].map { |name| "mcp/test/#{name}_test.rb" }
   abort "MCP contract test inputs absent" unless paths.all? { |path| File.file?(path) }
-  sh RbConfig.ruby, "-Imcp/lib", "-e", 'ARGV.each { |path| require File.expand_path(path) }', *paths
+  # CI's Rails bundle supplies a Minitest reporter plugin. Keep this pure child
+  # isolated without changing the parent environment or weakening its guards.
+  sh({ "MT_NO_PLUGINS" => "1" }, RbConfig.ruby, "-Imcp/lib", "-e",
+    'ARGV.each { |path| require File.expand_path(path) }', *paths)
 end
 
 desc "Run the native, Ruby and optional MCP contract tests"
