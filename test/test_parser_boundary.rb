@@ -15,11 +15,11 @@ class ThistleParserBoundaryTest < Minitest::Test
     require "thistle/capture"
     run = lambda do
       begin
-        captured = Thistle::Capture.new(root: ARGV.fetch(0)).call
+        captured = Thistle::Capture.new(root: ARGV.fetch(0), limits: JSON.parse(ARGV.fetch(2))).call
         ruby = captured.fetch("coverage").find { |entry| entry["family"] == "ruby_declarations" }
         puts JSON.generate("status" => "captured", "ruby_status" => ruby.fetch("status"))
       rescue Thistle::Error => error
-        puts JSON.generate("status" => "refused", "code" => error.code)
+        puts JSON.generate("status" => "refused", "code" => error.code, "message" => error.message)
       end
     end
     if ARGV.fetch(1) == "thread"
@@ -29,7 +29,7 @@ class ThistleParserBoundaryTest < Minitest::Test
     end
   RUBY
 
-  def assert_bounded_capture(source)
+  def assert_bounded_capture(source, limits: {}, expected_refusal: nil)
     %w[main thread].each do |mode|
       Dir.mktmpdir("thistle-parser-boundary-") do |directory|
         File.write(File.join(directory, "probe.rb"), source)
@@ -38,7 +38,7 @@ class ThistleParserBoundaryTest < Minitest::Test
         started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
         children_before = Process.times
         pid = Process.spawn(
-          RbConfig.ruby, "-I", File.expand_path("../lib", __dir__), "-e", PROGRAM, directory, mode,
+          RbConfig.ruby, "-I", File.expand_path("../lib", __dir__), "-e", PROGRAM, directory, mode, JSON.generate(limits),
           out: stdout, err: stderr, **ThistleTestProcess::LIMITS
         )
         begin
@@ -64,6 +64,10 @@ class ThistleParserBoundaryTest < Minitest::Test
         end
         assert status.success?, "Native parser process failed (#{mode}): #{failure}"
         result = JSON.parse(File.read(stdout))
+        if expected_refusal
+          assert_equal "refused", result["status"]
+          assert_equal expected_refusal, result["message"]
+        end
         if result["status"] == "refused"
           assert_equal "limit_exceeded", result["code"]
         else
@@ -80,7 +84,13 @@ class ThistleParserBoundaryTest < Minitest::Test
   end
 
   def test_long_ast_destructor_chain_is_bounded_on_both_caller_stacks
-    assert_bounded_capture("x" + ".a" * 1_000_000)
+    # Keep the complete million-call input for Prism and its result destructor.
+    # Stop the separate evidence walk early so link construction does not consume
+    # the parser/destructor probe's fixed process allowance. Capture drops the
+    # parse result before propagating this traversal refusal.
+    assert_bounded_capture("x" + ".a" * 1_000_000,
+                           limits: { "max_nodes" => 1 },
+                           expected_refusal: "Parsed sources exceed max_nodes")
   end
 
   def test_malformed_deep_nesting_refuses_without_crashing
