@@ -33,6 +33,24 @@ ActiveRecord::Schema.define { create_table(:orders) { |table| table.string :name
 %w[controllers/application_controller controllers/orders_controller models/order jobs/receipt_job mailers/receipt_mailer].each do |file|
   require File.join(root, 'app', "#{file}.rb")
 end
+# Actual framework guard probes, AUTHORED UNRUN here. They require the real
+# framework class_attribute factory, not the NameError pure-double path.
+require 'thistle/controller_filters_observer'
+observe = ->(controllers) { Thistle::ControllerFiltersObserver.new(app:app,root:root,controllers:controllers,
+  framework_version:Rails.version,limits:{max_entries:1000,max_facts:20},evidence_budget:131072).call }
+baseline = observe.call([OrdersController]).fetch('controllers').fetch(0)
+raise 'Actual controller storage guard was not reached' unless baseline.fetch('status') == 'observed'
+only = baseline.fetch('entries').find { |r| r.dig('filter','name') == 'check_order' }
+raise 'Actual action-filter set was not observed' unless only && only.fetch('if').any? { |c| c['kind'] == 'actions' && c['mode'] == 'only' && c['actions'] == ['create'] }
+hash_set = Object.instance_method(:instance_variable_get).bind_call(Set.new(['create']),:@hash).instance_of?(Hash)
+raise 'Ruby3.4 Set @hash path was not exercised' if RUBY_VERSION.start_with?('3.4.') && !hash_set
+guard_calls = 0
+guard_probe = Class.new(OrdersController)
+guard_probe.define_singleton_method(:__class_attr___callbacks) { guard_calls += 1; raise 'Application override invoked' }
+override = observe.call([guard_probe]).fetch('controllers').fetch(0)
+raise 'ISeq mismatch guard failed' unless override.fetch('status') == 'unavailable' && guard_calls.zero?
+guard_evidence = {'ruby'=>RUBY_VERSION,'registry_observed'=>true,'only_create_observed'=>true,
+  'set_hash_backed'=>hash_set,'override_unavailable'=>true,'override_invocations'=>guard_calls}
 app.routes.draw do
   constraints(host: 'fixture.example.invalid') do
     get '/orders', to: 'orders#index'
@@ -58,4 +76,4 @@ File.write(controller, File.read(controller).gsub('saved_a', 'saved_b'))
 # The loaded app is unchanged; current source/runtime coherence remains unknown.
 saved_b = Thistle.capture(root: root, output: store).fetch('generation')
 puts JSON.generate({'store'=>store,'root'=>root,'saved_a'=>saved_a,'partial'=>saved_partial,'current_b'=>saved_b,
-  'rails_version'=>Rails.version,'source_runtime_coherence'=>'unknown'})
+  'rails_version'=>Rails.version,'source_runtime_coherence'=>'unknown','controller_filter_guard'=>guard_evidence})

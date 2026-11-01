@@ -9,6 +9,9 @@ require 'thistle'
 require 'thistle/map'
 raise 'Consumer loaded a framework' if defined?(Rails) || defined?(ActiveRecord)
 manifest = JSON.parse(File.read(ARGV.fetch(0)))
+guard = manifest.fetch('controller_filter_guard')
+raise 'Missing actual framework guard evidence' unless guard.values_at('registry_observed','only_create_observed','override_unavailable','override_invocations') == [true,true,true,0]
+raise 'Ruby3.4 Hash-backed Set gate missing' if guard.fetch('ruby').start_with?('3.4.') && !guard.fetch('set_hash_backed')
 generation = manifest.fetch('saved_a')
 store = manifest.fetch('store')
 home = File.realpath(ENV.fetch('GEM_HOME'))
@@ -61,6 +64,13 @@ begin
     rows = pages(reader,route.fetch('id'),candidate.fetch('id'))
     saves = rows.select { |r| r.dig('evidence','kind') == 'save_operation' }
     demand(!saves.empty? == %w[create conditional].include?(action_name),"Wrong selected-action save meaning #{action_name}")
+    if action_name == 'create'
+      demand(saves.all? { |r|r.dig('evidence','condition') == 'no_enclosing_branch_syntax' && !r.fetch('evidence').key?('branch') },'Create acquired an enclosing branch')
+      demand(saves.first.dig('evidence','span','start_line') == 6,'Wrong direct create witness')
+    elsif action_name == 'conditional'
+      demand(saves.all? { |r|r.dig('evidence','condition') == 'inside_branch_syntax' && r.dig('evidence','branch','kind') == 'if' &&
+        r.dig('evidence','branch','span','start_line') == 21 && r.dig('evidence','branch','span','end_line') == 21 },'Conditional action lost its actual branch enclosure')
+    end
     exports = pages(reader,route.fetch('id'),candidate.fetch('id'),family:'export') do |answer|
       parsed = JSON.parse(answer.fetch('report').lines.drop(3).join)
       demand(parsed == answer.fetch('items'),'Export diverged from Reader items')
@@ -81,15 +91,19 @@ begin
         demand(source_html.include?(%(id="#{uri.fragment}")),'Physical Source line missing')
         sources << fields.fetch('id')
       end
-      answer = reader.passage(route.fetch('id'),action:candidate.fetch('id'),limit:Thistle::Map::PassagePresenter.page_limit(
-        Thistle::Map::NavigationContext.new(generation:generation,params:params,selection:Thistle::Map::Investigation.from_params(params))),cursor:cursor)
+      navigation = Thistle::Map::NavigationContext.new(generation:generation,params:params,selection:Thistle::Map::Investigation.from_params(params))
+      answer = reader.passage(route.fetch('id'),action:candidate.fetch('id'),limit:Thistle::Map::PassagePresenter.page_limit(navigation),
+        max_bytes:Thistle::Map::PassagePresenter.request_bytes(navigation),cursor:cursor)
       break if answer.dig('coverage','page_complete')
       cursor = answer.fetch('next_cursor')
     end
-    demand(rendered.include?('potential_save_callback_contribution') == %w[create conditional].include?(action_name),'Map save meaning differs')
+    demand(rendered.include?('Potential registered save callback contribution') == %w[create conditional].include?(action_name),'Map save meaning differs')
+    demand(rendered.include?('Inside if branch syntax at saved line 21') == (action_name == 'conditional'),'Map conditional meaning differs')
+    demand(rendered.include?('Captured filter registry label candidate'),'Local registry status missing')
+    demand(rendered.include?('Selected action source scan complete'),'Local source completeness missing')
     demand(sources.include?(candidate.fetch('id')),'No real action Source')
     if action_name == 'create'
-      demand(saves.any? { |r| r.dig('save_contribution','callbacks').any? { |c| c.dig('explanation','method','name') == 'Order#queue_receipt' } },'Actual model callback contribution absent')
+      demand(saves.any? { |r| r.dig('save_contribution','callbacks').any? { |c| c.dig('witness','name') == 'Order#queue_receipt' && c.dig('effects','details') == 'not_projected' } },'Actual compact model callback contribution absent')
       demand(rows.any? { |r| r.dig('witness','name') == 'ApplicationController#authenticate' },'Inherited filter edit witness absent')
       demand(rows.any? { |r| r.dig('witness','name') == 'OrdersController#check_order' },'Action filter edit witness absent')
       demand(sources.uniq.length >= 4,'Distinct action/filter/model Source witnesses missing')
@@ -109,7 +123,8 @@ begin
     elsif action_name == 'index'
       demand(rows.any? { |r| r['applicability'] == 'excluded_by_recorded_action_condition' },'Action applicability not switched')
     end
-    output[action_name] = {'route'=>route.fetch('id'),'action'=>candidate.fetch('id'),'operation_kinds'=>rows.filter_map { |r|r.dig('evidence','kind') },'source_ids'=>sources.uniq}
+    output[action_name] = {'route'=>route.fetch('id'),'action'=>candidate.fetch('id'),'operation_kinds'=>rows.filter_map { |r|r.dig('evidence','kind') },
+      'save_conditions'=>saves.map { |r|r.fetch('evidence').slice('condition','branch','span') },'source_ids'=>sources.uniq}
   end
   source = reader.source(output.fetch('index').fetch('action'))
   demand(source.fetch('content').include?('saved_a') && !source.fetch('content').include?('saved_b'),'Pinned Source changed after CURRENT B')

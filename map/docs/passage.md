@@ -15,10 +15,28 @@ the model has callbacks. An asynchronous/helper/binding boundary stops the story
 a separate related-method link can continue source investigation into existing
 job/mail/template evidence. Nothing claims a request, save, enqueue or delivery ran.
 
+Above the primary list, read the local filter status and candidate count: captured,
+not captured, supplied but unavailable, or ambiguous. Default opt-out does not
+mean there are no filters. Source completeness, partial scan stop-region and
+unknown/unsearched reasons are also visible there. Each filter names its recorded
+descriptor and observed owner even when no exact Source witness is available.
+Direct and conditional create operations differ: conditional rows show the nearest
+branch kind and actual saved span; an unenclosed row states only that no enclosing
+branch syntax was found. Predicate truth and execution remain unknown. Unsupported
+block/lambda bodies are not scanned, without asserting that they never run.
+
+Callback contributions show at most four compact summaries with exact witnesses,
+condition/binding status, effect counts and explicit projection/component omissions.
+Use the saved registry link for the existing full callback evidence. Full effect
+bodies are not repeated here. A related service method remains framework-role and
+binding unknown; neutral continuation does not label it as a mailer.
+
 The equivalent ordered list is the presentation; no diagram or JavaScript is
 required. **Export this selected-action investigation** shows the same page's
 typed rows as plain escaped text. Continue with the export family's own cursor
-for further rows. Exporting does not share/upload/publish anything.
+for further rows. The link appears only after action selection. Export renders
+the report once instead of repeating detailed rows; equivalent parsed JSON is
+accepted regardless of serializer ordering. Exporting does not share/upload/publish anything.
 
 `/passage/sequence` and `/passage/export` make exactly one public Reader call per
 page. Native owns selection/joins/interpretation. The presenter receives only the
@@ -28,6 +46,12 @@ route/action/generation/family cursor and unexpected query fields refuse. Changi
 the route or action resets continuation; Source and other destinations remove
 Passage controls. All 24 collection IDs are retained. The existing nine-field/
 4096-byte admission may drop bounded search atomically with its visible notice.
+Passage's request-byte admission also reserves space for row hrefs, markup and
+escaped report output under the existing 32 KiB response/64 KiB display ceilings.
+Oversized first rows still refuse explicitly; continuation never skips them.
+Known local source-size/analysis limits preserve registered filter evidence with
+a visible source-unknown reason. Shared budgets, unsafe storage, invalid snapshots
+and Busy still refuse through their existing typed boundaries.
 
 Links use actual saved fact IDs and physical spans, not inferred lines from names.
 The existing `View#source` implementation is byte-identical to the admitted base;

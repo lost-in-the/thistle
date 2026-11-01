@@ -69,7 +69,9 @@ class ControllerFiltersObserverTest < Minitest::Test
     assert_equal 'proc', data['entries'][3].dig('filter','kind')
   end
 
-  def test_real_storage_guard_refuses_application_override_without_dispatch
+  # No class_attribute exists in this pure fixture: this exercises unavailable
+  # storage via NameError, not the real framework ISeq mismatch guard.
+  def test_missing_framework_storage_is_unavailable_without_dispatch
     row = Thistle::ControllerFiltersObserver.new(**options).call.fetch('controllers').first
     assert_equal 'unavailable', row['status']
     assert_empty row['entries']

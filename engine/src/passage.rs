@@ -91,6 +91,55 @@ fn filter_row(reader:&Reader,entry:&Value,position:usize,registry:&Value,action:
         "applicability":controller_filters::applicability(entry,action),"witness":witness,
         "order":"Framework registry position only; around/after execution chronology unknown","binding":"unknown"}))
 }
+const CALLBACK_SUMMARIES:usize=4;
+fn compact_conditions(values:&Value,work:&mut Work)->Result<Value> {
+    let Some(values)=values.as_array() else {return Ok(json!({"status":"unavailable","evaluation":"unknown"}));};
+    let mut kinds=serde_json::Map::new();
+    for value in values {
+        let kind=value["kind"].as_str().unwrap_or("unavailable");
+        if !work.shared.labels(kind.len()) {return Err(CoreError::limit("Passage condition summary allowance"));}
+        let count=kinds.get(kind).and_then(Value::as_u64).unwrap_or(0)+1;
+        kinds.insert(kind.into(),json!(count));
+    }
+    Ok(json!({"status":"recorded","count":values.len(),"kinds":kinds,"evaluation":"unknown"}))
+}
+fn callback_contribution(reader:&Reader,registry:&Value,answer:&Value,work:&mut Work)->Result<Value> {
+    let callbacks=schema::array(answer,"callbacks")?;
+    let mut summaries=Vec::new();
+    for callback in callbacks.iter().take(CALLBACK_SUMMARIES) {
+        work.metadata(callback)?;
+        let explanation=&callback["explanation"];
+        let mut witness=Value::Null;
+        if explanation["binding"]=="descriptor_matched_captured_declaration" {
+            if let Some(id)=explanation["method"]["id"].as_str() {
+                if !work.shared.facts(1) {return Err(CoreError::limit("Passage callback projection allowance"));}
+                witness=identity(reader.stored_fact(id)?,&reader.generation,work)?;
+            }
+        }
+        let mut filter=serde_json::Map::new();
+        for key in ["kind","name","owner"] {
+            if let Some(value)=callback["filter"].get(key) {work.metadata(value)?;filter.insert(key.into(),value.clone());}
+        }
+        let mut effects=json!({"returned_count":explanation["effects"].as_array().map_or(0,Vec::len),
+            "search_complete":explanation["links_search_complete"]==true,"details":"not_projected","non_exhaustive":true});
+        if let Some(omitted)=explanation.get("known_effects_omitted") {effects["known_omitted"]=omitted.clone();}
+        summaries.push(json!({"callback_id":callback["callback_id"],"registry_id":callback["registry_id"],
+            "position":callback["position"],"kind":callback["kind"],"filter":filter,"inherited":callback["inherited"],
+            "registry_provenance":callback["registry_provenance"],"conditions":{"if":compact_conditions(&callback["if"],work)?,"unless":compact_conditions(&callback["unless"],work)?},
+            "binding":explanation["binding"],"status":explanation["status"],"reason":explanation["reason"],"witness":witness,"effects":effects}));
+    }
+    let mut coverage=serde_json::Map::new();
+    for key in ["capture_partial_or_unknown","declaration_scan_complete","candidate_ranges_complete","rows_attempted","rows_not_searched",
+        "rows_metadata_omitted","rows_output_omitted","source_rows_not_searched","truncated","facts_visited","links_visited",
+        "compared_label_bytes","source_files_attempted","source_bytes_charged"] {
+        let value=&answer["coverage"][key];work.metadata(value)?;coverage.insert(key.into(),value.clone());
+    }
+    Ok(json!({"status":"potential_save_callback_contribution","model_binding":"unknown",
+        "registry":identity(registry,&reader.generation,work)?,"registry_status":answer["registry_status"],
+        "callbacks":summaries,"component_callbacks_returned":callbacks.len(),"summaries_omitted":callbacks.len().saturating_sub(CALLBACK_SUMMARIES),
+        "summary_limit":CALLBACK_SUMMARIES,"coverage":coverage,
+        "scope":"Compact registered callback/source summaries only; effect bodies not projected. Source on this registry exposes existing full callback evidence. Conditions, model identity and execution remain unknown."}))
+}
 fn operation_row(reader:&Reader,operation:&Value,ordinal:usize,action:&Value,work:&mut Work)->Result<Value> {
     work.metadata(operation)?;
     let mut row=json!({"kind":"source_operation","ordinal":ordinal,"evidence":operation,
@@ -106,19 +155,10 @@ fn operation_row(reader:&Reader,operation:&Value,ordinal:usize,action:&Value,wor
             row["callback_registry_candidates"]=json!(matches);
             if let Some(registry)=registry {
                 let request=json!({"id":registry["id"],"limit":8});
-                let mut answer=callback_effects::select_scoped(reader,&callback_effects::Query::parse(&request)?,crate::query::budget(),Some(&mut work.shared))?;
-                for callback in answer["callbacks"].as_array_mut().unwrap() {
-                    if let Some(id)=callback["explanation"]["method"]["id"].as_str() {
-                        if !work.shared.facts(1) {return Err(CoreError::limit("Passage callback projection allowance"));}
-                        let method=reader.stored_fact(id)?;
-                        callback["witness"]=identity(method,&reader.generation,work)?;
-                    }
-                }
-                // Preserve exact declaration/effect evidence from its existing owner.
-                // This is conditional contribution, not asserted callback execution.
-                row["save_contribution"]=json!({"status":"potential_save_callback_contribution","model_binding":"unknown",
-                    "registry":identity(registry,&reader.generation,work)?,"callbacks":answer["callbacks"],
-                    "coverage":answer["coverage"],"semantics":answer["semantics"]});
+                let answer=callback_effects::select_scoped(reader,&callback_effects::Query::parse(&request)?,crate::query::budget(),Some(&mut work.shared))?;
+                // The unchanged component charges all its work before projection;
+                // copying compact summaries never refunds discarded effect bodies.
+                row["save_contribution"]=callback_contribution(reader,registry,&answer,work)?;
             }
         }
     } else if matches!(operation["kind"].as_str(),Some("async_boundary"|"constant_call_boundary")) {
@@ -126,6 +166,7 @@ fn operation_row(reader:&Reader,operation:&Value,ordinal:usize,action:&Value,wor
         let target=if operation["kind"]=="async_boundary" {format!("{receiver}#perform")} else {format!("{receiver}#{}",operation["operation"].as_str().unwrap_or(""))};
         let (candidate,matches)=work.unique(reader,&target,"method")?;
         row["candidate_matches"]=json!(matches);
+        row["receiver_framework_role"]=json!("unknown");
         if let Some(candidate)=candidate {
             row["related_candidate"]=identity(candidate,&reader.generation,work)?;
             row["followup"]=json!({"operation":"job_mail","generation":reader.generation,"id":candidate["id"],"family":"handoff"});
@@ -134,9 +175,37 @@ fn operation_row(reader:&Reader,operation:&Value,ordinal:usize,action:&Value,wor
     }
     Ok(row)
 }
+fn source_analysis(reader:&Reader,action:&Value,work:&mut Work)->Result<Value> {
+    if action["path"].is_null() {return Ok(source::unknown("saved_action_has_no_physical_source"));}
+    let path=schema::string(action,"path")?;
+    if action["location"].is_null() {return Ok(source::unknown("saved_action_has_no_physical_source"));}
+    let files=schema::array(&reader.manifest,"files")?;
+    let mut found=None;
+    for file in files {
+        let label=schema::string(file,"path")?;
+        let order=method_lookup::Work::compare(work,path,label).ok_or_else(||CoreError::limit("Passage file inventory comparison allowance"))?;
+        if order==Ordering::Equal {found=Some(file);break;}
+    }
+    let file=found.ok_or_else(||CoreError::snapshot("Missing action source metadata"))?;
+    let source_bytes=file["bytes"].as_u64().ok_or_else(||CoreError::snapshot("Invalid action source size"))?;
+    if source_bytes>262144 {return Ok(source::unknown("saved_file_exceeds_source_allowance"));}
+    if !work.shared.source_attempt() || !work.shared.source_bytes(source_bytes as usize) {return Err(CoreError::limit("Passage shared source allowance"));}
+    let links=schema::array(action,"links")?.len();
+    if !work.shared.facts(1) || !work.shared.links(links) {return Err(CoreError::limit("Passage source validation allowance"));}
+    let mut saved=reader.source(schema::string(action,"id")?)?;
+    let content=match saved["content"].take() {Value::String(content)=>content,_=>return Err(CoreError::snapshot("Missing saved action source"))};
+    drop(saved);
+    let declaration=json!({"kind":action["kind"],"location":action["location"]});
+    // Busy, shared worker admission, unsafe storage and invalid snapshot errors
+    // propagate. Only local analyzer size outcomes become source-unknown DTOs.
+    crate::capture::parser_worker("thistle-passage",move||source::analyze(&declaration,&content))
+}
 #[derive(serde::Serialize)]
 struct Envelope<'a>{ok:bool,result:&'a Value}
 pub(crate) fn select(reader:&Reader,query:&Query<'_>)->Result<Value> {
+    select_with_work(reader,query,Work::new())
+}
+fn select_with_work(reader:&Reader,query:&Query<'_>,mut work:Work)->Result<Value> {
     let scope=json!(["passage",query.id,query.action,query.family]);
     let (offset,secondary)=recorded_domain::position(query.cursor,&reader.generation,&scope)?;
     if secondary!=0 {return Err(CoreError::input("Invalid passage continuation position"));}
@@ -146,7 +215,7 @@ pub(crate) fn select(reader:&Reader,query:&Query<'_>)->Result<Value> {
         request["cursor"]=recorded_domain::cursor(&reader.generation,&json!(["route_actions",query.id]),(offset,0))?;
     }
     let mut route=route_actions::select(reader,&route_actions::Query::parse(&request)?)?;
-    let mut work=Work::new();work.charge_route(&route)?;
+    work.charge_route(&route)?;
     let root=route["root"].take();
     let mut result=json!({"version":1,"generation":reader.generation,"root":root,"selected_action":null,
         "family":query.family,"selection_status":"choose_saved_action","route":route,"items":[],"offset":offset,
@@ -165,34 +234,21 @@ pub(crate) fn select(reader:&Reader,query:&Query<'_>)->Result<Value> {
         result["selection_status"]=json!("selected_syntax_binding_unknown");
         let owner=labels.unwrap().0;let action_name=labels.unwrap().1;
         let (registry,registry_count)=work.unique(reader,owner,"rails_controller_filters")?;
-        result["filters"]=json!({"registry_candidates":registry_count,"status":if registry.is_some(){"qualified_label_candidate"}else{"unavailable_or_ambiguous"},"binding":"unknown"});
+        let filter_status=if registry_count==0 {"not_captured"}else if registry_count>1 {"ambiguous_registry_candidates"}
+            else if registry.unwrap()["attributes"]["controller_filters"]["controller"]["status"]=="observed" {"captured"}else{"unavailable"};
+        result["filters"]=json!({"registry_candidates":registry_count,"status":filter_status,"binding":"unknown"});
         let filters=registry.and_then(|f|f["attributes"]["controller_filters"]["controller"]["entries"].as_array());
         let filter_count=filters.map_or(0,Vec::len);
-        let path=schema::string(action,"path")?;
-        let files=schema::array(&reader.manifest,"files")?;
-        let mut found=None;
-        for file in files {
-            if !work.shared.facts(1) || !work.shared.labels(path.len()+file["path"].as_str().unwrap_or("").len()) {return Err(CoreError::limit("Passage file inventory work allowance"));}
-            if file["path"]==path {found=Some(file);break;}
-        }
-        let file=found.ok_or_else(||CoreError::snapshot("Missing action source metadata"))?;
-        let source_bytes=file["bytes"].as_u64().filter(|n|*n<=262144).ok_or_else(||CoreError::limit("Passage source exceeds per-file allowance"))? as usize;
-        if !work.shared.source_attempt() || !work.shared.source_bytes(source_bytes) {return Err(CoreError::limit("Passage shared source allowance"));}
-        // Source's existing canonical validation visits this declaration's links;
-        // debit those repeated visits before calling the maintained authority.
-        let links=schema::array(action,"links")?.len();
-        if !work.shared.facts(1) || !work.shared.links(links) {return Err(CoreError::limit("Passage source validation allowance"));}
-        let saved=reader.source(id)?;
-        let declaration=json!({"kind":action["kind"],"location":action["location"]});
-        let content=schema::string(&saved,"content")?.to_owned();
-        let analysis=crate::capture::parser_worker("thistle-passage",move||source::analyze(&declaration,&content))?;
+        let analysis=source_analysis(reader,action,&mut work)?;
         work.metadata(&analysis)?;
         let operations=schema::array(&analysis,"rows")?;
         total=filter_count+operations.len();
         if offset>total {return Err(CoreError::input("Passage continuation outside selected evidence"));}
         result["coverage"]["source_scan_complete"]=analysis["scan_complete"].clone();
         result["coverage"]["analysis_status"]=analysis["status"].clone();
+        if let Some(value)=analysis.get("reason") {result["coverage"]["reason"]=value.clone();}
         if let Some(value)=analysis.get("unsearched") {result["coverage"]["unsearched"]=value.clone();}
+        for field in ["unsearched_from_byte","stop_region"] {if let Some(value)=analysis.get(field) {result["coverage"][field]=value.clone();}}
         let mut items=Vec::new();
         for index in offset..total.min(offset.saturating_add(query.limit)) {
             let row=if index<filter_count {filter_row(reader,&filters.unwrap()[index],index,registry.unwrap(),action_name,&mut work)?}

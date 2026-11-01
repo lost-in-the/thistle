@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 # Isolated mocked App boundary: no framework/native/store/server/browser.
+# Correction batch: AUTHORED UNRUN locally; Root owns all App execution.
 if $PROGRAM_NAME == __FILE__
 require_relative 'passage_presenter_test'
 require 'cgi'
@@ -44,8 +45,9 @@ class PassageAppTest < Minitest::Test
   def test_one_operation_close_head_and_busy_boundary
     status,headers,body = request
     assert_equal 200,status
-    assert_includes body.join,'qualified_target_unavailable'
+    assert_includes body.join,'Save syntax found; unique recorded model'
     assert_equal 1,@readers.last.calls.length
+    assert_operator @readers.last.calls.first.last.fetch(:max_bytes),:<,32768
     assert @readers.last.closed
     assert headers.fetch('content-security-policy').include?("default-src 'none'")
     status,_,body = request(method:'HEAD')

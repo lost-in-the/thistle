@@ -16,6 +16,17 @@ load path. Root owns their finite execution and retained package/native identiti
 independently and requires distinct saved action/filter/model/template witnesses.
 Index and helper-chain actions acquire no save contribution. The conditional action
 retains unknown conditions. Show remains two explicit alternative syntax definitions.
+Create must report no enclosing branch syntax at its operation on saved line 6;
+conditional must retain its actual `if` enclosure and saved line-21 span. Reader,
+Map and parsed export rows must agree, without inferring predicate truth. The
+consumer requires compact callback witnesses/counts and explicit omissions rather
+than accepting a generic nonempty save or unknown banner.
+
+The producer also reaches the real Rails storage/ISeq guard: observe the real
+only:create action set, then refuse a disposable class's private storage override
+without invoking it. Root's Ruby 3.4 cohort must observe the actual Hash-backed
+Set path. The early pure test merely exercises missing framework storage via
+NameError; Ruby 4 native Set success proves neither framework guard nor Ruby 3.4.
 
 All scripts and cards are **AUTHORED UNRUN** in the source-only implementation.
 Pure mock checks are a separate tier and establish no framework/native/artifact

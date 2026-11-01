@@ -215,10 +215,11 @@ module Thistle
         raise Limit, 'Saved request Passage is unavailable with this Reader.' unless @reader.respond_to?(:passage)
         id = @params.fetch('id')
         limit = PassagePresenter.page_limit(@navigation)
+        max_bytes = PassagePresenter.request_bytes(@navigation)
         answer = @reader.passage(id, action: @params['action'], family: family,
-          limit: limit, cursor: @params['cursor'], max_bytes: 32768)
+          limit: limit, cursor: @params['cursor'], max_bytes: max_bytes)
         PassagePresenter.validate!(answer, generation: @generation, id: id, action: @params['action'],
-          family: family, cursor: @params['cursor'], limit: limit)
+          family: family, cursor: @params['cursor'], limit: limit, max_bytes: max_bytes)
         body = "<h1 class=\"t1\">#{h(answer.fetch('root').fetch('name'))}</h1>"
         body << PassagePresenter.new(navigation: @navigation).render(answer)
         bounded_evidence_page('Potential request Passage', body, fact: answer.fetch('root'))

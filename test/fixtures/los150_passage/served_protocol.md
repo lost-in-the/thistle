@@ -9,6 +9,9 @@ do not invent a task URL or reuse the historical `/find` mistake.
    **Inspect potential request Passage**, then explicitly choose the saved create
    definition. Read concise steps before opening original route provenance.
 2. Read the inherited authenticate and create-only check_order registrations.
+   Before the list, verify the visible captured registry candidate count and local source
+   completeness. An opt-out/ambiguous/unavailable fixture must show its own local
+   status there, not imply that no filters exist.
    Follow their visible physical Source links; verify actual saved IDs, paths,
    highlighted lines and generation A. Record separate edit witnesses. Explain
    registry position versus lexical source order versus unknown runtime order.
@@ -16,6 +19,9 @@ do not invent a task URL or reuse the historical `/find` mistake.
    Source. Identify the opaque condition. Inspect the related job boundary, then
    the mailer and explicit template through visible typed links. Open the actual
    saved ERB Source; never dispatch/evaluate it. State each binding/async stop.
+   Read compact callback descriptor/condition/binding/effect counts and explicit
+   omissions; use the registry link for existing full evidence. A service call's
+   neutral related-method link must retain unknown role/binding, not assert mail.
 4. Independently switch to the index route/action. Verify there is no save or
    callback narrative/INSERT claim, and check_order is excluded by only:create.
    Export it; its rows must retain this meaning. Compare create export, which
@@ -23,6 +29,12 @@ do not invent a task URL or reuse the historical `/find` mistake.
 5. Read preview (unknown helper chain), conditional (condition unknown), show
    (two real definitions, no automatic choice), missing and partial cards. Record
    each local state independently; a generic “unknown” banner cannot pass a card.
+   Conditional must show its enclosing `if` syntax and actual saved line-21 span;
+   create must distinguish no enclosing branch syntax at operation line 6. Export
+   both and compare parsed row meaning. Predicate truth remains unknown. Export
+   renders one report without repeated full row details; no export link appears
+   before selecting an action. A bounded partial scan names its first-unvisited
+   physical stop region; a known source-size limit preserves filter evidence.
 6. Follow action/filter/callback/template Source links after CURRENT B. Verify
    saved_a and exact physical reveal, retained generation/search/ordered selection.
    Actual Back/Forward must preserve the route/action/family and collection.

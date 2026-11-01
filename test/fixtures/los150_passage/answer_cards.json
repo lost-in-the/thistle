@@ -2,13 +2,17 @@
   "schema": 1,
   "scope": "Independent handwritten expected answers; actual native/framework/installed/served evidence UNRUN",
   "cards": [
-    {"action":"create","save":"potential_save_callback_contribution","witnesses":["OrdersController#create","ApplicationController#authenticate","OrdersController#check_order","Order#queue_receipt"],"boundaries":["opaque after filter condition","model binding unknown","ReceiptJob#perform is related beyond async boundary","ReceiptMailer#receipt and explicit receipt.html.erb are related syntax beyond binding boundary"]},
+    {"action":"create","save":"potential_save_callback_contribution","condition":"no_enclosing_branch_syntax","operation_line":6,"callback_summary":"compact exact witness, condition/binding status, effect counts and explicit omissions; no full effects","witnesses":["OrdersController#create","ApplicationController#authenticate","OrdersController#check_order","Order#queue_receipt"],"boundaries":["opaque after filter condition","model binding unknown","ReceiptJob#perform is related beyond async boundary","ReceiptMailer#receipt and explicit receipt.html.erb are related syntax beyond binding boundary"]},
     {"action":"index","save":"no save contribution","known":"check_order excluded by only:create; inherited authenticate remains registered","unknown":"read receiver binding/runtime order"},
     {"action":"preview","save":"no save contribution","unknown":"order_helper.prepare.save! unsupported helper/association chain"},
-    {"action":"conditional","save":"potential only; condition satisfaction unknown","known":"literal ::Order.create! witness","unknown":"allowed_to_save?"},
+    {"action":"conditional","save":"potential only; condition satisfaction unknown","condition":"inside_branch_syntax","branch_kind":"if","branch_start_line":21,"branch_end_line":21,"known":"literal ::Order.create! witness with its own enclosing saved physical span","unknown":"allowed_to_save? truth and execution"},
     {"action":"show","selection":"two saved definitions; choose neither automatically"},
     {"action":"missing","selection":"no eligible recorded definition; no narrative"},
-    {"generation":"partial","known":"same witnesses","unknown":"complete captured discovery"},
+    {"generation":"partial","known":"same witnesses, local filter/source status visible above list","unknown":"complete captured discovery"},
+    {"filters":"not_captured","known":"opt-in family was not captured for selected action owner; visible count0","unknown":"whether filters exist"},
+    {"source":"bounded_partial","known":"lexical prefix and first-unvisited saved stop-region","unknown":"remaining source operations"},
+    {"source":"known local size limit","known":"filter evidence retained; local source-unknown reason","unknown":"unsearched action source"},
+    {"framework_guard":"actual Rails8.1.4 factory/ISeq probe plus override refusal; real Ruby3.4 Set @hash cohort required","status":"AUTHORED UNRUN; pure NameError/nativeSet checks do not qualify it"},
     {"generation":"A after CURRENT B","known":"saved_a action and original saved ERB physical Source","unknown":"source/runtime coherence"}
   ]
 }
