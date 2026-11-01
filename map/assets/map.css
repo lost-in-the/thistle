@@ -47,3 +47,11 @@ html,body{margin:0;min-height:100%;background:#222126}
 .skip:focus{top:1rem}
 @media(max-width:640px){.thistle-workbench{padding:var(--s4)}.thistle-workbench .app-header{gap:var(--s4)}.thistle-workbench .find-form{flex-basis:100%}.thistle-workbench .find-form label{flex-basis:100%}.thistle-workbench nav a,.thistle-workbench nav .disabled{padding:var(--s3)}.thistle-workbench nav small{display:block}.thistle-workbench .tbl td,.thistle-workbench .tbl th{padding:var(--s3)}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+/* Saved one-model neighborhood: attributed dia/dw tokens, no graph runtime. */
+.model-neighborhood .mn-edges { padding-inline-start: 1.5rem; }
+.model-neighborhood .mn-edges > li { margin-block: 1rem; overflow-wrap: anywhere; }
+.model-neighborhood .mn-diagram .dia, .model-neighborhood .mn-table { overflow: auto; max-width: 100%; }
+.model-neighborhood svg.dw { display: block; min-width: 840px; }
+.model-neighborhood svg text { fill: currentColor; font: 12px sans-serif; }
+.model-neighborhood svg path { fill: none; stroke: currentColor; }
+.model-neighborhood pre { white-space: pre-wrap; overflow-wrap: anywhere; }

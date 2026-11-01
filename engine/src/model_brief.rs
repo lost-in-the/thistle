@@ -40,6 +40,8 @@ pub(crate) struct RequestWork {
     files: usize, source_bytes: usize, metadata_bytes: usize, finishing: bool,
 }
 impl RequestWork {
+    /// Open the existing final three-MiB reserve; consumed work is never reset.
+    pub(crate) fn finish_metadata(&mut self) { self.finishing = true; }
     pub(crate) fn facts(&mut self, n: usize) -> bool {
         if n > FACTS.saturating_sub(self.facts) { return false; } self.facts += n; true
     }

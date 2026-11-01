@@ -54,7 +54,7 @@ fn label<'a>(link: &SemanticLinkView<'a>) -> Option<Label<'a>> {
         return (call.kind == "constant" && !call.omitted).then_some(call.name).flatten()
             .map(|name| Label { original: name, key: recorded_domain::constant_label(name) });
     }
-    if link.constant_metadata().is_some() {
+    if link.constant_metadata().is_some() || link.relation() == "association_target_label" {
         return Some(Label { original: link.target(), key: recorded_domain::constant_label(link.target()) });
     }
     Some(Label { original: link.target(), key: link.target() })
@@ -102,11 +102,35 @@ fn capture_coverage(reader: &Reader) -> Result<Value> {
 
 pub(crate) fn select(reader: &Reader, query: &Query<'_>) -> Result<Value> { select_scoped(reader, query, None) }
 
-pub(crate) fn select_scoped(reader: &Reader, query: &Query<'_>, mut shared: Option<&mut crate::model_brief::RequestWork>) -> Result<Value> {
+#[derive(Clone, Copy)]
+pub(crate) enum RelationFilter { All, Associations, References }
+impl RelationFilter {
+    fn name(self) -> &'static str { match self { Self::All => "all", Self::Associations => "association", Self::References => "reference" } }
+    fn accepts(self, relation: &str, work: &mut Work, shared: Option<&mut crate::model_brief::RequestWork>) -> Option<bool> {
+        if matches!(self, Self::All) { return Some(true); }
+        work.charge(relation, "association_target_label", shared)?;
+        Some((relation == "association_target_label") == matches!(self, Self::Associations))
+    }
+}
+pub(crate) fn filtered_scope(id: &str, incoming: bool, filter: RelationFilter) -> Value {
+    json!(["model_neighborhood_references", id, incoming, filter.name()])
+}
+pub(crate) fn select_filtered(reader: &Reader, query: &Query<'_>, shared: &mut crate::model_brief::RequestWork,
+    filter: RelationFilter, consumed: &mut (usize, usize)) -> Result<Value> {
+    if query.candidate_link.is_some() { return Err(CoreError::input("Filtered candidates are not a public reference scope")); }
+    let scope = filtered_scope(query.id, query.incoming, filter);
+    select_inner(reader, query, Some(shared), filter, Some(&scope), Some(consumed))
+}
+pub(crate) fn select_scoped(reader: &Reader, query: &Query<'_>, shared: Option<&mut crate::model_brief::RequestWork>) -> Result<Value> {
+    select_inner(reader, query, shared, RelationFilter::All, None, None)
+}
+fn select_inner(reader: &Reader, query: &Query<'_>, mut shared: Option<&mut crate::model_brief::RequestWork>,
+    filter: RelationFilter, scope: Option<&Value>, mut consumed: Option<&mut (usize, usize)>) -> Result<Value> {
     let anchor = reader.stored_fact(query.id)?;
     let anchor_identity = identity(anchor, shared.as_deref_mut())?;
-    let scope = json!(["references",query.id,query.incoming,query.candidate_link]);
+    let scope = scope.cloned().unwrap_or_else(|| json!(["references",query.id,query.incoming,query.candidate_link]));
     let start = recorded_domain::position(query.cursor, &reader.generation, &scope)?;
+    if let Some(consumed) = consumed.as_deref_mut() { *consumed = start; }
     let mut work = Work { comparisons: 0, bytes: 0 };
     if let Some(ordinal) = query.candidate_link {
         if start.1 != 0 { return Err(CoreError::input("Invalid candidate cursor position")); }
@@ -166,7 +190,14 @@ pub(crate) fn select_scoped(reader: &Reader, query: &Query<'_>, mut shared: Opti
                     _ => false,
                 }
             } else { true };
-            if !accepts { position.1 += 1; continue; }
+            let relation_accepts = match filter.accepts(link.relation(), &mut work, shared.as_deref_mut()) {
+                Some(value) => value, None => break 'facts,
+            };
+            if !accepts || !relation_accepts {
+                position.1 += 1;
+                if rows.is_empty() { if let Some(consumed) = consumed.as_deref_mut() { *consumed = position; } }
+                continue;
+            }
             let detail_omitted = schema::encoded_bytes(&link,16*1024).is_err();
             if let Some(shared) = shared.as_deref_mut() { shared.metadata(&link,2)?; }
             let detail = if detail_omitted { json!({"relation":link.relation(),"target":link.target(),"resolution":link.resolution()}) } else { link.materialize()? };
@@ -204,6 +235,7 @@ pub(crate) fn select_scoped(reader: &Reader, query: &Query<'_>, mut shared: Opti
             output_bytes += bytes; rows.push(row); position.1 += 1;
         }
         position.0 += 1; position.1 = 0;
+        if rows.is_empty() { if let Some(consumed) = consumed.as_deref_mut() { *consumed = position; } }
     }
     let complete = position.0 == facts.len();
     // Shared brief exhaustion can return its admitted prefix. Its independent

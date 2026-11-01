@@ -100,6 +100,11 @@ module Thistle
         "family" => family, "cursor" => cursor)
     end
 
+    def model_neighborhood(id, family: 'edges', direction: 'outgoing', type: 'all', candidate: nil, limit: 8, cursor: nil, max_bytes: 32768)
+      request('model_neighborhood', 'id' => id, 'family' => family, 'direction' => direction,
+        'type' => type, 'candidate' => candidate, 'limit' => limit, 'cursor' => cursor, 'max_bytes' => max_bytes)
+    end
+
     def source_comprehension(id, family: nil, limit: 8, cursor: nil, max_bytes: 32768)
       request("source_comprehension", "id" => id, "family" => family, "limit" => limit,
         "cursor" => cursor, "max_bytes" => max_bytes)

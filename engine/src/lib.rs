@@ -15,6 +15,7 @@ mod erb_template;
 mod references;
 mod fact_identity;
 mod model_brief;
+mod model_neighborhood;
 mod recorded_domain;
 mod link_encoding;
 mod schema;
@@ -54,6 +55,7 @@ fn request_scratch(request: &Value) -> Result<Option<query::Reservation>> {
     let bytes = match request["op"].as_str() {
         Some("fact_identity") => { fact_identity::id(request)?; fact_identity::SCRATCH },
         Some("model_brief") => model_brief::Query::parse(request)?.scratch(),
+        Some("model_neighborhood") => model_neighborhood::Query::parse(request)?.scratch(),
         Some("source_comprehension") => source_comprehension::Query::parse(request)?.scratch(),
         Some("job_mail") => job_mail::Query::parse(request)?.scratch(),
         Some("route_actions") => route_actions::Query::parse(request)?.scratch(),
@@ -134,6 +136,7 @@ fn dispatch_inner(request: &Value) -> Result<Value> {
         "source" => reader(request)?.source(schema::string(request, "id")?),
         "links" => reader(request)?.links(schema::string(request, "id")?),
         "model_brief" => model_brief::select(&*reader(request)?, &model_brief::Query::parse(request)?),
+        "model_neighborhood" => model_neighborhood::select(&*reader(request)?, &model_neighborhood::Query::parse(request)?),
         "source_comprehension" => source_comprehension::select(&*reader(request)?, &source_comprehension::Query::parse(request)?),
         "job_mail" => job_mail::select(&*reader(request)?, &job_mail::Query::parse(request)?),
         "callback_effects" => callback_effects::select(&*reader(request)?, &callback_effects::Query::parse(request)?),

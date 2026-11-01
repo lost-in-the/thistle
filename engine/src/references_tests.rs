@@ -17,6 +17,54 @@ fn run(reader: &Reader, id: usize, direction: &str, limit: usize) -> Result<Valu
     select(reader, &Query::parse(&request)?)
 }
 
+// Correction regressions AUTHORED UNRUN by the source-only author.
+#[test]
+fn filtered_sparse_domain_charges_skips_before_materialization_and_scopes_cursor() {
+    let mut data=fixture(3);
+    data["facts"]=json!([fact(1,"User",json!([]))]);
+    for i in 0..601 {
+        let relation=if i%200==0 {"association_target_label"} else {"references"};
+        data["facts"].as_array_mut().unwrap().push(fact(i+2,&format!("Site{i}"),json!([{"relation":relation,"target":"User","resolution":"unresolved",
+            "attributes":{"note":if i%200==0 {String::new()} else {"x".repeat(4096)}}}])));
+    }
+    let store=tempfile::tempdir().unwrap();store::publish(store.path(),&data).unwrap();
+    let reader=Reader::open(store.path(),None).unwrap();
+    let parameters=json!({"id":format!("{:064x}",1),"direction":"incoming","limit":16});
+    let mut shared=crate::model_brief::RequestWork::default();let mut consumed=(0,0);
+    let answer=select_filtered(&reader,&Query::parse(&parameters).unwrap(),&mut shared,RelationFilter::Associations,&mut consumed).unwrap();
+    assert_eq!(answer["relationships"].as_array().unwrap().len(),4);
+    assert_eq!(answer["coverage"]["scan_complete"],true);
+    assert!(answer["coverage"]["links_scanned"].as_u64().unwrap()>600);
+    assert!(answer["coverage"]["comparisons"].as_u64().unwrap()>=1200);
+    let first_parameters=json!({"id":format!("{:064x}",1),"direction":"incoming","limit":1});
+    let first=select_filtered(&reader,&Query::parse(&first_parameters).unwrap(),&mut crate::model_brief::RequestWork::default(),RelationFilter::Associations,&mut (0,0)).unwrap();
+    let wrong=json!({"id":format!("{:064x}",1),"direction":"incoming","cursor":first["next_cursor"]});
+    assert!(select(&reader,&Query::parse(&wrong).unwrap()).is_err());
+    assert!(select_filtered(&reader,&Query::parse(&wrong).unwrap(),&mut crate::model_brief::RequestWork::default(),RelationFilter::References,&mut (0,0)).is_err());
+}
+
+#[test]
+fn unfiltered_public_parity_and_rooted_association_key_keep_original_evidence() {
+    let store=tempfile::tempdir().unwrap();let mut data=fixture(3);
+    data["facts"][3]["links"][0]["target"]=json!("::User");
+    store::publish(store.path(),&data).unwrap();let reader=Reader::open(store.path(),None).unwrap();
+    // Warm the same existing directory so build/reuse cost fields agree too.
+    run(&reader,4,"outgoing",8).unwrap();
+    for direction in ["incoming","outgoing"] {
+        let parameters=json!({"id":format!("{:064x}",if direction=="incoming" {1} else {4}),"direction":direction,"limit":8});
+        let query=Query::parse(&parameters).unwrap();
+        assert_eq!(select(&reader,&query).unwrap(),select_scoped(&reader,&query,Some(&mut crate::model_brief::RequestWork::default())).unwrap());
+    }
+    let outgoing=run(&reader,4,"outgoing",8).unwrap();
+    assert_eq!(outgoing["relationships"][0]["candidate_label"],"::User");
+    assert_eq!(outgoing["relationships"][0]["candidate_matches"],2);
+    assert_eq!(outgoing["relationships"][0]["link"],data["facts"][3]["links"][0]);
+    assert_eq!(run(&reader,1,"incoming",8).unwrap()["relationships"].as_array().unwrap().len(),1);
+    let parameters=json!({"id":format!("{:064x}",4),"candidate_link":0,"limit":1});
+    let page=select(&reader,&Query::parse(&parameters).unwrap()).unwrap();
+    assert_eq!(page["candidate_matches"],2);assert_eq!(page["candidates"][0]["name"],"User");
+}
+
 fn constant_occurrence_fixture(version: u64, extension: u64) -> Value {
     let mut data = fixture(version);
     let source = "::User; ::User";
