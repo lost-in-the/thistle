@@ -82,6 +82,24 @@ fn missing_unreadable_and_injected_read_failure_never_match() {
 }
 
 #[test]
+fn ordinary_os_access_errors_use_the_production_unreadable_mapping() {
+    for errno in [libc::EACCES, libc::EMFILE, libc::ENAMETOOLONG] {
+        assert_eq!(access(CoreError::from(io::Error::from_raw_os_error(errno))), "unreadable");
+    }
+}
+
+#[test]
+fn source_freshness_operation_requires_scratch_even_without_a_workspace() {
+    let request = json!({"op":"source_freshness", "file_path":"sub/source.rb"});
+    match crate::request_scratch(&request) {
+        Ok(Some(_reservation)) => {},
+        // Other parallel tests can legitimately exhaust the shared budget.
+        Err(error) => assert_eq!(error.code, "limit_exceeded"),
+        Ok(None) => panic!("Source freshness must use native scratch admission"),
+    }
+}
+
+#[test]
 fn root_escape_symlink_ancestors_parents_leaves_and_nonregular_are_refused() {
     let f = Fixture::new("A"); let mut request = f.request();
     for root in ["/", "relative", "/tmp/../escape", "/tmp/./root", "/tmp//root", "/tmp/root/", "/tmp/\0root"] {

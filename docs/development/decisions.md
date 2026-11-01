@@ -34,6 +34,23 @@ remains a separate phase. Reconsider the filesystem strategy only for a supporte
 case that these descriptor and privacy boundaries cannot represent, with measured
 complete-work costs and an explicit revised threat model.
 
+The source review clarified the operational contract before a Map consumer:
+roots are physical paths without symlinked ancestors, and the maintained
+directory layer requires read as well as search permission. The public fixture
+resolves its newly created work directory to a physical path. Keep the existing
+v1 reason for refused symlinks rather than inventing an interpretation that
+depends on which ancestor failed. Search-only directory support would require a
+separate portable descriptor strategy; it is a future Root-owned improvement.
+
+Retain complete-content comparison for this version. A size-mismatch fast path
+could avoid hashing and classify some over-budget growth as changed, but that is
+a deliberate future result/cost refinement, not a silent alteration of v1's
+current full-admission rule. The 130-descriptor bound is per call, not a global
+process permit. Root owns concurrency/headroom treatment for the later visible
+Map action; memory admission alone does not protect unrelated host descriptors.
+Focused regressions cover the production OS-error mapping and presence of the
+native operation's scratch admission; authored tests still need actual execution.
+
 ## Recorded route/action candidates (PR 122 / LOS-144)
 
 Reuse the immutable Reader's existing static instance-method directory and

@@ -10,6 +10,13 @@ The caller chooses the allowed root. It must be a nonempty absolute path other
 than `/`, with no empty, dot, parent, backslash or control-character components.
 There is no default from the manifest, process directory or browser. `nil`
 performs one pinned metadata lookup and **zero live filesystem operations**.
+Supply a physical root: every absolute ancestor, as well as the workspace itself,
+must be free of symlinks. An operator may resolve a trusted configuration path
+before calling this API; Core does not resolve aliases such as a deployment's
+`current` link or a platform's `/tmp` alias. A symlink in the root ancestry and a
+symlink inside the workspace both return `unsafe_path_or_nonregular`. The current
+descriptor layer also needs read and search permission on each ancestor;
+search-only directory access is not sufficient and returns `unreadable`.
 The selected path must exist in this Reader's already validated file metadata
 before any workspace access. An invalid path or absent selected file is a native
 error (`unsafe_path` or `not_found`), never a comparison with another file.
@@ -101,6 +108,19 @@ O(root bytes + relative path bytes + admitted live bytes + component count),
 with O(component count + chunk size) transient state. No speed, RSS or hard
 filesystem-latency claim follows from these allowances; remote filesystems can
 still stall an individual syscall despite nonblocking special-file admission.
+
+The descriptor allowance is per call. There is no process-wide freshness
+descriptor permit, and the shared memory reservation does not reserve OS file
+descriptors. A host must leave descriptor headroom and bound concurrent explicit
+comparisons. Descriptor exhaustion yields an unverifiable result (`unreadable`
+during initial access, or `concurrent_change` during revalidation), never matching.
+The visible Map integration must account for this separate host resource.
+
+Version 1 admits and compares complete live content before returning matching or
+changed, including when its stat size differs from the recorded size. A file
+larger than `max_bytes` returns `byte_limit` without reading it. A future bounded
+size-difference fast path could avoid hashing and prove some growth cases changed;
+it is not part of this version's result or cost contract.
 
 The existing `fs::Dir`, `libc`, `sha2`, global reservation and public installed
 producer/consumer pattern fit this bounded operation. A new filesystem package,
