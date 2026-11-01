@@ -230,7 +230,7 @@ and partial, advance CURRENT B, then use fresh Rails-free installed Reader/Map.
 The handwritten cards independently switch create/index/helper/conditional/
 ambiguous/missing/partial states. The installed consumer requires real distinct
 action/filter/model/template edit witnesses and follows rendered physical Source
-hrefs. The [original served protocol](https://github.com/lost-in-the/thistle/blob/ea0fdb508e3f7b3752def921aaa5ce271447d2d4/test/fixtures/los150_passage/served_protocol.md)
+hrefs. The [served protocol at the corrected source checkpoint](https://github.com/lost-in-the/thistle/blob/4b6f4bc77461baa99dd208249982197a70f8508b/test/fixtures/los150_passage/served_protocol.md)
 requires actual visible controls, history, keyboard/no-JS/narrow tasks. Rack
 rendering and pure mocks establish none of those served/person results.
 

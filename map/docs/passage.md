@@ -68,5 +68,5 @@ This source candidate is awaiting Root's independent review and native/framework
 installed/served checks. Pure mocked source results are distinct from the authored
 UNRUN public Rails 8.1.4 A/partial/CURRENT B fixture and visible served protocol.
 Leah owns applicable acceptance; all 17 launch capabilities remain unqualified.
-See the [Core contract at the source checkpoint](https://github.com/lost-in-the/thistle/blob/ea0fdb508e3f7b3752def921aaa5ce271447d2d4/docs/development/passage.md) for schemas, limits,
+See the [Core contract at the corrected source checkpoint](https://github.com/lost-in-the/thistle/blob/4b6f4bc77461baa99dd208249982197a70f8508b/docs/development/passage.md) for schemas, limits,
 continuation, alternatives and the exact remaining acceptance tiers.
