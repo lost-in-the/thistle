@@ -114,6 +114,11 @@ module Thistle
       request("check")
     end
 
+    def route_actions(id, limit: 8, cursor: nil, max_bytes: 32768)
+      request("route_actions", "id" => id, "limit" => limit,
+        "cursor" => cursor, "max_bytes" => max_bytes)
+    end
+
     private
 
     def request(operation, arguments = {})

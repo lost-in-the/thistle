@@ -163,6 +163,15 @@ and execution are separate; duplicate/unloaded targets and dynamic selection
 remain explicit unknowns. See the [job/mail/ERB contract](docs/development/job-mail-template.md).
 Native, installed and served acceptance for this source-wired journey is pending.
 
+For a recorded route, `reader.route_actions(route_id, limit: 8, cursor: nil,
+max_bytes: 32768)` returns conventional saved controller/action candidates,
+original route constraints and exact Source witnesses. Global ambiguity,
+unsupported naming and incomplete discovery stay explicit; a unique static match
+never proves dispatch or request reachability. Follow the returned cursor on the
+same generation. See the [route/action contract](docs/development/route-actions.md).
+The Map entry is **Inspect controller/action candidates** on recorded route
+evidence. Installed, served and person acceptance for this new slice is pending.
+
 Use `export-model-brief` to share that saved model summary as deterministic
 Markdown, with explicit uncertainty and generation-pinned literal evidence
 commands. It requires the generation and embeds no captured source bodies or

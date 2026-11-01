@@ -1,5 +1,35 @@
 # Development tooling and cohort decisions
 
+## Recorded route/action candidates (PR 122 / LOS-144)
+
+Reuse the immutable Reader's existing static instance-method directory and
+generation-scoped positional cursor for one conventional route/action query.
+An independent zero/one/two match witness establishes global ambiguity before
+paging; a visible prefix cannot establish uniqueness. Native owns naming,
+selection, counts and evidence; Ruby forwards the public query and Map uses the
+shared navigation authority. See the [contract](route-actions.md).
+
+A new route-by-all-facts scan or second index would duplicate work and retained
+memory. Runtime constantization, inflection and inherited action resolution would
+imply unsupported framework/coherence authority. The chosen ASCII naming subset
+is explicit, with custom/unsupported forms unresolved. Route presence and a
+matching static definition never prove request matching, dispatch or invocation.
+
+Directory construction still visits the saved domain under its existing retained
+reservation; fresh Readers rebuild it. Witness lookup plus pagination repeats
+bounded range work and charges the shared request allowance. No source I/O occurs
+under the directory lock. The new page stays one compact query. The existing
+runtime Source-context endpoint retains its Native-bounded full-fact read and
+Map condition/display guards: replacing it with identity-only navigation erased
+constraints in CI, so that attempted shortcut was removed. This is an explicit
+cost boundary, not a zero-scan or complete heap/RSS claim.
+
+Both packages install their route guide; package selectors and installed-doc
+checks preserve the full prior union. Source, native, installed and served
+evidence remain distinct. Revisit naming or index design only with a supported
+customer case and measured whole-job benefit; this slice does not qualify the
+relationship/Map parents or imply a model save/INSERT narrative.
+
 ## Saved job/mail policy and inert ERB evidence (PR 121 / LOS-148)
 
 Reuse maintained vendored Prism 1.9.0, its existing generated child visitor,

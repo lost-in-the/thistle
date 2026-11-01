@@ -95,6 +95,21 @@ other receiverless calls are call-or-helper candidates. Worker contention return
 Conventional implicit mail/template_name-only/positional render resolution is a
 prioritized parent follow-up.
 
+## Recorded route action candidates
+
+Choose **Inspect controller/action candidates** from recorded route evidence.
+The `/route-actions` page preserves original constraints and distinguishes
+conventional static candidates, ambiguity, missing evidence, unsupported naming
+and incomplete discovery. Follow an exact saved Source witness to its physical
+line while retaining generation, search and the investigation collection. A
+candidate is not proof of dispatch, invocation or request reachability.
+
+The typed page makes one bounded Reader query and uses existing navigation;
+the original route Source-context page retains its identity/condition display
+and inherited full-fact read. No live controller lookup or route execution is
+performed. See the installed [route/action guide](docs/route-actions.md).
+Native, installed and served/person acceptance for this slice remains pending.
+
 ## Repository validation
 
 From the core project root after installing development dependencies:

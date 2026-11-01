@@ -55,6 +55,7 @@ module Thistle
                           file ? { 'file' => file } : {}
                         end
                       when '/links' then controls.slice('id', 'direction', 'page')
+                      when '/route-actions' then controls.slice('id', 'cursor')
                       when %r{\A/brief/(?:columns|associations|registry_candidates)\z} then controls.slice('id', 'cursor')
                       when '/comprehension/contributions', '/comprehension/methods' then controls.slice('id', 'cursor')
                       when %r{\A/job-mail/(?:overview|registrations|declarations|policy|handoff|template_references)\z} then controls.slice('id', 'cursor')
@@ -94,7 +95,15 @@ module Thistle
 
       # Route names carry family/direction so continuation still fits nine fields.
       def self.continuation(path, params)
-        return nil unless path.start_with?('/brief/', '/references/', '/comprehension/', '/job-mail/')
+        return nil unless path == '/route-actions' || path.start_with?('/brief/', '/references/', '/comprehension/', '/job-mail/')
+        if path == '/route-actions'
+          unless (params.keys - (%w[generation id selection cursor] + SEARCH_FIELDS)).empty? &&
+              Investigation::DIGEST.match?(params['generation'].to_s) && Investigation::DIGEST.match?(params['id'].to_s)
+            raise Investigation::Invalid, 'Route actions requires a saved generation, route ID and strict destination fields.'
+          end
+          validate_cursor!(params['cursor'], generation: params['generation'], scope: ['route_actions',params['id']]) if params.key?('cursor')
+          return { route_actions: true }
+        end
         if path.start_with?('/job-mail/')
           family = path.delete_prefix('/job-mail/')
           unless JOB_MAIL_FAMILIES.include?(family) && (params.keys - (%w[generation id selection cursor] + SEARCH_FIELDS)).empty?
