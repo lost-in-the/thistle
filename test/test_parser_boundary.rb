@@ -19,7 +19,7 @@ class ThistleParserBoundaryTest < Minitest::Test
         ruby = captured.fetch("coverage").find { |entry| entry["family"] == "ruby_declarations" }
         puts JSON.generate("status" => "captured", "ruby_status" => ruby.fetch("status"))
       rescue Thistle::Error => error
-        puts JSON.generate("status" => "refused", "code" => error.code)
+        puts JSON.generate("status" => "refused", "code" => error.code, "message" => error.message)
       end
     end
     if ARGV.fetch(1) == "thread"
@@ -29,7 +29,7 @@ class ThistleParserBoundaryTest < Minitest::Test
     end
   RUBY
 
-  def assert_bounded_capture(source, limits: {})
+  def assert_bounded_capture(source, limits: {}, expected_refusal: nil)
     %w[main thread].each do |mode|
       Dir.mktmpdir("thistle-parser-boundary-") do |directory|
         File.write(File.join(directory, "probe.rb"), source)
@@ -64,6 +64,10 @@ class ThistleParserBoundaryTest < Minitest::Test
         end
         assert status.success?, "Native parser process failed (#{mode}): #{failure}"
         result = JSON.parse(File.read(stdout))
+        if expected_refusal
+          assert_equal "refused", result["status"]
+          assert_equal expected_refusal, result["message"]
+        end
         if result["status"] == "refused"
           assert_equal "limit_exceeded", result["code"]
         else
@@ -84,7 +88,9 @@ class ThistleParserBoundaryTest < Minitest::Test
     # Stop the separate evidence walk early so link construction does not consume
     # the parser/destructor probe's fixed process allowance. Capture drops the
     # parse result before propagating this traversal refusal.
-    assert_bounded_capture("x" + ".a" * 1_000_000, limits: { "max_nodes" => 1 })
+    assert_bounded_capture("x" + ".a" * 1_000_000,
+                           limits: { "max_nodes" => 1 },
+                           expected_refusal: "Parsed sources exceed max_nodes")
   end
 
   def test_malformed_deep_nesting_refuses_without_crashing
