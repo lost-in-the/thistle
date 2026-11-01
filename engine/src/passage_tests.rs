@@ -45,7 +45,9 @@ fn admission()->Value {json!({"schema_version":3,"facts":0,"links":0,"diagnostic
     "limits":{"max_facts":100000,"max_links":500000,"max_entries":100000,"max_diagnostics":1000}})}
 fn joined_fixture(models:usize,registries:usize,filter_line_delta:u64,check:impl FnOnce(&Reader,&str,&Value)) {
     let root=tempfile::tempdir().unwrap();let store=tempfile::tempdir().unwrap();
-    let effects=(0..8).map(|_|format!("::ReceiptJob.perform_later('{}')\n","x".repeat(480))).collect::<String>();
+    // Capture retains one representative per call group, not every occurrence.
+    // Distinct receivers exercise eight effect groups without changing that rule.
+    let effects=(0..8).map(|n|format!("::ReceiptJob{n}.perform_later('{}')\n","x".repeat(480))).collect::<String>();
     let text=format!("class OrdersController\n def create; ::Order.create!; ::ReceiptJob.perform_later(1); ::PaymentService.call; end\n def authenticate; :check; end\nend\nclass Order\n def queue_receipt\n{effects} end\nend\nclass ReceiptJob\n def perform; :job; end\nend\nclass PaymentService\n def call; :service; end\nend\n");
     std::fs::write(root.path().join("fixture.rb"),text).unwrap();
     let mut capture=crate::capture::capture(root.path(),&json!({})).unwrap();
