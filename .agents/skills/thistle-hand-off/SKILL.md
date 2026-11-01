@@ -5,8 +5,13 @@ description: Hand off, resume or close a bounded Thistle task with current owner
 
 # Hand off
 
+Use the [startup routing](../../../AGENTS.md#read-before-work) for applicable
+policy sections; load specialist history only for the assigned question.
+
 Use the [existing claim/checkpoint format](../../../docs/development/agent-workflow.md#claim-protocol)
-and the assigned role. Keep one current checkpoint with historical receipts linked.
+and the assigned role. Apply the
+[single-current-checkpoint rule](../../../docs/development/agent-workflow.md#one-current-checkpoint),
+preserving historical receipts before compacting superseded summaries.
 
 1. Reconcile the current issue, PR state/head/base, checks, reviews, evidence
    identities and retained findings once per event batch under the

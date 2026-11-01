@@ -5,9 +5,9 @@ its presence does not establish automatic loading or grant additional authority.
 
 ## Start with
 
-Read [AGENTS.md](../../../AGENTS.md), the [mission](../../MISSION.md),
-[workflow](../agent-workflow.md), [review and delivery policy](../pr-ci-release.md)
-and [configuration boundary](../agent-configuration.md). Obtain the bounded issue,
+Use the [startup routing in AGENTS.md](../../../AGENTS.md#read-before-work)
+for the mission, configuration boundary and applicable workflow/policy sections.
+Obtain the bounded issue,
 customer contract, admitted base, file/interface claims, validation budget,
 acceptance owner and named repository integration owner.
 

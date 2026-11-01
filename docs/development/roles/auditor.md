@@ -5,9 +5,9 @@ its presence does not establish automatic loading or grant additional authority.
 
 ## Start with
 
-Read [AGENTS.md](../../../AGENTS.md), the [mission](../../MISSION.md),
-[workflow](../agent-workflow.md), [artifact and acceptance policy](../pr-ci-release.md)
-and [configuration boundary](../agent-configuration.md). Obtain the customer
+Use the [startup routing in AGENTS.md](../../../AGENTS.md#read-before-work)
+for the mission, configuration boundary and applicable workflow/policy sections.
+Obtain the customer
 question, acceptance scope, exact candidate/support tuple, existing fixtures and
 tools, raw artifacts/receipts, allowed execution and responsible acceptance owner.
 

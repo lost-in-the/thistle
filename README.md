@@ -10,7 +10,8 @@ for explicit Rails introspection. This is an early implementation
 milestone of the [reviewed product plan](https://chatgpt.com/space/page_83d1d4a1a4ec81918d7310c21061c4e4).
 It is not yet a launch replacement for Woods and makes no comparative speed claim.
 
-The repository [mission](https://github.com/lost-in-the/thistle/blob/main/docs/MISSION.md) defines the governing product goals. Contributors
+The repository [mission](https://github.com/lost-in-the/thistle/blob/main/docs/MISSION.md) defines the governing product goals. Find the full launch scope, acceptance sources and live plan through the
+[project scope index](https://github.com/lost-in-the/thistle/blob/main/docs/PROJECT_SCOPE.md). Contributors
 and agents should use the [workflow](https://github.com/lost-in-the/thistle/blob/main/docs/development/agent-workflow.md) and
 [portable configuration guide](https://github.com/lost-in-the/thistle/blob/main/docs/development/agent-configuration.md).
 
