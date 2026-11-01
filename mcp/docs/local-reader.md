@@ -75,7 +75,7 @@ Never label it complete because a bounded prefix looked useful. Start a fresh
 explicitly pinned session for additional work, and account for its repeated open
 and index-construction costs; there is no automatic reconnect or hidden retry.
 
-## Source admission and the LOS8 shared primitive gap
+## Source admission and the shared primitive gap
 
 Source by fact ID first requests the compact identity. Unknown IDs refuse there,
 without a full fact or Source read. Its recorded path must resolve uniquely in the
@@ -92,7 +92,8 @@ the compact selection retains its recorded physical span without claiming this
 operation revalidated that span against bytes. Check separately validates saved
 source positions. Check integrity is still not current source/runtime freshness.
 
-Root should retain under **LOS8** the missing shared primitive: an authoritative
+The [LOS158 follow-on](https://linear.app/lost-in-the/issue/LOS-158/read-bounded-saved-source-ranges-and-validate-compact-physical)
+retains the missing shared primitive under LOS8: an authoritative
 bounded source range/peek with compact selected identity and native physical-span
 validation, without full-fact/link expansion. Current Reader supplies no bounded
 range primitive. Requests for ranges or large whole-file responses must remain
@@ -152,7 +153,9 @@ for this initial job that outweighs that cost. SDK reuse adds `json_schemer >= 2
 and SDK protocol-maintenance cost. Its upstream Ruby >= 2.7 floor does not lower
 Thistle's Ruby >= 3.4 requirement. Reconsider the transport/language if measured
 complete-investigation cost or required cancellation semantics cannot fit stdio.
-Root owns the shared decision/package/dependency record; none is edited here.
+The optional package pins that SDK and the paired Core version without adding
+dependencies to Core or Map. This contract records the fit decision and cost;
+shared guidance remains separate.
 
 Stdout is exclusively SDK newline-delimited protocol. Diagnostics on stderr are
 fixed messages; SDK exception reporting is replaced only inside this dedicated
@@ -169,19 +172,18 @@ read/write; SIGINT cleanup waits for protected/native work to return. There is
 no worker-thread preemption or hard session wall-time claim. SIGKILL cannot run
 Ruby ensure. Authored real cancellation/disconnect cases must record this honestly.
 
-## Package proposal and outstanding evidence
+## Optional package and outstanding evidence
 
-Integration-owner proposal (not a manifest authored here): optional internal
-`thistle-mcp` version `0.1.0.pre.1`, Ruby `>= 3.4`, runtime dependencies `thistle`
-at the exact paired Core version and `mcp = 1.8.2`, executable `thistle-mcp`, lib
-path `lib`; explicit runtime files, README/local contract, standard repository
-license/provenance and reviewed public-push block. Do not include captures,
-private evidence, tests or runtime credentials in the gem. Do not add SDK to Core
-or Map dependencies or require the adapter from either normal package. Retain the
-resolved dependency lock with the exact artifact; packaging/setup/shared docs
-and changelog consolidation are Root-owned union work.
+The optional internal `thistle-mcp` manifest selects version `0.1.0.pre.1`, Ruby
+`>= 3.4`, runtime dependencies `thistle = 0.1.0.pre.3` and `mcp = 1.8.2`, executable
+`thistle-mcp` and require path `lib`. Its explicit 12-file payload contains seven
+Ruby libraries, the executable, README, this contract and two license/provenance
+files. Missing inputs refuse packaging. Tests, saved evidence and client config
+are excluded. The private development publication block remains. Neither Core
+nor Map activates the adapter or SDK. Dependency resolution/install is separate;
+retain the resolved lock and exact Core/native/adapter hashes with actual evidence.
 
-The [acceptance protocol](../test/fixtures/los146_reader/investigation_protocol.md)
+The [acceptance protocol](https://github.com/lost-in-the/thistle/blob/d2fea61b4087844920eb3058ae38364c9ffbc01c/mcp/test/fixtures/los146_reader/investigation_protocol.md)
 and cards remain authored/unrun: installed exact pair/native/parser/reader
 regressions, SDK protocol/lifecycle, fresh Rails/AR-free consumer, actual authorized
 Codex or Claude investigation, A pinned after CURRENT B, late duplicates, partial

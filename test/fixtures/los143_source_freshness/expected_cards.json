@@ -1,0 +1,103 @@
+{
+  "version": 1,
+  "source_b": "class CurrentFreshness\nend\n",
+  "files": {
+    "sub/source.rb": {
+      "path": "sub/source.rb",
+      "content": "class SavedFreshness\nend\n",
+      "bytes": 25,
+      "sha256": "d7f53a48ee8d2a85dd36fad95248c93bac2d1d9ba6daafbf7610ae895d9cc246"
+    },
+    "stable.rb": {
+      "path": "stable.rb",
+      "content": "stable\n",
+      "bytes": 7,
+      "sha256": "2b92ea252be0fbc26f70317cdaa7b6411ea634b50d55338cd8c495e4dbf25d1d"
+    },
+    "empty.rb": {
+      "path": "empty.rb",
+      "content": "",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "missing.rb": {
+      "path": "missing.rb",
+      "content": "missing\n",
+      "bytes": 8,
+      "sha256": "6bbd052ab054ef222c1c87be60cd191addedd24cc882d1f5f7f7be61dc61bb3a"
+    },
+    "link.rb": {
+      "path": "link.rb",
+      "content": "link\n",
+      "bytes": 5,
+      "sha256": "cad2eabfd8aea39e7c9ec2f041d502150ccbe7202673c3fb1fe60ec029d323ce"
+    }
+  },
+  "comparisons": [
+    {
+      "name": "nil root",
+      "file_path": "sub/source.rb",
+      "root": "nil",
+      "status": "not_checked",
+      "reason": "workspace_root_not_supplied"
+    },
+    {
+      "name": "saved A versus disk B",
+      "file_path": "sub/source.rb",
+      "root": "operator_workspace",
+      "status": "changed",
+      "reason": "recorded_digest_differs"
+    },
+    {
+      "name": "stable matching",
+      "file_path": "stable.rb",
+      "root": "operator_workspace",
+      "status": "matching",
+      "reason": "recorded_digest_matches"
+    },
+    {
+      "name": "empty at zero allowance",
+      "file_path": "empty.rb",
+      "root": "operator_workspace",
+      "status": "matching",
+      "reason": "recorded_digest_matches",
+      "max_bytes": 0
+    },
+    {
+      "name": "missing",
+      "file_path": "missing.rb",
+      "root": "operator_workspace",
+      "status": "unverifiable",
+      "reason": "missing"
+    },
+    {
+      "name": "leaf symlink",
+      "file_path": "link.rb",
+      "root": "operator_workspace",
+      "status": "unverifiable",
+      "reason": "unsafe_path_or_nonregular"
+    },
+    {
+      "name": "root symlink",
+      "file_path": "stable.rb",
+      "root": "symlink_alias",
+      "status": "unverifiable",
+      "reason": "unsafe_path_or_nonregular"
+    },
+    {
+      "name": "relative root",
+      "file_path": "stable.rb",
+      "root": "relative_refusal",
+      "status": "unverifiable",
+      "reason": "unsafe_root"
+    },
+    {
+      "name": "byte refusal",
+      "file_path": "stable.rb",
+      "root": "operator_workspace",
+      "status": "unverifiable",
+      "reason": "byte_limit",
+      "max_bytes": 0
+    }
+  ]
+}

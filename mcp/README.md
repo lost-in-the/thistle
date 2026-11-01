@@ -6,20 +6,23 @@ Rust owns analysis, identity, indexing and validation; the Ruby adapter preserve
 Reader answers and adds protocol/session admission. Captured text is data, never
 agent instructions. The application is not loaded.
 
-Status: source implementation and pure-double checks only. SDK transport, native,
-package/install and actual Codex/Claude investigation acceptance remain **UNRUN**.
+Status: source implementation with an optional package manifest. SDK transport,
+installed package/native and actual Codex/Claude investigation acceptance remain **UNRUN**.
 All 17 launch requirements remain unqualified. These five initial tools are a
 first delivery, not the eventual Woods-comparable investigation ceiling.
 
-The intended optional internal package uses Ruby >= 3.4, matching Core and the
-official Ruby MCP SDK pinned to `mcp = 1.8.2`. Package/dependency manifests and
-setup are a separate integration-owner change; this source does not provide an
-installable gem yet. Core and Map do not require the adapter or SDK.
+The optional internal `thistle-mcp` package uses Ruby >= 3.4, paired with
+`thistle = 0.1.0.pre.3` and the official Ruby MCP SDK pinned to `mcp = 1.8.2`.
+Core and Map do not require the adapter or SDK. Version equality alone does not
+identify development bytes: retain the exact Core/native/adapter hashes and
+resolved dependency lock with an installed session.
 
-After separately authorized packaging/installation, the proposed invocation is:
+Build from this directory with `gem build thistle-mcp.gemspec`. In an isolated
+task-local bundle, install the exact paired Core and adapter artifacts with the
+pinned SDK and its resolved dependencies, then invoke:
 
 ```sh
-thistle-mcp --store ./saved-evidence/store --generation SAVED_GENERATION_SHA256
+bundle exec thistle-mcp --store ./saved-evidence/store --generation SAVED_GENERATION_SHA256
 ```
 
 Both arguments are mandatory. Missing/unavailable generations refuse; there is
@@ -29,7 +32,7 @@ shell tool or provider credentials are supplied. Protect the local store and the
 client that receives its source with the same care as the application source.
 
 Read the [tool and lifecycle contract](docs/local-reader.md) and the
-[authored acceptance cards](test/fixtures/los146_reader/README.md). The secret-free
+[authored acceptance cards](https://github.com/lost-in-the/thistle/blob/d2fea61b4087844920eb3058ae38364c9ffbc01c/mcp/test/fixtures/los146_reader/README.md). The secret-free
 client example changes no global configuration.
 
 Pure source checks, using already available Ruby/Minitest and no SDK/native:

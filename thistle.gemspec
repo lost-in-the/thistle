@@ -29,6 +29,7 @@ Gem::Specification.new do |spec|
     docs/development/route-actions.md
     docs/development/passage.md
     docs/development/model-neighborhood.md
+    docs/development/source-freshness.md
   ]
   installed_docs.each do |path|
     raise "Missing installed document: #{path}" unless File.file?(path)
