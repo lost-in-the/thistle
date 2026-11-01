@@ -224,5 +224,18 @@ threshold; both failed attempts are retained and corrected without weakening the
 test. Root/reviewer prep overrun, partial/unmetered reads and reported EROFS/
 output fallback remain explicit historical gaps. New prospective source controls
 do not reset them or establish a whole-procedure control/performance claim.
+
+At e4c95a7c8f32107726e73ca442a28508ad336a74, primary CI run 41305835017,
+job 124845939754 compiled Rust and reported 198 passing invariants / one failed
+metadata-exhaustion regression; downstream native/Core/Map/package steps were
+skipped. The regression guessed that 16 KiB admitted an incoming row despite
+repeated identity/component/page charges. Its replacement uses two raw links
+whose metadata each charges over 4 MiB under the unchanged 5-MiB component
+allowance, with oversized detail omitted from each small public row. It requires
+exactly the first row, a refused second step, exact input continuation and a
+fresh-request second-row suffix, plus first-row zero-progress refusal and the
+existing 8-MiB total ceiling. No output/progress/reserve behavior or allowance is
+changed for this test correction. The replacement is AUTHORED UNRUN here; the
+observed e4 failure remains a failure, and subsequent-head CI is unaccepted.
 Root owns R2, integration/watch and later finite actual gates; PM planning;
 Leah applicable acceptance. No merge/publication or qualification is authorized.

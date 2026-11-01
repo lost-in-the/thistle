@@ -118,21 +118,37 @@ fn one_admitted_incoming_row_then_shared_zero_progress_is_not_completion() {
 
 #[test]
 fn metadata_exhaustion_keeps_prefix_and_only_opens_existing_final_reserve() {
-    let (_store, reader, id, _) = fixture();
+    let (_store, mut reader, id, _) = fixture();
+    // Two equal raw links each charge >4 MiB before their oversized detail is
+    // omitted from the small public row. One fits the existing 5-MiB component
+    // allowance; two cannot. This forces exhaustion after an admitted row
+    // without guessing how much the repeated identity/envelope charges cost.
+    let link=json!({"relation":"references","target":"Order","resolution":"unresolved",
+        "attributes":{"budget_fixture":"x".repeat(2*1024*1024)}});
+    for fact in &mut reader.facts { fact["links"]=json!([]); }
+    reader.facts[0]["links"]=json!([link,link]);
     let parameters = json!({"id":id,"direction":"incoming","limit":3});
-    let baseline = page(&reader,&parameters);
+    let first=page(&reader,&json!({"id":id,"direction":"incoming","limit":1}));
+    let second=page(&reader,&json!({"id":id,"direction":"incoming","limit":1,"cursor":first["next_cursor"]}));
+    assert_eq!(first["items"].as_array().unwrap().len(),1);
+    assert_eq!(second["items"].as_array().unwrap().len(),1);
+    assert_eq!(first["items"][0]["recorded"]["link_ordinal"],0);
+    assert_eq!(second["items"][0]["recorded"]["link_ordinal"],1);
+    assert_eq!(first["items"][0]["recorded"]["detail_omitted"],true);
     let mut work = RequestWork::default();
-    // Leave 16 KiB in the existing 5-MiB component budget. A failed later
-    // metadata charge poisons that allowance; no rollback can manufacture space.
-    work.metadata(&"x".repeat(5*1024*1024-16002),1).unwrap();
     let answer=select_with_work(&reader,&Query::parse(&parameters).unwrap(),&mut work).unwrap();
-    let count=answer["items"].as_array().unwrap().len();
-    assert!(count>0 && count<baseline["items"].as_array().unwrap().len());
+    assert_eq!(answer["items"],first["items"]);
     assert_eq!(answer["coverage"]["page_complete"],false);
-    assert_eq!(answer["items"],json!(baseline["items"].as_array().unwrap()[..count]));
+    assert_eq!(answer["coverage"]["last_reference_step"]["status"],"component_refused");
+    assert_eq!(answer["coverage"]["last_reference_step"]["row_retained"],false);
+    assert_eq!(answer["next_cursor"],first["next_cursor"]);
     let suffix=page(&reader,&json!({"id":id,"direction":"incoming","limit":3,"cursor":answer["next_cursor"]}));
-    assert_eq!(suffix["items"][0],baseline["items"][count]);
+    assert_eq!(suffix["items"],second["items"]);
+    assert_eq!(suffix["coverage"]["page_complete"],true);
     assert!(work.metadata(&"x".repeat(3*1024*1024),1).is_err()); // final total still <=8 MiB
+    let mut work=RequestWork::default();
+    work.metadata(&"x".repeat(2*1024*1024),1).unwrap();
+    assert_eq!(select_with_work(&reader,&Query::parse(&parameters).unwrap(),&mut work).unwrap_err().code,"limit_exceeded");
 }
 
 #[test]
