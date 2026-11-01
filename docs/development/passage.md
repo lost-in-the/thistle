@@ -175,9 +175,9 @@ A persistent Passage index/cache would add capture schema, invalidation and
 retention costs before a complete-job need is measured. The narrow Prism adapter
 adds one bounded action-body interpretation without changing capture traversal.
 No dependency is added to Core/Map. The fixture's Rails/SQLite dependencies reuse
-the existing installed fixture cohort. Root owns shared decision/package/document
-selector synchronization; this dedicated contract records alternatives and costs
-within the writer's released scope.
+the existing installed fixture cohort. The Core and Map packages include their
+respective Passage contracts; shared decision and document-selector records keep
+the existing contract union. This does not establish a package or installed pass.
 
 ## Evidence and remaining gates
 
@@ -194,6 +194,6 @@ and partial, advance CURRENT B, then use fresh Rails-free installed Reader/Map.
 The handwritten cards independently switch create/index/helper/conditional/
 ambiguous/missing/partial states. The installed consumer requires real distinct
 action/filter/model/template edit witnesses and follows rendered physical Source
-hrefs. The [served protocol](../../test/fixtures/los150_passage/served_protocol.md)
+hrefs. The [served protocol at the source checkpoint](https://github.com/lost-in-the/thistle/blob/ea0fdb508e3f7b3752def921aaa5ce271447d2d4/test/fixtures/los150_passage/served_protocol.md)
 requires actual visible controls, history, keyboard/no-JS/narrow tasks. Rack
 rendering and pure mocks establish none of those served/person results.

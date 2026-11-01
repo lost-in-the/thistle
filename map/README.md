@@ -110,6 +110,22 @@ and inherited full-fact read. No live controller lookup or route execution is
 performed. See the installed [route/action guide](docs/route-actions.md).
 Native, installed and served/person acceptance for this slice remains pending.
 
+## Selected-action request Passage
+
+Choose **Inspect potential request Passage** from saved route evidence, then
+explicitly choose an action definition. `/passage/sequence` shows registered
+filters and that action's source operations as a list. Only a supported direct
+root-qualified create witness can admit a related potential save contribution;
+index/helper actions do not inherit a generic model lifecycle. Registry order,
+source order, applicability and execution remain distinct. Async and unknown
+binding edges stop the narrative and offer labelled evidence links.
+
+`/passage/export` uses the same selected action and typed page, with its own
+continuation. One bounded Reader operation supplies each page; existing saved
+generation/search/collection, Source, authorization and no-JavaScript navigation
+remain in use. See the installed [Passage guide](docs/passage.md). This is a
+source candidate; real installed/served/person acceptance remains pending.
+
 ## Repository validation
 
 From the core project root after installing development dependencies:

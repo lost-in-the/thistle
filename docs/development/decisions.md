@@ -857,3 +857,33 @@ whole-domain name-directory work. Reader open retains its existing validation
 and indexing cost. Reconsider the state format only for a changed selection
 outcome, rather than bypassing its 24-ID/query ceilings. These bounds are not
 whole-request latency/RSS evidence or capability qualification.
+
+## Selected-action Passage through existing evidence owners (LOS-150)
+
+Join one explicitly chosen saved route/action to guarded controller registrations
+and its own source operations. Reuse route-actions, existing name/method
+directories, the shared Prism worker, Source validation, scoped callback
+explanation and typed job/mail followups. Ruby observes supplied loaded controller
+metadata; Rust owns admission and meaning; Map and export consume the same rows.
+No new dependency, persistent index or Ruby resolver is introduced. A nil action
+offers saved choices, never a first-definition guess. A potential save branch
+requires the selected action's supported direct root-qualified create witness
+and qualified model/registry label evidence; conditions and binding stay unknown.
+
+A generic lifecycle diagram would misattribute callbacks to read/helper actions.
+An independent regex/Ruby semantic resolver would duplicate authority. A new
+Passage cache/index would add capture, invalidation and retention costs before a
+measured need. Existing directories instead retain their lazy whole-domain build
+and per-Reader memory cost. Each page reparses the selected source and replays a
+charged prefix; the action parser finishes before callback explanation. The
+existing request work caps are shared, with 96 MiB scratch reserved through
+serialization, a 256 KiB file limit and finite row/wire/display caps. Post-parse
+node limits are not parser CPU/RSS enforcement. No speed or heap result is claimed.
+
+The first supported scope is a Rails 8.1.4 guarded registry and literal source
+slice, not invocation, persistence, delivery, inherited dispatch or arbitrary
+helper/association resolution. The packaged [Core contract](passage.md) records
+the boundaries and the separate installed/served gates. Reconsider only for a
+new independently specified effect form or measured complete-job evidence that
+justifies a bounded representation change. Broader lifecycle, history, Guide,
+HAML and qualification remain parent work; all 17 requirements stay unqualified.
