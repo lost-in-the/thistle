@@ -52,6 +52,10 @@ mod tests {
 }
 
 impl Dir {
+    pub(crate) fn metadata(&self) -> Result<std::fs::Metadata> {
+        Ok(self.file.metadata()?)
+    }
+
     pub fn open(path: &Path, create: bool) -> Result<Self> {
         if !cfg!(any(target_os = "linux", target_os = "macos")) {
             return Err(CoreError::new("unsupported_platform", "Snapshot storage requires Linux or macOS"));
@@ -86,11 +90,17 @@ impl Dir {
         Ok(Self { file: unsafe { File::from_raw_fd(fd) } })
     }
 
-    pub fn file(&self, value: &str, flags: i32) -> Result<File> {
+    // Callers must inspect descriptor metadata before reading. Unlike file(),
+    // this primitive does not perform regular-file admission itself.
+    pub(crate) fn file_descriptor(&self, value: &str, flags: i32) -> Result<File> {
         let value = name(value)?;
         let fd = unsafe { libc::openat(self.file.as_raw_fd(), value.as_ptr(), flags | libc::O_NOFOLLOW | libc::O_CLOEXEC | libc::O_NONBLOCK, 0o600) };
         if fd < 0 { return Err(std::io::Error::last_os_error().into()); }
-        let file = unsafe { File::from_raw_fd(fd) };
+        Ok(unsafe { File::from_raw_fd(fd) })
+    }
+
+    pub fn file(&self, value: &str, flags: i32) -> Result<File> {
+        let file = self.file_descriptor(value, flags)?;
         if !file.metadata()?.is_file() { return Err(CoreError::new("unsafe_path", "Snapshot entry must be a regular file")); }
         Ok(file)
     }
