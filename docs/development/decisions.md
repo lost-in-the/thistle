@@ -35,6 +35,57 @@ or measured complete-job cost justifies batching or a cache with explicit
 invalidation. Unknowns are current evidence boundaries, not permanent semantic
 substitutes. Installed, served and person acceptance remains separate.
 
+## Explicit saved-file freshness (PR 127 / LOS-143 Core)
+
+Reuse the immutable Reader's existing selected-file metadata, descriptor-relative
+`fs::Dir` layer, `libc`, `sha2` and global query reservation for one explicit
+workspace comparison. Rust validates the recorded path before live access,
+streams admitted bytes and returns a sanitized typed result. Ruby forwards the
+query. A nil root does no live filesystem work. Saved Source and integrity Check
+remain separate. See the [contract](source-freshness.md).
+
+Canonicalize-then-read would lose descriptor anchoring; loading the saved source
+first would add a full-source copy and conflate digest comparison with blob
+integrity. A new watcher, whole-workspace index or filesystem dependency adds
+state and maintenance without serving this selected-file operation. Existing
+snapshot reads retain their regular-file admission when sharing the new internal
+descriptor-opening primitive.
+
+Operating work is O(root bytes + relative path bytes + admitted content bytes +
+component count), with O(component count + chunk size) temporary state. The
+2 MiB default / 4 MiB content ceiling has a separate one-byte EOF probe. Up to
+128 retained directory descriptors plus the leaf and a temporary verification
+descriptor require 130 descriptors. Logical attempts are capped at 1024, and
+256 KiB is reserved from the existing global budget through serialization.
+These limits are accounting, not hard RSS, I/O-latency or speed claims. Reopening
+named entries detects observable changes but cannot establish an atomic snapshot,
+future freshness or loaded-code coherence.
+
+Core installs the contract through the same explicit document union in its
+gemspec, installed-payload checker and manifest regression. The deterministic
+native and installed cards require their affected execution gates; source CI and
+authored tests alone do not establish them. The explicit visible Map action
+remains a separate phase. Reconsider the filesystem strategy only for a supported
+case that these descriptor and privacy boundaries cannot represent, with measured
+complete-work costs and an explicit revised threat model.
+
+The source review clarified the operational contract before a Map consumer:
+roots are physical paths without symlinked ancestors, and the maintained
+directory layer requires read as well as search permission. The public fixture
+resolves its newly created work directory to a physical path. Keep the existing
+v1 reason for refused symlinks rather than inventing an interpretation that
+depends on which ancestor failed. Search-only directory support would require a
+separate portable descriptor strategy; it is a future Root-owned improvement.
+
+Retain complete-content comparison for this version. A size-mismatch fast path
+could avoid hashing and classify some over-budget growth as changed, but that is
+a deliberate future result/cost refinement, not a silent alteration of v1's
+current full-admission rule. The 130-descriptor bound is per call, not a global
+process permit. Root owns concurrency/headroom treatment for the later visible
+Map action; memory admission alone does not protect unrelated host descriptors.
+Focused regressions cover the production OS-error mapping and presence of the
+native operation's scratch admission; authored tests still need actual execution.
+
 ## Recorded route/action candidates (PR 122 / LOS-144)
 
 Reuse the immutable Reader's existing static instance-method directory and

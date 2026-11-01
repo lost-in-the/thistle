@@ -49,6 +49,10 @@ admitted physical source and a concise named contribution/method outline.
 Columns, Associations and registered callbacks are progressive evidence choices.
 Selecting a callback registry shows actual registered names, conditions, owners
 and qualified Source witnesses. Registration position is not execution chronology.
+The compact view shows up to eight entries; its named full-registry recovery
+uses the existing Core limit of 200 entries and exposes omissions and incomplete
+source/capture coverage. This is a bounded registration view, not callback paging
+or a claim that all application callbacks or effects were discovered.
 Candidates stay distinct; Map does not concatenate an effective class or guess
 runtime binding. Default captures without this observation retain their existing
 Source behavior.

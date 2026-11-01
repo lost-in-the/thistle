@@ -319,6 +319,13 @@ impl Reader {
             .ok_or_else(|| CoreError::limit("Source response accounting overflow"))
     }
 
+    // Borrow one already validated row. Freshness must not load source blobs,
+    // materialize the capture, or infer a live root from manifest metadata.
+    pub(crate) fn selected_file_metadata(&self, path: &str) -> Result<&Value> {
+        schema::path(path)?;
+        self.by_path.get(path).ok_or_else(|| CoreError::new("not_found", "File is absent from this generation"))
+    }
+
     pub fn source_file(&self, path: &str) -> Result<Value> {
         schema::path(path)?;
         let file = self.by_path.get(path).ok_or_else(|| CoreError::new("not_found", "File is absent from this generation"))?;
