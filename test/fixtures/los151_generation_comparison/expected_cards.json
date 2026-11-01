@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "evidence_status": "AUTHORED UNRUN",
+  "cards": [
+    {"label": "Order scheduling source and references changed", "selection": {"kind": "class", "name": "Order"}, "status": "changed", "source": "changed", "metadata": "unchanged", "relationships": "changed", "source_content": {"before_contains": ["after_create :schedule_receipt", "!!value"], "after_contains": ["after_create_commit :schedule_receipt", "value == true"]}},
+    {"label": "The method declaration default changed", "selection": {"kind": "method", "name": "Order#schedule_receipt"}, "status": "changed", "source": "changed", "metadata": "changed", "relationships": "changed", "source_content": {"before_contains": ["delay: false", "ReceiptJob.perform_later"], "after_contains": ["delay: true", "PriorityReceiptJob.perform_later"]}, "field_changes": [{"path": "/parameters_source", "before": "delay: false", "after": "delay: true"}]},
+    {"label": "Normalization content is concrete captured evidence", "selection": {"kind": "method", "name": "Order#normalize_delay"}, "status": "changed", "source": "changed", "metadata": "unchanged", "source_content": {"before_contains": ["!!value"], "after_contains": ["value == true"]}},
+    {"label": "User stayed the same despite unrelated files", "selection": {"kind": "class", "name": "User"}, "status": "unchanged", "source": "unchanged", "metadata": "unchanged", "relationships": "unchanged"},
+    {"label": "Recorded declaration removed within complete matching source scope", "selection": {"kind": "class", "name": "RetiredInvestigation"}, "status": "removed"},
+    {"label": "New document has no previous physical lines", "selection": {"kind": "class", "name": "AddedInvestigation"}, "status": "added"},
+    {"label": "Reopened duplicate identity must stay ambiguous", "selection": {"kind": "class", "name": "DuplicateIdentity"}, "status": "ambiguous", "left_count": 2, "right_count": 2},
+    {"label": "Table and raw database default changes preserve logical model identity", "selection": {"kind": "rails_model", "name": "Order"}, "status": "changed", "source": "uncomparable", "metadata": "changed", "relationships": "unchanged", "change_kind": "metadata_changed_source_unknown", "field_changes": [{"path": "/model/table", "before": "orders", "after": "archived_orders"}, {"path_template": "/model/columns/entries/{delayed_index}/default/value", "before_oracle": "default_a", "after_oracle": "default_b"}]},
+    {"label": "Incomplete capture cannot establish deletion", "selection": {"kind": "class", "name": "RetiredInvestigation"}, "right_version": "saved_partial", "status": "uncomparable"}
+  ],
+  "incoming_order_witness": {"origin": "ReceiptJob#perform", "relation": "calls", "target_label": "find", "receiver_label": "Order", "direction": "incoming", "sides": ["left", "right"]},
+  "fidelity_controls": {
+    "unchanged_null_default": {"selection": {"kind": "rails_model", "name": "Order"}, "column": "nullable_note", "value_present": true, "value": null, "must_not_be_reported_changed": true},
+    "corrupt_selected_source": {"expected_error": "invalid_snapshot", "content_witness_must_not_be_returned": true},
+    "metadata_missingness_native_card": {"before": {"present": false}, "after": {"present": true, "value": null}, "must_be_changed": true},
+    "source_window": {"maximum_raw_bytes_per_side": 512, "complete_hunks": false, "line_diff": "unavailable"}
+  },
+  "forbidden_claims": ["execution", "causality", "exhaustive impact", "Git commit comparison", "branch comparison", "line mapping", "runtime binding"]
+}
