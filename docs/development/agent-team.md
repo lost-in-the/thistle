@@ -89,20 +89,49 @@ Use the existing issue and claim protocol. The following brief is a template,
 not an active assignment:
 
 ```text
-Read AGENTS.md and docs/development/roles/<role>.md.
+Read AGENTS.md using its task-specific routing, and docs/development/roles/<role>.md.
 Use .agents/skills/thistle-<procedure>/SKILL.md for this assignment.
 Task and customer outcome: <canonical Linear issue and concrete question>
 Contract and evidence inputs: <current paths/links and relevant scope>
 Base/candidate: <exact admitted identities>
 Ownership: <files/interfaces, integration owner, acceptance owner>
 Execution: <actual host/provider, allowed resources and finite checks>
+Requested targets: <elapsed-time/check budget and prompt-only restrictions>
+Verified controls: <effective tools/delegation policy, runtime limits and evidence>
+Control gaps: <unsupported/unverified controls, consequence and responsible owner>
 Authority/stop conditions: <existing limits, unresolved choices, protected work>
-Return: <supported result, exact evidence, remaining action and released claims>
+Return: <supported result, exact evidence, actual elapsed/resources, overruns,
+         control gaps, remaining action and released claims>
 ```
 
 An agent confirms the supplied identity and reads the linked instructions. It
 does not need a fresh manager approval for already authorized routine work.
 On restart, reconcile the checkpoint and active children before executing again.
+
+### Verify execution controls at launch
+
+| Record | What establishes it |
+| --- | --- |
+| Requested target | The brief asks for a deadline, read-only behavior or no delegation. This remains binding conduct even when the runtime does not enforce it. |
+| Verified control | The effective runtime/tool policy and observed launch establish the specific restriction. Name the mechanism, scope and sanitized evidence. |
+| Unsupported or unverified | The surface lacks the control, or launch evidence does not establish it. Report the gap and its effect; do not label the target enforced. |
+
+For reviewers, inspect the actual available tools, including shell, connector and
+advisor/delegation capabilities, before launch. Removing Edit/Write alone does
+not establish read-only execution when another tool can mutate state. Record
+whether no-delegation is a prompt instruction or an effective tool restriction.
+Use existing authorized controls; this procedure installs no adapter or settings.
+If the assignment requires enforcement that is unavailable, stop the dependent
+launch and return the gap to its owner while independent work continues.
+
+[Claude's native subagent contract](https://code.claude.com/docs/en/sub-agents)
+documents tool allow/deny lists and delegation controls. That support is not proof
+that an installed provider or wrapper applies them. Verify the actual launch;
+keep any future thin adapter in a separately scoped, tested change.
+An elapsed-time request, agent-turn cap and caller wait timeout are different
+limits. A wait timeout does not stop a worker or enforce CPU/RSS. Record actual
+overruns and partial/missing review; neither a deadline nor a budget expiry
+waives substantive review or converts missing evidence to acceptance.
 
 ## Public and local configuration
 
@@ -140,3 +169,15 @@ paths. Unknown agent files, executable workflows/scripts and hook/permission
 configuration retain conservative routing. Main's broader checks remain intact.
 Instruction presence and CI routing are not a security sandbox or live runtime
 validation. Keep this pack outside distributed gem document manifests.
+
+The existing automation lane discovers `tests/automation/test_agent_contracts.py`.
+It checks the ten entries' restricted metadata format, wrapper consistency and
+simple inline Markdown file targets in this guidance set. Heading anchors,
+external URL health and live provider loading/enforcement remain unverified.
+Metadata uses exactly `name` and `description`, in either order, with single-line
+unquoted plain strings starting with a letter; names match their directories.
+Headers retain printable Unicode; tabs and raw control characters are refused.
+The guard rejects ambiguous YAML scalars and richer structures rather than
+parsing arbitrary YAML. Revisit a maintained YAML parser when richer metadata is
+needed. Wrapper comparison normalizes names/targets and detects divergent text;
+it does not prove shared wording is semantically safe.
