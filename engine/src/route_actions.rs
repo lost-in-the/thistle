@@ -88,6 +88,11 @@ fn capture_complete(reader: &Reader, work: &mut Work) -> bool {
     complete && counts==[1,1,1]
 }
 
+// Borrow the already-projected response while counting the FFI success envelope.
+// json!({"result": &out}) would clone every nested Value on each fit attempt.
+#[derive(serde::Serialize)]
+struct SuccessEnvelope<'a> { ok: bool, result: &'a Value }
+
 pub(crate) fn select(reader: &Reader, query: &Query<'_>) -> Result<Value> {
     select_with_work(reader,query,Work::default())
 }
@@ -131,16 +136,16 @@ fn select_with_work(reader: &Reader, query: &Query<'_>, mut work: Work) -> Resul
         else { "no_eligible_recorded_candidate" };
     // Locks have been released. Projection is bounded by 16 compact identities;
     // no candidate source files, expanded facts or live code are consulted.
-    loop {
-        let candidates = positions.iter().map(|index| {
+    let candidates = positions.iter().map(|index| {
             let fact = &reader.facts[*index];
             let source = fact["path"].is_string() && fact["location"].is_object();
             json!({"fact":identity(fact,&reader.generation),"source_status":if source {"saved_source_available"} else {"saved_source_absent"},
+                "owner_name_resolution":fact["attributes"]["name_resolution"].as_str().filter(|value| value.len() <= 128),
                 "source":if source {json!({"operation":"source","generation":reader.generation,"id":fact["id"]})} else {Value::Null}})
-        }).collect::<Vec<_>>();
-        let cursor = next.map(|offset| recorded_domain::cursor(&reader.generation,&scope,(offset,0))).transpose()?;
-        let continuation = cursor.as_ref().map(|cursor| json!({"operation":"route_actions","generation":reader.generation,"id":query.id,"cursor":cursor}));
-        let mut out = json!({"version":1,"generation":reader.generation,"root":identity(route,&reader.generation),
+    }).collect::<Vec<_>>();
+    let cursor = next.map(|offset| recorded_domain::cursor(&reader.generation,&scope,(offset,0))).transpose()?;
+    let continuation = cursor.as_ref().map(|cursor| json!({"operation":"route_actions","generation":reader.generation,"id":query.id,"cursor":cursor}));
+    let mut out = json!({"version":1,"generation":reader.generation,"root":identity(route,&reader.generation),
             "route":{"attributes":route["attributes"],"links":route["links"]},
             "naming":{"rule":"ascii_snake_path_v1","owner":labels.as_ref().map(|v| &v.0),"action":labels.as_ref().map(|v| v.1),
                 "status":if labels.is_some() {"conventional_labels_only"} else {"unsupported"},
@@ -154,13 +159,21 @@ fn select_with_work(reader: &Reader, query: &Query<'_>, mut work: Work) -> Resul
                 "method_directory":stats,"scratch_reservation":query.scratch(),"source_reads":0,
                 "budgets":{"candidate_visits":MAX_VISITS,"comparisons":MAX_COMPARISONS,"label_bytes":MAX_LABEL_BYTES},
                 "scope":"Directory construction is lazy and retained on this Reader. Page offsets repeat and charge prefix work; zero progress refuses. No latency, heap or RSS claim."}});
-        // Count the native envelope too, including the conventional newline.
-        match schema::encoded_bytes(&json!({"ok":true,"result":&out}),query.max_bytes.saturating_sub(1)) {
-            Ok(_) => return Ok(out.take()),
+    loop {
+        // Preserve one byte of headroom; the FFI JSON CString has no newline.
+        let fit = schema::encoded_bytes(&SuccessEnvelope { ok:true, result:&out },query.max_bytes.saturating_sub(1));
+        match fit {
+            Ok(_) => return Ok(out),
             Err(error) => {
-                if positions.len() <= 1 { return Err(error); }
-                positions.pop();
-                next=Some(offset+positions.len()); page_complete=false;
+                let rows = out["candidates"].as_array_mut().unwrap();
+                if rows.len() <= 1 { return Err(error); }
+                rows.pop();
+                let kept = rows.len();
+                let cursor = recorded_domain::cursor(&reader.generation,&scope,(offset+kept,0))?;
+                out["next_cursor"] = cursor.clone();
+                out["continuation"] = json!({"operation":"route_actions","generation":reader.generation,"id":query.id,"cursor":cursor});
+                out["coverage"]["page_complete"] = json!(false);
+                out["coverage"]["remaining"] = json!(true);
             }
         }
     }

@@ -78,6 +78,10 @@ module Thistle
           raise Thistle::InvalidSnapshot, 'Invalid route actions row' unless row.instance_of?(Hash)
           fact = row.fetch('fact')
           identity!(fact, generation: generation, kind: 'method')
+          resolution = row['owner_name_resolution']
+          unless resolution.nil? || (resolution.instance_of?(String) && resolution.bytesize <= 128)
+            raise Thistle::InvalidSnapshot, 'Invalid saved owner-resolution qualifier'
+          end
           raise Thistle::InvalidSnapshot, 'Repeated candidate identity' if ids.include?(fact['id'])
           ids << fact['id']
           if row['source_status'] == 'saved_source_available'
@@ -123,6 +127,7 @@ module Thistle
         answer.fetch('candidates').each do |row|
           fact = row.fetch('fact')
           body << "<article><h3>#{h(fact.fetch('name'))}</h3><p>#{h(fact['path'] || 'No saved physical source')}</p>"
+          body << "<p>Saved owner name resolution: #{h(row['owner_name_resolution'] || 'unknown')}. Runtime binding remains unknown.</p>"
           if row['source']
             href = @navigation.url('/source', 'id' => fact.fetch('id')) + "#L#{fact.fetch('span').fetch('start_line')}"
             body << "<p><a href=\"#{h(href)}\">Open exact saved Source at line #{fact.fetch('span').fetch('start_line')}</a></p>"
@@ -138,7 +143,7 @@ module Thistle
           body << "<p><a href=\"#{h(@navigation.url('/route-actions', 'id'=>answer.fetch('root').fetch('id'), 'cursor'=>answer.fetch('next_cursor')))}\">Continue saved action candidates</a></p>"
         end
         body << '</section>'
-        raise Thistle::LimitExceeded, 'Route actions page exceeds display budget' if body.bytesize > MAX_BODY_BYTES
+        raise Investigation::Limit, "Route actions page exceeds display budget; inspect the route's bounded Source context instead." if body.bytesize > MAX_BODY_BYTES
         body
       end
 

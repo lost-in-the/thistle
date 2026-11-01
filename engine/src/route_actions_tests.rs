@@ -113,3 +113,44 @@ fn unsupported_endpoints_do_not_build_directory_and_limits_refuse() {
         assert!(Query::parse(&value).is_err());
     }
 }
+
+#[test]
+fn byte_cut_keeps_the_dropped_candidate_at_the_exact_suffix() {
+    let mut first = method(&"b".repeat(64),"OrdersController",false);
+    let mut second = method(&"c".repeat(64),"OrdersController",false);
+    first["name"] = json!(format!("OrdersController#index{}", "a".repeat(1200)));
+    second["name"] = json!(format!("OrdersController#index{}", "b".repeat(1200)));
+    saved(vec![route('a',json!("orders"),json!("index")),first,second],false,|reader| {
+        let all = select(reader,&Query::parse(&request('a',2,Value::Null)).unwrap()).unwrap();
+        let one = select(reader,&Query::parse(&request('a',1,Value::Null)).unwrap()).unwrap();
+        let budget = schema::encoded_bytes(&SuccessEnvelope { ok:true,result:&one },65536).unwrap()+17;
+        assert!(schema::encoded_bytes(&SuccessEnvelope { ok:true,result:&all },65536).unwrap()>budget);
+        // The borrowed count is wire-identical to the old owned JSON envelope.
+        assert_eq!(serde_json::to_vec(&SuccessEnvelope { ok:true,result:&all }).unwrap(),
+            serde_json::to_vec(&json!({"ok":true,"result":&all})).unwrap());
+        let mut query = request('a',2,Value::Null); query["max_bytes"] = json!(budget);
+        let cut = select(reader,&Query::parse(&query).unwrap()).unwrap();
+        assert_eq!(cut["candidates"].as_array().unwrap().len(),1);
+        assert_eq!(cut["candidates"][0]["fact"]["id"],all["candidates"][0]["fact"]["id"]);
+        assert_eq!(cut["coverage"]["page_complete"],false);
+        let scope = json!(["route_actions","a".repeat(64)]);
+        assert_eq!(recorded_domain::position(Some(&cut["next_cursor"]),&reader.generation,&scope).unwrap(),(1,0));
+        query["cursor"] = cut["next_cursor"].clone();
+        let suffix = select(reader,&Query::parse(&query).unwrap()).unwrap();
+        assert_eq!(suffix["candidates"].as_array().unwrap().len(),1);
+        assert_eq!(suffix["candidates"][0]["fact"]["id"],all["candidates"][1]["fact"]["id"]);
+        assert_eq!(suffix["coverage"]["page_complete"],true);
+    });
+}
+
+#[test]
+fn saved_relative_owner_qualification_is_not_lost() {
+    let mut candidate = method(&"b".repeat(64),"Admin::OrdersController",false);
+    candidate["attributes"]["name_resolution"] = json!("unresolved_relative_path");
+    saved(vec![route('a',json!("admin/orders"),json!("index")),candidate],false,|reader| {
+        let page = select(reader,&Query::parse(&request('a',8,Value::Null)).unwrap()).unwrap();
+        assert_eq!(page["status"],"unique_static_candidate_binding_unknown");
+        assert_eq!(page["candidates"][0]["owner_name_resolution"],"unresolved_relative_path");
+        assert_eq!(page["unknowns"]["binding"],"unknown");
+    });
+}

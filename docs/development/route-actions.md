@@ -21,7 +21,8 @@ end
 
 `route_actions` is a native operation over an existing saved route ID. Limits
 default to eight rows/32 KiB, with ceilings 16/64 KiB. Bytes include the native
-success envelope and one newline. A mandatory envelope or first candidate that
+success envelope and preserve one byte of headroom. The FFI returns a
+NUL-terminated JSON CString without a newline. A mandatory envelope or first candidate that
 cannot fit refuses; smaller pages never skip a dropped candidate.
 
 ## Naming and evidence
@@ -32,9 +33,15 @@ by slash-separated lowercase ASCII snake-case components. Each underscore word
 starts with a lowercase letter and continues with lowercase letters/digits.
 Capitalize each word, join namespace components with `::`, and append
 `Controller` to the final component. Actions use the same lowercase snake-case
-word rule, without slashes. Examples: `orders/index` means controller `orders`,
+word rule, without slashes. Examples: `orders#index` means controller `orders`,
 action `index`, owner `OrdersController`; `::admin/purchase_orders` means
 `Admin::PurchaseOrdersController`. Original strings are preserved separately.
+
+Rails 8.1.4 resolves a root-qualified target within a module scope while drawing
+routes; the fixture uses `scope module: :legacy` and `/admin/orders#index`, which
+records `admin/orders` as the controller default. A leading slash at top level is
+not accepted by that framework mapper. The Native `/` and `::` handling is a
+defensive saved-input convention, not a claim that Rails emits those root markers.
 
 There is no singularization, inflector, acronym registry, constantization,
 controller loading, inherited-action resolution or constraint execution. A
@@ -95,7 +102,7 @@ Partial capture takes precedence in the primary status; the count still shows
 multiple witnessed candidates. `coverage.discovery_complete` means a global
 zero/one/two decision was reached, not that all candidates were returned or
 captured. `page_complete` means the remaining candidate suffix is exhausted.
-`capture_partial_or_unknown` requires exactly one complete source-inventory,
+`capture_partial_or_unknown` is false only with exactly one complete source-inventory,
 Ruby-declarations and Rails-routes coverage row. Missing/duplicate/partial rows,
 or more than 1024 coverage rows, cannot claim complete capture.
 
@@ -124,8 +131,10 @@ that repeated work. Limits are 20,000 visits (including bounded coverage rows),
 100,000 comparisons and 32 MiB hashed/compared labels. A 32 MiB scratch
 reservation remains held through native serialization. Before copying raw
 route evidence, count its encoded bytes against the requested wire bound.
-Projection has at most 16 compact identities and at most 16 shrinking output
-attempts. Raw route copies/serialization and fixed-identity copies are accounted
+Projection builds at most 16 compact identities once. Shrinking output attempts
+remove only candidate suffixes and replace continuation fields; a borrowed success
+envelope avoids cloning the response for each size count. Repeated serialization
+is still bounded by at most 16 attempts. Raw route copying and fixed-identity copies are accounted
 by scratch and bounded wire admission, separately from method-label counters.
 These are conservative source-derived allowances, **not** measured heap, RSS,
 CPU quota or performance results.
@@ -136,7 +145,21 @@ imply uniqueness. A custom count/index or persistent cursor directory would add
 construction, retention, schema and maintenance costs. Reconsider the existing
 repeated-prefix strategy only with complete-job evidence showing its work refusal
 or cost matters. Root owns reconciliation into shared development decisions and
-package manifests; this source slice does not change those retained files.
+package manifests; the coherent Root composition adds the two route guides to
+the existing installed-document union and records this decision.
+
+The candidate row carries `owner_name_resolution`, a recorded qualifier of at
+most 128 UTF-8 bytes (otherwise unknown). For example,
+`unresolved_relative_path` is shown beside the conventional candidate rather than
+discarded. This does not resolve the owner or change binding uncertainty.
+
+R122-04 is a non-blocking, Root-owned follow-up: the first contract deliberately
+retains its conservative capture rule, including Rails-route coverage and
+incomplete-status precedence. Two witnessed definitions remain visible in
+`candidate_count` even when the primary status is incomplete. A narrower discovery
+rule or ambiguity-first status can be considered for Passage consumers without
+changing the meaning of the current complete/incomplete distinction implicitly.
+No coverage or request-work allowance was raised by this source correction.
 
 ## Evidence and next owner
 

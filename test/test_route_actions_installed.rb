@@ -2,6 +2,31 @@
 
 # MANUAL, AUTHORED UNRUN. Root admits installed/framework/store/App execution.
 # Execute with isolated installed gems, from outside this checkout, without -I.
+require 'cgi'
+require 'uri'
+
+# Pure evidence assertions can be exercised without activating installed gems,
+# booting a framework, creating a store or running the manual driver below.
+module RouteActionsMapAssertions
+  def self.status!(html, expected)
+    marker = %(<p class="notice ui">#{CGI.escapeHTML(expected)}</p>)
+    raise "Missing Map status: #{expected}" unless html.include?(marker)
+  end
+
+  def self.source_targets(html)
+    html.scan(/href="([^"]+)"/).flatten.filter_map do |href|
+      uri = URI.parse(CGI.unescapeHTML(href))
+      uri if uri.scheme.nil? && uri.host.nil? && uri.path.end_with?('/source') && uri.fragment&.match?(/\AL[1-9]\d*\z/)
+    end
+  end
+
+  def self.distinct_sources!(targets, count)
+    ids = targets.map { |uri| URI.decode_www_form(uri.query.to_s).to_h.fetch('id') }.uniq
+    raise 'Map did not expose distinct saved Source identities' unless ids.length == count
+    ids
+  end
+end
+
 if $PROGRAM_NAME == __FILE__
   require 'json'
   require 'open3'
@@ -126,10 +151,34 @@ if $PROGRAM_NAME == __FILE__
         demand(source_fields.values_at('generation','selection','q')==fields.values_at('generation','selection','q'), 'Map lost generation/investigation/search')
         source_html = get.call('/source',source_fields)
         demand(source_html.include?('id="L2"') && source_html.include?('source-row selected') && source_html.include?(':saved_a') && !source_html.include?(':saved_b'),'Map failed to reveal physical A source after CURRENT B')
-        %w[order rack_endpoint custom_acronym missing_action].each do |name|
-          negative_html = get.call('/route-actions',fields.merge('id'=>routes.fetch(name)['id']))
-          demand(negative_html.include?('unknown') || negative_html.include?('unresolved'),'Map hid negative/ambiguous boundary')
+        cards.reject { |name,_| %w[note partial_capture refused_page].include?(name) }.each do |name,card|
+          card_fields = fields.merge('id'=>routes.fetch(name)['id'])
+          card_html = get.call('/route-actions',card_fields)
+          RouteActionsMapAssertions.status!(card_html,card.fetch('map_status'))
+          next unless name == 'order'
+
+          targets, seen = [], []
+          16.times do
+            targets.concat(RouteActionsMapAssertions.source_targets(card_html))
+            continuation = card_html.scan(/<a href="([^"]+)">Continue saved action candidates<\/a>/).flatten.first
+            break unless continuation
+            uri = URI.parse(CGI.unescapeHTML(continuation))
+            demand(uri.path=='/map/route-actions' && uri.host.nil? && uri.scheme.nil?, 'Foreign Map continuation')
+            next_fields = URI.decode_www_form(uri.query).to_h
+            demand(next_fields.values_at('generation','selection','q')==fields.values_at('generation','selection','q'), 'Map continuation lost pinned context')
+            demand(!seen.include?(next_fields.fetch('cursor')), 'Repeated Map continuation')
+            seen << next_fields.fetch('cursor')
+            card_html = get.call('/route-actions',next_fields)
+            RouteActionsMapAssertions.status!(card_html,card.fetch('map_status'))
+          end
+          targets.each do |target|
+            target_fields = URI.decode_www_form(target.query).to_h
+            demand(target_fields.values_at('generation','selection','q')==fields.values_at('generation','selection','q'), 'Duplicate Source witness lost context')
+          end
+          RouteActionsMapAssertions.distinct_sources!(targets,card.fetch('count'))
         end
+        partial_html = get.call('/route-actions',fields.merge('generation'=>partial_generation))
+        RouteActionsMapAssertions.status!(partial_html,cards.fetch('partial_capture').fetch('map_status'))
       end
       demand(!defined?(Rails), 'Reader/Map consumer booted Rails')
       puts JSON.generate('generation'=>generation,'mode'=>mode,'result'=>'installed route candidates and exact saved Source assertions passed')

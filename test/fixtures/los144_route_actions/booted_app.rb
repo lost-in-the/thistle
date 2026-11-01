@@ -19,7 +19,9 @@ module RouteActionsFixture
       get '/orders', to: 'orders#index', as: :orders
       get '/all-orders', to: 'orders#index', as: :all_orders
       get '/orders/:id', to: 'orders#show', constraints: {id: /[0-9]+/}, as: :order
-      get '/admin-orders', controller: '/admin/orders', action: 'index', as: :admin_orders
+      scope module: :legacy do
+        get '/admin-orders', to: '/admin/orders#index', as: :admin_orders
+      end
       get '/missing', to: 'orders#missing', as: :missing_action
       get '/class-only', to: 'orders#class_only', as: :class_only
       get '/inherited', to: 'orders#inherited', as: :inherited_action
