@@ -14,7 +14,8 @@ The [replacement contract](docs/development/replacement-contract.md) defines the
 complete human and agent investigations the product must support; it separates
 that goal from the bounded features and evidence currently available.
 
-The repository [mission](https://github.com/lost-in-the/thistle/blob/main/docs/MISSION.md) defines the governing product goals. Contributors
+The repository [mission](https://github.com/lost-in-the/thistle/blob/main/docs/MISSION.md) defines the governing product goals. Find the full launch scope, acceptance sources and live plan through the
+[project scope index](https://github.com/lost-in-the/thistle/blob/main/docs/PROJECT_SCOPE.md). Contributors
 and agents should use the [workflow](https://github.com/lost-in-the/thistle/blob/main/docs/development/agent-workflow.md) and
 [portable configuration guide](https://github.com/lost-in-the/thistle/blob/main/docs/development/agent-configuration.md).
 

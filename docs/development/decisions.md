@@ -7,7 +7,7 @@ projections. Rust supplies the selected evidence and uncertainty; Map composes a
 readable investigation without another analyzer, index or runtime resolver.
 Physical source precedes the contribution/method outline, search remains visible,
 and schema/association/callback evidence returns to one validated model context.
-See the [model-reading contract](https://github.com/lost-in-the/thistle/blob/90dd404ba312209e735c6ebc8409241aed654eac/map/docs/model-reading.md)
+See the [model-reading contract](https://github.com/lost-in-the/thistle/blob/c2670bab6d0b591668b1b019d31d60256eedcf2b/map/docs/model-reading.md)
 and [complete replacement goal](replacement-contract.md).
 
 The opening canonical view uses two bounded comprehension queries and at most
@@ -1006,3 +1006,43 @@ Reconsider a maintained layout library only for a separately admitted richer
 layout job with concrete fit/maintenance evidence. Whole-schema/multi-hop,
 constraints, architecture/clusters, exports, Guide and qualification remain
 named parent work. New installed/served/person acceptance remains pending.
+
+## Task-routed agent guidance and portable entry checks — LOS-159
+
+Keep the five roles, five canonical skills and thin Claude wrappers. Route startup
+through the current task, mission, privacy boundary and applicable policy sections;
+load restoration/experiment handoffs only for their actual scope. The audit's
+27,626-word figure counts AGENTS.md and its named orientation documents, not
+observed tokens or automatic loading. Alternatives were a second policy hierarchy,
+removing historical sources or shortening only the root while roles still required
+full-policy reads. Those would duplicate authority, lose evidence or retain the
+same startup burden. The scope index links authoritative goals, ledger and live
+Linear planning without becoming a second backlog. No measured runtime or token
+saving is claimed. The PM preserves accumulated checkpoint history before replacing
+current summaries; source guidance cannot prove that external records were fixed.
+
+Use the existing Python unittest discovery lane for a bounded contract check.
+A maintained YAML/Markdown parser would support richer syntax but add a dependency
+and acquisition/maintenance cost for ten two-field entries and simple inline links.
+The chosen test-only guard instead documents and rejects inputs outside our
+restricted plain-string metadata format, accepts either field order and verifies
+matching names/descriptions and canonical wrapper targets. It rejects forbidden
+raw header characters under the
+[YAML character contract](https://yaml.org/spec/1.2.2/#51-character-set), with tabs
+also excluded by the local single-line format. It compares normalized
+wrappers with each other, not a frozen copy of their prose. That detects divergent
+instructions, not common semantic mistakes. File-target checks cover only the
+listed guidance files and simple inline links; heading anchors, external health,
+provider loading and live hook/watch behavior remain outside this evidence.
+Reconsider maintained parsers for richer metadata/link syntax or concrete false
+results; do not grow this into a general parser or separate validation framework.
+
+Keep requested targets, verified execution controls and unsupported/unverified
+controls distinct in assignments and returns. Current official
+[skill documentation](https://learn.chatgpt.com/docs/build-skills) requires name
+and description; [Claude subagent documentation](https://code.claude.com/docs/en/sub-agents)
+describes native tool restrictions. Those contracts do not establish the installed
+provider's effective policy. Prompt-only read-only/no-delegation instructions and
+deadlines remain conduct requirements, not enforced controls. No adapter, provider
+setting or credential change is introduced; reconsider a thin native adapter only
+with separately scoped authority and actual launch/control evidence.

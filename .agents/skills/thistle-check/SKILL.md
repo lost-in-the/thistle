@@ -5,6 +5,9 @@ description: Check a Thistle customer journey and the applicability of its packa
 
 # Check
 
+Use the [startup routing](../../../AGENTS.md#read-before-work) for applicable
+policy sections; load specialist history only for the assigned question.
+
 Read the [Auditor role](../../../docs/development/roles/auditor.md), the issue's
 acceptance conditions and
 [artifact policy](../../../docs/development/pr-ci-release.md#artifact-reuse-and-evidence).
