@@ -41,8 +41,10 @@ created here; missing/failed/inconclusive required evidence cannot pass.
    neighborhood and named candidate pages must render 200 with useful rows
    (Database facts correctly has unavailable inventory), preserving all IDs and
    search. The realistic supported case cannot pass by accepting 422. Separately
-   exercise genuinely unfit first rows: actionable display limit, not corrupt/
-   missing-evidence text, no silent row skip and no mismatched list/diagram.
+   exercise genuinely unfit first rows: an explicit native limit and its reason,
+   not corrupt/missing-evidence text, no silent row skip or mismatched list/diagram.
+   Display admission has separate context advice; do not infer that every native
+   limit is a display failure or promises a context-narrowing remedy.
 9. Use keyboard only for heading actions, filters, native details, candidate
    continuation, Source and Back; check focus/tab order and text/IME safety.
    Disable JS through the admitted browser controls and repeat the primary tasks.

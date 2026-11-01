@@ -140,7 +140,7 @@ begin
         demand(segment, 'Named edge segment missing')
         visible = CGI.unescapeHTML(segment.gsub(/<[^>]*>/, ''))
         origin_label = row['association'] ? 'This model' : origin.fetch('name')
-        demand(html.include?(CGI.escapeHTML(answer.fetch('root').fetch('name'))), 'Full selected model heading missing')
+        demand(html.include?(%(<h1 class="t1">#{CGI.escapeHTML(answer.fetch('root').fetch('name'))}: model neighborhood</h1>)), 'Full selected model heading missing')
         demand([origin_label, row['target_label'] || 'Unknown / polymorphic target', row.fetch('relation'), row.fetch('direction'), row.fetch('type')].all? { |text| visible.include?(text) }, 'Full names/type/direction not revealed')
         if !diagram.empty?
           svg = html.match(/<g data-neighborhood-diagram-edge="#{index}">.*?<\/g>/m)&.to_s

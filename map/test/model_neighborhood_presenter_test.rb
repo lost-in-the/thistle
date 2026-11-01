@@ -264,7 +264,7 @@ class ModelNeighborhoodPresenterTest < Minitest::Test
     row['candidate_matches'] = row['candidate_known_omitted'] = 0
     row['target_status'] = 'missing_or_unloaded'
     html = render(answer, navigation: nav)
-    assert html.include?('&amp;' * 2500), 'Full selected name must remain readable in HTML'
+    assert_includes html, %(<h1 class="t1">#{ERB::Util.html_escape(answer.fetch('root').fetch('name'))}: model neighborhood</h1>)
     assert_equal ['0'], html.scan(/data-neighborhood-edge="(\d+)"/).flatten
     assert_empty html.scan(/data-neighborhood-diagram-edge="(\d+)"/)
     assert_includes html, 'The full named list contains every selected edge'

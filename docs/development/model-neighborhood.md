@@ -93,13 +93,13 @@ specific limit_exceeded keeps the already admitted prefix and resumes at the
 failed step's input. A wire-deferred row never uses its post-row cursor. Only
 safely consumed skips reported by the private reference adapter can advance an
 otherwise empty budget-stopped page. First zero progress still refuses. Visits,
-copies, failed metadata charges and attempts are never rolled back.
+copies, failed metadata charges and RequestWork counters are never rolled back.
 
 One charged coverage/cost checkpoint is replaced after each row fits. If later
 deferred-step diagnostics would push that already fitting prefix over the wire
 limit, finalization restores its last admitted diagnostics and continuation.
 The response may therefore omit later diagnostic attempts and replay safely
-skipped input. Their RequestWork charges remain spent; no row or work counter is
+skipped input. Their RequestWork charges remain spent; no row or RequestWork counter is
 rolled back. The checkpoint retry is single-use and does not discard a fitted row.
 
 RequestWork exposes only finish_metadata to open its existing final 3 MiB.

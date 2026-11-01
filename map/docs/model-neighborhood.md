@@ -37,15 +37,16 @@ Each page makes one public Reader call. Map derives family row/byte admission
 together from actual escaped URL size, known href counts, form/cursor/markup
 allowances and primary text growth. The pure Rust-shaped budget fixture demands
 a useful successful page with long labels and four candidate identities.
-Actual full display remains capped at 64 KiB. Genuine unfit first rows have an
-actionable display-limit message, not a generic missing/invalid-evidence message.
+Actual full display remains capped at 64 KiB. An unfit first row reports an
+explicit native limit and its reason, not corrupt/missing-evidence text.
+Display admission separately explains an unfit navigation/markup context.
 
 Rust owns rows, schema, candidates, witnesses and coverage. References prefilter
 relations before detail/candidate materialization under the existing shared work
 limits. Failed later budget attempts retain the prefix and exact input cursor;
 if deferred diagnostics no longer fit, the last admitted diagnostics/cursor are
 used instead, with all attempted work still charged and no selected row discarded.
-safely consumed skips can advance an empty page. Final serialization uses only
+Safely consumed skips can advance an empty page. Final serialization uses only
 the existing reserved metadata allowance. page_complete describes the selected
 domain; last_reference_step/row_retained describe one attempt, and completed-step
 work counters do not pretend to include an incomplete refused step.
