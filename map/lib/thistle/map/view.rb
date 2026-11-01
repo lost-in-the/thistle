@@ -206,8 +206,7 @@ module Thistle
       def model_neighborhood_page(family:, direction:, type:, candidate: nil)
         raise Limit, 'Saved model neighborhood is unavailable with this Reader.' unless @reader.respond_to?(:model_neighborhood)
 
-        limit = ModelNeighborhoodPresenter.page_limit(@navigation)
-        max_bytes = ModelNeighborhoodPresenter.request_bytes(@navigation, limit)
+        limit, max_bytes = ModelNeighborhoodPresenter.admission(@navigation, family: family, direction: direction)
         result = @reader.model_neighborhood(@params.fetch('id'), family: family, direction: direction,
           type: type, candidate: candidate, cursor: @params['cursor'], limit: limit, max_bytes: max_bytes)
         presenter = ModelNeighborhoodPresenter.new(result, navigation: @navigation, generation: @generation,
@@ -217,6 +216,8 @@ module Thistle
         raise Limit, 'Model neighborhood page exceeds its display budget.' if content.bytesize > ModelNeighborhoodPresenter::MAX_BODY_BYTES
 
         content
+      rescue Thistle::LimitExceeded, ModelNeighborhoodPresenter::DisplayLimit => error
+        raise Limit, "Model neighborhood display limit: #{error.message} Use a smaller page or narrow search/collection context."
       end
 
       def model_neighborhood_navigation(fact)

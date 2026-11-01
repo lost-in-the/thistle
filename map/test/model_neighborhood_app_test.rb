@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
-# Standalone mocked Rack boundary. No Native/Rails/store/server/browser is loaded.
+# Correction App probes AUTHORED UNRUN in this source-only phase.
+# Root owns their later execution; this author runs only syntax on this file.
 if $PROGRAM_NAME == __FILE__
   require_relative 'model_neighborhood_presenter_test'
   $LOADED_FEATURES << File.expand_path('../lib/thistle/map/highlighter.rb', __dir__)
@@ -14,34 +15,20 @@ if $PROGRAM_NAME == __FILE__
   require_relative '../lib/thistle/map/app'
   raise 'Mock App activated Native or Rails' if defined?(Thistle::Native) || defined?(Rails) || defined?(ActiveRecord)
   class ModelNeighborhoodAppTest < Minitest::Test
-    class Reader
-      attr_reader :calls, :closed, :generation, :manifest
+    class Reader < ModelNeighborhoodAnswers::BudgetReader
+      attr_reader :closed, :generation, :manifest
       def initialize(mode)
-        @mode, @calls, @generation, @manifest = mode, [], ModelNeighborhoodAnswers::G, { 'files' => [], 'coverage' => [] }
+        super()
+        @mode, @generation, @manifest = mode, ModelNeighborhoodAnswers::G, { 'files' => [], 'coverage' => [] }
       end
       def model_neighborhood(id, **options)
-        @calls << [id, options]
-        raise Thistle::Busy, 'busy' if @mode == :busy
-        raise Thistle::InvalidSnapshot, 'invalid' if @mode == :invalid
-        answer = ModelNeighborhoodAnswers.page(**options.slice(:family, :direction, :type, :candidate))
-        if @mode == :long
-          # Actual admitted DTO size, long escaped labels and a retained 2-ID/q
-          # context. The view must fit the complete same-edge list/diagram or
-          # explicitly refuse display; it may not prune one representation.
-          4096.downto(1) do |length|
-            answer['root']['name'] = '&' * length
-            break if JSON.generate(answer).bytesize + 64 <= options.fetch(:max_bytes)
-          end
-        elsif @mode == :long_default
-          answer['items'] = [{ 'kind' => 'column', 'ordinal' => 0, 'column' => {
-            'name' => 'note', 'type' => 'string', 'sql_type' => 'text', 'null' => false,
-            'default_recorded' => true, 'default_presence' => 'not_recorded', 'default' => { 'kind' => 'literal', 'value' => '' } } }]
-          1365.downto(1) do |length|
-            answer['items'][0]['column']['default']['value'] = '"&<' * length
-            break if JSON.generate(answer).bytesize + 64 <= options.fetch(:max_bytes)
-          end
+        if %i[busy invalid overflow].include?(@mode)
+          @calls << options
+          raise Thistle::Busy, 'busy' if @mode == :busy
+          raise Thistle::InvalidSnapshot, 'invalid' if @mode == :invalid
+          raise Thistle::LimitExceeded, 'First selected native row exceeds max_bytes'
         end
-        answer
+        super
       end
       def close = @closed = true
     end
@@ -53,7 +40,7 @@ if $PROGRAM_NAME == __FILE__
       @app.call('REQUEST_METHOD' => method, 'PATH_INFO' => path, 'QUERY_STRING' => URI.encode_www_form({ 'generation' => ModelNeighborhoodAnswers::G, 'id' => ModelNeighborhoodAnswers::ID }.merge(extra)),
         'HTTP_HOST' => host, 'REMOTE_ADDR' => '127.0.0.1', 'SCRIPT_NAME' => '')
     end
-    def test_one_reader_operation_close_head_and_error_propagation
+    def test_one_reader_operation_close_head_and_typed_error_propagation
       status, headers, body = request
       assert_equal 200, status
       assert_includes body.join, 'Named relationships'
@@ -70,7 +57,14 @@ if $PROGRAM_NAME == __FILE__
       assert_equal '1', headers['retry-after']
       assert @readers.last.closed
       @mode = :invalid
-      assert_equal 422, request.first
+      status, _, body = request
+      assert_equal 422, status
+      assert_includes body.join, 'missing or invalid'
+      @mode = :overflow
+      status, _, body = request
+      assert_equal 422, status
+      assert_includes body.join, 'Model neighborhood display limit'
+      refute_includes body.join, 'missing or invalid'
       assert @readers.last.closed
     end
     def test_invalid_scope_and_access_refuse_before_reader_factory
@@ -83,22 +77,31 @@ if $PROGRAM_NAME == __FILE__
       assert_equal 405, request(method: 'POST').first
       assert_empty @readers
     end
-    def test_long_near_admitted_labels_with_retained_context_fit_or_explicitly_refuse_display
-      selected = [ModelNeighborhoodAnswers::ID, ModelNeighborhoodAnswers::OTHER].join(',')
-      { long: '/model-neighborhood/edges/outgoing/all', long_default: '/model-neighborhood/columns/outgoing/all' }.each do |mode, path|
-        @mode = mode
-        status, _, body = request({ 'selection' => selected, 'q' => 'orders' * 40 }, path: path)
+    def test_realistic_budget_enforcing_24_ids_256q_must_render_200
+      selected = (1..24).map { |n| n.to_s(16).rjust(64, '0') }.join(',')
+      cases = { '/model-neighborhood/edges/outgoing/all' => {},
+        '/model-neighborhood/edges/incoming/association' => {},
+        '/model-neighborhood/edges/incoming/reference' => {},
+        '/model-neighborhood/columns/outgoing/all' => {},
+        '/model-neighborhood/candidates/outgoing/all' => { 'candidate' => 'a:0' },
+        '/model-neighborhood/database/outgoing/all' => {} }
+      cases.each do |path, extra|
+        status, _, body = request({ 'selection' => selected, 'q' => 'q' * 256 }.merge(extra), path: path)
+        assert_equal 200, status, path
+        html = body.join
+        assert_operator html.bytesize, :<=, 65_536
         assert_equal 1, @readers.last.calls.length
         assert @readers.last.closed
-        if status == 200
-          assert_operator body.join.bytesize, :<=, 65_536
-          assert_equal body.join.scan(/data-neighborhood-edge="(\d+)"/), body.join.scan(/data-neighborhood-diagram-edge="(\d+)"/)
-          assert_includes body.join, "selection=#{URI.encode_www_form_component(selected)}"
-        else
-          assert_equal 422, status
-          assert_match(/display budget/, body.join)
+        assert_includes html, 'name="selection" value="' + selected + '"'
+        assert_includes html, 'name="q" value="' + 'q' * 256 + '"'
+        list = html.scan(/data-neighborhood-edge="(\d+)"/)
+        diagram = html.scan(/data-neighborhood-diagram-edge="(\d+)"/)
+        assert_equal list, diagram unless diagram.empty?
+        if path.include?('/edges/')
+          refute_empty list
+        elsif !path.include?('/database/')
+          assert_operator html.scan(/<tr>|<li>/).length, :>, 0
         end
-        puts "Mock display admission #{mode}: status=#{status}, bytes=#{body.join.bytesize} (no Native/framework)"
       end
     end
   end

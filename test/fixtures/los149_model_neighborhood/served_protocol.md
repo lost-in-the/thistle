@@ -1,51 +1,52 @@
-# LOS149 visible served protocol — AUTHORED UNRUN
+# LOS149 visible served protocol — correction AUTHORED UNRUN
 
-Root owns the finite host/browser claim and actual artifacts. Use the exact
-installed pair and retained producer manifest; start no runtime from this file
-without that admission. Leah owns applicable acceptance. Record source/head,
-packages/native hashes, cohort, generation A/partial/B, viewport/zoom, task result,
-screenshots and failures. Missing/failed/inconclusive tasks do not pass.
+Root owns the finite host/browser claim and exact installed artifacts; Leah owns
+applicable acceptance. Record source/head, packages/native/cohort, A/partial/B,
+viewport/actual zoom, screenshots, task result and failures. No runtime grant is
+created here; missing/failed/inconclusive required evidence cannot pass.
 
-1. Pin saved A with CURRENT already B. Find runtime Order, open its reading page.
-   Without scrolling through repeated summary blocks, identify Model neighborhood,
-   Columns and Database facts beside the heading. A static unrelated class must
-   not acquire a runtime-model entry. Retain screenshot of the heading/actions.
-2. Open neighborhood. Immediately name Item, User and other displayed targets
-   from the named list. Expand Diagram; compare every row's full endpoints,
-   direction/type and witness with the same Reader page and handwritten cards.
-   No graph-only omitted edge or concealed-until-zoom labels. Record actual
-   selected identities/cursor/row count, not inferred screenshots alone.
-3. Continue beyond eight declarations; find ghosts and unknown subject. Explain
-   missing/unloaded versus polymorphic target, through and dependent/foreign_key
-   options. Enumerate >4 User representations and distinguish six declaration
-   sites, one runtime class and namespaced Admin::User without first-match binding.
-4. Switch Incoming/Outgoing and each type filter. Verify exact scope reset,
-   diagram/list/native agreement and original evidence per edge; no duplicated
-   outgoing association link presented as another declaration. Continue each
-   eligible domain to completion, preserving unsearched/partial notices.
-5. Follow an actual rendered static Source href and its `#L` fragment. Verify
-   saved A physical bytes/line/digest after CURRENT B; return by Back to the same
-   model/filter/page/search/two-ID collection. Check collection continuation and
-   an admitted 24-ID case with atomic search-drop notice and all IDs intact.
-6. Open Columns directly. Compare raw types/defaults to producer adapter oracle,
-   explaining literal null versus default-presence unknown. Read Database facts:
-   unavailable FK/index/ON DELETE inventory must never imply known absence.
-7. Using keyboard alone, traverse heading actions, filters, continuation, target
-   candidates, Source and Back. Check visible focus, tab order, native details and
-   named list; optional home-row keys must not intercept text/IME entry.
-8. Disable JavaScript using the admitted browser controls. Repeat the core named
-   target/Columns/Source/Back/continuation tasks using visible links. Restore only
-   this task's browser state and record actual outcomes.
-9. At a 320px-wide container and actual browser zoom 200% and 400%, repeat naming,
-   Columns and Source. Long labels must remain readable in the immediate list;
-   diagram scrolling/overflow must have an obvious full-name equivalent. Do not
-   simulate zoom by changing a CSS size. Retain actual screenshots for each case.
-10. Exercise realistically long escaped labels/defaults and retained two-ID/q
-    context under existing native/display limits. A complete same-edge render
-    must fit 64 KiB or explicitly refuse display. Never accept mismatched graph/
-    list pruning. Record refusal, coverage/omissions and recovery to a smaller
-    page as evidence, not a usability pass.
+1. Boot the pinned Rails producer with the exact duplicate_user ignore BEFORE
+   initialize. Prove it reaches A capture/publication before Order.columns.
+   Preserve six User source positions and the explicit runtime ::User declaration
+   with unknown source coherence. Do not warm schema state to make capture pass.
+2. With CURRENT already B, select saved A's runtime Order. Find Model neighborhood,
+   Columns and Database facts beside the heading without repeated diagrams or
+   summary blocks. A static unrelated class must not receive a runtime-model entry.
+3. Use schema/filter buttons with their shared GET form. Confirm actual controls
+   preserve generation, model and collection/search state. Showing direction/type
+   and aria-current must be visible. Unavailable columns/association observations
+   must be visibly different from known empty, including before empty tables.
+4. Immediately name related things from the primary HTML list. Expand the optional
+   diagram if present and compare every row's names, type/direction and witness
+   with Reader and independent cards. A whole-diagram omission notice is allowed
+   only with every full named HTML edge intact; no graph-only row/label pruning.
+5. Continue beyond eight declarations, missing ghosts and polymorphic subject.
+   Read through and Rails dependent/foreign_key options without inventing DB
+   constraints. Enumerate >4 User representations, six source positions and one
+   runtime class; compare ::User's same range/original spelling. Demand nonempty
+   Admin::User candidates with exactly one rails_model, never an empty all? pass.
+6. Exercise every direction/type and continuation domain. Independently require
+   Item/User incoming association link witnesses, ReportBuilder#orders/#counted
+   incoming reference Source lines, and outgoing model_base_label. Equality of
+   empty Reader and Map sets is not sufficient. Read page_complete separately
+   from last_reference_step, row_retained and completed-step work counters.
+7. Follow actual rendered physical Source hrefs with #L fragments to both required
+   ReportBuilder sites and candidate declarations. Verify exact A bytes/line/digest
+   after B, then Back to the same model/filter/page/search/collection.
+8. Test two-ID context AND 24 actual saved IDs with a full 256-byte query. Schema,
+   neighborhood and named candidate pages must render 200 with useful rows
+   (Database facts correctly has unavailable inventory), preserving all IDs and
+   search. The realistic supported case cannot pass by accepting 422. Separately
+   exercise genuinely unfit first rows: actionable display limit, not corrupt/
+   missing-evidence text, no silent row skip and no mismatched list/diagram.
+9. Use keyboard only for heading actions, filters, native details, candidate
+   continuation, Source and Back; check focus/tab order and text/IME safety.
+   Disable JS through the admitted browser controls and repeat the primary tasks.
+10. At a 320px container and actual browser zoom 200% and 400%, repeat naming,
+    Columns/Database facts and Source. Long names must remain in the immediate
+    list with an obvious alternative for diagram overflow. Do not simulate zoom
+    by changing CSS size. Retain actual screenshots and task observations.
 
-Stop compute and release host/browser claims promptly. Hand exact results and
-unresolved limits to Root/Leah. Source/mock/Rack success is not served/person
-acceptance and qualifies none of the 17 launch requirements.
+Stop compute and release claims promptly. R125's initial findings remain open
+until Root R2 disposition; source CI/pure mocks/Rack success do not establish
+served/person acceptance or any of the 17 unqualified launch requirements.

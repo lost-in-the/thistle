@@ -1,193 +1,228 @@
 # One saved model's schema and one-hop neighborhood (LOS-149)
 
-This bounded customer view asks: **Which named models and source sites surround
-this saved model, how are they related, and what evidence supports each edge?**
-Leah owns applicable acceptance. Root owns integration, the full independent
-source review, shared package/document selectors and decisions, and later actual
-native/framework/installed/served gates. This source increment qualifies none of
-the 17 launch requirements.
+Which named models and source sites surround this saved model, how are they
+related, and what evidence supports each edge? Rust/public Reader owns that
+selection. Map presents one bounded page; Leah owns applicable acceptance.
+Root owns integration, new changed-scope R2 and later finite actual gates.
+All 17 launch requirements remain UNQUALIFIED.
 
-## Public Reader and DTO
+## Public Reader and saved evidence
 
-```ruby
+~~~ruby
 reader.model_neighborhood(model_id, family: 'edges', direction: 'outgoing',
   type: 'all', candidate: nil, limit: 8, cursor: nil, max_bytes: 32768)
-```
+~~~
 
-The exact selected ID must be a saved `rails_model`, never an arbitrary static
-class assumed to be a model. One native operation owns all semantic selection;
-the Ruby method forwards primitives. There is no CLI, capture, schema, observer,
-store, native C bridge, dependency or JavaScript change.
+The selected ID must be a saved rails_model, not a static class assumed to be a
+runtime model. The Ruby method forwards primitives. This correction adds no
+capture/schema/observer/Reader/C bridge/parser/directory/CLI/dependency/JS change.
 
-Version 1 returns `generation`, compact `root`, `model`, `family`, `direction`,
-`type`, `candidate`, `items`, `coverage`, `next_cursor`, `cost`, `usage` and
-`semantics`. Root includes saved ID/name/kind/evidence/path/location only. Model
-includes name/table/primary_key/base/superclass/abstract/inheritance/source and
-coherence; these labels remain scoped to the selected saved identity and
-generation. Table/key equality does not merge model identities.
+DTO version 1 contains generation, compact root, model/table/primary-key scope,
+family/direction/type/candidate, candidate_context, items, coverage, next_cursor,
+cost, usage and semantics. IDs and table/key labels stay scoped to this saved
+model and immutable generation. Equal labels do not merge identities.
 
-Families:
+* edges: outgoing association entries then other recorded outgoing links, or
+  incoming saved links. Direction is incoming/outgoing; type is
+  all/association/reference. Association-only outgoing needs no reference scan.
+* columns: raw name/type/sql_type/null and the required saved tagged default.
+  Current model schema requires that tag; a missing tag is invalid evidence,
+  not a compatibility feature. There is no default_recorded or per-column
+  default_presence alias. Global default_presence remains not_recorded.
+* database: explicit unavailable physical database FK/index/ON DELETE inventory,
+  never invented absence or inferred constraints.
+* candidates: saved named representations for one outgoing edge. a:N selects
+  an association ordinal; r:N a recorded link ordinal. candidate_context names
+  the selector, association/reference kind, name and original target label.
 
-* `edges`: outgoing association declaration entries, then other recorded outgoing
-  links; or incoming recorded links selected by the existing reference contract.
-  Direction is `outgoing` or `incoming`; type is `all`, `association` or `reference`.
-  There is no combined whole-schema or multi-hop traversal.
-* `columns`: raw name/type/sql_type/null and tagged default, with explicit
-  `default_recorded` and `default_presence: not_recorded`. This field reports
-  whether the saved value exists, not whether the database has a DEFAULT clause.
-* `database`: explicit unavailable physical FK/index/ON DELETE inventory. It
-  invents no absence, inventory or relationships.
-* `candidates`: all saved named representations for one outgoing edge. `a:N`
-  identifies the selected model's association entry ordinal; `r:N` its recorded
-  link ordinal. These are validated selectors, never constant names to resolve.
+Schema families require outgoing/all. Candidates require outgoing and exactly
+one selector compatible with the type filter. Invalid IDs/positions/scopes,
+missing facts, unsafe storage and integrity errors refuse.
 
-Schema families require outgoing/all scope. Candidates require outgoing and one
-selector; their type scope cannot contradict the selected edge. Invalid IDs,
-types, positions, scopes, missing facts and storage/integrity failures refuse.
+Association edges retain the whole saved entry and exact fact_id/family/ordinal
+witness, with origin_id referencing the response root. Polymorphic/unknown
+targets remain rows without links. Reference edges move origin and candidates
+once into their typed fields. Their recorded object contains only the effective
+original link, link_ordinal, detail_omitted and match_basis; it contains no
+duplicate identity or candidate aliases. Outgoing association_target_label links
+are excluded before materialization because the declaration already appears.
+Incoming such links remain explicitly original recorded references, without
+inventing declaration options.
 
-An edge retains `origin`, relation/type/direction, original target label,
-`target_status`, binding unknown, at most four compact candidates, global known
-candidate matches, candidate-search completeness/omissions and selector. An
-association adds the **whole saved association entry**, with exact witness
-`fact_id/family/ordinal`. Polymorphic/unknown targets stay rows even without links.
-Recorded reference rows retain the original component's origin/link ordinal/link,
-effective evidence and detail-omitted flags in `recorded`; candidate identities
-are moved to the edge's `candidates` array rather than copied twice. The outgoing
-`association_target_label` link representation is suppressed because that exact
-declaration already appears. Incoming association links are labelled recorded
-references to association targets, without inventing missing declaration options.
+At most four candidates appear per edge, with global known matches and explicit
+display omissions. Counts are saved representations, not distinct model
+definitions. Static declaration sites, indexed observations and runtime metadata
+are not automatically separate implementations or bindings. One candidate still
+has unknown binding/coherence; zero can mean unloaded or uncaptured. Incoming
+candidate search remains globally incomplete. Candidate pages enumerate the full
+range without selecting a canonical first match.
 
-Candidate counts are **saved representations, not distinct model definitions**.
-Static declaration sites, indexed observations and runtime model metadata are
-not automatically separate implementations or bindings. Even one candidate has
-unknown binding/coherence. Zero matches means missing or unloaded/uncaptured,
-not a proof that the constant does not exist. Incoming candidates identify the
-selected label only and retain incomplete global candidate search. Namespaces
-and original evidence spelling follow the existing reference/directory policies.
+Leading :: is removed only from association lookup keys through the maintained
+constant_label rule. Original target/link/display spelling remains unchanged.
+References and candidate continuation use the same normalized range, preserving
+namespaces and original-byte comparison charging.
 
-Literal null, false, zero and empty string retain their exact saved primitive
-types. Expression and opaque values remain separately tagged and unevaluated.
-Missing saved values remain unavailable. No explicit default-clause-present bit
-exists; a literal null cannot establish DEFAULT NULL or absence of a default.
-Raw SQLite defaults can be strings even for boolean/integer columns. Rails
-association `foreign_key`/`dependent` options are not physical DB constraints or
-ON DELETE. No automatic inflection/resolver/constantize/application/DB access,
-binding, dispatch, execution, source parsing or source reads occur in selection.
+Literal false, zero, empty string and null retain their exact saved types.
+Expression and opaque values remain separate and unevaluated. A literal null
+does not establish DEFAULT NULL or absence of a clause: clause presence was not
+recorded. SQLite raw defaults can be strings for boolean/integer columns.
+Rails foreign_key/dependent options are not physical FK or DB ON DELETE facts.
+Selection performs no resolver/constantize/inflector/application/DB/source/parser
+access, full-fact expansion, callback analysis or execution/binding claim.
 
-## Continuation, work and wire admission
+## Transactional admission and continuation
 
-Default limits are 8 rows / 32 KiB, ceilings 16 / 64 KiB. Byte admission includes
-the native `ok/result` success envelope plus one newline byte, with actual
-`usage.wire_bytes_including_envelope_and_newline` and returned row count. The
-mandatory envelope or first selected row exceeding the budget refuses. Later
-wire overflow removes only a suffix and preserves the **dropped row's input
-position**, never its post-row component cursor. No eligible row is skipped.
+Reader defaults remain 8 rows / 32 KiB; ceilings remain 16 / 64 KiB. Wire sizing
+includes native ok/result envelope plus one newline byte. Usage reports actual
+returned rows and wire bytes. Mandatory-envelope/first-selected-row overflow
+refuses; Map translates native budget refusal into an actionable display limit,
+rather than reporting missing/invalid evidence.
 
-The existing `recorded-v1` generation-bound cursor scope is
-`['model_neighborhood', id, family, direction, type, candidate]`. Columns and
-candidate pages use `[offset,0]`. Outgoing edges use association ordinal first,
-then `[association_count + reference_fact_position, reference_link_position]`;
-incoming uses the reference fact/link position directly. No opaque count or
-completeness assertion from a cursor is trusted. Following returned cursors
-from the beginning exhausts the selected recorded domain. Changed limits are
-allowed; changed model/generation/family/direction/type/candidate scopes refuse.
+The recorded-v1 scope is
+['model_neighborhood',id,family,direction,type,candidate].
+Columns/candidates use [offset,0]. Outgoing edges first use association ordinal,
+then [association_count + reference_fact_position,reference_link_position].
+Incoming uses the reference fact/link position. Positions do not grant authority
+or assert counts/completeness. Changed limits are permitted; changed identity,
+generation, family, direction, type or candidate scopes refuse.
 
-References reuse `references::select_scoped` with a shared `RequestWork`, one row
-at a time to keep exact wire-cut boundaries. Incoming resumes fact/link positions
-without replaying consumed link prefixes. Every call repeats anchor identity,
-scope/cursor and small coverage construction; outgoing repeats bounded candidate
-range work. Reference filtering charges rejected rows too. An excluded outgoing
-association metadata family advances by its known array length without visiting
-or expanding entries. Association-only outgoing pages need no reference scan.
-A component can exhaust shared
-work with `scan_complete: false` and null next cursor: null alone is **not**
-completion. A previously admitted outer prefix continues from that component's
-input position on a fresh request; first-row zero progress refuses. An empty
-searched step can still advance with an explicit cursor. Other component errors
-propagate; no generic error-to-empty-success fallback exists.
+Every component/row attempt stages its owned values and next position. The
+position is committed only after row metadata and wire admission. A later
+specific limit_exceeded keeps the already admitted prefix and resumes at the
+failed step's input. A wire-deferred row never uses its post-row cursor. Only
+safely consumed skips reported by the private reference adapter can advance an
+otherwise empty budget-stopped page. First zero progress still refuses. Visits,
+copies, failed metadata charges and attempts are never rolled back.
 
-One RequestWork retains the existing 20,000 fact visits, 50,000 links, 100,000
-comparisons, 32 MiB compared/hashed labels and 8 MiB processed metadata bounds;
-reference component ceilings (including 16 MiB label work and 2 MiB component
-output) still apply. Metadata is sized before projection/copy, and final
-construction/serialization/bridge copies are charged. Exhausted metadata can
-refuse the whole request rather than invent completeness. RequestWork's counters
-remain private; this DTO reports reference steps/scan/comparison/label counters,
-wire usage, explicit zero source attempts and the existing budget policy.
+RequestWork exposes only finish_metadata to open its existing final 3 MiB.
+Component metadata still uses the first 5 MiB; a failure poisons that allowance.
+Only final bounded response sizing/serialization uses the reserved part. Total
+metadata remains 8 MiB; no cap or work-counter reset is introduced. Other shared
+limits remain 20,000 fact visits, 50,000 links, 100,000 comparisons and 32 MiB
+labels. Reference component limits (16 MiB labels / 2 MiB output) still apply.
+Only budget errors are caught for resumable stops; invalid/unsafe/other errors
+propagate. A null component cursor with scan_complete false is never completion.
 
-The existing lazy generation-local borrowed-label directory supplies candidate
-ranges and global counts. Its construction visits at most 100,000 saved facts,
-sorts in place, reserves retained slot capacity under the aggregate Reader/query
-budget, and reports its separate build/reuse/retained-capacity cost. There is no
-second index or route-by-all-facts scan. Fresh Readers rebuild; each page repeats
-root projection and initial directory range bounds. Reader-open five fact passes
-are reported separately through the existing baseline. One conservative 32 MiB
-transient reservation stays alive through native serialization; locks used by
-the directory/registry end before serialization or subsequent Source operations.
-These bounds and counters are not measured heap, RSS, CPU or speed claims.
+The crate-private select_filtered adapter accepts only an internal relation
+enum, uses scope ['model_neighborhood_references',id,incoming,filter], and reports
+safely consumed skips. Incoming label and relation comparisons and fact/link
+visits are charged before rejection. Rejected links incur no detail/candidate/
+metadata materialization. No filter enters public references Query, and its
+ordinary unfiltered DTO/cursor scope is unchanged. Rooted association matching
+is the intentional shared semantic correction. Internal cursor scopes cannot
+be reused as public/unfiltered or differently filtered cursors.
 
-Coverage separates recorded family status, capture partiality/omitted coverage
-families, current remaining-domain scan completeness, known remaining counts and
-unsearched input. Unknown counts are null, never zero. A completed empty suffix
-does not erase previous pages or repair partial/unavailable capture.
+Coverage page_complete describes the selected remaining domain.
+last_reference_step describes just one completed/refused component attempt,
+including row_retained and input/next/consumed-skip positions. It may describe a
+wire-deferred row and is explicitly not whole-page completeness. Cost separates
+reference_attempts, completed_reference_steps and completed_step_work; incomplete
+failed-step work remains charged privately but is not falsely reported as part
+of completed-step counters. Capture family count, examined non-complete families,
+unexamined suffix count, family unavailable status and unknown remaining counts
+stay distinct. A completed empty suffix does not erase earlier pages or repair
+partial capture.
 
-## Map fit and maintained-tool decision
+The existing lazy borrowed-label directory is reused, never duplicated. Its
+separate at-most-100,000-fact construction/sort/retained-capacity work and actual
+build/reuse counters remain visible without repeated constant accounting prose.
+Reader-open facts and summed actual visits across its five passes remain separate. Fresh Readers rebuild; each
+page repeats root projection, anchor/scope/coverage construction and candidate
+range bounds. Incoming resumes consumed fact/link positions without replaying
+their link prefixes. One 32 MiB scratch reservation remains through native
+serialization; locks end before serialization/Source. These are accounting
+bounds, not measured heap/RSS/CPU/speed claims.
 
-Dedicated `/model-neighborhood/FAMILY/DIRECTION/TYPE` pages validate exact model,
-generation, family, filters, candidate selector and cursor before ReaderFactory.
-The family/filter route encoding preserves the existing nine fields, 4096 bytes,
-24 collection IDs and atomic search drop with its existing visible notice.
-Source and other destinations shed neighborhood controls; changing filters
-starts a new cursor domain. Only NavigationContext constructs hrefs, with strict
-IDs and validated physical line fragments. Every arbitrary captured label is
-escaped in HTML, SVG and URLs.
+## Map budget and accessible presentation
 
-The existing repository has no graph engine/runtime/dependency. This finite
-slice reuses the attributed Woods `dia`/`dw` presentation tokens and builds a
-small deterministic server SVG. The immediately visible named HTML list is
-primary; the optional diagram uses exactly the same Rust-selected edge array,
-full endpoint names, types and directions. Repeated endpoints are edge rows,
-not new model definitions. No labels are hidden until a guessed zoom threshold.
-Long diagram labels have an immediate full named/list equivalent. Columns and
-Database facts sit beside the heading, including on native `rails_model`
-source-comprehension entry; static classes receive no assumed model link.
-The entire existing `View#source` stays byte-identical.
+Dedicated route validation, nine fields, 4096 bytes, all 24 collection IDs,
+atomic bounded-search drop and the existing notice remain NavigationContext's
+authority. This correction changes neither App nor Nav. View changes only its
+model_neighborhood_page admission/error handling; every other method, including
+the entire Source method, remains byte-identical to the admitted 12a baseline.
 
-Reusing a maintained client layout engine would add a runtime, acquisition,
-layout/escaping, CSP, keyboard and no-JS maintenance for at most 16 rows; the
-checkout has none to reuse. A whole graph/index framework or Woods engine code
-would exceed this one-hop job. The local SVG needs only deterministic row
-placement; the accessible list supplies names and links under overflow.
-Reconsider a maintained layout library only for separately admitted richer
-graph jobs with measured fit/maintenance benefit. Root synchronizes this
-decision into the shared decision record; this writer owns only this contract.
+One common GET form holds generation/model/collection/search state once for
+schema/filter/candidate buttons. Button paths and all hrefs are generated through
+Nav; escaped form fields use its admitted query. The current family/direction/
+type is visible with aria-current. Unavailable columns/associations are visible
+before the list/table and explicitly not known empty. Candidates name the edge
+and original target. Static candidates have one named physical Source href,
+rather than duplicate Links and Source URLs; runtime candidates use Links.
+The selected root is already identified at the heading and has no duplicate
+per-row navigation link.
 
-Before the single Reader call, Map reduces row/DTO budgets using conservative
-repeated-href, dual SVG/list label escaping and markup reserves. Actual complete
-markup including layout still must fit 64 KiB, otherwise an explicit display
-limit refuses the page. There is no independent graph pruning or hidden row
-selection in Ruby. Long labels/defaults with a two-ID/q context are covered by
-pure mocked display admission; real narrow-container/zoom usability is unproven.
+Admission derives row count and native bytes jointly for each family/direction.
+Let u be the actual escaped Nav Source URL with a 64-hex size placeholder plus
+16 bytes for its physical line fragment; this placeholder is never a candidate
+or emitted link. Each cursor-bearing control separately reserves
+3*512+128 bytes. The unchanged layout reserves 4096+9u+cursor bytes (seven
+hrefs and at most two query units of form values). Presenter controls reserve
+2048+3u+cursor bytes (shared form values and one continuation href). Per row,
+outgoing edges need at most four hrefs, incoming/candidates one, columns/DB zero.
+Extra outgoing root-name repetitions reserve (L-1)*4096*5 bytes. The minimum
+202 JSON bytes of required version/cost/usage headers are not rendered;
+validation guarantees them and admission credits only those 202 bytes. Primary escaped
+text reserves five times native JSON bytes; represented labels/options are not
+also dumped repeatedly. The largest L <=8 leaving the measured compact-page
+target is chosen, with no 1024-byte clamp. The 4626-byte scheduling target is
+the measured literal four-long-candidate useful page with six non-complete
+capture families, not a
+claim that every arbitrary maximum-length saved value fits.
 
-## Evidence and remaining gates
+The pure budget-enforcing fixture at 24 IDs +256q and /map requires success,
+not 200-or-422. It includes real Rust-shaped reader-open/directory/coverage/
+usage metadata, four long candidate identities and continuation. Outgoing uses
+L1 /4829 native bytes; incoming/candidates L4 /4829; columns/DB L8 /6475.
+Actual complete markup still must fit 64 KiB. Exceptionally unfit first rows
+remain honest actionable limits under unchanged native/display ceilings.
 
-Standalone Reader forwarding and presenter/navigation/mocked App tests are pure
-source checks, with no native/framework/store/server/browser activation. Native
-tests, real Rails 8.1.4 producer → saved A/partial → CURRENT B, fresh Rails-free
-installed Reader/Map consumer, independent answer cards and visible keyboard/
-no-JS/narrow/real-zoom protocol are **AUTHORED UNRUN** in this assignment. Native
-regressions cover typed defaults, ambiguity, unknown/polymorphic rows, finite
-filters/candidates, first-row refusal, dropped reference-row input positions and
-one admitted row followed by shared zero progress. Real producer raw adapter
-types are compared without casting them into synthetic boolean/integer answers.
+The full named HTML list is primary. A deterministic server SVG uses exactly
+the same selected rows, with targets on a separate line. It is added only if
+the whole diagram fits alongside the full list and layout reserve. Otherwise
+an explicit whole-diagram omission notice preserves every named HTML edge;
+there is no per-row graph pruning or guessed zoom threshold. No JS or layout
+dependency is added. Existing attributed Woods dia/dw tokens remain. A maintained
+client graph engine would add acquisition/runtime/CSP/keyboard/no-JS maintenance
+for this finite one-hop job; reconsider only for a separately admitted richer
+graph outcome with measured benefit. Woods engine code remains prohibited.
+Root retains shared decisions and any future reservation/concurrency change.
 
-Initial pure presenter execution found a frozen-string SVG mutation; the next
-attempt exposed an over-specific expected wording. Later pure-check harness
-attempts corrected Ruby keyword argument bracing and an escaped Source proof
-marker. A rejected patch was a no-op; a search confirming that no-op returned
-its expected no-match status. All attempts remain retained and are not native/
-framework defects or acceptance results.
-Root must settle shared package/doc integration, run its independent review and
-the affected actual contracts/CI/support checks. The new installed entry is
-deliberately non-automatic and grants no runtime lease. No person acceptance,
-launch qualification, benchmark, merge or publication is claimed.
+## Correction disposition and evidence
+
+R125's full initial review at 12a requested changes; its findings remain open
+until Root's new changed-scope R2 disposition. The following are author
+proposals, not independent acceptance:
+
+| Finding | Correction / remaining gate |
+|---|---|
+| 01,12 | Joint family admission, shared controls, single identity hrefs, budget-enforcing 24-ID/256q pure success cases; App probe authored UNRUN. |
+| 02 | Transactional component/row admission and existing final reserve; -3/-4 fact, metadata, first-zero and suffix regressions authored UNRUN. |
+| 03 | Pre-materialization relation filter, private scope/skip positions, sparse hundreds-of-links and ordinary public parity regressions authored UNRUN. |
+| 04 | Exact duplicate_user path ignored before initialize, preserving six source positions; real Rails/Zeitwerk gate UNRUN. |
+| 05 | Independent nonempty Item/User incoming associations, ReportBuilder incoming references/physical Source, outgoing base and exactly one Admin::User runtime candidate; installed gate UNRUN. |
+| 06 | Visible active filters/aria-current and unavailable-not-empty notices; pure presenter coverage. |
+| 07 | Required default tag, no redundant default-recorded/presence aliases; missing-tag refusal. |
+| 08 | last_reference_step/row_retained and explicitly completed-step work counters; native wire/metadata gates UNRUN. |
+| 09 | Root origin ID and moved reference origin/candidates; alias refusal in presenter. |
+| 10 | Borrowed leading-root association keys and consistent public references, with original labels intact; unit/real fixture gates UNRUN. |
+| 11 | Named candidate_context and candidate page heading; pure presenter coverage. |
+| 13 | Raw adapter oracle after A capture/publication and before edits, without casting or warming capture; real gate UNRUN. |
+
+The producer pins Rails 8.1.4 and public sqlite3 :memory: config before Active
+Record lazy load. A runtime-only reviewers declaration supplies ::User while
+saved source/runtime coherence stays unknown; no excluded model file changes.
+Consumer cards require real independent nonempty domains, all filter/edge/list/
+optional-diagram/witness agreement, physical Source href -> A line after CURRENT
+B, full candidate ranges and 24-ID/search pages. These, all Rust/native/compiler/
+framework/installed/store/DB/server/browser/served/person execution and changed
+App probes are AUTHORED UNRUN in this correction phase. Pure presenter/stdlib/
+syntax/JSON/static-scope checks establish none of those actual gates.
+
+Initial-phase failures/receipts remain unchanged. The correction's stricter
+budget test first exposed insufficient native bytes, then an incoming row-count
+threshold; both failed attempts are retained and corrected without weakening the
+test. Root/reviewer prep overrun, partial/unmetered reads and reported EROFS/
+output fallback remain explicit historical gaps. New prospective source controls
+do not reset them or establish a whole-procedure control/performance claim.
+Root owns R2, integration/watch and later finite actual gates; PM planning;
+Leah applicable acceptance. No merge/publication or qualification is authorized.

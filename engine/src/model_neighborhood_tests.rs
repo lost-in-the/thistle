@@ -14,7 +14,7 @@ fn fixture() -> (tempfile::TempDir, Reader, String, Value) {
     model["associations"]["entries"] = json!([]);
     for ordinal in 0..10 {
         let mut entry = association.clone(); entry["name"] = json!(format!("related_{ordinal}"));
-        entry["target"] = json!(if ordinal == 9 { "NotLoadedGhost" } else { "User" });
+        entry["target"] = json!(if ordinal == 9 { "NotLoadedGhost" } else if ordinal == 0 { "::User" } else { "User" });
         model["associations"]["entries"].as_array_mut().unwrap().push(entry);
     }
     let mut polymorphic = association;
@@ -44,6 +44,8 @@ fn schema_defaults_one_hop_ambiguity_unknown_targets_and_finite_filter_pages() {
     let defaults: Vec<Value> = columns["items"].as_array().unwrap().iter().map(|row| row["column"]["default"].clone()).collect();
     assert_eq!(defaults, vec![json!({"kind":"literal","value":false}),json!({"kind":"literal","value":0}),json!({"kind":"literal","value":""}),json!({"kind":"literal","value":null}),json!({"kind":"expression"}),json!({"kind":"opaque"})]);
     assert_eq!(columns["coverage"]["default_presence"], "not_recorded");
+    assert!(columns["items"][0]["column"].get("default_recorded").is_none());
+    assert!(columns["items"][0]["column"].get("default_presence").is_none());
     let mut cursor = Value::Null; let mut rows = Vec::new(); let mut finished = false;
     for _ in 0..20 {
         let answer = page(&reader, &json!({"id":id,"type":"association","limit":2,"cursor":cursor}));
@@ -54,10 +56,15 @@ fn schema_defaults_one_hop_ambiguity_unknown_targets_and_finite_filter_pages() {
     }
     assert!(finished); assert_eq!(rows.len(), 11);
     assert_eq!(rows[0]["candidate_matches"], 2); // two captured declaration sites, no invented runtime binding
+    assert_eq!(rows[0]["target_label"], "::User");
+    assert_eq!(rows[0]["origin_id"], id);
+    assert!(rows[0].get("origin").is_none());
     assert_eq!(rows[9]["target_status"], "missing_or_unloaded");
     assert_eq!(rows[10]["target_status"], "unknown_target");
     assert!(rows.iter().all(|r|r["binding"]=="unknown" && r.get("recorded").is_none()));
     let candidates = page(&reader, &json!({"id":id,"family":"candidates","candidate":"a:0","limit":1}));
+    assert_eq!(candidates["candidate_context"]["name"], "related_0");
+    assert_eq!(candidates["candidate_context"]["target_label"], "::User");
     assert_eq!(candidates["coverage"]["known_remaining"],1);
     assert_ne!(candidates["next_cursor"], Value::Null);
     assert_eq!(page(&reader,&json!({"id":id,"family":"candidates","candidate":"a:0","cursor":candidates["next_cursor"]}))["items"].as_array().unwrap().len(),1);
@@ -93,18 +100,78 @@ fn one_admitted_incoming_row_then_shared_zero_progress_is_not_completion() {
     let component = references::select(&reader,&references::Query::parse(&parameters).unwrap()).unwrap();
     assert_eq!(component["relationships"].as_array().unwrap().len(),1);
     let visits = component["coverage"]["facts_scanned"].as_u64().unwrap() as usize;
-    let mut work = RequestWork::default(); assert!(work.facts(20000-visits-4));
     let parameters = json!({"id":id,"direction":"incoming","limit":2});
-    let answer = select_with_work(&reader,&Query::parse(&parameters).unwrap(),&mut work).unwrap();
-    assert_eq!(answer["items"].as_array().unwrap().len(),1);
-    assert_eq!(answer["coverage"]["page_complete"],false);
-    assert_eq!(answer["coverage"]["reference_scan"]["scan_complete"],false);
-    assert_ne!(answer["next_cursor"],Value::Null);
-    let resumed = page(&reader,&json!({"id":id,"direction":"incoming","limit":1,"cursor":answer["next_cursor"]}));
-    let key = |row: &Value| json!([row["recorded"]["origin"]["id"],row["recorded"]["link_ordinal"]]);
-    assert_ne!(key(&resumed["items"][0]),key(&answer["items"][0]));
+    for allowance in [3,4] {
+        let mut work = RequestWork::default(); assert!(work.facts(20000-visits-allowance));
+        let answer = select_with_work(&reader,&Query::parse(&parameters).unwrap(),&mut work).unwrap();
+        assert_eq!(answer["items"].as_array().unwrap().len(),1,"allowance {allowance}");
+        assert_eq!(answer["coverage"]["page_complete"],false);
+        assert_eq!(answer["coverage"]["last_reference_step"]["row_retained"],false);
+        assert_ne!(answer["next_cursor"],Value::Null);
+        let resumed = page(&reader,&json!({"id":id,"direction":"incoming","limit":1,"cursor":answer["next_cursor"]}));
+        let key = |row: &Value| json!([row["origin"]["id"],row["recorded"]["link_ordinal"]]);
+        assert_ne!(key(&resumed["items"][0]),key(&answer["items"][0]));
+    }
     let mut work = RequestWork::default(); assert!(work.facts(19998));
     assert_eq!(select_with_work(&reader,&Query::parse(&parameters).unwrap(),&mut work).unwrap_err().code,"limit_exceeded");
+}
+
+#[test]
+fn metadata_exhaustion_keeps_prefix_and_only_opens_existing_final_reserve() {
+    let (_store, reader, id, _) = fixture();
+    let parameters = json!({"id":id,"direction":"incoming","limit":3});
+    let baseline = page(&reader,&parameters);
+    let mut work = RequestWork::default();
+    // Leave 16 KiB in the existing 5-MiB component budget. A failed later
+    // metadata charge poisons that allowance; no rollback can manufacture space.
+    work.metadata(&"x".repeat(5*1024*1024-16002),1).unwrap();
+    let answer=select_with_work(&reader,&Query::parse(&parameters).unwrap(),&mut work).unwrap();
+    let count=answer["items"].as_array().unwrap().len();
+    assert!(count>0 && count<baseline["items"].as_array().unwrap().len());
+    assert_eq!(answer["coverage"]["page_complete"],false);
+    assert_eq!(answer["items"],json!(baseline["items"].as_array().unwrap()[..count]));
+    let suffix=page(&reader,&json!({"id":id,"direction":"incoming","limit":3,"cursor":answer["next_cursor"]}));
+    assert_eq!(suffix["items"][0],baseline["items"][count]);
+    assert!(work.metadata(&"x".repeat(3*1024*1024),1).is_err()); // final total still <=8 MiB
+}
+
+#[test]
+fn sparse_interleaved_incoming_filter_and_wire_cut_exhaust_without_row_loss() {
+    let (_original, _reader, id, mut capture) = fixture();
+    for i in 0..403 {
+        capture["facts"].as_array_mut().unwrap().push(json!({"id":format!("{:064x}",10000+i),"kind":"class","name":format!("Site{i}"),
+            "evidence":"static","path":null,"location":null,"attributes":{},"links":[{"relation":if i%100==0 {"association_target_label"} else {"references"},
+                "target":"Order","resolution":"unresolved"}]}));
+    }
+    let store=tempfile::tempdir().unwrap();crate::store::publish(store.path(),&capture).unwrap();
+    let reader=Reader::open(store.path(),None).unwrap();
+    let full=page(&reader,&json!({"id":id,"direction":"incoming","type":"association","limit":16}));
+    assert_eq!(full["items"].as_array().unwrap().len(),5);
+    assert!(full["cost"]["completed_reference_steps"].as_u64().unwrap()<=6);
+    assert!(full["cost"]["completed_step_work"]["links_scanned"].as_u64().unwrap()>400);
+    let first=page(&reader,&json!({"id":id,"direction":"incoming","type":"association","limit":1}));
+    let budget=wire_bytes(&first,65536).unwrap()+64;
+    let mut cursor=Value::Null;let mut rows=Vec::new();let mut done=false;
+    for _ in 0..12 {
+        let answer=page(&reader,&json!({"id":id,"direction":"incoming","type":"association","limit":2,"max_bytes":budget,"cursor":cursor}));
+        rows.extend(answer["items"].as_array().unwrap().iter().cloned());
+        if answer["coverage"]["page_complete"]==true {done=true;break;}
+        assert_ne!(answer["next_cursor"],cursor);
+        if answer["coverage"]["last_reference_step"]["scan_complete"]==true {
+            assert_eq!(answer["coverage"]["last_reference_step"]["row_retained"],false);
+        }
+        cursor=answer["next_cursor"].clone();
+    }
+    assert!(done);assert_eq!(json!(rows),full["items"]);
+}
+
+#[test]
+fn malformed_component_evidence_never_becomes_successful_budget_prefix() {
+    let (_store, mut reader, id, _) = fixture();
+    reader.facts[0]["links"]=json!([{"relation":3,"target":"Order","resolution":"unresolved"}]);
+    let parameters=json!({"id":id,"direction":"incoming"});
+    let error=select(&reader,&Query::parse(&parameters).unwrap()).unwrap_err();
+    assert_ne!(error.code,"limit_exceeded");
 }
 
 #[test]

@@ -24,6 +24,9 @@ class NeighborhoodFixtureApp < Rails::Application
   config.logger = Logger.new(File::NULL)
 end
 NeighborhoodFixtureApp.config.root = root
+# Preserve six saved User declaration sites; this file intentionally does not
+# define DuplicateUser, so exclude this exact file before Zeitwerk is initialized.
+Rails.autoloaders.main.ignore(File.join(root, 'app/models/duplicate_user.rb'))
 app = NeighborhoodFixtureApp.initialize!
 ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: ':memory:')
 ActiveRecord::Schema.verbose = false
@@ -46,8 +49,15 @@ end
 %w[application_record user duplicate_user admin/user order item attachment].each { |name| require File.join(root, 'app/models', "#{name}.rb") }
 require File.join(root, 'app/services/report_builder.rb')
 raise 'Ghost loaded unexpectedly' if Object.const_defined?(:NotLoadedGhost, false)
-# Independent raw adapter oracle: preserve actual primitive types; never typecast
-# raw SQLite defaults into Ruby boolean/integer values to satisfy answer cards.
+# Explicit runtime-only fixture declaration for leading-root matching. The saved
+# Order source remains separate; source/runtime coherence is still unknown.
+Order.has_many :reviewers, class_name: '::User'
+capture = Thistle::Capture.new(root: root, rails: app).call
+store = File.join(work, 'store')
+saved_a = Thistle::Store.new(store).publish(capture).fetch('generation')
+# Independent raw adapter oracle AFTER A capture/publication, before any edit.
+# Do not warm model schema state to make capture succeed or cast SQLite strings
+# into Ruby boolean/integer values to satisfy the cards.
 raw_columns = Order.columns.map do |column|
   raw = column.default
   primitive = [NilClass, TrueClass, FalseClass, String, Integer, Float].any? { |klass| raw.instance_of?(klass) }
@@ -60,9 +70,6 @@ raw_columns = Order.columns.map do |column|
            end
   { 'name' => column.name, 'type' => column.type.to_s, 'sql_type' => column.sql_type, 'null' => column.null, 'default' => tagged }
 end
-capture = Thistle::Capture.new(root: root, rails: app).call
-store = File.join(work, 'store')
-saved_a = Thistle::Store.new(store).publish(capture).fetch('generation')
 partial = Marshal.load(Marshal.dump(capture))
 partial.fetch('coverage').each { |row| row['status'] = 'partial' if row['family'] == 'ruby_declarations' }
 partial.fetch('coverage').first.merge!('status' => 'partial', 'reason' => 'Intentionally partial public LOS149 fixture derivative')
@@ -71,4 +78,5 @@ path = File.join(root, 'app/services/report_builder.rb')
 File.write(path, File.read(path).sub('saved_a', 'saved_b'))
 saved_b = Thistle.capture(root: root, output: store).fetch('generation')
 puts JSON.generate({ 'store' => store, 'root' => root, 'saved_a' => saved_a, 'partial' => saved_partial, 'current_b' => saved_b,
-  'rails_version' => Rails.version, 'raw_order_columns' => raw_columns, 'ghost_loaded' => false })
+  'rails_version' => Rails.version, 'raw_order_columns' => raw_columns, 'ghost_loaded' => false,
+  'selection_24' => capture.fetch('facts').first(24).map { |fact| fact.fetch('id') } })

@@ -1,35 +1,41 @@
-# Public LOS149 fixture — AUTHORED UNRUN
+# Public LOS149 fixture — correction AUTHORED UNRUN
 
-Root must admit two separate installed processes; these files grant no build,
-framework, store, server, browser or database execution authority.
+Root must admit separate installed producer and fresh Rails-free consumer
+processes. These files grant no build/native/framework/store/DB/server/browser
+execution. Pin Rails 8.1.4 before loading it and retain exact package/native/
+source/dependency/cohort identities and every attempt in Root's bounded sink.
 
-1. Resolve the pinned Rails **8.1.4** cohort and exact installed Core+Map pair
-   under Root's finite gate. Retain package/native/dependency/source identities.
-2. Run `produce.rb NEW_PUBLIC_WORK_DIRECTORY` with stdout/stderr in Root's
-   protected bounded sink. Retain its JSON manifest. It creates a new public
-   fixture, configures sqlite3 `:memory:` before Rails Active Record lazy load,
-   observes loaded models, saves A and an explicitly partial derivative, then
-   changes a source marker and advances CURRENT B. No old DB/account is used.
-3. Run `consume.rb PRODUCER_JSON` in a **fresh Rails-free** installed process.
-   It checks independently handwritten association/cycle/ambiguity/unknown cards,
-   actual raw adapter defaults without casting, row/candidate continuation,
-   per-edge saved witnesses, all direction/type views, exact list/diagram/Reader
-   subset agreement, and rendered physical Source href → saved A line/digest.
-4. Run the separate visible [served protocol](served_protocol.md), retaining
-   actual screenshots and task observations. Rack assertions are not keyboard,
-   no-JS, real zoom, narrow-container or person evidence.
+The producer creates only new public source and sqlite3 :memory: configuration,
+before Rails Active Record lazy load. It ignores the exact duplicate_user.rb
+path before initialize, then explicitly requires its User reopenings. This
+preserves six captured declaration positions without asking Zeitwerk to infer
+DuplicateUser; the real boot is still UNRUN, not a reproduced/fixed runtime pass.
 
-The producer/consumer require exact installed paths under the admitted GEM_HOME;
-the consumer refuses loaded Rails/ActiveRecord and Woods gems. It compares the
-producer's independent raw column oracle because SQLite may report raw strings
-for boolean/integer defaults. Native/presenter synthetic cards separately cover
-literal boolean false/integer zero, empty/null, expression, opaque and missing
-saved values; those are not fabricated real adapter results. Missing is a
-presenter-only compatibility/refusal case; current model schema requires default
-tags. Six captured User declaration sites reopen one loaded class. Counts are
-saved representations, never six bound runtime models.
+Before A capture, one explicit public runtime declaration makes reviewers target
+::User. No excluded app model file is edited: the saved source has its own User
+spelling and runtime/source coherence remains unknown. A is captured/published
+BEFORE the independent Order.columns oracle. This prevents warming model schema
+to make capture work. Raw primitives/expression/opaque tags are preserved without
+casting SQLite strings to boolean/integer answers. Then partial is published and
+a source marker changes before CURRENT B.
 
-The authored fixture uses bounded new memory-only SQLite data and public source.
-Retain generated evidence privately under Root's declared retention policy;
-compute/resources stop at the admitted gate's end. No launch/person acceptance,
-general adapter support, performance result or publication follows from a pass.
+The fresh installed consumer refuses Rails/ActiveRecord and Woods, verifies
+installed paths, and checks independent handwritten nonempty cards: Item/User
+incoming associations with saved link ordinals; ReportBuilder incoming calls with
+exact source paths/lines; outgoing model_base_label; nonempty Admin::User candidates
+with exactly one rails_model; and ::User's full candidate range matching User
+without changing its displayed target. It also checks all direction/type domains,
+original per-edge saved witnesses, named list/optional-diagram agreement,
+row/candidate continuation, physical Source href -> A line/digest after B, and
+actual 24-ID/256q schema/neighborhood/candidate pages demanding 200.
+
+Synthetic native/presenter cases separately cover actual literal false/zero/
+empty/null, expression and opaque values. Missing tags are rejected under current
+schema, not advertised as a real missing-default state. Default clause presence
+and physical DB constraints remain unknown/unavailable.
+
+Run the separate served protocol under Root's finite visible host/browser claim.
+Pure mocks and Rack output do not establish keyboard, no-JS, narrow-container,
+actual zoom or person evidence. Preserve failures and unrun gates; stop compute
+and release resources at the admitted gate's end. No launch/support/performance
+qualification, merge or publication follows from these source proposals.

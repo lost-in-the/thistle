@@ -3,26 +3,145 @@
   "framework": "8.1.4",
   "root": "Order",
   "associations": {
-    "user": ["belongs_to", "User"],
-    "items": ["has_many", "Item"],
-    "item_users": ["has_many", "User"],
-    "owner": ["has_one", "User"],
-    "subject": ["belongs_to", null],
-    "ghosts": ["has_many", "NotLoadedGhost"],
-    "reviewers": ["has_many", "User"],
-    "editors": ["has_many", "User"],
-    "approvers": ["has_many", "User"],
-    "watchers": ["has_many", "User"],
-    "admins": ["has_many", "Admin::User"],
-    "attachments": ["has_many", "Attachment"]
+    "user": [
+      "belongs_to",
+      "User"
+    ],
+    "items": [
+      "has_many",
+      "Item"
+    ],
+    "item_users": [
+      "has_many",
+      "User"
+    ],
+    "owner": [
+      "has_one",
+      "User"
+    ],
+    "subject": [
+      "belongs_to",
+      null
+    ],
+    "ghosts": [
+      "has_many",
+      "NotLoadedGhost"
+    ],
+    "reviewers": [
+      "has_many",
+      "::User"
+    ],
+    "editors": [
+      "has_many",
+      "User"
+    ],
+    "approvers": [
+      "has_many",
+      "User"
+    ],
+    "watchers": [
+      "has_many",
+      "User"
+    ],
+    "admins": [
+      "has_many",
+      "Admin::User"
+    ],
+    "attachments": [
+      "has_many",
+      "Attachment"
+    ]
   },
-  "cycle": [["Order", "items", "Item"], ["Item", "order", "Order"]],
+  "cycle": [
+    [
+      "Order",
+      "items",
+      "Item"
+    ],
+    [
+      "Item",
+      "order",
+      "Order"
+    ]
+  ],
   "raw_default_policy": "Compare to independent producer raw Order.columns values without typecasting; SQLite may record string 0 rather than boolean false or integer 0.",
-  "native_presenter_only_default_tags": ["literal:false", "literal:0", "literal:empty", "literal:null", "expression", "opaque", "missing-presenter-only"],
+  "native_presenter_only_default_tags": [
+    "literal:false",
+    "literal:0",
+    "literal:empty",
+    "literal:null",
+    "expression",
+    "opaque",
+    "missing-tag-refused"
+  ],
   "user_declaration_site_minimum": 6,
   "user_runtime_class_count": 1,
   "candidate_count_unit": "saved_representations_not_distinct_model_definitions",
-  "unavailable": ["default_clause_presence", "physical_foreign_keys", "indexes", "database_on_delete", "binding", "execution"],
+  "unavailable": [
+    "default_clause_presence",
+    "physical_foreign_keys",
+    "indexes",
+    "database_on_delete",
+    "binding",
+    "execution"
+  ],
   "source_marker_a": "saved_a",
-  "source_marker_b": "saved_b"
+  "source_marker_b": "saved_b",
+  "incoming_associations": [
+    {
+      "origin_name": "Item",
+      "origin_kind": "rails_model",
+      "relation": "association_target_label",
+      "target_label": "Order",
+      "link_ordinal": 1
+    },
+    {
+      "origin_name": "User",
+      "origin_kind": "rails_model",
+      "relation": "association_target_label",
+      "target_label": "Order",
+      "link_ordinal": 1
+    }
+  ],
+  "incoming_references": [
+    {
+      "origin_name": "ReportBuilder#orders",
+      "origin_kind": "method",
+      "relation": "calls",
+      "target_label": "::Order",
+      "path": "app/services/report_builder.rb",
+      "start_line": 2,
+      "source_contains": "::Order.all"
+    },
+    {
+      "origin_name": "ReportBuilder#counted",
+      "origin_kind": "method",
+      "relation": "calls",
+      "target_label": "::Order",
+      "path": "app/services/report_builder.rb",
+      "start_line": 3,
+      "source_contains": "::Order.count"
+    }
+  ],
+  "outgoing_references": [
+    {
+      "origin_name": "Order",
+      "origin_kind": "rails_model",
+      "relation": "model_base_label",
+      "target_label": "Order",
+      "link_ordinal": 0
+    }
+  ],
+  "admin_target": {
+    "name": "Admin::User",
+    "minimum_representations": 1,
+    "rails_model_count": 1
+  },
+  "rooted_target": {
+    "association": "reviewers",
+    "display": "::User",
+    "matching_name": "User",
+    "same_representations_as": "user",
+    "coherence": "unknown"
+  }
 }
