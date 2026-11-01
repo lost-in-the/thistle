@@ -35,7 +35,7 @@ module RouteActionsAnswers
         'links'=>[{'relation'=>'routes_to','target'=>'orders#index','resolution'=>'unresolved'}]},
       'naming'=>{'rule'=>'ascii_snake_path_v1','owner'=>'OrdersController','action'=>'index','status'=>'conventional_labels_only','reason'=>'Custom inflections remain unknown'},
       'status'=>continuation ? 'ambiguous_static_candidates' : 'unique_static_candidate_binding_unknown',
-      'candidates'=>[{'fact'=>identity,'owner_name_resolution'=>'lexical','source_status'=>'saved_source_available','source'=>{'operation'=>'source','generation'=>GENERATION,'id'=>METHOD}}],
+      'candidates'=>[{'fact'=>identity,'source_status'=>'saved_source_available','source'=>{'operation'=>'source','generation'=>GENERATION,'id'=>METHOD}}],
       'candidate_count'=>{'lower_bound'=>continuation ? 2 : 1,'exact'=>!continuation},
       'coverage'=>{'capture_partial_or_unknown'=>false,'discovery_complete'=>true,'page_complete'=>!continuation,'work_partial'=>false,'remaining'=>continuation},
       'offset'=>0,'next_cursor'=>continuation ? cursor : nil,

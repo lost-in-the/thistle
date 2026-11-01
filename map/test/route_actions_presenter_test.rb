@@ -16,7 +16,6 @@ if $PROGRAM_NAME == __FILE__
   a.demand(html.include?('Multiple static candidates') && html.include?('at least: 2'), 'Ambiguity/count lost')
   a.demand(html.include?('&lt;OrdersController#index&gt;') && !html.include?('<OrdersController'), 'Candidate label unescaped')
   a.demand(html.include?('Opaque callback &lt;unexecuted&gt;') && html.include?('routes_to'), 'Raw route constraints/provenance lost')
-  a.demand(html.include?('Saved owner name resolution: lexical'), 'Recorded owner qualifier lost')
   hrefs = html.scan(/href="([^"]+)"/).flatten.map { |href| CGI.unescapeHTML(href) }
   source = hrefs.find { |href| href.include?('/source?') }
   a.demand(source&.end_with?('#L2'), 'Exact saved line anchor absent')
@@ -45,8 +44,6 @@ if $PROGRAM_NAME == __FILE__
     ->(p) { p['candidates'][0]['fact']['span']['start_line'] = 0 },
     ->(p) { p['unknowns']['dispatch'] = 'resolved' },
     ->(p) { p['status'] = 'unique_static_candidate_binding_unknown' },
-    ->(p) { p['candidates'][0]['owner_name_resolution'] = {'untrusted'=>'nested'} },
-    ->(p) { p['candidates'][0]['owner_name_resolution'] = 'x'*129 },
     ->(p) { p['next_cursor'] = a.cursor(2); p['continuation']['cursor'] = a.cursor(2) },
     ->(p) { p['route']['attributes']['oversized'] = 'x' * 32768 }
   ]

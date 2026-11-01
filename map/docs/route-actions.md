@@ -5,8 +5,7 @@ candidates**. The read-only `/route-actions` page asks Native once for the saved
 route's conventional static candidates. It displays original defaults,
 constraints/provenance, qualified counts, missing/unsupported/partial states and
 an explicit continuation. It never claims dispatch or executes route conditions.
-Each method also shows its saved owner-name-resolution qualifier, including an
-unresolved relative path, while runtime binding remains unknown. A display-budget
+A display-budget
 refusal names the budget and points to bounded Source context; it does not label
 available evidence missing or invalid.
 

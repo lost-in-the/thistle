@@ -140,7 +140,6 @@ fn select_with_work(reader: &Reader, query: &Query<'_>, mut work: Work) -> Resul
             let fact = &reader.facts[*index];
             let source = fact["path"].is_string() && fact["location"].is_object();
             json!({"fact":identity(fact,&reader.generation),"source_status":if source {"saved_source_available"} else {"saved_source_absent"},
-                "owner_name_resolution":fact["attributes"]["name_resolution"].as_str().filter(|value| value.len() <= 128),
                 "source":if source {json!({"operation":"source","generation":reader.generation,"id":fact["id"]})} else {Value::Null}})
     }).collect::<Vec<_>>();
     let cursor = next.map(|offset| recorded_domain::cursor(&reader.generation,&scope,(offset,0))).transpose()?;

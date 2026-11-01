@@ -142,15 +142,3 @@ fn byte_cut_keeps_the_dropped_candidate_at_the_exact_suffix() {
         assert_eq!(suffix["coverage"]["page_complete"],true);
     });
 }
-
-#[test]
-fn saved_relative_owner_qualification_is_not_lost() {
-    let mut candidate = method(&"b".repeat(64),"Admin::OrdersController",false);
-    candidate["attributes"]["name_resolution"] = json!("unresolved_relative_path");
-    saved(vec![route('a',json!("admin/orders"),json!("index")),candidate],false,|reader| {
-        let page = select(reader,&Query::parse(&request('a',8,Value::Null)).unwrap()).unwrap();
-        assert_eq!(page["status"],"unique_static_candidate_binding_unknown");
-        assert_eq!(page["candidates"][0]["owner_name_resolution"],"unresolved_relative_path");
-        assert_eq!(page["unknowns"]["binding"],"unknown");
-    });
-}

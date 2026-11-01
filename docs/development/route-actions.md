@@ -148,10 +148,12 @@ or cost matters. Root owns reconciliation into shared development decisions and
 package manifests; the coherent Root composition adds the two route guides to
 the existing installed-document union and records this decision.
 
-The candidate row carries `owner_name_resolution`, a recorded qualifier of at
-most 128 UTF-8 bytes (otherwise unknown). For example,
-`unresolved_relative_path` is shown beside the conventional candidate rather than
-discarded. This does not resolve the owner or change binding uncertainty.
+R122-05 is a non-blocking, Root-owned follow-up: candidate rows do not project the
+owner declaration's name-resolution qualifier. A method's own lexical-resolution
+attribute does not establish its owner's resolution. A later change must use the
+owner declaration's evidence through a capture-stamped attribute or a bounded
+lookup with explicit cost. Until then, conventional candidate labels and exact
+Source remain available, while owner resolution and runtime binding stay unknown.
 
 R122-04 is a non-blocking, Root-owned follow-up: the first contract deliberately
 retains its conservative capture rule, including Rails-route coverage and
