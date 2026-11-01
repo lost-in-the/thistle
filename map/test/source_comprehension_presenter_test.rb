@@ -85,7 +85,7 @@ class SourceComprehensionPresenterTest < Minitest::Test
     assert_raises(Presenter::InvalidProjection) { render(sources: bad_source) }
     content = 'x' * (Presenter::MAX_SOURCE_BYTES + 1)
     bad_source[ID].merge!('content' => content, 'sha256' => Digest::SHA256.hexdigest(content))
-    assert_raises(Presenter::InvalidProjection) { render(sources: bad_source) }
+    assert_raises(Presenter::DisplayLimit) { render(sources: bad_source) }
   end
 
   def test_continuation_remains_a_core_selector_and_keeps_unknown_precedence_visible

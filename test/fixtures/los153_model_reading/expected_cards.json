@@ -2,6 +2,13 @@
   "version": 1,
   "framework": "8.1.4",
   "model": "Order",
+  "methods_continuation": {
+    "method": "Order#zz_receipt_witness",
+    "path": "app/models/order.rb",
+    "line": 25,
+    "source_contains": "def zz_receipt_witness = 'retained_method_suffix'",
+    "unknowns": "Deliberate named suffix fixture; neither this registration nor its body was executed."
+  },
   "question_before_hints": "I want to change how an Order schedules its receipt. Where is that behavior declared, what contributes it, and which model data/relationships should I check?",
   "cards": [
     {

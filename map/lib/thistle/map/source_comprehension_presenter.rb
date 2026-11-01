@@ -10,6 +10,7 @@ module Thistle
     # the shared NavigationContext authority, never a new URL encoder/resolver.
     class SourceComprehensionPresenter
       class InvalidProjection < StandardError; end
+      class DisplayLimit < StandardError; end
       MAX_SOURCE_BYTES = 65_536
       MAX_LINES = 2000
       MAX_BODY_BYTES = 786_432
@@ -82,10 +83,12 @@ module Thistle
       def validate
         raise InvalidProjection, 'Unknown source comprehension format' unless @data['version'] == 1 && @data['composition'] == 'identified_contributions'
         rows = @data.fetch('contributions')
-        raise InvalidProjection, 'Contribution page exceeds allowance' unless rows.is_a?(Array) && rows.length <= 16
+        raise InvalidProjection, 'Invalid contribution page' unless rows.is_a?(Array)
+        raise DisplayLimit, 'Contribution page exceeds allowance' if rows.length > 16
         raise InvalidProjection, 'Missing generation' unless @data['generation'].is_a?(String) && @data['generation'].match?(/\A[0-9a-f]{64}\z/)
         outline = @data.fetch('rows', [])
-        raise InvalidProjection, 'Owner/method outline exceeds allowance' unless outline.is_a?(Array) && outline.length <= 16
+        raise InvalidProjection, 'Invalid owner/method outline' unless outline.is_a?(Array)
+        raise DisplayLimit, 'Owner/method outline exceeds allowance' if outline.length > 16
         outline.each { |row| raise InvalidProjection, 'Unknown outline status' unless ROW_LABELS.key?(row.fetch('status')) }
         bytes = lines = 0
         rows.each do |row|
@@ -103,7 +106,7 @@ module Thistle
           # Charging duplicate responses conservatively also bounds repeated work.
           bytes += content.bytesize
           lines += content.count("\n") + (content.end_with?("\n") ? 0 : 1)
-          raise InvalidProjection, 'Source reading allowance exceeded' if bytes > MAX_SOURCE_BYTES || lines > MAX_LINES
+          raise DisplayLimit, 'Source reading allowance exceeded' if bytes > MAX_SOURCE_BYTES || lines > MAX_LINES
         end
       end
 
@@ -145,6 +148,7 @@ module Thistle
       def code(source, contribution, rows)
         fact = source.fetch('fact')
         content = source.fetch('content')
+        file_anchor = @reading ? "reading-file-#{Digest::SHA256.hexdigest(fact.fetch('path'))}" : nil
         display_lines = content.count("\n") + (content.end_with?("\n") ? 0 : 1)
         append "<h3 class=\"t3\">#{h(fact.fetch('path'))}</h3>"
         if @reading
@@ -158,18 +162,17 @@ module Thistle
           unless from.is_a?(Integer) && to.is_a?(Integer) && from.positive? && to >= from && from <= display_lines && to <= display_lines + 1
             raise InvalidProjection, 'Invalid physical contribution span'
           end
-          @anchors[physical.fetch('id')] = "source-#{physical.fetch('id')}-L#{from}"
+          @anchors[physical.fetch('id')] = @reading ? "#{file_anchor}-L#{from}" : "source-#{physical.fetch('id')}-L#{from}"
           [from, to, physical.fetch('id')]
         end
         @highlighter.call(content, language: 'ruby').each_with_index do |line, index|
           number = index + 1
           # Line anchors stay scoped to a fact, avoiding collisions across files.
-          anchor = "source-#{fact.fetch('id')}-L#{number}"
+          anchor = @reading ? "#{file_anchor}-L#{number}" : "source-#{fact.fetch('id')}-L#{number}"
           selected = spans.any? { |from, to, _| number.between?(from, to) }
           # One extra anchor per shared contribution at its actual physical start;
           # the representative file still has exactly one numbered row per line.
-          extra = spans.filter_map { |from, _, id| "<span id=\"#{h(@anchors.fetch(id))}\"></span>" if from == number && id != fact.fetch('id') }.join
-          extra << "<span id=\"reading-file-#{Digest::SHA256.hexdigest(fact.fetch('path'))}-L#{number}\"></span>" if @reading
+          extra = @reading ? '' : spans.filter_map { |from, _, id| "<span id=\"#{h(@anchors.fetch(id))}\"></span>" if from == number && id != fact.fetch('id') }.join
           append "<div class=\"source-row#{selected ? ' selected' : ''}\" id=\"#{h(anchor)}\">#{extra}<a class=\"ln\" href=\"##{h(anchor)}\" aria-label=\"Line #{number}\">#{number}</a><code class=\"src\">#{line}</code></div>"
         end
         append '</div></div>'
@@ -212,8 +215,9 @@ module Thistle
         operation = selector.fetch('operation')
         href = case operation
         when 'source'
-          if @reading && path && line && line <= 10_000
-            @navigation.url('/source', { 'id' => selector.fetch('id') }, source_position: [Digest::SHA256.hexdigest(path), line])
+          if @reading
+            position = path && line.is_a?(Integer) && line.between?(1, 10_000) ? [Digest::SHA256.hexdigest(path), line] : nil
+            @navigation.url('/source', { 'id' => selector.fetch('id') }, source_position: position)
           else
             @navigation.url('/source', { 'id' => selector.fetch('id') })
           end
@@ -228,7 +232,7 @@ module Thistle
       end
 
       def append(fragment)
-        raise InvalidProjection, 'Source comprehension display allowance exceeded' if @body.bytesize + fragment.bytesize > MAX_BODY_BYTES
+        raise DisplayLimit, 'Source comprehension display allowance exceeded' if @body.bytesize + fragment.bytesize > MAX_BODY_BYTES
         @body << fragment
       end
 

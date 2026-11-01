@@ -25,7 +25,8 @@ class ModelReadingNavigationTest < Minitest::Test
   def test_callback_query_has_no_ambient_cursor_or_invented_model_binding
     nav = Thistle::Map::NavigationContext.new(generation: G, model_id: ID, params: { 'cursor' => 'old', 'id' => ID })
     params = URI.decode_www_form(URI(nav.url('/model-callbacks', 'id' => FILE)).query).to_h
-    assert_equal({ model_callbacks: true }, Thistle::Map::NavigationContext.continuation('/model-callbacks', params))
+    assert_equal({ model_callbacks: 8 }, Thistle::Map::NavigationContext.continuation('/model-callbacks', params))
+    assert_equal({ model_callbacks: 200 }, Thistle::Map::NavigationContext.continuation('/model-callbacks/full', params))
     refute params.key?('cursor')
     assert_raises(Thistle::Map::Investigation::Invalid) { Thistle::Map::NavigationContext.new(generation: G, model_id: ID, source_position: [FILE, 10001]) }
   end

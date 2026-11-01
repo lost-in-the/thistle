@@ -19,10 +19,18 @@ model → full physical Source plus contribution/method outline → named Column
 Associations and Registered callbacks → explicit saved registry choice → named
 callback, condition and observed owner → exact concern Source → Return to model
 reading. Keep A pinned while CURRENT is B. Keep the full ordered selection and
-query/filters. Follow a saved-method continuation and check its actual cursor
+query/filters. Compact callbacks deliberately omit the scheduling entry past8;
+follow **Full registered callbacks (up to 200)** and recover its named guard,
+observed owner and Source without dropping model context. The cap is not an
+unlimited/full-chain claim. Check visible omitted effects and incomplete-scan
+warnings before opening raw diagnostics.
+Follow the actual saved-method continuation to the handwritten
+`Order#zz_receipt_witness` physical Source (order.rb line25) and check its cursor
 after a physical Source return; a mere return link is insufficient. If the
 requested file was not admitted, the restored position must reveal the precise
 not-displayed notice and exact Source recovery, never another substituted file.
+The notice has a separate identity and must not count as an actual source-row
+anchor. The missing-generation check must omit the query key, not send it empty.
 
 Record the exact edited location the person chooses: Order registration line6;
 ReceiptPolicy#schedule_receipt line5/body line6; Order#receipt_due? line8/body

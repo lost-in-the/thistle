@@ -47,6 +47,10 @@ capture = Thistle::Capture.new(root: root, rails: app,
   source_comprehension: { models: [Order], stop_before: ActiveRecord::Base }).call
 store = File.join(work, 'store')
 saved_a = Thistle::Store.new(store).publish(capture).fetch('generation')
+registered = Order._save_callbacks.to_a
+schedule_position = registered.index { |callback| callback.filter == :schedule_receipt }
+raise 'Fixture callback must require full recovery beyond compact8' unless schedule_position && schedule_position >= 8
+raise 'Fixture must contain more than8 direct methods' unless Order.instance_methods(false).length > 8
 # Independent framework oracle, after A; do not prime columns to fix a capture.
 raw_columns = Order.columns.map do |column|
   raw = column.default
@@ -66,5 +70,6 @@ native = $LOADED_FEATURES.find { |path| path.match?(%r{/thistle/thistle_native\.
 raise 'Installed native missing' unless native
 puts JSON.generate('store' => store, 'root' => root, 'saved_a' => saved_a, 'partial' => saved_partial, 'current_b' => saved_b,
   'rails_version' => Rails.version, 'raw_order_columns' => raw_columns, 'source_sha256' => source_sha256,
+  'schedule_registered_position' => schedule_position,
   'native_path' => native, 'native_sha256' => Digest::SHA256.file(native).hexdigest,
   'scope' => 'public fixture producer; conditions/callbacks/job execution unknown; no served/person acceptance')

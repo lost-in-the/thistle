@@ -8,6 +8,7 @@ module Thistle
   module Map
     # Request-local composition of existing typed answers, never source analysis.
     class ModelReading
+      class DisplayLimit < StandardError; end
       attr_reader :projection, :methods, :admission
 
       def initialize(reader:, id:, generation:, family: 'contributions', cursor: nil)
@@ -27,9 +28,11 @@ module Thistle
             answer['family'] == family && answer['composition'] == 'identified_contributions' &&
             answer['source_runtime_coherence'] == 'unknown' && answer.dig('model', 'id') == @id &&
             answer.dig('model', 'kind') == 'rails_model' && answer['contributions'].is_a?(Array) &&
-            answer['contributions'].length <= 8 && answer.fetch('rows', []).is_a?(Array) &&
-            answer.fetch('rows', []).length <= 8 && JSON.generate(answer).bytesize <= 32768
+            answer.fetch('rows', []).is_a?(Array)
           raise Thistle::InvalidSnapshot, 'Model reading projection mismatch'
+        end
+        if answer['contributions'].length > 8 || answer.fetch('rows', []).length > 8 || JSON.generate(answer).bytesize > 32768
+          raise DisplayLimit, 'Model reading response exceeds its row or 32 KiB display budget; narrow the evidence page.'
         end
         answer.fetch('rows', []).each do |row|
           unless row.is_a?(Hash) && SourceComprehensionPresenter::ROW_LABELS.key?(row['status']) &&

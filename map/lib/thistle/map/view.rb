@@ -135,9 +135,25 @@ module Thistle
       rescue Thistle::Error => error
         raise unless error.code == 'source_unavailable'
 
+        if @model_id
+          raise Limit, 'Source recovery requires the compact identity Reader API.' unless @reader.respond_to?(:fact_identity)
+          compact = @reader.fact_identity(@params.fetch('id'))
+          unless compact['generation'] == @generation && compact.dig('fact', 'id') == @params['id']
+            raise Thistle::InvalidSnapshot, 'Source recovery identity mismatch'
+          end
+          raise Limit, 'Source recovery identity exceeds its 32 KiB display budget.' if JSON.generate(compact).bytesize > 32768
+          fact = compact.fetch('fact')
+          if fact['kind'] == 'rails_model'
+            body = "<h1>#{h(fact.fetch('name'))}</h1><p>No physical Source was captured for this identity; runtime binding remains unknown.</p>"
+            own = NavigationContext.new(generation: @generation, mount: @mount, params: @params, selection: @selection, model_id: fact.fetch('id'))
+            body << "<p><a href=\"#{h(own.url('/source', 'id' => fact.fetch('id')))}\">Read #{h(fact.fetch('name'))} in its own model context</a></p>"
+            return layout('Source', body, fact: fact)
+          end
+        end
+
         if @reader.manifest.fetch('coverage', []).any? { |row| row['family'] == 'rails_job_mail' }
           raise Limit, 'Saved job/mail Source navigation requires the compact identity Reader API.' unless @reader.respond_to?(:fact_identity)
-          compact = @reader.fact_identity(@params.fetch('id'))
+          compact ||= @reader.fact_identity(@params.fetch('id'))
           unless compact['generation'] == @generation && compact.dig('fact', 'id') == @params['id'] && JSON.generate(compact).bytesize <= 32768
             raise Thistle::InvalidSnapshot, 'Job/mail compact identity mismatch'
           end
@@ -212,6 +228,8 @@ module Thistle
         content = layout('Source', body, fact: root)
         raise Limit, 'Source comprehension page exceeds its output budget.' if content.bytesize > SourceComprehensionPresenter::MAX_BODY_BYTES + 65536
         content
+      rescue SourceComprehensionPresenter::DisplayLimit, ModelReading::DisplayLimit => error
+        raise Limit, "#{error.message} Open exact Source or narrow the evidence page; no source was substituted."
       rescue SourceComprehensionPresenter::InvalidProjection => error
         raise Thistle::InvalidSnapshot, error.message
       end
@@ -226,6 +244,8 @@ module Thistle
         content = layout('Source', body, fact: reading.projection.fetch('model'))
         raise Limit, 'Model reading exceeds its total display budget.' if content.bytesize > SourceComprehensionPresenter::MAX_BODY_BYTES + 65536
         content
+      rescue SourceComprehensionPresenter::DisplayLimit, ModelReading::DisplayLimit => error
+        raise Limit, "#{error.message} Open exact Source or narrow the evidence page; no source was substituted."
       rescue SourceComprehensionPresenter::InvalidProjection => error
         raise Thistle::InvalidSnapshot, error.message
       end
@@ -233,59 +253,34 @@ module Thistle
       # One explicit registry, selected by the user from Core's candidates. The
       # existing callback_effects projection contains registered metadata as well
       # as qualified source evidence. No Ruby callback/name resolution occurs.
-      def model_callbacks_page
+      def model_callbacks_page(limit: 8)
         raise Limit, 'Registered callback evidence is unavailable with this Reader.' unless @reader.respond_to?(:callback_effects)
         id = @params.fetch('id')
-        answer = @reader.callback_effects(id, limit: 8)
+        answer = @reader.callback_effects(id, limit: limit)
         unless answer['version'] == 1 && answer['generation'] == @generation && answer['registry_id'] == id &&
-            answer['coherence'] == 'unknown' && answer['execution'] == 'unknown' &&
-            answer.fetch('callbacks').length <= 8 && JSON.generate(answer).bytesize <= 32768
+            answer['coherence'] == 'unknown' && answer['execution'] == 'unknown' && answer['callbacks'].is_a?(Array)
           raise Thistle::InvalidSnapshot, 'Registered callback projection mismatch'
+        end
+        bytes = limit == 8 ? 32768 : CallbackPresenter::MAX_BYTES
+        if answer.fetch('callbacks').length > limit || JSON.generate(answer).bytesize > bytes
+          raise Limit, 'Registered callbacks exceed this page response budget. Return to the registry choices for Full registered callbacks (up to 200), or use the Reader interface.'
+        end
+        answer.fetch('callbacks').each do |row|
+          raise Thistle::InvalidSnapshot, 'Callback registry witness mismatch' unless row['registry_id'] == id && row['registry_provenance'] == 'registered_metadata'
         end
         body = +"<h1>#{h(answer['model'] || 'Anonymous model')}: registered save callbacks</h1>"
         body << '<p>Registered chain positions are not execution chronology. Conditions, execution and source binding remain unknown.</p>'
-        body << "<p>Registry status: #{h(answer.fetch('registry_status'))}.</p>"
-        answer.fetch('callbacks').each do |row|
-          raise Thistle::InvalidSnapshot, 'Callback registry witness mismatch' unless row['registry_id'] == id && row['registry_provenance'] == 'registered_metadata'
-          filter = row.fetch('filter')
-          body << "<article><h2>Position #{h(row.fetch('position'))} · #{h(row['kind'])} · #{h(filter['name'] || filter.fetch('kind'))}</h2>"
-          body << "<p>Observed owner: #{h(filter['owner'] || 'Unknown')}. Inherited registered entry: #{h(brief_value(row['inherited']))}.</p>"
-          body << "<p>Conditions (not evaluated): if #{h(callback_conditions(row['if']))}; unless #{h(callback_conditions(row['unless']))}.</p>"
-          explanation = row.fetch('explanation')
-          body << "<p>#{h(explanation.fetch('status'))}: #{h(explanation.fetch('reason'))}.</p>"
-          if explanation['binding'] == 'descriptor_matched_captured_declaration'
-            saved, method = explanation.fetch('source'), explanation.fetch('method')
-            line = method.fetch('span').fetch('start_line')
-            raise Thistle::InvalidSnapshot, 'Invalid callback source line' unless line.is_a?(Integer) && line.positive?
-            if line <= MAX_SOURCE_LINES && saved.fetch('lines') <= MAX_SOURCE_LINES && saved.fetch('bytes') <= MAX_SOURCE_BYTES
-              target = @navigation.url('/source', { 'file' => Digest::SHA256.hexdigest(saved.fetch('path')), 'id' => nil },
-                source_position: [Digest::SHA256.hexdigest(saved.fetch('path')), line])
-              body << "<p><a href=\"#{h(target)}#L#{line}\">#{h(method.fetch('name'))} · #{h(saved.fetch('path'))}:#{line}</a> · descriptor match; runtime coherence unknown.</p>"
-            else
-              body << "<p>#{h(method.fetch('name'))} · #{h(saved.fetch('path'))}:#{line} · Source exceeds this web view's byte/line budget; use the Reader Source interface. Runtime coherence unknown.</p>"
-            end
-            explanation.fetch('effects').each { |effect| body << "<p>Potential request: #{h(effect.fetch('operation'))}. Execution unknown.</p>" }
-          end
-          body << '</article>'
+        body << "<p>Showing at most #{limit} registered entries; this is a bounded view, not an unlimited chain.</p>"
+        if limit == 8
+          body << "<p><a href=\"#{h(url('/model-callbacks/full', 'id' => id))}\">Full registered callbacks (up to 200)</a></p>"
         end
-        body << '<p class="notice ui">More registered evidence is not shown; inspect omitted/unsearched counts below. Execution remains unknown.</p>' if answer.dig('coverage', 'truncated')
-        body << '<p>No callback rows returned; this does not establish an empty registered chain.</p>' if answer.fetch('callbacks').empty?
+        # The reusable presenter reads only this typed answer. No Reader/source
+        # adapter is supplied, so condition hints cannot fan out into source I/O.
+        body << CallbackPresenter.new(generation: @generation, navigation: @navigation).render_projection(answer, registered: true)
         body << "<details><summary>Registry identity, coverage and limits</summary><pre class=\"check-data\">#{h(JSON.pretty_generate(answer.reject { |key, _| key == 'callbacks' }))}</pre></details>"
         bounded_evidence_page('Registered callbacks', body, fact: nil)
-      end
-
-      def callback_conditions(values)
-        return 'Unknown' if values.nil?
-        return 'None registered' if values.empty?
-        values.map do |value|
-          if value['kind'] == 'method'
-            ":#{value.fetch('name')} (observed owner #{value['owner'] || 'Unknown'})"
-          elsif value['kind'] == 'proc'
-            'Opaque proc'
-          else
-            'Opaque or unavailable reference'
-          end
-        end.join('; ')
+      rescue Thistle::LimitExceeded => error
+        raise Limit, "Registered callback resource limit: #{error.message}. No other evidence was substituted; use the Reader interface for recovery."
       end
 
       def model_neighborhood_page(family:, direction:, type:, candidate: nil)
@@ -390,7 +385,8 @@ module Thistle
         label = { 'columns' => 'Recorded columns', 'associations' => 'Recorded associations', 'registry_candidates' => 'Registered callback candidates' }.fetch(family)
         body = @model_id ? "<h1 class=\"t1\">#{h(result.dig('root', 'name'))}: #{h(label)}</h1>" : "<h1 class=\"t1\">Saved model family: #{h(family)}</h1><p>#{brief_identity(result.fetch('root'))}</p>"
         body << "<p class=\"notice ui\">#{h(result.fetch('uncertainty'))}</p>"
-        body << "<details><summary>Page scope</summary><p>Capture partial or unknown: #{h(result.fetch('capture_partial_or_unknown'))}. This page starts at saved position #{h(result.fetch('offset'))}; at most eight items. Empty or omitted evidence does not establish absence.</p></details>"
+        body << "<p class=\"notice ui\">Capture partial or unknown: #{h(result.fetch('capture_partial_or_unknown'))}. Empty or omitted evidence does not establish absence.</p>"
+        body << "<details><summary>Page scope</summary><p>This page starts at saved position #{h(result.fetch('offset'))}; at most eight items.</p></details>"
         body << brief_family_content(family, family.tr('_', ' '), result.fetch('result'))
         if (cursor = result['next_cursor'])
           NavigationContext.validate_cursor!(cursor, generation: @generation, scope: ['model_brief', id, family])
@@ -742,7 +738,7 @@ module Thistle
           <header class="app-header"><a class="brand" href="#{h(brand_url)}">Thistle <span>Map</span></a>
           <form method="get" action="#{h(@mount)}/" class="find-form"><label for="find-query">Find code</label>
           <input type="search" name="q" id="find-query" value="#{h(@params.fetch('q', ''))}" maxlength="256" placeholder="Literal source, name or metadata" autocomplete="off">
-          #{@model_id ? '<details class="model-find"><summary>Search filters</summary>' : ''}
+          #{@model_id ? model_search_filters : ''}
           <label for="find-domain">Domain</label><select name="domain" id="find-domain">#{%w[all source metadata].map { |value| "<option value=\"#{value}\"#{' selected' if @params.fetch('domain', 'all') == value}>#{value}</option>" }.join}</select>
           <label for="find-kind">Kind</label><input name="kind" id="find-kind" value="#{h(@params['kind'])}" placeholder="Any kind">
           <label for="find-prefix">Path prefix</label><input name="prefix" id="find-prefix" value="#{h(@params['prefix'])}" placeholder="Any captured path">
@@ -757,6 +753,15 @@ module Thistle
           <noscript><p class="ui">Letter shortcuts require JavaScript. All evidence views work through the visible links and form.</p></noscript>
           <p class="ui">Private implementation preview · incomplete product coverage</p></footer></div></body></html>
         HTML
+      end
+
+      def model_search_filters
+        active = %w[domain kind prefix].filter_map do |key|
+          value = @params[key]
+          "#{key}: #{value}" if value && !value.empty? && !(key == 'domain' && value == 'all')
+        end
+        label = active.empty? ? 'Search filters' : "Search filters — #{active.join(' · ')}"
+        "<details class=\"model-find\"><summary>#{h(label)}</summary>"
       end
 
       def nav_link(label, path, active, key, id = nil)
@@ -870,7 +875,8 @@ module Thistle
         id = identity.fetch('id')
         raise Thistle::InvalidSnapshot, 'Invalid brief evidence ID' unless /\A[0-9a-f]{64}\z/.match?(id)
         if @model_id && identity['kind'] == 'rails_save_callbacks'
-          return "<a href=\"#{h(url('/model-callbacks', 'id' => id))}\">#{h(identity.fetch('name'))}: registered callback evidence</a> · saved registry candidate; model binding unknown"
+          return "<a href=\"#{h(url('/model-callbacks', 'id' => id))}\">#{h(identity.fetch('name'))}: registered callback evidence</a> · " \
+            "<a href=\"#{h(url('/model-callbacks/full', 'id' => id))}\">Full registered callbacks (up to 200)</a> · saved registry candidate; model binding unknown"
         end
         "#{h(identity.fetch('name'))} #{h([identity['kind'], identity['evidence']].compact.join('; '))} · " \
           "<a href=\"#{h(url('/source', 'id' => id))}\">Source for #{h(identity.fetch('name'))}</a> · " \

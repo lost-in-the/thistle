@@ -11,7 +11,12 @@ available; search text stays visible and only secondary filters collapse.
 Columns and named Associations reuse the typed neighborhood projection.
 Registered callbacks first exposes all bounded registry candidates, then an
 explicit choice shows named registered filters, conditions, owners and qualified
-supporting Source. Registered chain position is not execution chronology.
+supporting Source. The compact view shows up to8; its named **Full registered
+callbacks (up to 200)** recovery uses the existing Core200-entry cap without new
+paging or a claim of an unlimited result. Registry choices also expose that
+recovery directly. Known omitted effects, non-exhaustiveness, declaration/source
+scan incompleteness and capture partiality stay visible before diagnostics.
+Registered chain position is not execution chronology.
 Database constraints, indexes and ON DELETE remain unavailable in this capture.
 The engine must supply stronger supported semantics in later parent work;
 honest unknowns do not complete the replacement goal.
@@ -24,9 +29,13 @@ identity/binding claims. Full ordered selections and search stay under the
 existing nine-field/4096-byte query policy. Search omission still has an explicit
 notice; no selection is dropped. A neutral “Return to model reading” is used on
 physical Source without a root-name lookup; model pages can name their verified
-Root projection. Supported physical return anchors are checked against admitted
-files. A position outside the bounded reading page instead reveals an explicit
-not-displayed notice and exact file Source recovery. Missing saved generations
+Root projection. Reading mode has one row identity per physical line, with one
+file digest computed before rendering its rows. Supported physical return
+anchors are checked against admitted files. A position outside the bounded
+reading page instead reveals a separately identified not-displayed notice and
+exact file Source recovery; that notice is never a successful source-row anchor.
+Unrepresentable Source targets clear an older physical position while retaining
+the reading family/cursor. Missing saved generations
 refuse; CURRENT is never substituted.
 
 The initial canonical page makes two `source_comprehension` requests (contributions
@@ -38,9 +47,14 @@ adds one compact `fact_identity` lookup; exact Source in model context skips tha
 redirect and performs one Source operation. Opening the page never calls full
 `model_brief`, full `fact`, references or callback effects.
 
-Explicit family views make one bounded existing family query. Callback detail
-makes one `callback_effects(limit:8)` query and admits at most32KiB of returned
-metadata, with no additional source fetch/highlight. Its Rust operation can
+Explicit family views make one bounded existing family query. Compact callback
+detail makes one `callback_effects(limit:8)` query and admits at most32KiB of
+returned metadata. Explicit full recovery instead makes one
+`callback_effects(limit:200)` query under the existing CallbackPresenter256KiB
+metadata admission and unchanged final page budget. Both reuse the same
+explanation/coverage presenter with no additional source fetch/highlight.
+Display/resource refusals are explained separately from invalid identities.
+The Rust operation can
 perform bounded directory/reference/source work internally; this call count is
 not a native-work bound. The existing exact Source ceiling remains256KiB/10000
 lines. The reading presenter and final layout retain their existing finite body

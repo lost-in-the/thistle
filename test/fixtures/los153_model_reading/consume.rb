@@ -12,6 +12,7 @@ raise 'Consumer loaded producing framework' if defined?(Rails) || defined?(Activ
 manifest = JSON.parse(File.read(ARGV.fetch(0)))
 cards = JSON.parse(File.read(File.join(__dir__, 'expected_cards.json')))
 raise 'Wrong producer' unless manifest.fetch('rails_version') == cards.fetch('framework')
+raise 'Producer did not exercise callback full recovery' unless manifest.fetch('schedule_registered_position') >= 8
 home = File.realpath(ENV.fetch('GEM_HOME'))
 %w[thistle thistle-map].each do |name|
   raise 'Checkout package used' unless File.realpath(Gem.loaded_specs.fetch(name).full_gem_path).start_with?(home + '/')
@@ -25,6 +26,7 @@ def collect_family(reader, id, family)
   16.times do
     answer = reader.source_comprehension(id, family: family, cursor: cursor, limit: 8, max_bytes: 32768)
     demand(answer.fetch('generation') == reader.generation && answer.fetch('source_runtime_coherence') == 'unknown', 'Lost saved evidence boundary')
+    yield answer, cursor if block_given?
     rows.concat(answer.fetch('contributions'))
     return rows unless answer['continuation']
     next_cursor = answer.fetch('continuation').fetch('cursor')
@@ -43,7 +45,12 @@ begin
   demand(models.length == 1, 'Fixture must have one explicit saved Order registry')
   id = models.fetch(0).fetch('id') # uniqueness is a fixture oracle, not runtime binding
   contributions = collect_family(reader, id, 'contributions')
-  methods = collect_family(reader, id, 'methods')
+  method_pages = []
+  methods = collect_family(reader, id, 'methods') { |answer, cursor| method_pages << [answer, cursor] }
+  demand(method_pages.length >= 2 && method_pages.first[0]['continuation'], 'Fixture did not exercise a real methods continuation')
+  suffix_card = cards.fetch('methods_continuation')
+  suffix_page = method_pages.index { |answer, _| answer.fetch('contributions').any? { |row| row.dig('fact', 'name') == suffix_card.fetch('method') } }
+  demand(suffix_page && suffix_page.positive?, 'Independent suffix method did not require continuation')
   source_ids = {}
   cards.fetch('cards').each do |card|
     rows = card['method'] ? methods : contributions
@@ -73,7 +80,10 @@ begin
   registry = reader.model_brief(id, family: 'registry_candidates', limit: 8).fetch('result').fetch('items')
   demand(registry.length == 1 && registry.fetch(0)['name'] == 'Order', 'Explicit fixture callback registry candidate missing/ambiguous')
   registry_id = registry.fetch(0).fetch('id')
-  callbacks = reader.callback_effects(registry_id, limit: 8)
+  compact_callbacks = reader.callback_effects(registry_id, limit: 8)
+  demand(compact_callbacks.dig('coverage', 'truncated'), 'Fixture did not exceed compact8 callbacks')
+  demand(compact_callbacks.fetch('callbacks').none? { |row| row.dig('filter', 'name') == 'schedule_receipt' }, 'Fixture scheduling callback was not beyond compact8')
+  callbacks = reader.callback_effects(registry_id, limit: 200)
   receipt = callbacks.fetch('callbacks').select { |row| row.dig('filter', 'name') == 'schedule_receipt' }
   demand(receipt.length == 1, 'Named registered callback missing/ambiguous')
   demand(receipt.fetch(0).dig('filter', 'owner') == 'ReceiptPolicy', 'Observed callback owner differs')
@@ -107,14 +117,34 @@ begin
   demand(returned, 'Canonical model return missing')
   return_uri = URI(CGI.unescapeHTML(returned[1]))
   restored = get.call(return_uri.path, URI.decode_www_form(return_uri.query).to_h)
-  demand(return_uri.fragment && restored.include?(%(id="#{return_uri.fragment}")), 'Return physical anchor not restored')
+  demand(return_uri.fragment && restored.match?(/<div class="source-row[^"]*" id="#{Regexp.escape(return_uri.fragment)}">/), 'Return did not restore an actual physical source-row')
+  demand(!restored.include?('Requested physical position is not displayed'), 'Notice was mistaken for physical source')
   demand(restored.include?(%(name="selection" value="#{selection}")) && restored.include?('value="Order"'), 'Return query/full selection lost')
   get.call("/models/#{id}/model-neighborhood/columns/outgoing/all", context)
   get.call("/models/#{id}/model-neighborhood/edges/outgoing/association", context)
   registry_page = get.call("/models/#{id}/brief/registry_candidates", context)
   demand(registry_page.include?('registered callback evidence'), 'Explicit registry choice absent')
-  callback_page = get.call("/models/#{id}/model-callbacks", context.merge('id' => registry_id))
-  %w[schedule_receipt receipt_due? ReceiptPolicy].each { |name| demand(callback_page.include?(name), 'Named callback evidence not visible') }
+  compact_page = get.call("/models/#{id}/model-callbacks", context.merge('id' => registry_id))
+  full = links(compact_page).find { |uri| uri.path.end_with?('/model-callbacks/full') }
+  demand(full, 'Compact callback page has no named full registered recovery')
+  callback_page = get.call(full.path, URI.decode_www_form(full.query).to_h)
+  %w[schedule_receipt receipt_due? ReceiptPolicy].each { |name| demand(callback_page.include?(name), 'Named callback beyond8 not reachable in full recovery') }
+  # Follow the real first continuation, rather than replay a fabricated cursor.
+  more = links(page).find { |uri| uri.path.end_with?('/comprehension/methods') && URI.decode_www_form(uri.query || '').to_h['cursor'] }
+  demand(more && URI.decode_www_form(more.query).to_h['cursor'] == method_pages.first[0].fetch('continuation').fetch('cursor'), 'Actual outline continuation differs from Core')
+  suffix_rows = get.call(more.path, URI.decode_www_form(more.query).to_h)
+  demand(suffix_rows.include?(suffix_card.fetch('method')), 'First continued page did not expose the independent named suffix fixture')
+  suffix = methods.select { |row| row.dig('fact', 'name') == suffix_card.fetch('method') }
+  demand(suffix.length == 1 && suffix[0].dig('fact', 'path') == suffix_card.fetch('path') && suffix[0].dig('fact', 'location', 'start_line') == suffix_card.fetch('line'), 'Independent suffix method physical location differs')
+  exact = links(suffix_rows).find { |uri| URI.decode_www_form(uri.query || '').to_h['id'] == suffix[0].dig('fact', 'id') && uri.fragment == "L#{suffix_card.fetch('line')}" }
+  demand(exact, 'Continued method exact Source absent')
+  exact_page = get.call(exact.path, URI.decode_www_form(exact.query).to_h)
+  back = exact_page.match(/href="([^"]+)"[^>]*>Return to model reading/)
+  demand(back, 'Continued source return missing')
+  back_uri = URI(CGI.unescapeHTML(back[1])); back_params = URI.decode_www_form(back_uri.query).to_h
+  demand(back_params['cursor'] == URI.decode_www_form(more.query).to_h['cursor'] && back_params['selection'] == selection && back_params['q'] == 'Order', 'Continued return lost cursor/query/selection')
+  continued_restored = get.call(back_uri.path, back_params)
+  demand(continued_restored.match?(/<div class="source-row[^"]*" id="#{Regexp.escape(back_uri.fragment)}">/) && !continued_restored.include?('Requested physical position is not displayed'), 'Continued return restored a notice instead of the actual source-row')
   partial = Thistle::Reader.new(store, generation: manifest.fetch('partial'))
   begin
     demand(partial.model_neighborhood(id, family: 'columns').dig('coverage', 'capture_partial_or_unknown'), 'Partial capture hidden')

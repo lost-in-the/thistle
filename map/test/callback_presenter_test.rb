@@ -247,4 +247,21 @@ class ThistleCallbackEffectsPresenterTest < Minitest::Test
       Thistle::Map::CallbackPresenter.new(generation: GENERATION, reader: reader).render(data)
     end
   end
+
+  def test_projection_and_legacy_share_visible_omissions_and_coverage
+    data = response
+    data['callbacks'][0]['explanation'].merge!('known_effects_omitted' => 3, 'effects_non_exhaustive' => true)
+    data['coverage']['source_rows_not_searched'] = 2
+    shared = Thistle::Map::CallbackPresenter.new(generation: GENERATION, mount: '/map').render_projection(data)
+    legacy = render(EffectsReader.new(response: data))
+    assert_includes legacy, shared
+    ['Known potential effects omitted: 3', 'Potential effects are non-exhaustive', '2 rows not searched',
+      'Source evidence not searched for 2', 'Capture is partial or unknown'].each { |text| assert_includes shared, text }
+    data['callbacks'][0].merge!('filter' => { 'kind' => 'method', 'name' => 'deliver', 'owner' => 'Child',
+      'source' => { 'path' => 'records.rb', 'line' => 1 } }, 'if' => [], 'unless' => [], 'inherited' => false)
+    reader = ThistleCallbackPresenterTest::SavedReader.new
+    html = Thistle::Map::CallbackPresenter.new(generation: GENERATION, reader: reader).render_projection(data, registered: true)
+    assert_includes html, 'Source hint only; captured file not expanded'
+    assert_empty reader.reads
+  end
 end

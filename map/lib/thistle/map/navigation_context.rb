@@ -18,7 +18,7 @@ module Thistle
       MAX_CURSOR_BYTES = 512
       NEIGHBORHOOD_ROUTE = %r{\A/model-neighborhood/(edges|columns|database|candidates)/(incoming|outgoing)/(all|association|reference)\z}.freeze
       MODEL_ROUTE = %r{\A/models/(?<model>[0-9a-f]{64})(?:/from/(?<family>contributions|methods)/(?<return_cursor>first|(?:[0-9a-f]{2}){1,512}))?(?:/at/(?<file>[0-9a-f]{64})/(?<line>[1-9][0-9]{0,4}))?(?<page>/.*)\z}.freeze
-      MODEL_PAGES = %w[/source /links /check /comprehension/contributions /comprehension/methods /brief/columns /brief/associations /brief/registry_candidates /model-callbacks].freeze
+      MODEL_PAGES = %w[/source /links /check /comprehension/contributions /comprehension/methods /brief/columns /brief/associations /brief/registry_candidates /model-callbacks /model-callbacks/full].freeze
       attr_reader :search_omitted, :model_id, :source_position, :reading_family, :reading_cursor
 
       def initialize(generation:, mount: '', params: {}, selection: nil, model_id: nil, source_position: nil, reading_family: 'contributions', reading_cursor: nil)
@@ -82,7 +82,7 @@ module Thistle
                       when '/comprehension/contributions', '/comprehension/methods' then controls.slice('id', 'cursor')
                       when %r{\A/job-mail/(?:overview|registrations|declarations|policy|handoff|template_references)\z} then controls.slice('id', 'cursor')
                       when '/references/incoming', '/references/outgoing' then controls.slice('id', 'cursor', 'candidate')
-                      when '/check', '/model-callbacks' then controls.slice('id')
+                      when '/check', '/model-callbacks', '/model-callbacks/full' then controls.slice('id')
                       else {}
                       end.compact
         # A new anchor/direction starts at the first page unless explicitly set.
@@ -138,12 +138,12 @@ module Thistle
 
       # Route names carry family/direction so continuation still fits nine fields.
       def self.continuation(path, params)
-        if path == '/model-callbacks'
+        if %w[/model-callbacks /model-callbacks/full].include?(path)
           unless (params.keys - (%w[generation id selection] + SEARCH_FIELDS)).empty? &&
               %w[generation id].all? { |key| Investigation::DIGEST.match?(params[key].to_s) }
             raise Investigation::Invalid, 'Registered callbacks require an exact saved generation and registry.'
           end
-          return { model_callbacks: true }
+          return { model_callbacks: path.end_with?('/full') ? 200 : 8 }
         end
         return nil unless path == '/route-actions' || path.start_with?('/brief/', '/references/', '/comprehension/', '/job-mail/', '/passage/', '/model-neighborhood/')
         if path.start_with?('/model-neighborhood/')

@@ -5,6 +5,13 @@ explicit source-ownership observers. It adds no capture family or Woods runtime.
 Rails is pinned to 8.1.4; the producer uses public SQLite `:memory:` configuration
 before Rails' lazy Active Record load. No records are saved and no callback,
 condition, job or mail delivery runs. `ReceiptJob` is intentionally uncaptured.
+Eight named no-op registrations added after the scheduling registration are a
+deliberate compact8/full200 recovery case. The producer must prove that the
+scheduling entry is past8, and the consumer must recover it explicitly. More
+than8 direct methods plus the handwritten `zz_receipt_witness` suffix card make
+methods continuation mandatory. These are fixture edge cases, not proposed
+production design. The consumer actually follows the continued physical Source
+and return cursor; a notice cannot satisfy its source-row assertion.
 
 Root must supply a new disposable work directory and an installed candidate
 environment, separately admit each finite process, retain stdout/stderr and

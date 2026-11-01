@@ -42,7 +42,7 @@ module Thistle
         end
         body << link('Browse saved methods', '/comprehension/methods', { 'id' => id, 'cursor' => nil })
         body << '</aside></div></section>'
-        raise SourceComprehensionPresenter::InvalidProjection, 'Model reading display budget exceeded' if body.bytesize > SourceComprehensionPresenter::MAX_BODY_BYTES
+        raise SourceComprehensionPresenter::DisplayLimit, 'Model reading display budget exceeded' if body.bytesize > SourceComprehensionPresenter::MAX_BODY_BYTES
         body
       end
 
@@ -81,7 +81,7 @@ module Thistle
         end
         return '' if present
         target = @navigation.url('/source', 'file' => file, 'id' => nil) + "#L#{line}"
-        "<p class=\"notice ui\" id=\"reading-file-#{file}-L#{line}\">Requested physical position is not displayed on this bounded reading page. " \
+        "<p class=\"notice ui\" id=\"reading-position-unavailable-#{file}-L#{line}\">Requested physical position is not displayed on this bounded reading page. " \
           "<a href=\"#{h(target)}\">Open the exact captured file at line #{line}</a>. No other source was substituted.</p>"
       end
 
@@ -90,8 +90,8 @@ module Thistle
       end
 
       def link(label, route, controls, line: nil, path: nil)
-        position = path && line && line <= 10_000 ? [Digest::SHA256.hexdigest(path), line] : nil
-        href = position ? @navigation.url(route, controls, source_position: position) : @navigation.url(route, controls)
+        position = path && line.is_a?(Integer) && line.between?(1, 10_000) ? [Digest::SHA256.hexdigest(path), line] : nil
+        href = route == '/source' ? @navigation.url(route, controls, source_position: position) : @navigation.url(route, controls)
         if line
           raise SourceComprehensionPresenter::InvalidProjection, 'Invalid physical line' unless line.is_a?(Integer) && line.positive?
           href += "#L#{line}"

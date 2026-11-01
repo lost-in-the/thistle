@@ -68,7 +68,7 @@ module Thistle
         continuation_path ||= path == '/route-actions'
         continuation_path ||= %w[/passage/sequence /passage/export].include?(path)
         continuation_path ||= NavigationContext::NEIGHBORHOOD_ROUTE.match?(path)
-        continuation_path ||= path == '/model-callbacks'
+        continuation_path ||= %w[/model-callbacks /model-callbacks/full].include?(path)
         return finish(env, 404, 'This page does not exist.') unless continuation_path || %w[/ /source /links /check /investigation].include?(path)
 
         mount = mount_path(env)
@@ -115,7 +115,7 @@ module Thistle
           source_position: source_position, reading_family: reading_family, reading_cursor: reading_cursor)
         content = if continuation
                     if continuation[:model_callbacks]
-                      view.model_callbacks_page
+                      view.model_callbacks_page(limit: continuation[:model_callbacks])
                     elsif continuation[:neighborhood]
                       view.model_neighborhood_page(**continuation[:neighborhood])
                     elsif continuation[:passage]
