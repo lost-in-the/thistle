@@ -14,6 +14,7 @@ require_relative 'investigation_presenter'
 require_relative 'investigation_evidence'
 require_relative 'source_comprehension_sources'
 require_relative 'job_mail_presenter'
+require_relative 'route_actions_presenter'
 
 module Thistle
   module Map
@@ -120,6 +121,21 @@ module Thistle
       rescue Thistle::Error => error
         raise unless error.code == 'source_unavailable'
 
+        if @reader.respond_to?(:route_actions) && @reader.respond_to?(:fact_identity)
+          compact = @reader.fact_identity(@params.fetch('id'))
+          unless compact.instance_of?(Hash) && compact['generation'] == @generation && compact.dig('fact','id') == @params['id'] && JSON.generate(compact).bytesize <= 32768
+            raise Thistle::InvalidSnapshot, 'Route compact identity mismatch'
+          end
+          if compact.dig('fact','kind') == 'route'
+            fact = compact.fetch('fact')
+            RouteActionsPresenter.identity!(fact.reject { |key, _| key == 'location' }.merge('generation'=>@generation,'span'=>fact['location']),
+              generation: @generation, id: @params['id'], kind: 'route')
+            body = "<h1 class=\"t1\">#{h(fact.fetch('name'))}</h1>" + route_actions_navigation(fact)
+            body << '<p class="notice ui">No route file or line was captured. Inspect conventional controller/action candidates and their exact saved Source. Dispatch and request matching remain unknown.</p>'
+            return layout('Source', body, fact: fact)
+          end
+        end
+
         if @reader.manifest.fetch('coverage', []).any? { |row| row['family'] == 'rails_job_mail' }
           raise Limit, 'Saved job/mail Source navigation requires the compact identity Reader API.' unless @reader.respond_to?(:fact_identity)
           compact = @reader.fact_identity(@params.fetch('id'))
@@ -207,6 +223,20 @@ module Thistle
         raise Investigation::Limit, 'Investigation page exceeds its total output budget; no partial page was returned.' if content.bytesize > InvestigationPresenter::MAX_PAGE_BYTES
 
         content
+      end
+
+      def route_actions_page
+        raise Limit, 'Saved route action candidates are unavailable with this Reader.' unless @reader.respond_to?(:route_actions)
+        id = @params.fetch('id')
+        limit = RouteActionsPresenter.page_limit(@navigation)
+        answer = @reader.route_actions(id, limit: limit, cursor: @params['cursor'], max_bytes: 32768)
+        RouteActionsPresenter.validate!(answer, generation: @generation, id: id, cursor: @params['cursor'], limit: limit)
+        body = "<h1 class=\"t1\">#{h(answer.fetch('root').fetch('name'))}</h1>"
+        body << RouteActionsPresenter.new(navigation: @navigation).render(answer)
+        bounded_evidence_page('Route action candidates', body, fact: answer.fetch('root'))
+      rescue Thistle::InvalidInput => error
+        raise unless error.message == 'Unknown native operation'
+        raise Limit, 'Saved route action candidates are unavailable with this native Reader.'
       end
 
       def job_mail_page(family)
@@ -596,6 +626,11 @@ module Thistle
         "<a href=\"#{h(url(path, id ? { 'id' => id } : {}))}\"#{attrs}>#{label}</a>"
       end
 
+      def route_actions_navigation(fact)
+        return '' unless fact['kind'] == 'route' && @reader.respond_to?(:route_actions)
+        "<p><a href=\"#{h(url('/route-actions', 'id'=>fact.fetch('id')))}\">Inspect controller/action candidates</a></p>"
+      end
+
       def fact_tiles(fact, details: true)
         tiles = [
           ['Identity', [['Kind', fact['kind']], ['Evidence', fact['evidence']]]],
@@ -611,6 +646,7 @@ module Thistle
             rows.map { |label, value| "<dt>#{h(label)}</dt><dd>#{h(value)}</dd>" }.join + '</dl></div>'
         end.join + '</div>'
         identity += job_mail_navigation(fact)
+        identity += route_actions_navigation(fact)
         return identity + '<p class="notice ui">Detailed fact evidence was not loaded for this incoming view. Open Source or Outgoing references to inspect it.</p>' unless details
 
         identity + model_brief(fact) + ModelPresenter.render(fact) +

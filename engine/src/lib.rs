@@ -5,6 +5,7 @@ mod model;
 mod callbacks;
 mod callback_effects;
 mod method_lookup;
+mod route_actions;
 mod source_comprehension;
 mod job_mail;
 mod job_mail_source;
@@ -53,6 +54,7 @@ fn request_scratch(request: &Value) -> Result<Option<query::Reservation>> {
         Some("model_brief") => model_brief::Query::parse(request)?.scratch(),
         Some("source_comprehension") => source_comprehension::Query::parse(request)?.scratch(),
         Some("job_mail") => job_mail::Query::parse(request)?.scratch(),
+        Some("route_actions") => route_actions::Query::parse(request)?.scratch(),
         Some("callback_effects") => callback_effects::Query::parse(request)?.scratch(),
         Some("references") => references::Query::parse(request)?.scratch(),
         Some("find_evidence") => query::Query::parse(request)?.scratch()?,
@@ -132,6 +134,7 @@ fn dispatch_inner(request: &Value) -> Result<Value> {
         "job_mail" => job_mail::select(&*reader(request)?, &job_mail::Query::parse(request)?),
         "callback_effects" => callback_effects::select(&*reader(request)?, &callback_effects::Query::parse(request)?),
         "references" => references::select(&*reader(request)?, &references::Query::parse(request)?),
+        "route_actions" => route_actions::select(&*reader(request)?, &route_actions::Query::parse(request)?),
         "check" => reader(request)?.check(),
         _ => Err(CoreError::input("Unknown native operation")),
     }
