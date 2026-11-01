@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[2]
 CORE_DOCS = tuple("docs/development/" + name + ".md" for name in (
     "platforms", "tagged-call-encoding", "loaded-model-evidence", "callback-evidence",
     "find-evidence", "route-constraints", "model-references", "recorded-domain-access",
-    "fact-identity", "model-brief-markdown", "source-comprehension", "job-mail-template", "route-actions", "passage", "model-neighborhood",
+    "fact-identity", "model-brief-markdown", "source-comprehension", "job-mail-template", "route-actions", "passage", "model-neighborhood", "source-freshness",
 ))
 MAP_DOCS = ("docs/MODELS.md", "docs/REUSE.md", "docs/investigations.md", "docs/source-comprehension.md", "docs/job-mail-template.md", "docs/route-actions.md", "docs/passage.md", "docs/model-neighborhood.md")
 CORE_INPUTS = (

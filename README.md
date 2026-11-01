@@ -73,6 +73,26 @@ thistle links FACT_ID --store ./my-app/.thistle
 thistle check --store ./my-app/.thistle
 ```
 
+An explicit Ruby call can compare one saved file with a workspace supplied by the
+operator:
+
+```ruby
+reader = Thistle::Reader.new(store, generation: generation)
+begin
+  result = reader.source_freshness("app/models/order.rb", workspace_root: workspace)
+ensure
+  reader.close
+end
+```
+
+The result distinguishes matching, changed, unverifiable and not checked. Omitting
+`workspace_root` performs no live filesystem access. Ordinary Source remains
+saved-generation data, and Check still reports freshness as not checked. The
+comparison checks the recorded digest; it does not validate the saved blob or
+prove loaded-code coherence. See the [source freshness contract](docs/development/source-freshness.md)
+for path, byte, race and work limits. The visible Map action is a later integration
+step; this Reader operation does not add an implicit live read to Map.
+
 For larger source trees, opt in to a higher traversal budget with
 `thistle capture ./my-app --output ./my-app/.thistle --max-nodes 3000000` or
 `Thistle.capture(root: path, output: store, limits: { max_nodes: 3_000_000 })`.
