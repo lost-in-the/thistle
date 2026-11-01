@@ -94,6 +94,30 @@ fn byte_cut_continues_from_dropped_row_input_not_its_post_row_cursor() {
 }
 
 #[test]
+fn deferred_reference_diagnostics_cannot_discard_the_last_fitting_association() {
+    let (_store, reader, id, _) = fixture();
+    let root = reader.stored_fact(&id).unwrap();
+    let last = root["attributes"]["model"]["associations"]["entries"].as_array().unwrap().len()-1;
+    let scope = json!(["model_neighborhood",id,"edges","outgoing","all",null]);
+    let cursor = recorded_domain::cursor(&reader.generation,&scope,(last,0)).unwrap();
+    let first = page(&reader,&json!({"id":id,"limit":1,"cursor":cursor}));
+    assert_eq!(first["items"][0]["witness"]["ordinal"],last);
+    let full = page(&reader,&json!({"id":id,"limit":2,"cursor":cursor}));
+    assert_eq!(full["items"].as_array().unwrap().len(),2);
+    assert!(full["items"][1].get("recorded").is_some());
+    let budget = wire_bytes(&first,65536).unwrap()+8;
+    assert!(wire_bytes(&full,65536).unwrap()>budget);
+    let cut = page(&reader,&json!({"id":id,"limit":2,"cursor":cursor,"max_bytes":budget}));
+    assert_eq!(cut["items"],first["items"]);
+    assert_eq!(cut["next_cursor"],first["next_cursor"]);
+    assert_eq!(cut["coverage"]["last_reference_step"],first["coverage"]["last_reference_step"]);
+    assert_eq!(cut["cost"],first["cost"]);
+    let suffix=page(&reader,&json!({"id":id,"limit":2,"cursor":cut["next_cursor"]}));
+    assert_eq!(suffix["items"][0],full["items"][1]);
+    assert_eq!(suffix["coverage"]["page_complete"],true);
+}
+
+#[test]
 fn one_admitted_incoming_row_then_shared_zero_progress_is_not_completion() {
     let (_store, reader, id, _) = fixture();
     let parameters = json!({"id":id,"direction":"incoming","limit":1});

@@ -28,7 +28,10 @@ use Links. The selected model needs no duplicate navigation link per row. Source
 stays pinned to A after CURRENT B. The shared form and Nav-generated destinations
 preserve collection/search context, all 24 IDs, nine fields, 4096 bytes and the
 existing atomic-search-drop notice. Active filters reset their own continuation.
-A two-ID context and a full 24-ID/256-byte query are both explicit fixture cases.
+A two-ID context and 24 IDs with 256 unreserved ASCII search bytes are explicit
+success cases. Percent-encoded punctuation/non-ASCII search can take more URL
+space; not every maximum-size combination fits. An unfit page explains the context
+limit and keeps state intact. Incoming and outgoing can have different budgets.
 
 Each page makes one public Reader call. Map derives family row/byte admission
 together from actual escaped URL size, known href counts, form/cursor/markup
@@ -40,6 +43,8 @@ actionable display-limit message, not a generic missing/invalid-evidence message
 Rust owns rows, schema, candidates, witnesses and coverage. References prefilter
 relations before detail/candidate materialization under the existing shared work
 limits. Failed later budget attempts retain the prefix and exact input cursor;
+if deferred diagnostics no longer fit, the last admitted diagnostics/cursor are
+used instead, with all attempted work still charged and no selected row discarded.
 safely consumed skips can advance an empty page. Final serialization uses only
 the existing reserved metadata allowance. page_complete describes the selected
 domain; last_reference_step/row_retained describe one attempt, and completed-step

@@ -133,6 +133,49 @@ class ModelNeighborhoodPresenterTest < Minitest::Test
     assert_includes html, 'physical DB foreign keys and ON DELETE were not recorded'
   end
 
+  def test_default_outgoing_page_admits_eight_rows_without_repeating_the_full_root
+    params = { 'generation' => ModelNeighborhoodAnswers::G, 'id' => ModelNeighborhoodAnswers::ID }
+    nav = Thistle::Map::NavigationContext.new(generation: ModelNeighborhoodAnswers::G, params: params)
+    limit, max_bytes = Thistle::Map::ModelNeighborhoodPresenter.admission(nav)
+    assert_equal 8, limit
+    answer = ModelNeighborhoodAnswers.page
+    answer['root']['name'] = answer['model']['name'] = '&' * 512
+    answer['items'] = (0...8).map do |index|
+      row = Marshal.load(Marshal.dump(answer['items'].first))
+      row['witness']['ordinal'] = index
+      row['candidate_selector'] = "a:#{index}"
+      row['candidates'] = []
+      row['candidate_matches'] = row['candidate_known_omitted'] = 0
+      row['target_status'] = 'missing_or_unloaded'
+      row
+    end
+    html = render(answer, navigation: nav, limit: limit, max_bytes: max_bytes)
+    assert_equal 8, html.scan(/data-neighborhood-edge=/).length
+    assert_equal 1, html.scan('&amp;' * 512).length
+    assert_equal 8, html.scan(/<strong>This model →/).length
+    assert_operator html.bytesize + Thistle::Map::ModelNeighborhoodPresenter.layout_reserve(nav), :<=, 65_536
+  end
+
+  def test_encoded_search_has_an_explicit_context_limit_without_silently_dropping_state
+    query = ('Order.where(status: "open").includes(:items, :user); ' * 6).byteslice(0, 256)
+    assert_equal 256, query.bytesize
+    params = { 'generation' => ModelNeighborhoodAnswers::G, 'id' => ModelNeighborhoodAnswers::ID,
+      'selection' => (1..24).map { |n| n.to_s(16).rjust(64, '0') }.join(','), 'q' => query }
+    nav = Thistle::Map::NavigationContext.new(generation: ModelNeighborhoodAnswers::G, mount: '/map', params: params,
+      selection: Thistle::Map::Investigation.from_params(params))
+    error = assert_raises(Thistle::Map::ModelNeighborhoodPresenter::DisplayLimit) do
+      Thistle::Map::ModelNeighborhoodPresenter.admission(nav)
+    end
+    assert_includes error.message, 'Navigation context leaves no useful model page'
+    limit, max_bytes = Thistle::Map::ModelNeighborhoodPresenter.admission(nav, direction: 'incoming')
+    answer = ModelNeighborhoodAnswers.realistic(direction: 'incoming')
+    html = render(answer, navigation: nav, limit: limit, max_bytes: max_bytes)
+    assert_includes html, 'name="q" value="' + ERB::Util.html_escape(query) + '"'
+    assert_includes html, 'name="selection" value="' + params['selection'] + '"'
+    refute nav.search_omitted
+    assert_operator html.bytesize + Thistle::Map::ModelNeighborhoodPresenter.layout_reserve(nav), :<=, 65_536
+  end
+
   def test_literal_default_values_and_missing_saved_tag_refusal
     answer = ModelNeighborhoodAnswers.page(family: 'columns')
     defaults = [false, 0, '', nil].map { |v| { 'kind' => 'literal', 'value' => v } } + [{ 'kind' => 'expression' }, { 'kind' => 'opaque' }]
@@ -215,6 +258,11 @@ class ModelNeighborhoodPresenterTest < Minitest::Test
       selection: Thistle::Map::Investigation.from_params(params))
     answer = ModelNeighborhoodAnswers.page
     answer['root']['name'] = answer['model']['name'] = '&' * 2500
+    row = answer['items'].first
+    row['target_label'] = row['association']['target'] = '&' * 3000
+    row['candidates'] = []
+    row['candidate_matches'] = row['candidate_known_omitted'] = 0
+    row['target_status'] = 'missing_or_unloaded'
     html = render(answer, navigation: nav)
     assert html.include?('&amp;' * 2500), 'Full selected name must remain readable in HTML'
     assert_equal ['0'], html.scan(/data-neighborhood-edge="(\d+)"/).flatten

@@ -63,8 +63,9 @@ if $PROGRAM_NAME == __FILE__
       @mode = :overflow
       status, _, body = request
       assert_equal 422, status
-      assert_includes body.join, 'Model neighborhood display limit'
+      assert_includes body.join, 'Model neighborhood limit:'
       refute_includes body.join, 'missing or invalid'
+      refute_includes body.join, 'narrow search/collection'
       assert @readers.last.closed
     end
     def test_invalid_scope_and_access_refuse_before_reader_factory

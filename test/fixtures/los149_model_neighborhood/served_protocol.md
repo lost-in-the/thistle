@@ -33,7 +33,11 @@ created here; missing/failed/inconclusive required evidence cannot pass.
 7. Follow actual rendered physical Source hrefs with #L fragments to both required
    ReportBuilder sites and candidate declarations. Verify exact A bytes/line/digest
    after B, then Back to the same model/filter/page/search/collection.
-8. Test two-ID context AND 24 actual saved IDs with a full 256-byte query. Schema,
+8. Test two-ID context AND 24 actual saved IDs with 256 unreserved ASCII search
+   bytes. This is a named success case, not a guarantee for every maximum-size
+   combination. Also try a 256-byte Ruby-snippet query with punctuation: encoded
+   context can explicitly refuse outgoing while incoming still fits. A refusal
+   must explain the limit and never silently discard the query/collection. Schema,
    neighborhood and named candidate pages must render 200 with useful rows
    (Database facts correctly has unavailable inventory), preserving all IDs and
    search. The realistic supported case cannot pass by accepting 422. Separately

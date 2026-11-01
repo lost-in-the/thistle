@@ -216,8 +216,10 @@ module Thistle
         raise Limit, 'Model neighborhood page exceeds its display budget.' if content.bytesize > ModelNeighborhoodPresenter::MAX_BODY_BYTES
 
         content
-      rescue Thistle::LimitExceeded, ModelNeighborhoodPresenter::DisplayLimit => error
+      rescue ModelNeighborhoodPresenter::DisplayLimit => error
         raise Limit, "Model neighborhood display limit: #{error.message} Use a smaller page or narrow search/collection context."
+      rescue Thistle::LimitExceeded => error
+        raise Limit, "Model neighborhood limit: #{error.message}"
       end
 
       def model_neighborhood_navigation(fact)

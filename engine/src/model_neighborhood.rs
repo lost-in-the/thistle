@@ -106,6 +106,9 @@ pub(crate) fn select(reader: &Reader, query: &Query<'_>) -> Result<Value> {
     select_with_work(reader, query, &mut RequestWork::default())
 }
 struct Step { item: Option<Value>, next: (usize, usize), complete: bool, total: Option<usize> }
+struct AdmittedDiagnostics {
+    coverage: Value, cost: Value, position: (usize, usize), complete: bool, total: Option<usize>,
+}
 fn page_state(response: &mut Value, reader: &Reader, query: &Query<'_>, position: (usize, usize),
     complete: bool, total: Option<usize>) -> Result<()> {
     response["coverage"]["page_complete"] = json!(complete);
@@ -183,7 +186,7 @@ fn select_with_work(reader: &Reader, query: &Query<'_>, work: &mut RequestWork) 
     }
     work.metadata(&response, 1)?;
     wire_bytes(&response, query.max_bytes)?;
-    let mut starts = Vec::new();
+    let mut admitted = None;
     let mut complete = false;
     let mut known_total = None;
     while response["items"].as_array().unwrap().len() < query.limit && !complete {
@@ -323,7 +326,9 @@ fn select_with_work(reader: &Reader, query: &Query<'_>, work: &mut RequestWork) 
                 response["coverage"]["last_reference_step"]["row_retained"] = json!(true);
             }
             page_state(&mut response, reader, query, step.next, step.complete, known_total)?;
-            let admission = work.metadata(&response,1).and_then(|_| wire_bytes(&response,query.max_bytes));
+            let admission = work.metadata(&response,1)
+                .and_then(|_| work.metadata(&(&response["coverage"], &response["cost"]),2))
+                .and_then(|_| wire_bytes(&response,query.max_bytes));
             if let Err(error) = admission {
                 response["items"].as_array_mut().unwrap().pop();
                 if !response["coverage"]["last_reference_step"].is_null() {
@@ -334,7 +339,10 @@ fn select_with_work(reader: &Reader, query: &Query<'_>, work: &mut RequestWork) 
                 // cursor when native wire/metadata admission defers this row.
                 break;
             }
-            starts.push(before);
+            // One bounded checkpoint, replaced after each successful admission.
+            // Its clone/copy work is charged above; RequestWork is never copied.
+            admitted = Some(AdmittedDiagnostics { coverage: response["coverage"].clone(),
+                cost: response["cost"].clone(), position: step.next, complete: step.complete, total: known_total });
         } else if !step.complete && step.next==before { return Err(CoreError::limit("Neighborhood made no progress")); }
         position = step.next; complete = step.complete;
         if response["items"].as_array().unwrap().is_empty() && !complete { break; }
@@ -347,10 +355,14 @@ fn select_with_work(reader: &Reader, query: &Query<'_>, work: &mut RequestWork) 
         work.metadata(&response,1)?;
         match wire_bytes(&response,query.max_bytes) {
             Ok(_) => break,
-            Err(error) if error.code=="limit_exceeded" && response["items"].as_array().unwrap().len()>1 => {
-                response["items"].as_array_mut().unwrap().pop();
-                position=starts.pop().unwrap();complete=false;
-                if !response["coverage"]["last_reference_step"].is_null() { response["coverage"]["last_reference_step"]["row_retained"]=json!(false); }
+            Err(error) if error.code=="limit_exceeded" && admitted.is_some() => {
+                // A later refused/deferred step may enlarge diagnostics even
+                // though its row was never admitted. Restore the last fitting
+                // prefix's diagnostics and cursor, not the charged work. Taking
+                // the checkpoint also makes this a single bounded retry.
+                let checkpoint = admitted.take().unwrap();
+                response["coverage"] = checkpoint.coverage; response["cost"] = checkpoint.cost;
+                position = checkpoint.position; complete = checkpoint.complete; known_total = checkpoint.total;
             },
             Err(error) => return Err(error),
         }

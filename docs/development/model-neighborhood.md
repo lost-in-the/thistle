@@ -75,8 +75,9 @@ access, full-fact expansion, callback analysis or execution/binding claim.
 Reader defaults remain 8 rows / 32 KiB; ceilings remain 16 / 64 KiB. Wire sizing
 includes native ok/result envelope plus one newline byte. Usage reports actual
 returned rows and wire bytes. Mandatory-envelope/first-selected-row overflow
-refuses; Map translates native budget refusal into an actionable display limit,
-rather than reporting missing/invalid evidence.
+refuses; Map reports the native limit and its reason without calling reader/query
+resource exhaustion a display failure. Display admission has its own explicit
+context/markup limit message. Neither is reported as missing/invalid evidence.
 
 The recorded-v1 scope is
 ['model_neighborhood',id,family,direction,type,candidate].
@@ -93,6 +94,13 @@ failed step's input. A wire-deferred row never uses its post-row cursor. Only
 safely consumed skips reported by the private reference adapter can advance an
 otherwise empty budget-stopped page. First zero progress still refuses. Visits,
 copies, failed metadata charges and attempts are never rolled back.
+
+One charged coverage/cost checkpoint is replaced after each row fits. If later
+deferred-step diagnostics would push that already fitting prefix over the wire
+limit, finalization restores its last admitted diagnostics and continuation.
+The response may therefore omit later diagnostic attempts and replay safely
+skipped input. Their RequestWork charges remain spent; no row or work counter is
+rolled back. The checkpoint retry is single-use and does not discard a fitted row.
 
 RequestWork exposes only finish_metadata to open its existing final 3 MiB.
 Component metadata still uses the first 5 MiB; a failure poisons that allowance.
@@ -159,7 +167,8 @@ or emitted link. Each cursor-bearing control separately reserves
 hrefs and at most two query units of form values). Presenter controls reserve
 2048+3u+cursor bytes (shared form values and one continuation href). Per row,
 outgoing edges need at most four hrefs, incoming/candidates one, columns/DB zero.
-Extra outgoing root-name repetitions reserve (L-1)*4096*5 bytes. The minimum
+Association origins say "This model"; its full name remains in the heading, so
+there is no per-row repetition of an arbitrary-length root name. The minimum
 202 JSON bytes of required version/cost/usage headers are not rendered;
 validation guarantees them and admission credits only those 202 bytes. Primary escaped
 text reserves five times native JSON bytes; represented labels/options are not
@@ -169,12 +178,18 @@ the measured literal four-long-candidate useful page with six non-complete
 capture families, not a
 claim that every arbitrary maximum-length saved value fits.
 
-The pure budget-enforcing fixture at 24 IDs +256q and /map requires success,
-not 200-or-422. It includes real Rust-shaped reader-open/directory/coverage/
+The pure budget-enforcing fixture at 24 IDs +256 unreserved ASCII search bytes
+and /map requires success, not 200-or-422. It includes Rust-shaped reader-open/directory/coverage/
 usage metadata, four long candidate identities and continuation. Outgoing uses
 L1 /4829 native bytes; incoming/candidates L4 /4829; columns/DB L8 /6475.
-Actual complete markup still must fit 64 KiB. Exceptionally unfit first rows
-remain honest actionable limits under unchanged native/display ceilings.
+Actual complete markup still must fit 64 KiB. With ordinary context the outgoing
+scheduler admits up to eight rows; native wire admission can return fewer.
+Percent encoding can expand a decoded search byte to three URL bytes. The maximum
+24-ID collection and a legal 256-byte search are not guaranteed to fit together:
+admission depends on encoded URL bytes, mount and filters. A long Ruby-snippet
+search explicitly refuses an unfit outgoing page while its incoming page can fit.
+The refusal keeps state intact; reduce context rather than silently dropping it.
+Exceptionally unfit first rows likewise remain explicit limits under unchanged caps.
 
 The full named HTML list is primary. A deterministic server SVG uses exactly
 the same selected rows, with targets on a separate line. It is added only if

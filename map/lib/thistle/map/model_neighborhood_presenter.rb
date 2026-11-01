@@ -53,11 +53,8 @@ module Thistle
         # One shared GET form for all family/filter/candidate controls, plus one
         # continuation href. No query state is repeated for each filter button.
         controls = 2048 + 3 * unit + CURSOR_BYTES
-        # Association rows refer to the root by ID. Its name is on the wire twice
-        # (root/model), but repeated in each list row; reserve additional repeats.
-        repeated_root = family == 'edges' && direction == 'outgoing' ? (limit - 1) * 4096 * TEXT_GROWTH : 0
         remaining = MAX_BODY_BYTES - layout_reserve(navigation) - controls -
-          row_links(family, direction) * limit * unit - repeated_root
+          row_links(family, direction) * limit * unit
         [remaining / TEXT_GROWTH + HIDDEN_ENVELOPE_BYTES, NATIVE_BYTES].min
       end
 
@@ -267,10 +264,14 @@ module Thistle
         end
       end
 
-      def endpoints(row) = [origin(row).fetch('name'), row['target_label'] || 'Unknown / polymorphic target']
+      # The full selected name is in the heading. Do not repeat an arbitrarily
+      # long root label in every declaration row or reserve that repetition.
+      def origin_name(row) = row['association'] ? 'This model' : origin(row).fetch('name')
+      def endpoints(row) = [origin_name(row), row['target_label'] || 'Unknown / polymorphic target']
 
       def edge(row, index)
-        text = "<li id=\"mn-edge-#{index}\" data-neighborhood-edge=\"#{index}\"><p><strong>#{identity_link(origin(row))} → #{h(row['target_label'] || 'Unknown / polymorphic target')}</strong> · #{h(row.fetch('relation'))} · #{h(row.fetch('direction'))} · #{h(row.fetch('type'))}</p>"
+        from = row['association'] ? 'This model' : identity_link(origin(row))
+        text = "<li id=\"mn-edge-#{index}\" data-neighborhood-edge=\"#{index}\"><p><strong>#{from} → #{h(row['target_label'] || 'Unknown / polymorphic target')}</strong> · #{h(row.fetch('relation'))} · #{h(row.fetch('direction'))} · #{h(row.fetch('type'))}</p>"
         text << "<p>#{h(row.fetch('target_status'))}. Binding unknown.</p>"
         if row['association']
           entry = row.fetch('association')
