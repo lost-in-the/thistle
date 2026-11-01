@@ -17,6 +17,9 @@ receipt/log paths and caller-supplied roots out of public delivery prose.
 `produce.rb` publishes small, literal public schema-1 fixtures through
 `Thistle::Store#publish`, not capture. It creates saved A, publishes distinct B,
 changes live source to B, removes one file and substitutes a symlink for another.
+It retains one public Reader opened on A across B publication and disk edits,
+then requires exact A Source, changed freshness and Check still not_checked;
+the fresh consumer validates that retained-handle receipt against its own cards.
 No fixture source is required/evaluated. Its receipt identifies both generations,
 explicit operator roots, one saved fact ID and a finite list of protected file
 digests (CURRENT, each generation's manifest/facts and known source blobs).

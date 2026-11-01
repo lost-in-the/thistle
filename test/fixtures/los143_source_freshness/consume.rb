@@ -11,6 +11,11 @@ raise 'Checkout Core used' unless gem_path.start_with?(installed + File::SEPARAT
 receipt = JSON.parse(File.read(ARGV.fetch(0)))
 cards = JSON.parse(File.read(File.join(__dir__, 'expected_cards.json')))
 def demand(condition, message) = (raise message unless condition)
+retained = receipt.fetch('retained_reader_after_b')
+source_card = cards.fetch('files').fetch('sub/source.rb')
+demand(retained.values_at('generation', 'source_sha256', 'source_bytes', 'status', 'check_integrity', 'check_freshness') ==
+  [receipt.fetch('saved_a'), source_card.fetch('sha256'), source_card.fetch('bytes'), 'changed', 'verified', 'not_checked'],
+  'Producer retained handle did not preserve A across CURRENT B and disk edits')
 store = receipt.fetch('store'); root = receipt.fetch('root')
 reader = Thistle::Reader.new(store, generation: receipt.fetch('saved_a'))
 results = []

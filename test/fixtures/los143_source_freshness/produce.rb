@@ -29,10 +29,25 @@ def data(source)
 end
 a = data(source_a); a.fetch('files').each { |row| File.binwrite(File.join(root, row.fetch('path')), row.fetch('content')) }
 saved_a = Thistle::Store.new(store).publish(a).fetch('generation')
-# The producer never invokes Capture, a parser or an application.
-saved_b = Thistle::Store.new(store).publish(data(source_b)).fetch('generation')
-raise 'Generation did not advance' if saved_a == saved_b
-File.binwrite(File.join(root, 'sub/source.rb'), source_b)
+# Retain this exact public handle across CURRENT advancement and disk edits.
+retained_reader = Thistle::Reader.new(store, generation: saved_a)
+begin
+  # The producer never invokes Capture, a parser or an application.
+  saved_b = Thistle::Store.new(store).publish(data(source_b)).fetch('generation')
+  raise 'Generation did not advance' if saved_a == saved_b
+  File.binwrite(File.join(root, 'sub/source.rb'), source_b)
+  retained_source = retained_reader.source('b' * 64)
+  retained_freshness = retained_reader.source_freshness('sub/source.rb', workspace_root: root)
+  retained_check = retained_reader.check
+  raise 'Retained Source changed' unless retained_source.fetch('content') == source_a
+  raise 'Retained freshness differs' unless retained_freshness.values_at('generation', 'status') == [saved_a, 'changed']
+  raise 'Check adopted freshness' unless retained_check.values_at('integrity', 'freshness') == %w[verified not_checked]
+  retained_card = { 'generation' => retained_reader.generation, 'source_sha256' => retained_source.fetch('sha256'),
+    'source_bytes' => retained_source.fetch('content').bytesize, 'status' => retained_freshness.fetch('status'),
+    'check_integrity' => retained_check.fetch('integrity'), 'check_freshness' => retained_check.fetch('freshness') }
+ensure
+  retained_reader.close
+end
 File.unlink(File.join(root, 'missing.rb'))
 File.unlink(File.join(root, 'link.rb')); File.symlink('stable.rb', File.join(root, 'link.rb'))
 File.symlink(root, File.join(work, 'root_alias'))
@@ -44,5 +59,6 @@ fingerprints = protected.to_h { |path| [path, Digest::SHA256.file(File.join(stor
 raise 'Framework unexpectedly loaded' if defined?(Rails) || defined?(ActiveRecord)
 puts JSON.generate({ 'version' => 1, 'root' => root, 'root_alias' => File.join(work, 'root_alias'), 'store' => store,
   'saved_a' => saved_a, 'current_b' => saved_b, 'fact_id' => 'b' * 64, 'protected_files' => fingerprints,
+  'retained_reader_after_b' => retained_card,
   'producer' => { 'core_version' => Gem.loaded_specs.fetch('thistle').version.to_s,
     'rails_loaded' => false, 'active_record_loaded' => false, 'capture_invoked' => false } })
