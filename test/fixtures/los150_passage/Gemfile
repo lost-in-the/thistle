@@ -1,0 +1,6 @@
+source 'https://rubygems.org'
+gem 'rails', '= 8.1.4'
+gem 'sqlite3', '~> 2.0'
+# Root supplies the exact installed Core/Map pair; do not add checkout paths.
+gem 'thistle', '= 0.1.0.pre.3'
+gem 'thistle-map', '= 0.1.0.pre.3'

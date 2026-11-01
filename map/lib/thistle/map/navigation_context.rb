@@ -20,7 +20,7 @@ module Thistle
 
       def initialize(generation:, mount: '', params: {}, selection: nil)
         @generation, @mount, @selection = generation, mount, selection
-        @current = params.slice('id', 'file', 'path', 'direction', 'page', 'cursor', 'candidate')
+        @current = params.slice('id', 'file', 'path', 'direction', 'page', 'cursor', 'candidate', 'action')
         @search = params.slice(*SEARCH_FIELDS)
         @search_query = URI.encode_www_form(@search).freeze
         initial_state = state(selection)
@@ -36,11 +36,15 @@ module Thistle
         if path.start_with?('/comprehension/') && !%w[/comprehension/contributions /comprehension/methods].include?(path)
           raise Investigation::Invalid, 'Unknown source comprehension route.'
         end
+        if path.start_with?('/passage/') && !%w[/passage/sequence /passage/export].include?(path)
+          raise Investigation::Invalid, 'Unknown passage route.'
+        end
         extra = extra.merge(destination) unless destination.empty?
         controls = @current.merge(extra)
         if extra.key?('id') && extra['id'] != @current['id']
-          %w[direction page cursor candidate].each { |key| controls.delete(key) unless extra.key?(key) }
+          %w[direction page cursor candidate action].each { |key| controls.delete(key) unless extra.key?(key) }
         end
+        controls.delete('cursor') if extra.key?('action') && extra['action'] != @current['action'] && !extra.key?('cursor')
         destination = case path
                       when '/source'
                         if extra.key?('file') || extra.key?('path')
@@ -56,6 +60,7 @@ module Thistle
                         end
                       when '/links' then controls.slice('id', 'direction', 'page')
                       when '/route-actions' then controls.slice('id', 'cursor')
+                      when '/passage/sequence', '/passage/export' then controls.slice('id', 'action', 'cursor')
                       when %r{\A/brief/(?:columns|associations|registry_candidates)\z} then controls.slice('id', 'cursor')
                       when '/comprehension/contributions', '/comprehension/methods' then controls.slice('id', 'cursor')
                       when %r{\A/job-mail/(?:overview|registrations|declarations|policy|handoff|template_references)\z} then controls.slice('id', 'cursor')
@@ -95,7 +100,17 @@ module Thistle
 
       # Route names carry family/direction so continuation still fits nine fields.
       def self.continuation(path, params)
-        return nil unless path == '/route-actions' || path.start_with?('/brief/', '/references/', '/comprehension/', '/job-mail/')
+        return nil unless path == '/route-actions' || path.start_with?('/brief/', '/references/', '/comprehension/', '/job-mail/', '/passage/')
+        if path.start_with?('/passage/')
+          family = path.delete_prefix('/passage/')
+          unless %w[sequence export].include?(family) && (params.keys - (%w[generation id action selection cursor] + SEARCH_FIELDS)).empty? &&
+              %w[generation id].all? { |key| Investigation::DIGEST.match?(params[key].to_s) } &&
+              (!params.key?('action') || Investigation::DIGEST.match?(params['action'].to_s))
+            raise Investigation::Invalid, 'Passage requires exact saved generation, route, optional action and destination fields.'
+          end
+          validate_cursor!(params['cursor'], generation: params['generation'], scope: ['passage',params['id'],params['action'],family]) if params.key?('cursor')
+          return { passage: family }
+        end
         if path == '/route-actions'
           unless (params.keys - (%w[generation id selection cursor] + SEARCH_FIELDS)).empty? &&
               Investigation::DIGEST.match?(params['generation'].to_s) && Investigation::DIGEST.match?(params['id'].to_s)

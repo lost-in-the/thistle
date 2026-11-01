@@ -15,6 +15,7 @@ require_relative 'investigation_evidence'
 require_relative 'source_comprehension_sources'
 require_relative 'job_mail_presenter'
 require_relative 'route_actions_presenter'
+require_relative 'passage_presenter'
 
 module Thistle
   module Map
@@ -208,6 +209,23 @@ module Thistle
         raise Investigation::Limit, 'Investigation page exceeds its total output budget; no partial page was returned.' if content.bytesize > InvestigationPresenter::MAX_PAGE_BYTES
 
         content
+      end
+
+      def passage_page(family)
+        raise Limit, 'Saved request Passage is unavailable with this Reader.' unless @reader.respond_to?(:passage)
+        id = @params.fetch('id')
+        limit = PassagePresenter.page_limit(@navigation)
+        max_bytes = PassagePresenter.request_bytes(@navigation, family: family, action: @params['action'])
+        answer = @reader.passage(id, action: @params['action'], family: family,
+          limit: limit, cursor: @params['cursor'], max_bytes: max_bytes)
+        PassagePresenter.validate!(answer, generation: @generation, id: id, action: @params['action'],
+          family: family, cursor: @params['cursor'], limit: limit, max_bytes: max_bytes)
+        body = "<h1 class=\"t1\">#{h(answer.fetch('root').fetch('name'))}</h1>"
+        body << PassagePresenter.new(navigation: @navigation).render(answer)
+        bounded_evidence_page('Potential request Passage', body, fact: answer.fetch('root'))
+      rescue Thistle::InvalidInput => error
+        raise unless error.message == 'Unknown native operation'
+        raise Limit, 'Saved request Passage is unavailable with this native Reader.'
       end
 
       def route_actions_page
@@ -613,7 +631,9 @@ module Thistle
 
       def route_actions_navigation(fact)
         return '' unless fact['kind'] == 'route' && @reader.respond_to?(:route_actions)
-        "<p><a href=\"#{h(url('/route-actions', 'id'=>fact.fetch('id')))}\">Inspect controller/action candidates</a></p>"
+        links = "<p><a href=\"#{h(url('/route-actions', 'id'=>fact.fetch('id')))}\">Inspect controller/action candidates</a></p>"
+        links << "<p><a href=\"#{h(url('/passage/sequence', 'id'=>fact.fetch('id')))}\">Inspect potential request Passage</a></p>" if @reader.respond_to?(:passage)
+        links
       end
 
       def fact_tiles(fact, details: true)

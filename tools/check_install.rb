@@ -50,8 +50,8 @@ Dir.mktmpdir("thistle-installed-", File.realpath(Dir.tmpdir)) do |worker|
                  docs/development/find-evidence.md docs/development/route-constraints.md
                  docs/development/model-references.md docs/development/recorded-domain-access.md
                  docs/development/fact-identity.md docs/development/model-brief-markdown.md
-                 docs/development/source-comprehension.md docs/development/job-mail-template.md docs/development/route-actions.md],
-      map => %w[docs/MODELS.md docs/REUSE.md docs/investigations.md docs/source-comprehension.md docs/job-mail-template.md docs/route-actions.md]
+                 docs/development/source-comprehension.md docs/development/job-mail-template.md docs/development/route-actions.md docs/development/passage.md],
+      map => %w[docs/MODELS.md docs/REUSE.md docs/investigations.md docs/source-comprehension.md docs/job-mail-template.md docs/route-actions.md docs/passage.md]
     }.each do |package, expected|
       actual = Gem::Package.new(package).contents.select { |path| path.start_with?("docs/") }.sort
       raise "Installed document manifest differs for #{File.basename(package)}: #{actual.inspect}" unless actual == expected.sort

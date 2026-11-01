@@ -27,6 +27,7 @@ Gem::Specification.new do |spec|
     docs/development/source-comprehension.md
     docs/development/job-mail-template.md
     docs/development/route-actions.md
+    docs/development/passage.md
   ]
   installed_docs.each do |path|
     raise "Missing installed document: #{path}" unless File.file?(path)

@@ -172,6 +172,16 @@ same generation. See the [route/action contract](docs/development/route-actions.
 The Map entry is **Inspect controller/action candidates** on recorded route
 evidence. Installed, served and person acceptance for this new slice is pending.
 
+For one recorded route, `reader.passage(route_id)` returns saved action choices
+without choosing a definition. Pass an explicit saved `action:` ID to inspect its
+registered filters, source operations and supported potential save/job/mail
+boundaries; `family: "export"` returns the same page's evidence as bounded text.
+An index or helper action does not acquire a model-save branch from unrelated
+callbacks. Runtime binding, conditions and execution remain unknown. The default
+is eight rows/32 KiB with Native continuation on the same generation. See the
+installed [selected-action Passage contract](docs/development/passage.md).
+Its real Rails-installed and served acceptance remains pending.
+
 Use `export-model-brief` to share that saved model summary as deterministic
 Markdown, with explicit uncertainty and generation-pinned literal evidence
 commands. It requires the generation and embeds no captured source bodies or
@@ -234,6 +244,14 @@ First installed job/mail cards require Rails 8.1.4; the 7.1.6 compatibility leaf
 is present but unverified by this fixture. Application overrides stay unavailable.
 A busy source-analysis worker yields a transient Map 503 with Retry-After:1; retry
 the page explicitly. No automatic retry, queue or capture substitution occurs.
+
+Controller-filter observation is also explicit: add
+`controller_filters: [OrdersController]` with the supplied `rails:` app and root.
+The guarded Rails 8.1.4 adapter records registration order, inherited method
+ownership and action applicability without running filters or conditions. A
+registration is not an execution step; `controller_filters: nil` keeps the prior
+capture path. The [Passage contract](docs/development/passage.md) describes which
+selected-action source witnesses can qualify a related save contribution.
 
 ## Optional Map
 

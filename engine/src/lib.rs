@@ -6,6 +6,8 @@ mod callbacks;
 mod callback_effects;
 mod method_lookup;
 mod route_actions;
+mod passage;
+mod controller_filters;
 mod source_comprehension;
 mod job_mail;
 mod job_mail_source;
@@ -55,6 +57,7 @@ fn request_scratch(request: &Value) -> Result<Option<query::Reservation>> {
         Some("source_comprehension") => source_comprehension::Query::parse(request)?.scratch(),
         Some("job_mail") => job_mail::Query::parse(request)?.scratch(),
         Some("route_actions") => route_actions::Query::parse(request)?.scratch(),
+        Some("passage") => passage::Query::parse(request)?.scratch(),
         Some("callback_effects") => callback_effects::Query::parse(request)?.scratch(),
         Some("references") => references::Query::parse(request)?.scratch(),
         Some("find_evidence") => query::Query::parse(request)?.scratch()?,
@@ -96,6 +99,7 @@ fn dispatch_inner(request: &Value) -> Result<Value> {
         "callback_batch" => callbacks::batch(&request["context"], &request["observation"]),
         "source_comprehension_batch" => source_comprehension::batch(&request["context"], &request["observation"], schema::string(request, "root")?),
         "job_mail_batch" => job_mail::batch(&request["context"], &request["observation"]),
+        "controller_filters_batch" => controller_filters::batch(&request["context"], &request["observation"]),
         "open" => {
             let requested = match request.get("generation") { None | Some(Value::Null) => None,
                 Some(value) => Some(value.as_str().ok_or_else(|| CoreError::input("Generation must be a string"))?) };
@@ -135,6 +139,7 @@ fn dispatch_inner(request: &Value) -> Result<Value> {
         "callback_effects" => callback_effects::select(&*reader(request)?, &callback_effects::Query::parse(request)?),
         "references" => references::select(&*reader(request)?, &references::Query::parse(request)?),
         "route_actions" => route_actions::select(&*reader(request)?, &route_actions::Query::parse(request)?),
+        "passage" => passage::select(&*reader(request)?, &passage::Query::parse(request)?),
         "check" => reader(request)?.check(),
         _ => Err(CoreError::input("Unknown native operation")),
     }

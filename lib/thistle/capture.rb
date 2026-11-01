@@ -26,12 +26,13 @@ module Thistle
       end.freeze
     end
 
-    def initialize(root:, rails: nil, limits: {}, source_comprehension: nil, job_mail: nil)
+    def initialize(root:, rails: nil, limits: {}, source_comprehension: nil, job_mail: nil, controller_filters: nil)
       @root = root.to_s
       @rails = rails
       @limits = self.class.copy_limits(limits)
       @source_comprehension = source_comprehension_context(source_comprehension)
       @job_mail = job_mail_context(job_mail)
+      @controller_filters = controller_filters_context(controller_filters)
     end
 
     def call
@@ -48,7 +49,7 @@ module Thistle
       end
       # One initial link count for explicit observation paths. Append uses native
       # delta charges and never rewalks/serializes earlier facts for each family.
-      links = (@rails || @source_comprehension) ? result.fetch("facts").sum { |fact| fact.fetch("links").length } : 0
+      links = (@rails || @source_comprehension || @controller_filters) ? result.fetch("facts").sum { |fact| fact.fetch("links").length } : 0
       if @rails
         require_relative "rails_capture"
         static_fact_count = result.fetch("facts").length
@@ -111,6 +112,15 @@ module Thistle
         fact_bytes, links = append_observations(result, effective, 'job_mail', observations, fact_bytes, links)
         result.fetch('evidence_accounting')['fact_bytes_upper_bound'] = fact_bytes
       end
+      if @controller_filters
+        require_relative 'controller_filters_observer'
+        observations = ControllerFiltersObserver.new(app: @rails, root: File.expand_path(@root),
+          controllers: @controller_filters,
+          framework_version: defined?(Rails::VERSION::STRING) ? Rails::VERSION::STRING : nil,
+          limits: observation_limits(effective, result), evidence_budget: MAX_EVIDENCE_BYTES - fact_bytes).call
+        fact_bytes, links = append_observations(result, effective, 'controller_filters', observations, fact_bytes, links)
+        result.fetch('evidence_accounting')['fact_bytes_upper_bound'] = fact_bytes
+      end
       raise LimitError, "Capture exceeds max_facts" if result["facts"].length > effective[:max_facts]
       raise LimitError, "Capture exceeds max_diagnostics" if result["diagnostics"].length > effective[:max_diagnostics]
 
@@ -123,6 +133,20 @@ module Thistle
       limits = effective.merge(max_facts: effective[:max_facts] - result.fetch('facts').length)
       limits[:max_entries] -= @job_mail_entries if family == 'job_mail'
       limits
+    end
+
+    def controller_filters_context(value)
+      exact = Object.instance_method(:instance_of?)
+      return nil if exact.bind_call(value, NilClass)
+      unless @rails && exact.bind_call(value, Array) && Array.instance_method(:length).bind_call(value) <= 100_000
+        raise InvalidInput, 'Controller filters require a supplied Rails app and explicit loaded Class array'
+      end
+      copy = []
+      Array.instance_method(:each).bind_call(value) do |controller|
+        raise InvalidInput, 'Controller inventory requires loaded Classes' unless exact.bind_call(controller, Class)
+        copy << controller
+      end
+      copy.freeze
     end
 
     def job_mail_context(value)
