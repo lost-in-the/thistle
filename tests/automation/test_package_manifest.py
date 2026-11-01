@@ -18,9 +18,9 @@ ROOT = Path(__file__).resolve().parents[2]
 CORE_DOCS = tuple("docs/development/" + name + ".md" for name in (
     "platforms", "tagged-call-encoding", "loaded-model-evidence", "callback-evidence",
     "find-evidence", "route-constraints", "model-references", "recorded-domain-access",
-    "fact-identity", "model-brief-markdown", "source-comprehension", "job-mail-template",
+    "fact-identity", "model-brief-markdown", "source-comprehension", "job-mail-template", "route-actions",
 ))
-MAP_DOCS = ("docs/MODELS.md", "docs/REUSE.md", "docs/investigations.md", "docs/source-comprehension.md", "docs/job-mail-template.md")
+MAP_DOCS = ("docs/MODELS.md", "docs/REUSE.md", "docs/investigations.md", "docs/source-comprehension.md", "docs/job-mail-template.md", "docs/route-actions.md")
 CORE_INPUTS = (
     "lib/thistle/version.rb", "lib/thistle.rb", "exe/thistle", "ext/thistle_native/extconf.rb",
     "ext/thistle_native/thistle_native.c", "engine/Cargo.toml", "engine/Cargo.lock",

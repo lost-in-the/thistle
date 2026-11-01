@@ -33,7 +33,7 @@ async function follow(page, label) {
 }
 async function candidate(page, text) {
   const card = page.locator('article').filter({ hasText: text }).first();
-  await card.getByRole('link', { name: 'Inspect this saved candidate', exact: true }).focus();
+  await card.getByRole('link', { name: /^Inspect saved / }).focus();
   await page.keyboard.press('Enter');
   await page.waitForLoadState('domcontentloaded');
 }

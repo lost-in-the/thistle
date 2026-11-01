@@ -113,4 +113,17 @@ Busy source analysis renders 503 with Retry-After:1 and “retry this page” te
 GET/HEAD/close/access and saved generation stay intact, without automatic retries.
 Conventional implicit mail defaults, template_name-only and positional render are
 PRIORITIZED PARENT follow-ups; unsupported selection is not a resolved candidate.
-Actual native/installed/served execution remains UNRUN pending Root's finite gate.
+The preceding check counts describe the source-authoring phase; current exact
+installed and served evidence is recorded separately in the PR's technical
+checkpoint. Source checks alone do not establish that acceptance.
+
+Policy pages lead with a bounded recorded signature before detailed fields:
+for example, `discard_on MissingRecipient (opaque block)`. Only Core-supplied
+display syntax appears; missing option syntax supplies no invented default.
+Registration association remains unknown. The summary shows at most four
+exception labels and 512 UTF-8 bytes with an ellipsis when cut; detailed evidence
+and physical Source remain available. Candidate actions name the saved kind and
+candidate rather than repeating an indistinguishable generic action. Long action
+captions are bounded to 160 bytes; the complete saved name remains immediately
+above the link. These presentation limits do not change semantic targets,
+continuation, Native analysis or the existing 64 KiB rendered-page cap.

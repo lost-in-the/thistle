@@ -30,7 +30,7 @@ accept generation, ID, selection, cursor and bounded search fields. Invalid
 fields or a cursor for another route/generation are refused before Reader opens.
 Existing host/peer authorization, CSP and GET/HEAD boundaries apply.
 
-See the [Core contract](../../docs/development/route-actions.md) for the bounded
+See the [Core contract](https://github.com/lost-in-the/thistle/blob/e849e41f545f81c18692dba1a00ae9a84350c8a6/docs/development/route-actions.md) for the bounded
 naming convention, DTO, costs and unknowns. The source journey is implemented;
 native, installed, actual served/browser and person acceptance remain pending.
 The authored installed contract follows the rendered physical Source link after
