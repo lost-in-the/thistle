@@ -78,7 +78,10 @@ module Thistle
           validate_reader!
           refuse('invalid_snapshot', 'Reader response generation mismatch.') unless result.is_a?(Hash) && result['generation'] == @generation
           data = { 'version' => 1, 'generation' => @generation, 'tool' => name, 'reader' => result, 'notice' => NOTICE }
-          data['selection'] = selected if selected
+          if selected
+            data['selection'] = selected
+            data['selection_span_validation'] = 'recorded_not_revalidated'
+          end
           data['source_files'] = file_selectors(result) if name == 'thistle_find'
           answer = encode(data, error: false)
           remember_cursor(name, args, result)

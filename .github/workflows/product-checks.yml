@@ -110,6 +110,12 @@ jobs:
         run: |
           set -o pipefail
           bundle exec ruby -Ilib -Imap/lib -Imap/test -e 'paths = Dir.glob("map/test/*_test.rb").sort; abort "Map tests absent" if paths.empty?; paths.each { |path| require File.expand_path(path) }' 2>&1 | tee "$RUNNER_TEMP/results/map.log"
+      - name: MCP admission and lifecycle contracts without SDK activation
+        if: hashFiles('source/mcp/lib/thistle/mcp.rb') != ''
+        working-directory: source
+        run: |
+          set -o pipefail
+          bundle exec rake mcp 2>&1 | tee "$RUNNER_TEMP/results/mcp.log"
       - name: Build and account for exact candidate packages
         if: inputs.package
         working-directory: source

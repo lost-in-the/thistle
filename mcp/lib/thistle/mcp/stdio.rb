@@ -25,8 +25,9 @@ module Thistle
             super(json)
             # handle_json returns encoded JSON for malformed input; inspecting
             # its small error envelope does not parse successful large results.
-            error = message.is_a?(Hash) ? (message[:error] || message['error']) : (json.include?('"error"') && json.bytesize < 4096 ? JSON.parse(json)['error'] : nil)
-            close if error && (error[:code] || error['code']) == -32700
+            parsed = message.is_a?(Hash) ? message : (json.include?('"error"') && json.bytesize < 4096 ? JSON.parse(json) : nil)
+            error = parsed.is_a?(Hash) ? (parsed[:error] || parsed['error']) : nil
+            close if error.is_a?(Hash) && (error[:code] || error['code']) == -32700
           rescue IOError, SystemCallError
             raise ConnectionEnd, 'protocol output disconnected'
           end

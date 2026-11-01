@@ -6,9 +6,9 @@ module Thistle
       FAMILIES = %w[columns associations registry_candidates].freeze
       DESCRIPTIONS = {
         'thistle_find' => 'Find literal saved source or allowlisted metadata. Coverage and lower-bound totals matter; no semantic search or runtime binding.',
-        'thistle_model_brief' => 'Read a saved model Brief, or continue a declared family. Registered, source-potential and executed behavior are distinct.',
+        'thistle_model_brief' => 'Read a saved model Brief, or continue a declared family. Registered, source-potential and executed behavior are distinct. Its callback_effects followup is outside this adapter, not absent from Core. Map supported model_brief/references/source-by-ID followups to the corresponding thistle tools; omit operation and null optional fields.',
         'thistle_links' => 'Follow saved incoming/outgoing references and ALL candidate pages using exact returned cursors and candidate_link ordinals. Label match is not dispatch.',
-        'thistle_source' => 'Read one complete admitted captured file by fact ID or SHA256 of its recorded path. No live files or ranges; large files refuse.',
+        'thistle_source' => 'Read one complete admitted captured file by fact ID or SHA256 of its recorded path. No live files or ranges; large files refuse. Selection spans are recorded, not revalidated by this call; thistle_check validates saved positions.',
         'thistle_check' => 'Check integrity of this saved generation once per session. This does not check current source or runtime freshness.'
       }.freeze
       KEYS = {

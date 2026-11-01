@@ -136,6 +136,7 @@ class SessionTest < Minitest::Test
     assert_equal CONTENT, answer[:data].dig('reader', 'content')
     assert_equal [[:identity, ID], [:source_file, PATH]], @reader.operations
     assert_equal ID, answer[:data].dig('selection', 'id')
+    assert_equal 'recorded_not_revalidated', answer[:data]['selection_span_validation']
     assert_equal answer[:data], JSON.parse(answer[:json])
   end
 
@@ -152,6 +153,7 @@ class SessionTest < Minitest::Test
     file = Digest::SHA256.hexdigest(PATH)
     answer = call('source', file: file)
     refute answer[:error]
+    refute answer[:data].key?('selection_span_validation')
     assert_equal [[:source_file, PATH]], @reader.operations
     @reader.content = 'altered'
     assert_equal 'invalid_snapshot', call('source', file: file)[:data].dig('refusal', 'code')

@@ -102,4 +102,17 @@ class StdioTest < Minitest::Test
     assert_raises(Thistle::MCP::ConnectionEnd) { transport.send_response(payload) }
     assert_equal 8, transport.sent.length
   end
+
+  def test_encoded_batch_error_is_sent_once_without_post_write_type_error
+    transport = Thistle::MCP::Stdio.transport_class.new(Object.new)
+    batch = JSON.generate([{ 'jsonrpc' => '2.0', 'id' => 1,
+      'error' => { 'code' => -32601, 'message' => 'Method not found' } }])
+    transport.send_response(batch)
+    assert_equal [batch], transport.sent
+    refute transport.closed
+    # The SDK also passes the real parse-error envelope as an encoded string.
+    transport.send_response(JSON.generate('error' => { 'code' => -32700, 'message' => 'Parse error' }))
+    assert transport.closed
+    assert_equal 2, transport.sent.length
+  end
 end

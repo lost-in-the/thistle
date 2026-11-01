@@ -24,6 +24,10 @@ transport identities beside the unchanged Reader answer. Tool responses contain
 both JSON text and the same structured object for client compatibility. This
 duplicates wire representation deliberately, within the separate wire budget.
 
+Source by fact ID also returns `selection_span_validation: recorded_not_revalidated`.
+The content bytes were verified; this call did not re-check the recorded physical
+span. `thistle_check` separately validates saved positions, not live freshness.
+
 Refusals set MCP `isError: true` and return `refusal.code/message`, generation and
 the notice, with no substitute evidence. Known public Reader refusal codes are
 preserved; arbitrary exceptions become `reader_error` without exception text,
@@ -66,6 +70,14 @@ Reader work. The native cursor validator still owns positions and query semantic
 Changing the page limit is supported; changing scope requires starting that scope
 without a cursor. A no-progress continuation refuses, not a circular success.
 
+Native followups are evidence selectors, not ready-made MCP argument objects.
+Map `operation: model_brief` to `thistle_model_brief`, and `references` to
+`thistle_links`; map `source` by fact ID to `thistle_source`. Remove `operation`
+and omit null optional fields such as `cursor`. Brief's `callback_effects`
+followup names an existing Core operation that this initial adapter does not
+expose. Report that as an unfollowed adapter scope, not missing Core evidence.
+Preserve any unsupported followup instead of inventing an alternative.
+
 Follow candidate pages beyond the four representative candidates in a relation.
 A duplicate after the first page is still a candidate; a single label match is
 not a runtime binding. Native completeness concerns its selected remaining
@@ -106,7 +118,7 @@ parser, silently slice a full allocation or claim a successful prefix is complet
 | --- | --- |
 | Inbound frame | 16 KiB before JSON parsing, using SDK bounded `gets` |
 | Inbound session | 256 frames, 1 MiB total, including notifications/invalid requests; stop before dispatch when exceeded |
-| Tool calls | 64, counting refusals/Reader errors; close on exhaustion |
+| Tool calls | 64 calls reaching the adapter, including its refusals/Reader errors; close on exhaustion. SDK schema/unknown-tool refusals are bounded by input frames/bytes instead. |
 | Check | One whole-generation integrity attempt; failure consumes it |
 | Encoded tool result | 2 MiB + 64 KiB; refuse the entire result, no truncation |
 | Cumulative encoded tool results | 16 MiB; conservatively reserve a maximum result and refusal before Reader work |
@@ -165,6 +177,9 @@ limits, startup failures after acquisition, Interrupt and SDK SystemExit.
 Acquisition windows defer asynchronous exceptions until resources have owners.
 Malformed JSON receives the SDK parse-error response and ends the connection;
 ordinary tool/protocol refusals may continue within the finite budgets.
+The SDK can return normally after a parse-error close, leaving process status 0
+as for EOF. A zero exit alone does not establish a valid protocol session or a
+successful investigation; inspect error frames and the actual task receipt.
 
 The SDK's single-thread stdio loop cannot consume a cancellation notification or
 EOF while a native call is running. Disconnect becomes observable on the next

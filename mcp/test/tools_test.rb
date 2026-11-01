@@ -47,5 +47,7 @@ class ToolsTest < Minitest::Test
     assert_equal false, schema['additionalProperties']
     assert_equal 2, schema['oneOf'].length
     assert_equal 8, tools.schema('thistle_links').dig('properties', 'limit', 'maximum')
+    assert_includes tools::DESCRIPTIONS.fetch('thistle_model_brief'), 'outside this adapter, not absent from Core'
+    assert_includes tools::DESCRIPTIONS.fetch('thistle_source'), 'not revalidated by this call'
   end
 end
