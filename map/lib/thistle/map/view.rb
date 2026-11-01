@@ -121,21 +121,6 @@ module Thistle
       rescue Thistle::Error => error
         raise unless error.code == 'source_unavailable'
 
-        if @reader.respond_to?(:route_actions) && @reader.respond_to?(:fact_identity)
-          compact = @reader.fact_identity(@params.fetch('id'))
-          unless compact.instance_of?(Hash) && compact['generation'] == @generation && compact.dig('fact','id') == @params['id'] && JSON.generate(compact).bytesize <= 32768
-            raise Thistle::InvalidSnapshot, 'Route compact identity mismatch'
-          end
-          if compact.dig('fact','kind') == 'route'
-            fact = compact.fetch('fact')
-            RouteActionsPresenter.identity!(fact.reject { |key, _| key == 'location' }.merge('generation'=>@generation,'span'=>fact['location']),
-              generation: @generation, id: @params['id'], kind: 'route')
-            body = "<h1 class=\"t1\">#{h(fact.fetch('name'))}</h1>" + route_actions_navigation(fact)
-            body << '<p class="notice ui">No route file or line was captured. Inspect conventional controller/action candidates and their exact saved Source. Dispatch and request matching remain unknown.</p>'
-            return layout('Source', body, fact: fact)
-          end
-        end
-
         if @reader.manifest.fetch('coverage', []).any? { |row| row['family'] == 'rails_job_mail' }
           raise Limit, 'Saved job/mail Source navigation requires the compact identity Reader API.' unless @reader.respond_to?(:fact_identity)
           compact = @reader.fact_identity(@params.fetch('id'))

@@ -68,6 +68,17 @@ descriptor, or null when no physical mapping was saved. Selection does no Source
 I/O. Opening Source subsequently verifies captured bytes through the existing
 Reader boundary, independent of CURRENT or live files.
 
+The existing Map `/source` endpoint retains its inherited runtime Source-context
+contract: after `source_unavailable`, it reads the saved fact through the existing
+Native-bounded `Reader#fact` operation and renders `fact_tiles`. This preserves
+runtime identity, unavailable physical-source context, escaped route conditions
+and existing unknown/invalid-condition display guards. The same tiles add the
+typed candidate entry. That restored context read has its existing full-fact
+response cost; it is not a new compact context API or query-time source inference.
+The new `/route-actions` endpoint remains one bounded typed query with compact
+witnesses and no expanded-fact fallback. Job/mail and comprehension Source guards
+retain their inherited behavior.
+
 | Status | Meaning |
 | --- | --- |
 | `unique_static_candidate_binding_unknown` | Exactly one conventional static candidate in the saved domain, with the relevant capture families complete; runtime binding unknown. |

@@ -46,7 +46,27 @@ if $PROGRAM_NAME == __FILE__
       {'generation'=>generation,'fact'=>fact.reject { |key,_| %w[generation span].include?(key) }.merge('location'=>fact['span']),
         'content'=>"class OrdersController\n  def index\n    :saved_a\n  end\nend\n",'sha256'=>'e'*64}
     end
-    def fact(*) = raise('No expanded fact fallback permitted')
+    def fact(id)
+      unless id == RouteActionsAnswers::ROUTE && @calls == [[:source,id]]
+        raise 'Expanded fact is allowed only for inherited Source-unavailable route context'
+      end
+      @calls << [:fact,id]
+      attributes = RouteActionsAnswers.page.fetch('route').fetch('attributes')
+      attributes['route_constraints'] = case @mode
+      when :conditions_unknown then nil
+      when :conditions_invalid
+        {'status'=>'observed','opaque'=>'none observed','segments'=>[],
+          'request'=>[{'key'=>'host','type'=>'string','value'=>nil,'encoding'=>'UTF-8'}]}
+      when :conditions_oversized
+        {'status'=>'observed','opaque'=>'none observed','segments'=>[],
+          'request'=>[{'key'=>'host','type'=>'string','value'=>'<'*8193,'encoding'=>'UTF-8'}]}
+      else
+        {'status'=>'observed','opaque'=>'none observed','segments'=>[],
+          'request'=>[{'key'=>'host','type'=>'string','value'=>'<script>bad</script>','encoding'=>'UTF-8'}]}
+      end
+      fact = RouteActionsAnswers.identity(id,'route')
+      fact.reject { |key,_| %w[generation span].include?(key) }.merge('location'=>nil,'attributes'=>attributes,'links'=>[])
+    end
     def close = @closed = true
   end
   a = RouteActionsAnswers
@@ -67,8 +87,23 @@ if $PROGRAM_NAME == __FILE__
   status, _, source_body = request.call('/source',source_fields)
   a.demand(status == 200 && source_body.join.include?('id="L2"') && source_body.join.include?('source-row selected'), 'Candidate failed to reveal physical saved Source')
   status, _, body = request.call('/source',fields)
-  a.demand(status == 200 && body.join.include?('Inspect controller/action candidates'), 'Source-less route lacks compact typed entry')
-  a.demand(probes.last.calls.map(&:first) == [:source,:fact_identity], 'Route Source expanded fallback')
+  context = body.join
+  a.demand(status == 200 && context.include?('Inspect controller/action candidates'), 'Runtime Source context lacks typed entry')
+  a.demand(probes.last.calls.map(&:first) == [:source,:fact], 'Runtime Source changed its inherited context read')
+  %w[Identity runtime Unavailable].each { |text| a.demand(context.include?(text), "Runtime Source lost #{text} context") }
+  a.demand(context.include?('Route conditions') && context.include?('&lt;script&gt;bad&lt;/script&gt;') && !context.include?('<script>bad</script>'), 'Runtime Source dropped escaped conditions')
+  a.demand(context.include?('No file or line was captured') && context.include?('does not prove a request will match'), 'Runtime Source dropped uncertainty/context')
+  a.demand(context.include?(a::GENERATION) && context.include?('name="q" id="find-query" value="orders"'), 'Runtime Source lost generation/search context')
+  {conditions_unknown: 'Unknown; conditions were not captured',
+    conditions_invalid: 'Unknown; conditions are invalid or exceed the display budget',
+    conditions_oversized: 'Unknown; conditions are invalid or exceed the display budget'}.each do |probe_mode, expected|
+    mode = probe_mode
+    status, _, body = request.call('/source',fields)
+    a.demand(status == 200 && body.join.include?(expected) && body.join.include?('Inspect controller/action candidates'), 'Runtime Source dropped unknown/invalid-condition guards or typed entry')
+    a.demand(probes.last.calls.map(&:first) == [:source,:fact] && probes.last.closed, 'Source context reads changed or Reader leaked')
+    a.demand(body.join.bytesize < 10_000, 'Invalid conditions exceeded inherited display budget')
+  end
+  mode = :normal
   [%w[page 1],%w[direction incoming],%w[file ignored],['cursor',a.cursor(1,a::OTHER)]].each do |key,value|
     count=probes.length
     status, = request.call('/route-actions',fields.merge(key=>value))
@@ -83,5 +118,5 @@ if $PROGRAM_NAME == __FILE__
   before=probes.length
   status, = app.call(env.merge('PATH_INFO'=>'/route-actions','QUERY_STRING'=>URI.encode_www_form(fields),'REMOTE_ADDR'=>'192.0.2.1'))
   a.demand(status==403 && before==probes.length,'Route bypassed host access control')
-  puts 'PASS mocked App typed journey, physical line, compact route entry and pre-Reader/access refusals'
+  puts 'PASS mocked App typed journey, physical line, preserved runtime Source context and pre-Reader/access refusals'
 end

@@ -12,6 +12,14 @@ means an explicit reason rather than a fabricated link. Source verifies the
 selected generation's bytes; CURRENT and live files do not replace the answer.
 The route itself has no invented physical position.
 
+The existing runtime Source-context page still shows identity, unavailable
+physical-source context and escaped route conditions, including unknown or
+invalid-condition notices, alongside the candidate entry. After
+`source_unavailable`, it retains the inherited Native-bounded `Reader#fact` read
+and `fact_tiles` display guards, with their existing full-fact cost. This does
+not add an expanded-fact fallback to `/route-actions`, whose one typed query and
+compact witnesses remain unchanged.
+
 The shared NavigationContext owns every URL. Generation, search and all collected
 IDs are retained; the existing 4096-byte/nine-field limits and explicit search
 omission notice remain. The presenter has only injected navigation and the
