@@ -64,5 +64,5 @@ Pure presenter checks do not establish App, native, real Rails/Zeitwerk,
 installed, served, keyboard/no-JS/narrow/real-zoom or person acceptance. All those
 actual gates and the revised real producer/consumer/cards are AUTHORED UNRUN
 here. Root owns integration/review/watch and finite actual gates, PM planning,
-Leah acceptance; all17 remain UNQUALIFIED. See the [Core contract](https://github.com/lost-in-the/thistle/blob/8869e44b4226a247db17de03765c94d0afd46c70/docs/development/model-neighborhood.md)
+Leah acceptance; all17 remain UNQUALIFIED. See the [Core contract](https://github.com/lost-in-the/thistle/blob/8b523f8608a8d90bea4f37ff092caefd987daa03/docs/development/model-neighborhood.md)
 for exact DTOs, budgets, continuation, alternatives and correction dispositions.
