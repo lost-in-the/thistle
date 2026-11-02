@@ -180,7 +180,8 @@ begin
   expected.fetch('sides').each do |side|
     demand(witnesses.any? { |row| row['side'] == side && row.dig('origin', 'name') == expected.fetch('origin') &&
       row['relation'] == expected.fetch('relation') && row['target_label'] == expected.fetch('target_label') &&
-      row['direction'] == expected.fetch('direction') && recorded_receiver(row) == expected.fetch('receiver_label') },
+      row['direction'] == expected.fetch('direction') && recorded_receiver(row) == expected.fetch('receiver_label') &&
+      row['candidate_label'] == expected.fetch('candidate_label') },
       "Missing recorded #{side} job-to-Order witness")
   end
   demand(witnesses.none? { |row| row.dig('origin', 'name') == 'UnrelatedChange' }, 'Unrelated changes polluted selected root')

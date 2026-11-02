@@ -1,9 +1,11 @@
 # LOS-151 independent saved comparison cards
 
-**AUTHORED UNRUN.** Source-only phase: no compiler, framework, DB, capture, native,
-Reader/store, build, installed consumer, server, Map/client/browser or person run.
-The comparison module and proposed Reader forwarding are deliberately unwired.
-Root owns those seams and finite execution/signing/delivery admissions. All17
+The comparison module, native tests and public Reader forwarding are wired in
+source. Historical 1fb CI compiled (229 PASS / 2 FAIL); f17's replacement fixtures
+are covered by its all-eight source-check success. Current corrections remain
+**AUTHORED UNRUN**, without transferring that prior result. Root retains the
+earlier forwarding receipt. Installed/framework/DB/producer/consumer/Map/client
+and person gates remain open. Root owns finite execution and delivery. All17
 remain unqualified. These cards cannot close LOS-151's Reader-to-Map outcome.
 
 The fixture is small public Rails source with Order/User and a receipt job.
@@ -17,7 +19,8 @@ source that must not pollute the selected root's witnesses.
 The native tests cover lower-level identity/ordinal/default/order, source
 integrity, exact work/cursor/byte-cut and malformed input controls. The forwarding
 test loads the **actual** Reader with only a Native transport double. It remains
-unrun until Root implements the facade; no fake Reader is supplied.
+under Root's runtime ownership; this source-only correction did not execute it.
+No fake Reader is supplied.
 
 After Root integrates and admits an exact installed candidate, reuse the existing
 installed harness. Copy this entire fixture outside the source checkout, use a

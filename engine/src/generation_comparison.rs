@@ -1,7 +1,8 @@
 //! Two explicit borrowed saved generations. Native dispatch owns the paired
-//! lifetime and scratch admission. No Git, runtime binding or retained cache.
+//! lifetime and scratch admission. Reuses the Reader directory; no Git/binding
+//! or new retained cache. This source correction's execution gates remain open.
 use crate::{error::{CoreError, Result}, link_encoding::SemanticLinkView,
-    model_brief::RequestWork, schema, store::Reader};
+    model_brief::RequestWork, recorded_domain, schema, store::Reader};
 use serde::Serialize;
 use serde_json::{json, Value};
 
@@ -79,7 +80,11 @@ impl<'a> Query<'a> {
 enum Status { Added, Removed, Changed, Unchanged, Ambiguous, Uncomparable }
 
 #[derive(Default)]
-struct Matches<'a> { count: usize, preview: Vec<&'a Value>, unsupported: bool }
+struct Matches<'a> {
+    count: usize, preview: Vec<&'a Value>, unsupported: bool, position:Option<usize>,
+    directory:Value, range_total:usize, visits:usize, eligibility_complete:bool,
+    lookup_comparisons:usize,lookup_bytes:usize,
+}
 impl<'a> Matches<'a> {
     fn unique(&self) -> Option<&'a Value> { (self.count == 1 && !self.unsupported).then(|| self.preview[0]) }
 }
@@ -103,18 +108,48 @@ fn supported(fact: &Value, kind: Kind) -> bool {
     if kind==Kind::File {return fact["evidence"]=="static" && fact["path"].as_str().is_some_and(|p|fact["name"]==p) && !fact["location"].is_null();}
     true
 }
+struct RootLookup<'a>{work:&'a mut RequestWork,comparisons:usize,bytes:usize}
+impl recorded_domain::LabelWork for RootLookup<'_>{
+    fn compare(&mut self,a:&str,b:&str)->Result<std::cmp::Ordering>{
+        let bytes=a.len().saturating_add(b.len());
+        if !self.work.labels(bytes){return Err(CoreError::limit("Shared root lookup allowance exhausted"));}
+        self.comparisons+=1;self.bytes+=bytes;Ok(a.cmp(b))
+    }
+}
 fn matching<'a>(reader: &'a Reader, key: LogicalKey<'_>, work: &mut RequestWork) -> Result<Matches<'a>> {
     let mut found = Matches::default();
-    for fact in &reader.facts {
-        if !work.facts(1) { return Err(CoreError::limit("Complete two-generation uniqueness scan exceeds shared fact allowance")); }
-        if !charge_label(fact["kind"].as_str().unwrap(), key.kind.name(), work)? { continue; }
-        let Some(name) = semantic_name(fact, key.kind) else { continue; };
-        if !charge_label(name, key.name, work)? { continue; }
-        if let Some(role) = key.role {
-            if !charge_label(fact["attributes"]["job_mail"]["class"]["kind"].as_str().unwrap(), role, work)? { continue; }
+    let mut offset=0;
+    loop {
+        let mut lookup=RootLookup{work:&mut *work,comparisons:0,bytes:0};
+        let (page,stats)=reader.recorded_candidates(key.name,Some(key.kind.name()),offset,
+            if key.role.is_some(){64}else{2},&mut lookup)?;
+        found.lookup_comparisons+=lookup.comparisons;found.lookup_bytes+=lookup.bytes;
+        drop(lookup);
+        work.metadata(&stats,2)?;
+        if offset==0 {found.directory=stats;found.range_total=page.total;}
+        // Reader validation closes registry display/semantic-name equivalence
+        // in all supported schemas. Anonymous entries are excluded by the
+        // maintained directory. No full-domain query rescan is necessary.
+        for index in page.positions {
+            if !work.facts(1){return Err(CoreError::limit("Exact matching range exceeds shared candidate allowance"));}
+            found.visits+=1;
+            let fact=&reader.facts[index];
+            let name=semantic_name(fact,key.kind).ok_or_else(||CoreError::snapshot("Directory admitted an anonymous semantic identity"))?;
+            if !charge_label(name,key.name,work)?{return Err(CoreError::snapshot("Directory and semantic identity disagree"));}
+            if let Some(role)=key.role {
+                if !charge_label(fact["attributes"]["job_mail"]["class"]["kind"].as_str().unwrap(),role,work)?{continue;}
+            }
+            found.count+=1;found.unsupported|=!supported(fact,key.kind);
+            if found.preview.len()<2{found.preview.push(fact);}
+            found.position=if found.count==1{Some(index)}else{None};
         }
-        found.count += 1; found.unsupported |= !supported(fact, key.kind);
-        if found.preview.len() < 2 { found.preview.push(fact); }
+        if key.role.is_none(){
+            found.count=page.total;found.eligibility_complete=page.total<=2;
+            if found.count!=1{found.position=None;}
+            break;
+        }
+        offset=(offset+64).min(page.total);
+        if offset==page.total{found.eligibility_complete=true;break;}
     }
     Ok(found)
 }
@@ -151,7 +186,11 @@ fn match_dto(reader: &Reader, found: &Matches<'_>, work: &mut RequestWork) -> Re
     let mut items = Vec::new();
     for fact in &found.preview { items.push(identity(reader, fact, work)?); }
     Ok(json!({"count":found.count, "scan":"complete", "identities":items,
-        "known_omitted":found.count.saturating_sub(found.preview.len()), "unsupported_name_resolution":found.unsupported}))
+        "name_kind_range_total":found.range_total,"eligibility_scan_complete":found.eligibility_complete,
+        "known_omitted":found.count.saturating_sub(found.preview.len()),
+        "unsupported_name_resolution":if found.eligibility_complete{json!(found.unsupported)}else{Value::Null},
+        "preview_unsupported_name_resolution":found.unsupported,
+        "eligibility":if found.eligibility_complete{"inspected_complete_range"}else{"unknown_for_uninspected_duplicates"}}))
 }
 
 // Bounded allowlist, deliberately no arbitrary producer/manifest cloning. No
@@ -279,15 +318,22 @@ fn relationship_digest(reader: &Reader, fact: &Value, work: &mut RequestWork) ->
 }
 
 struct SourceSpan { file: Value, start: usize, end: usize, start_line: usize }
+struct SourceRead { span:Option<SourceSpan>, reason:Option<&'static str> }
 impl SourceSpan {
     fn text(&self)->&str { &self.file["content"].as_str().unwrap()[self.start..self.end] }
     fn digest(&self)->String { schema::digest(self.text().as_bytes()) }
 }
-fn source_span(reader: &Reader, fact: &Value, work: &mut RequestWork) -> Result<Option<SourceSpan>> {
-    let (Some(path),Some(location))=(fact["path"].as_str(),fact["location"].as_object()) else { return Ok(None); };
+fn source_span(reader: &Reader, fact: &Value, work: &mut RequestWork) -> Result<SourceRead> {
+    let (Some(path),Some(location))=(fact["path"].as_str(),fact["location"].as_object()) else {
+        return Ok(SourceRead{span:None,reason:Some("physical_source_unavailable")});
+    };
     let file=reader.selected_file_metadata(path)?;
     let bytes=file["bytes"].as_u64().unwrap() as usize;
-    if !work.source_attempt() || !work.source_bytes(bytes) { return Err(CoreError::limit("Shared selected-source allowance exhausted")); }
+    // Only these local admissions degrade. Metadata/global reservations, unsafe
+    // paths and corrupt/invalid source below must still propagate as errors.
+    if !work.source_attempt() || !work.source_bytes(bytes) {
+        return Ok(SourceRead{span:None,reason:Some("source_allowance")});
+    }
     // Bound and account validation's fact/link walk before touching the blob.
     if !work.links(fact["links"].as_array().unwrap().len()) { return Err(CoreError::limit("Source validation link allowance exhausted")); }
     work.metadata(fact,2)?; work.metadata(file,2)?;
@@ -297,7 +343,7 @@ fn source_span(reader: &Reader, fact: &Value, work: &mut RequestWork) -> Result<
         .map_err(|_| CoreError::snapshot("Selected physical source coordinates disagree with captured bytes"))?;
     let start=location["start_byte"].as_u64().unwrap() as usize;
     let end=location["end_byte"].as_u64().unwrap() as usize;
-    Ok(Some(SourceSpan{file:expanded,start,end,start_line:location["start_line"].as_u64().unwrap() as usize}))
+    Ok(SourceRead{span:Some(SourceSpan{file:expanded,start,end,start_line:location["start_line"].as_u64().unwrap() as usize}),reason:None})
 }
 
 fn digest_status(left: Option<String>, right: Option<String>) -> Value {
@@ -318,8 +364,12 @@ fn entity(left: &Reader, right: &Reader, q: &Query<'_>, a: &Matches<'_>, b: &Mat
         "line_diff":{"status":"unavailable","reason":"no_line_diff_computed"},"change_kind":"unknown"});
     let (mut left_source,mut right_source)=(None,None);
     if let (Some(af),Some(bf))=(a.unique(),b.unique()) {
-        left_source=source_span(left,af,work)?;right_source=source_span(right,bf,work)?;
+        let ar=source_span(left,af,work)?;let br=source_span(right,bf,work)?;
+        left_source=ar.span;right_source=br.span;
         out["source"]=digest_status(left_source.as_ref().map(SourceSpan::digest),right_source.as_ref().map(SourceSpan::digest));
+        out["source"]["left_reason"]=json!(ar.reason);out["source"]["right_reason"]=json!(br.reason);
+        out["source"]["reason"]=json!(if ar.reason==Some("source_allowance") || br.reason==Some("source_allowance"){
+            Some("source_allowance")}else{ar.reason.or(br.reason)});
         out["source"]["meaning"]=json!("validated captured physical span bytes, not loaded code or line mapping");
         out["metadata"]=digest_status(Some(metadata_digest(af,q.key.kind,work)?),Some(metadata_digest(bf,q.key.kind,work)?));
         out["relationships"]=digest_status(relationship_digest(left,af,work)?,relationship_digest(right,bf,work)?);
@@ -335,8 +385,9 @@ fn entity(left: &Reader, right: &Reader, q: &Query<'_>, a: &Matches<'_>, b: &Mat
         out["change_kind"]=json!(change_kind);
     } else if status==Status::Added || status==Status::Removed {
         let present=if let Some(f)=a.unique(){source_span(left,f,work)?}else{source_span(right,b.unique().unwrap(),work)?};
-        let digest=present.as_ref().map(SourceSpan::digest);
-        out["source"]=json!({"status":status,"present_span_digest":digest,
+        let digest=present.span.as_ref().map(SourceSpan::digest);
+        out["source"]=json!({"status":if present.span.is_some(){status}else{Status::Uncomparable},
+            "presence_status":status,"reason":present.reason,"present_span_digest":digest,
             "absent_side":if status==Status::Added{"left"}else{"right"},"line_mapping":"unavailable"});
         if status==Status::Added{out["source"]["previous_lines"]=Value::Null;}
     }
@@ -419,6 +470,7 @@ impl FieldWriter<'_> {
         Err(e) if e.code=="limit_exceeded"=>Ok(false),Err(e)=>Err(e),
     }}
     fn emit(&mut self,a:Option<&Value>,b:Option<&Value>,path:&str)->Result<Option<&'static str>>{
+        if self.count()==self.limit{return Ok(Some("row_limit"));}
         if !self.work.label_bytes(path.len()){return Ok(Some("shared_work"));}
         let row=(||->Result<Value>{Ok(json!({"path":path,"before":field_value(a,self.work)?,"after":field_value(b,self.work)?}))})();
         let row=match row{Ok(v)=>v,Err(e) if e.code=="limit_exceeded"=>return Ok(Some("shared_work")),Err(e)=>return Err(e)};
@@ -445,7 +497,6 @@ impl FieldWriter<'_> {
         let result=self.walk(a,b,path,depth+1);path.truncate(len);result
     }
     fn walk(&mut self,a:Option<&Value>,b:Option<&Value>,path:&mut String,depth:usize)->Result<Option<&'static str>>{
-        if self.count()==self.limit{return Ok(Some("row_limit"));}
         if depth>64{return Ok(Some("field_depth_limit"));}
         let visits=(if a.is_some(){1}else{0})+(if b.is_some(){1}else{0});
         if !self.work.facts(visits){return Ok(Some("shared_work"));}
@@ -489,15 +540,18 @@ impl FieldWriter<'_> {
 
 fn content_evidence(left:&Reader,right:&Reader,q:&Query<'_>,a:&Matches<'_>,b:&Matches<'_>,
     sources:&Entity,out:&mut Value,work:&mut RequestWork)->Result<()> {
+    out["comparison"]["source"]["followups"]=json!({"left":a.unique().filter(|f|!f["path"].is_null()).map(|f|followup(left,f,"source")),
+        "right":b.unique().filter(|f|!f["path"].is_null()).map(|f|followup(right,f,"source"))});
+    let allowance=out["comparison"]["source"]["reason"]=="source_allowance";
     let (Some(af),Some(bf))=(a.unique(),b.unique()) else{
         out["comparison"]["metadata"]["evidence"]=json!({"status":"unavailable","reason":"no_supported_unique_pair"});
-        out["comparison"]["source"]["witness"]=json!({"status":"unavailable","reason":"no_supported_unique_source_pair"});
+        out["comparison"]["source"]["witness"]=json!({"status":if allowance{"omitted"}else{"unavailable"},
+            "reason":if allowance{"source_allowance"}else{"no_supported_unique_source_pair"}});
         out["scan"]["content_evidence_complete"]=json!(false);
         return Ok(());
     };
-    out["comparison"]["source"]["followups"]=json!({"left":if af["path"].is_null(){Value::Null}else{followup(left,af,"source")},
-        "right":if bf["path"].is_null(){Value::Null}else{followup(right,bf,"source")}});
-    out["comparison"]["source"]["witness"]=json!({"status":"unavailable","reason":"source_pair_unavailable"});
+    out["comparison"]["source"]["witness"]=json!({"status":if allowance{"omitted"}else{"unavailable"},
+        "reason":if allowance{"source_allowance"}else{"source_pair_unavailable"}});
     out["comparison"]["metadata"]["evidence"]=json!({"status":"unavailable",
         "context":{"left":saved_ref(left,af),"right":saved_ref(right,bf)},"items":[],
         "scan_complete":false,"unsearched":true,"reason":"not_admitted",
@@ -553,13 +607,18 @@ fn position(left:&Reader,right:&Reader,q:&Query<'_>)->Result<Position>{
     Ok(p)
 }
 
-fn witness_label<'a>(view:&SemanticLinkView<'a>)->Option<&'a str>{
+#[derive(Clone,Copy)]
+struct WitnessLabel<'a>{original:&'a str,key:&'a str}
+fn witness_label<'a>(view:&SemanticLinkView<'a>)->Option<WitnessLabel<'a>>{
     if let Some(call)=view.call_metadata() {
-        return if call.kind=="constant" && !call.omitted {call.name}else{None};
+        return if call.kind=="constant" && !call.omitted {call.name.map(|name|WitnessLabel{
+            original:name,key:recorded_domain::constant_label(name)})}else{None};
     }
-    // Precisely recorded label witnesses, never an inferred target binding.
-    if view.constant_metadata().is_some() || ["inherits","includes","extends","prepends","association_target_label","model_base_label"].contains(&view.relation()) {
-        return Some(view.target());
+    if view.constant_metadata().is_some() || view.relation()=="association_target_label" {
+        return Some(WitnessLabel{original:view.target(),key:recorded_domain::constant_label(view.target())});
+    }
+    if ["inherits","includes","extends","prepends","model_base_label"].contains(&view.relation()) {
+        return Some(WitnessLabel{original:view.target(),key:view.target()});
     }
     None
 }
@@ -573,31 +632,51 @@ fn fits(out:&Value,max:usize)->Result<bool>{
 }
 fn reference_row(r:&Reader,fact:&Value,raw:&Value,q:&Query<'_>,p:Position,work:&mut RequestWork)->Result<Option<Value>> {
     let view=SemanticLinkView::from_wire(raw,r.schema_version(),fact["evidence"].as_str().unwrap())?;
-    let relevant=if q.direction=="outgoing"{true}else{match witness_label(&view){
-        Some(label)=>charge_label(label,q.key.name,work)?,None=>false,
+    let label=witness_label(&view);
+    let relevant=if q.direction=="outgoing"{true}else{match label{
+        Some(label)=>{
+            if !work.labels(label.original.len().saturating_add(q.key.name.len())){return Err(CoreError::limit("Shared witness label allowance exhausted"));}
+            label.key==q.key.name
+        },None=>false,
     }};
     if !relevant{return Ok(None);}
     work.metadata(&view,2)?;schema::encoded_bytes(&view,MAX_ITEM)?;
     let mut row=json!({"side":if p.side==0{"left"}else{"right"},"generation":r.generation,
         "direction":q.direction,"origin":identity(r,fact,work)?,"link_index":p.link,
         "relation":view.relation(),"target_label":view.target(),"resolution":view.resolution(),
+        "candidate_label":label.map(|v|v.original),
         "meaning":"recorded direct witness; target binding and execution unknown"});
     row["recorded_link"]=view.materialize()?;Ok(Some(row))
 }
+fn outgoing_position(left:&Reader,right:&Reader,a:&Matches<'_>,b:&Matches<'_>,mut p:Position)->Position {
+    // A caller may skip positions, but an unrelated fact's link offset must
+    // never be applied to the selected fact. Normalize to the exact next link.
+    while p.side<2 {
+        let (r,m)=if p.side==0{(left,a)}else{(right,b)};
+        if let Some(index)=m.position.filter(|_|m.unique().is_some()) {
+            let links=r.facts[index]["links"].as_array().unwrap().len();
+            if links>0 && p.fact<index{return Position{side:p.side,fact:index,link:0};}
+            if p.fact==index && p.link<links{return p;}
+        }
+        p=Position{side:p.side+1,fact:0,link:0};
+    }
+    p
+}
 fn references(left:&Reader,right:&Reader,q:&Query<'_>,a:&Matches<'_>,b:&Matches<'_>,out:&mut Value,work:&mut RequestWork)->Result<()> {
-    let mut p=position(left,right,q)?;let initial=p;
+    let mut p=position(left,right,q)?;
+    if q.direction=="outgoing"{p=outgoing_position(left,right,a,b,p);}
+    let initial=p;
     let mut items=Vec::new();
     let mut stop=None;
     let (mut facts_visited,mut links_visited)=(0usize,0usize);
     'scan: while p.side<2 {
+        if q.direction=="outgoing"{p=outgoing_position(left,right,a,b,p);if p.side==2{break;}}
         let r=if p.side==0{left}else{right};let m=if p.side==0{a}else{b};
         if p.fact==r.facts.len(){p=Position{side:p.side+1,fact:0,link:0};continue;}
         if !work.facts(1){stop=Some("shared_work");break;}
         facts_visited+=1;
         let fact=&r.facts[p.fact];let links=fact["links"].as_array().unwrap();
-        if q.direction=="outgoing" && !m.unique().is_some_and(|f|std::ptr::eq(f,fact)) {
-            p.fact+=1;p.link=0;continue;
-        }
+        debug_assert!(q.direction!="outgoing" || m.unique().is_some_and(|f|std::ptr::eq(f,fact)));
         while p.link<links.len() {
             let before=p;
             if !work.links(1){stop=Some("shared_work");break 'scan;}
@@ -612,7 +691,8 @@ fn references(left:&Reader,right:&Reader,q:&Query<'_>,a:&Matches<'_>,b:&Matches<
                 // unconsumed; admitted prefix and spent work are never reset.
                 items.push(row);p.link+=1;
                 out["items"]=Value::Array(std::mem::take(&mut items));
-                out["next_cursor"]=token(left,right,q,p)?;
+                let next=if q.direction=="outgoing"{outgoing_position(left,right,a,b,p)}else{p};
+                out["next_cursor"]=if next.side==2{Value::Null}else{token(left,right,q,next)?};
                 out["scan"]=json!({"complete":false,"reason":"byte_limit","zero_progress":false});
                 // 512 encoded bytes cover the final scan fields and every
                 // usize-position digit/cursor growth (three <=20-digit fields),
@@ -632,6 +712,7 @@ fn references(left:&Reader,right:&Reader,q:&Query<'_>,a:&Matches<'_>,b:&Matches<
         }
         p.fact+=1;p.link=0;
     }
+    if q.direction=="outgoing"{p=outgoing_position(left,right,a,b,p);}
     let complete=p.side==2;
     if !complete && p==initial && items.is_empty(){return Err(CoreError::limit("Comparison continuation made zero progress"));}
     out["items"]=Value::Array(items);
@@ -647,8 +728,12 @@ pub(crate) fn select(left:&Reader,right:&Reader,q:&Query<'_>)->Result<Value>{
     select_with_work(left,right,q,&mut RequestWork::default())
 }
 fn select_with_work(left:&Reader,right:&Reader,q:&Query<'_>,work:&mut RequestWork)->Result<Value>{
-    // Whole-domain proof repeats per request and shares the allowance with both
-    // sides' source/metadata/relationship/reference/finalization work.
+    if q.family=="references" && q.direction=="incoming" && matches!(q.key.kind,Kind::Method|Kind::File){
+        return Err(CoreError::new("unsupported_comparison","Incoming method/file witnesses require a caller/file relation contract; entity and outgoing comparisons remain available"));
+    }
+    // Exact directory ranges establish global name/kind counts. Construction
+    // has the existing separate full-domain cap/reservation and visible stats;
+    // all query lookups/range visits and components share RequestWork.
     let a=matching(left,q.key,work)?;let b=matching(right,q.key,work)?;
     let mut out=json!({"version":VERSION,"pair":{"left":provenance(left,work)?,"right":provenance(right,work)?},
         "selection":q.key,"family":q.family,"direction":q.direction,
@@ -657,8 +742,10 @@ fn select_with_work(left:&Reader,right:&Reader,q:&Query<'_>,work:&mut RequestWor
         "semantics":SEMANTICS,"items":[],"next_cursor":null,
         "scan":{"complete":true,"reason":"entity","zero_progress":false},
         "unavailable":["git_commit_comparison","branch_comparison","history","co_change","test_relevance","execution","line_diff"],
-        "cost":{"root_lookup":"complete borrowed left+right fact scan every request; no optional directory/index",
-            "root_fact_visits":left.facts.len()+right.facts.len(),
+        "cost":{"root_lookup":"existing recorded-name directory exact ranges; cold construction separate from shared query work",
+            "root_fact_visits":a.visits+b.visits,"directory":{"left":a.directory,"right":b.directory},
+            "root_lookup_comparisons":a.lookup_comparisons+b.lookup_comparisons,"root_lookup_label_bytes":a.lookup_bytes+b.lookup_bytes,
+            "directory_accounting":"Construction counters apply when built_this_request; otherwise they describe the reused directory. Retained reservation lives with Reader.",
             "reader_open":"existing Reader admission/validation/cache cost precedes this operation",
             "work":"one model_brief::RequestWork across both sides; fixed global reservation through native serialization"}});
     // Mandatory identity/provenance must fit before evidence materialization.

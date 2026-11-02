@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
-# AUTHORED UNRUN until Root owns/adopts the proposed facade and native wiring.
+# Wired public Reader transport contract; Root retains the earlier forwarding
+# receipt and f17's source-CI success. Current correction tests are AUTHORED UNRUN.
 # This doubles Native transport only; it loads the real Reader implementation
 # and never supplies a substitute Reader or comparison implementation.
 ENV['MT_NO_PLUGINS'] = '1' if $PROGRAM_NAME == __FILE__

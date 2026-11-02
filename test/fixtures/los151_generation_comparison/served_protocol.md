@@ -59,3 +59,12 @@ bounded first-difference witness: they are not complete hunks, moved-line facts
 or a Git diff. Confirm the original captured text at those physical coordinates
 and return to the same pair/selection. Root IDs carry no validated Git binding.
 These actual Map/MCP/client/person explanation checks remain **AUTHORED UNRUN**.
+
+The R131 correction fixture records `::Order.find`. The selected semantic name is
+still `Order`; show the original rooted receiver/candidate label alongside that
+bounded recorded witness without implying runtime binding. Incoming method/file
+requests must show the explicit unsupported boundary, never a complete empty
+caller list. A source-allowance omission must leave typed metadata/relationships
+and each pinned Source followup usable. Cold directory construction and warm
+query work are separate costs, not a measured speed claim. These amended served
+checks are also **AUTHORED UNRUN**.

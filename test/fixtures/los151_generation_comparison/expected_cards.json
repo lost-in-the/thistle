@@ -12,7 +12,7 @@
     {"label": "Table and raw database default changes preserve logical model identity", "selection": {"kind": "rails_model", "name": "Order"}, "status": "changed", "source": "uncomparable", "metadata": "changed", "relationships": "unchanged", "change_kind": "metadata_changed_source_unknown", "field_changes": [{"path": "/model/table", "before": "orders", "after": "archived_orders"}, {"path_template": "/model/columns/entries/{delayed_index}/default/value", "before_oracle": "default_a", "after_oracle": "default_b"}]},
     {"label": "Incomplete capture cannot establish deletion", "selection": {"kind": "class", "name": "RetiredInvestigation"}, "right_version": "saved_partial", "status": "uncomparable"}
   ],
-  "incoming_order_witness": {"origin": "ReceiptJob#perform", "relation": "calls", "target_label": "find", "receiver_label": "Order", "direction": "incoming", "sides": ["left", "right"]},
+  "incoming_order_witness": {"origin": "ReceiptJob#perform", "relation": "calls", "target_label": "find", "receiver_label": "::Order", "candidate_label": "::Order", "direction": "incoming", "sides": ["left", "right"]},
   "fidelity_controls": {
     "unchanged_null_default": {"selection": {"kind": "rails_model", "name": "Order"}, "column": "nullable_note", "value_present": true, "value": null, "must_not_be_reported_changed": true},
     "corrupt_selected_source": {"expected_error": "invalid_snapshot", "content_witness_must_not_be_returned": true},

@@ -1,5 +1,6 @@
-//! AUTHORED UNRUN. These tests become registered only when Root admits the
-//! parent module. No compiler/native/store execution occurred in source phase.
+//! Registered native contracts. Earlier 1fb CI (229 PASS / 2 FAIL) is retained.
+//! f17 replacements have exact-head source CI success. This correction batch
+//! remains AUTHORED UNRUN; no prior result validates these changed tests.
 use super::*;
 
 fn file(path: &str, content: &str) -> Value {
@@ -208,14 +209,14 @@ fn exact_work_positions_preserve_prefix_across_both_sides_and_current_changes(){
     crate::store::publish(dir.path(),&capture("C","class CURRENT; end")).unwrap();
     let first=run(&left,&right,ref_request(1,Value::Null));
     assert_eq!(first["items"][0]["link_index"],0);
-    assert_eq!(first["cost"]["root_fact_visits"],4);
+    assert_eq!(first["cost"]["root_fact_visits"],2);
     let p=position(&left,&right,&Query::parse(&ref_request(1,first["next_cursor"].clone())).unwrap()).unwrap();
     let job=left.facts.iter().position(|f|f["name"]=="ReceiptJob").unwrap();
     assert_eq!(p,Position{side:0,fact:job,link:2});
     let mut cursor=Value::Null;let mut seen=Vec::new();
     for _ in 0..8 {
         let out=run(&left,&right,ref_request(1,cursor));
-        assert_eq!(out["cost"]["root_fact_visits"],4);
+        assert_eq!(out["cost"]["root_fact_visits"],2);
         for row in out["items"].as_array().unwrap(){seen.push((row["side"].as_str().unwrap().to_owned(),row["link_index"].as_u64().unwrap()));}
         cursor=out["next_cursor"].clone();if cursor.is_null(){assert_eq!(out["scan"]["complete"],true);break;}
     }
@@ -230,11 +231,11 @@ fn exact_work_positions_preserve_prefix_across_both_sides_and_current_changes(){
 #[test]
 fn shared_allowance_refuses_incomplete_uniqueness_and_zero_progress_without_reset(){
     let (_dir,left,right)=reference_pair();let input=ref_request(1,Value::Null);let q=Query::parse(&input).unwrap();
-    let mut work=RequestWork::default();assert!(work.facts(19_997));
+    let mut work=RequestWork::default();assert!(work.facts(19_999));
     assert_eq!(select_with_work(&left,&right,&q,&mut work).unwrap_err().code,"limit_exceeded");
-    // Four root visits consume the rest. References cannot start; no false
+    // Two exact root-range visits consume the rest. References cannot start; no false
     // complete page or cursor pointing at the same position may be returned.
-    let mut work=RequestWork::default();assert!(work.facts(19_996));
+    let mut work=RequestWork::default();assert!(work.facts(19_998));
     assert_eq!(select_with_work(&left,&right,&q,&mut work).unwrap_err().code,"limit_exceeded");
     let mut work=RequestWork::default();assert!(work.links(49_999));
     let out=select_with_work(&left,&right,&q,&mut work).unwrap();
@@ -392,4 +393,174 @@ fn changed_field_byte_cut_keeps_missingness_and_prefix_and_refuses_first_row_ove
     let mut out=field_envelope();let mut work=RequestWork::default();
     assert_eq!(FieldWriter{out:&mut out,work:&mut work,kind:Kind::Class,limit:8,max_bytes:1}
         .emit(None,Some(&json!(1)),"/x").unwrap_err().code,"limit_exceeded");
+}
+
+#[test]
+fn realistic_directory_pair_has_explicit_cold_cost_and_reuses_it_without_full_query_scans(){
+    // One fixture/publication and one pair, reused cold/warm. No timing target,
+    // no capture/parser/framework, and no repeated large fixture copies.
+    let dir=tempfile::tempdir().unwrap();let mut data=capture("large","class Order; end");
+    for i in 1..90_390usize {
+        data["facts"].as_array_mut().unwrap().push(json!({"id":schema::digest(format!("unrelated-{i}").as_bytes()),
+            "kind":"class","name":format!("Unrelated{i}"),"path":null,"location":null,"evidence":"static",
+            "attributes":{"name_resolution":"lexical"},"links":[]}));
+    }
+    let generation=crate::store::publish(dir.path(),&data).unwrap()["generation"].as_str().unwrap().to_owned();drop(data);
+    let left=Reader::open(dir.path(),Some(&generation)).unwrap();let right=Reader::open(dir.path(),Some(&generation)).unwrap();
+    for cold in [true,false] {
+        let out=run(&left,&right,request("Order"));assert_eq!(out["comparison"]["status"],"unchanged");
+        assert_eq!(out["cost"]["root_fact_visits"],2);
+        for side in ["left","right"] {
+            let stats=&out["cost"]["directory"][side];
+            assert_eq!(stats["built_this_request"],cold);assert_eq!(stats["facts_visited"],90_390);
+            assert!(stats["retained_bytes"].as_u64().unwrap()>90_390*std::mem::size_of::<usize>() as u64);
+            assert!(stats["sort_comparisons"].as_u64().unwrap()>0);
+        }
+    }
+}
+
+fn registry_context()->Value {json!({"limits":{"max_facts":100,"max_links":100,"max_entries":100,"max_diagnostics":10},
+    "facts":0,"links":0,"diagnostics":0,"fact_bytes":2})}
+fn job_facts(roles:&[&str])->Value {
+    let classes:Vec<_>=roles.iter().map(|role|json!({"kind":role,"name":"Same","superclass":null,
+        "rescue_handlers":{"status":"observed","entries":[]}})).collect();
+    crate::job_mail::batch(&registry_context(),&json!({"version":1,"framework_version":"8.1.4","root":"/fixture",
+        "boundary":"explicit_loaded_app","status":"observed","classes":classes})).unwrap()["facts"].clone()
+}
+fn callback_facts()->Value {
+    crate::callbacks::batch(&registry_context(),&json!({"version":1,"active_record_version":"8.1.4","root":"/fixture",
+        "status":"observed","models":[{"name":"Same","superclass":null,"save":{"status":"observed","entries":[]}}]})).unwrap()["facts"].clone()
+}
+
+#[test]
+fn registry_keys_are_closed_validation_in_all_schemas_and_job_roles_count_complete_ranges(){
+    let models:Value=serde_json::from_str(include_str!("../tests/fixtures/models.json")).unwrap();
+    let model=crate::model::batch(&registry_context(),&models).unwrap()["facts"][0].clone();
+    let cb=callback_facts()[0].clone();let job=job_facts(&["job"])[0].clone();
+    for version in [1,2,3] {for original in [&model,&cb,&job] {
+        let mut bad=original.clone();bad["name"]=json!("WrongDirectoryLabel");
+        assert!(schema::stored_facts(std::iter::once(&bad),&[],version).is_err());
+        let mut data=capture("bad","class Order; end");data["schema_version"]=json!(version);data["facts"]=json!([bad]);
+        let dir=tempfile::tempdir().unwrap();assert!(crate::store::publish(dir.path(),&data).is_err());
+    }}
+    let mut a=capture("roles-A","class Order; end");a["facts"]=job_facts(&["mailer","job","job"]);
+    let mut b=capture("roles-B","class Order; end");b["facts"]=job_facts(&["job","mailer"]);
+    let (_dir,left,right)=readers(&a,&b);
+    let input=json!({"selection":{"kind":"rails_job_mail","name":"Same","role":"job"}});
+    let out=run(&left,&right,input);assert_eq!(out["matching"]["left"]["count"],2);
+    assert_eq!(out["matching"]["left"]["name_kind_range_total"],3);assert_eq!(out["matching"]["right"]["count"],1);
+    assert_eq!(out["comparison"]["status"],"ambiguous");
+    let out=run(&left,&right,json!({"selection":{"kind":"rails_job_mail","name":"Same","role":"mailer"}}));
+    assert_eq!(out["matching"]["left"]["count"],1);assert_eq!(out["matching"]["right"]["count"],1);
+    let mut roles=vec!["mailer";70];roles.extend(["job","job"]);
+    let mut data=capture("role-pages","class Order; end");data["facts"]=job_facts(&roles);
+    let (_dir,left,right)=readers(&data,&data);
+    let out=run(&left,&right,json!({"selection":{"kind":"rails_job_mail","name":"Same","role":"job"}}));
+    assert_eq!(out["matching"]["left"]["count"],2);assert_eq!(out["matching"]["left"]["name_kind_range_total"],72);
+    assert_eq!(out["cost"]["root_fact_visits"],144);
+    let mut a=capture("callbacks","class Order; end");a["facts"]=callback_facts();
+    let (_dir,left,right)=readers(&a,&a);
+    assert_eq!(run(&left,&right,json!({"selection":{"kind":"rails_save_callbacks","name":"Same"}}))["matching"]["left"]["count"],1);
+}
+
+#[test]
+fn duplicate_preview_does_not_claim_complete_eligibility(){
+    let mut a=capture("duplicates","class Order; end");
+    for seed in ["second","third"] {
+        let mut item=a["facts"][0].clone();item["id"]=json!(schema::digest(seed.as_bytes()));
+        item["attributes"]["name_resolution"]=json!("unresolved_relative_path");a["facts"].as_array_mut().unwrap().push(item);
+    }
+    let (_dir,left,right)=readers(&a,&a);let out=run(&left,&right,request("Order"));
+    assert_eq!(out["matching"]["left"]["count"],3);assert_eq!(out["comparison"]["status"],"ambiguous");
+    assert_eq!(out["matching"]["left"]["unsupported_name_resolution"],Value::Null);
+    assert_eq!(out["matching"]["left"]["eligibility"],"unknown_for_uninspected_duplicates");
+}
+
+#[test]
+fn rooted_constant_keys_preserve_original_labels_without_suffix_or_namespace_binding(){
+    let mut data=capture("rooted","class Order; ::Order.find; ::Order; end");data["schema_version"]=json!(3);
+    data["facts"][0]["links"]=json!([{"relation":"calls","target":"find","resolution":"unresolved",
+        "attributes":{"thistle_call":{"version":2,"data":["constant","::Order",false,false,[13,25,1,1],[13,20,1,1]]}}},
+        {"relation":"association_target_label","target":"::Order","resolution":"unresolved"},
+        {"relation":"association_target_label","target":"Shop::Order","resolution":"unresolved"},
+        {"relation":"association_target_label","target":"::::Order","resolution":"unresolved"},link("::Order")]);
+    let occurrence=json!({"relation":"references_constant","target":"::Order","resolution":"unresolved",
+        "attributes":{"thistle_constant":{"version":1,"syntax":"::Order","rooted":true,"lexical_scope":null,"role":"value","location":[27,34,1,1]}}});
+    data["facts"][0]["links"].as_array_mut().unwrap().push(occurrence.clone());
+    let (_dir,left,right)=readers(&data,&data);let out=run(&left,&right,ref_request(8,Value::Null));
+    assert_eq!(out["items"].as_array().unwrap().len(),6);
+    assert!(out["items"].as_array().unwrap().iter().all(|row|row["candidate_label"]=="::Order"));
+    assert!(out["items"].as_array().unwrap().iter().any(|row|row["recorded_link"]["attributes"]["thistle_call"]["data"][1]=="::Order"));
+    let view=SemanticLinkView::from_semantic(&occurrence,3,"static").unwrap();
+    assert_eq!(witness_label(&view).unwrap().key,"Order");
+}
+
+#[test]
+fn method_module_file_entities_and_outgoing_remain_available_but_unsupported_incoming_refuses(){
+    for (kind,name,content) in [("module","Order","module Order; end"),("method","Object#run","def run; end"),
+        ("file","app/models/order.rb","class Order; end")] {
+        let mut data=capture(kind,content);data["facts"][0]["kind"]=json!(kind);data["facts"][0]["name"]=json!(name);
+        let (_dir,left,right)=readers(&data,&data);let input=json!({"selection":{"kind":kind,"name":name}});
+        assert_eq!(run(&left,&right,input.clone())["comparison"]["status"],"unchanged");
+        let mut outgoing=input.clone();outgoing["family"]=json!("references");outgoing["direction"]=json!("outgoing");
+        assert_eq!(run(&left,&right,outgoing)["scan"]["complete"],true);
+        if kind!="module" {let mut incoming=input;incoming["family"]=json!("references");
+            assert_eq!(select(&left,&right,&Query::parse(&incoming).unwrap()).unwrap_err().code,"unsupported_comparison");}
+    }
+}
+
+#[test]
+fn outgoing_selected_positions_absent_boundaries_and_untrusted_offsets_are_exact(){
+    let (_dir,left,right)=reference_pair();let mut input=json!({"selection":{"kind":"class","name":"ReceiptJob"},
+        "family":"references","direction":"outgoing","limit":1});
+    let mut seen=Vec::new();let mut done=false;
+    for _ in 0..6 {
+        let out=run(&left,&right,input.clone());assert!(out["cost"]["reference_fact_visits"].as_u64().unwrap()<=2);
+        let row=&out["items"][0];seen.push((row["side"].as_str().unwrap().to_owned(),row["link_index"].as_u64().unwrap()));
+        let next=out["next_cursor"].clone();if next.is_null(){done=true;break;}
+        let value:Value=serde_json::from_str(next.as_str().unwrap()).unwrap();
+        let side=value[4].as_u64().unwrap() as usize;let r=if side==0{&left}else{&right};
+        let selected=r.facts.iter().position(|f|f["name"]=="ReceiptJob").unwrap();assert_eq!(value[5],selected);
+        assert!(value[6].as_u64().unwrap()<3);input["cursor"]=next;
+    }
+    assert!(done);assert_eq!(seen,vec![("left".into(),0),("left".into(),1),("left".into(),2),("right".into(),0),("right".into(),1),("right".into(),2)]);
+    let a=capture("absent-A","class Order; end");let mut b=capture("absent-B","class Order; end");
+    b["facts"][0]["name"]=json!("ReceiptJob");b["facts"][0]["links"]=json!([link("Order")]);
+    let (_dir,left,right)=readers(&a,&b);input["cursor"]=Value::Null;
+    let out=run(&left,&right,input.clone());assert_eq!(out["items"][0]["side"],"right");assert_eq!(out["scan"]["complete"],true);
+    input["selection"]["name"]=json!("Missing");assert_eq!(select(&left,&right,&Query::parse(&input).unwrap()).unwrap_err().code,"not_found");
+    // Bounds-checked caller positions before a selected fact normalize to its
+    // link zero; the unrelated origin's link offset cannot skip selected links.
+    let mut data=capture("untrusted","class Order; end");data["facts"][0]["id"]=json!("f".repeat(64));data["facts"][0]["links"]=json!([link("A"),link("B")]);
+    let mut other=data["facts"][0].clone();other["id"]=json!("0".repeat(64));other["name"]=json!("Unrelated");data["facts"].as_array_mut().unwrap().push(other);
+    let (_dir,left,right)=readers(&data,&data);input["selection"]["name"]=json!("Order");input["cursor"]=Value::Null;
+    let q=Query::parse(&input).unwrap();let cursor=token(&left,&right,&q,Position{side:0,fact:0,link:1}).unwrap();input["cursor"]=cursor;
+    assert_eq!(run(&left,&right,input)["items"][0]["link_index"],0);
+}
+
+#[test]
+fn source_local_allowance_preserves_other_axes_without_refunding_attempts_or_hiding_errors(){
+    let content=format!("class Order; end #{}","x".repeat(600_000));
+    let mut a=capture("source-A",&content);let mut b=capture("source-B",&content);
+    for data in [&mut a,&mut b]{data["facts"][0]["kind"]=json!("file");data["facts"][0]["name"]=json!("app/models/order.rb");}
+    a["facts"][0]["attributes"]["flag"]=json!(false);b["facts"][0]["attributes"]["flag"]=json!(true);
+    let (_dir,left,right)=readers(&a,&b);let input=json!({"selection":{"kind":"file","name":"app/models/order.rb"}});
+    let mut work=RequestWork::default();let out=select_with_work(&left,&right,&Query::parse(&input).unwrap(),&mut work).unwrap();
+    assert_eq!(out["comparison"]["source"]["status"],"uncomparable");assert_eq!(out["comparison"]["source"]["reason"],"source_allowance");
+    assert_eq!(out["comparison"]["source"]["witness"]["status"],"omitted");assert_eq!(changed_field(&out,"/flag")["after"]["value"],true);
+    assert_eq!(out["comparison"]["relationships"]["status"],"unchanged");
+    assert_eq!(out["comparison"]["source"]["followups"]["right"]["generation"],right.generation);
+    for _ in 0..14{assert!(work.source_attempt());}assert!(!work.source_attempt());
+    let mut work=RequestWork::default();let full=json!("x".repeat(5*1024*1024-2));work.metadata(&full,1).unwrap();
+    assert_eq!(source_span(&left,&left.facts[0],&mut work).err().unwrap().code,"limit_exceeded");
+}
+
+#[test]
+fn exact_field_limit_scans_equal_trailing_subtrees_and_reports_complete(){
+    let mut a=capture("exact-A","class Order; end");let mut b=capture("exact-B","class Order; end");
+    a["facts"][0]["attributes"]["a"]=json!(false);b["facts"][0]["attributes"]["a"]=json!(true);
+    for data in [&mut a,&mut b]{data["facts"][0]["attributes"]["z"]=json!({"equal":[false,null,0]});}
+    let (_dir,left,right)=readers(&a,&b);let mut input=request("Order");input["limit"]=json!(1);
+    let out=run(&left,&right,input);assert_eq!(changed_field(&out,"/a")["after"]["value"],true);
+    assert_eq!(out["comparison"]["metadata"]["evidence"]["scan_complete"],true);assert_eq!(out["scan"]["complete"],true);
 }
