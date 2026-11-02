@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # AUTHORED UNRUN. Root alone supplies a finite installed producer admission.
-raise 'Explicit LOS153 producer admission required' unless ENV['THISTLE_LOS153_INSTALLED'] == '1'
+raise 'Explicit model-reading producer admission required' unless ENV['THISTLE_MODEL_READING_INSTALLED'] == '1'
 gem 'rails', '= 8.1.4'
 require 'rails'
 require 'active_record/railtie'

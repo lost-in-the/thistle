@@ -67,7 +67,7 @@ highlighter/HTML expansion and request-local DTOs add allocations. The method
 outline uses metadata only and does not fetch its N source files again. Repeated
 navigation opens fresh Readers. Complete useful-task cost remains unmeasured.
 
-The public LOS153 fixture uses Rails8.1.4/SQLite memory only in its separately
+The public model-reading fixture uses Rails8.1.4/SQLite memory only in its separately
 admitted producer, then a fresh Rails-free installed Reader/Map consumer. Its
 handwritten cards and served protocol cover A/partial/CURRENT B and exact return.
 Source checks are not installed/served, keyboard, no-JS, zoom, IME, assistive

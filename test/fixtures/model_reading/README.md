@@ -1,4 +1,4 @@
-# LOS153 public model-reading fixture
+# Public model-reading fixture
 
 AUTHORED UNRUN. This composes the existing loaded Rails model, save-callback and
 explicit source-ownership observers. It adds no capture family or Woods runtime.
@@ -18,7 +18,7 @@ environment, separately admit each finite process, retain stdout/stderr and
 native/package identities, and stop dependent work on failure. No server or
 runtime execution is authorized by this document. With that admission:
 
-1. Run `produce.rb NEW_WORK_DIR` with `THISTLE_LOS153_INSTALLED=1`; retain its JSON
+1. Run `produce.rb NEW_WORK_DIR` with `THISTLE_MODEL_READING_INSTALLED=1`; retain its JSON
    as the producer manifest outside the checkout. It saves A, a separately
    identified partial derivative and CURRENT B with a changed source marker.
 2. In a fresh installed Rails-free Core+Map process, run `consume.rb MANIFEST`

@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # AUTHORED UNRUN. Fresh installed process; does not start or contact a server.
-raise 'Explicit LOS153 consumer admission required' unless ENV['THISTLE_LOS153_INSTALLED'] == '1'
+raise 'Explicit model-reading consumer admission required' unless ENV['THISTLE_MODEL_READING_INSTALLED'] == '1'
 require 'json'
 require 'digest'
 require 'uri'
