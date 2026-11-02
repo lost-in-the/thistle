@@ -2,7 +2,7 @@
 
 # Direct source-only stdlib check, isolated by invocation. No Native is loaded.
 if $PROGRAM_NAME == __FILE__
-  require_relative 'fixtures/los144_route_actions/source_answers'
+  require_relative 'fixtures/route_actions/source_answers'
   require_relative '../lib/thistle/errors'
   $LOADED_FEATURES << File.expand_path('../lib/thistle/native.rb', __dir__)
   module Thistle

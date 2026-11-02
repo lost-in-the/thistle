@@ -2,7 +2,7 @@
 
 require 'minitest/autorun'
 require_relative '../../lib/thistle/errors'
-require_relative '../../test/fixtures/los144_route_actions/source_answers'
+require_relative '../../test/fixtures/route_actions/source_answers'
 require_relative '../lib/thistle/map/passage_presenter'
 
 # Handwritten DTO witnesses, independent of the new Rust implementation.

@@ -188,9 +188,9 @@ if $PROGRAM_NAME == __FILE__
   else
     # Root's outer finite process/output controls own this complete workflow.
     script = File.expand_path(__FILE__)
-    Dir.mktmpdir('los144-installed-') do |temporary|
+    Dir.mktmpdir('route-actions-installed-') do |temporary|
       copied = File.join(temporary,'fixture')
-      FileUtils.cp_r(File.expand_path('fixtures/los144_route_actions',__dir__),copied)
+      FileUtils.cp_r(File.expand_path('fixtures/route_actions',__dir__),copied)
       saved_store = File.join(temporary,'store')
       out, err, result = Open3.capture3(RbConfig.ruby,script,'capture',copied,saved_store,chdir: temporary)
       demand(result.success?,"Capture subprocess failed: #{err}")

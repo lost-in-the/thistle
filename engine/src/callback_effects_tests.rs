@@ -181,7 +181,7 @@ fn published_beyond_boundary_answer_is_reachable_pinned_and_globally_unique() {
     assert_eq!(explanation(&ambiguous)["reason"], "ambiguous_duplicate_instance_declarations");
     assert_eq!(ambiguous["coverage"]["declaration_scan_complete"], true);
     assert_eq!(ambiguous["coverage"]["candidate_ranges_complete"], false);
-    eprintln!("LOS64_WHOLE {}", json!({"ordinal":ordinal,"reader_opens":3,"demanded_builds":3,
+    eprintln!("CALLBACK_EFFECTS_WHOLE {}", json!({"ordinal":ordinal,"reader_opens":3,"demanded_builds":3,
         "queries":4,"first":result["coverage"],"reuse":repeated["coverage"],"reopen":reopened["coverage"],"duplicate":ambiguous["coverage"]}));
 }
 

@@ -6,8 +6,8 @@ import { open, lstat } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import path from 'node:path';
 
-const target = new URL(process.env.LOS148_MAP_URL);
-const output = process.env.LOS148_SCREENSHOT_DIR;
+const target = new URL(process.env.THISTLE_JOB_MAIL_MAP_URL);
+const output = process.env.THISTLE_JOB_MAIL_SCREENSHOT_DIR;
 if (!target.searchParams.get('generation')) throw new Error('Pinned generation URL required');
 const stat = await lstat(output);
 if (!stat.isDirectory() || stat.isSymbolicLink() || (stat.mode & 0o777) !== 0o700) throw new Error('Private existing output directory required');

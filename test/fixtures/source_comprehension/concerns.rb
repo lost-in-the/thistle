@@ -1,5 +1,5 @@
 # frozen_string_literal: true
-module Los147
+module SourceComprehensionFixture
   module Tagged
     extend ActiveSupport::Concern
     included do

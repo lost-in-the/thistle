@@ -1,4 +1,4 @@
-# LOS143 installed Core source-freshness cards
+# Installed Core source-freshness cards
 
 **AUTHORED UNRUN.** These scripts require Root's later finite runtime admission.
 They add no runtime lease and need no Rails, Active Record, database, capture,

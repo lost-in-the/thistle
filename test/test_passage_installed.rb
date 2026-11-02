@@ -11,5 +11,5 @@
 # do not satisfy that gate. Reader/Map/export cards distinguish direct create
 # from the actual saved conditional span and inspect compact callback omissions.
 if $PROGRAM_NAME == __FILE__
-  raise 'Run the explicit LOS150 producer/consumer protocol under Root admission; this file is documentation, not an execution grant.'
+  raise 'Run the explicit Passage producer/consumer protocol under Root admission; this file is documentation, not an execution grant.'
 end

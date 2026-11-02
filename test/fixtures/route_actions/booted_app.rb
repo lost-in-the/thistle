@@ -8,7 +8,7 @@ module RouteActionsFixture
   class Application < Rails::Application
     config.root = __dir__
     config.eager_load = false
-    config.secret_key_base = 'public-los144-fixture-key-not-a-credential'
+    config.secret_key_base = 'public-route-actions-fixture-key-not-a-credential'
     config.logger = Logger.new(File::NULL)
     config.hosts.clear
   end

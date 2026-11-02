@@ -7,5 +7,5 @@ class MissingRecipient < StandardError; end
 class ApplicationJob < ActiveJob::Base
   retry_on DeliveryTimeout, wait: :polynomially_longer, attempts: 4
 
-  def self.perform_later(*) = raise('LOS148 enqueue dispatched')
+  def self.perform_later(*) = raise('Job mail enqueue dispatched')
 end
