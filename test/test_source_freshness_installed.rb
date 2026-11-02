@@ -5,5 +5,5 @@
 # No Rails, Active Record, database, parser/capture or server is required.
 # The entry contract itself grants no runtime/build/install authority.
 if $PROGRAM_NAME == __FILE__
-  raise 'Use the explicit LOS143 installed producer/consumer under Root admission; see its fixture README.'
+  raise 'Use the explicit source-freshness installed producer/consumer under Root admission; see its fixture README.'
 end

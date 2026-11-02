@@ -1,5 +1,5 @@
 # frozen_string_literal: true
-module Los147
+module SourceComprehensionFixture
   class LabelReader
     def read(order)
       order.direct_label

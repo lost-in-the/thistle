@@ -250,7 +250,7 @@ invent a perform method; jobs may offer the recorded perform-label candidate.
 
 ## Independent expected journey and evidence state
 
-`test/fixtures/los148_job_mail/expected_cards.json` is authored independently of
+`test/fixtures/job_mail/expected_cards.json` is authored independently of
 implementation output. The public fixture contains inherited retry (four attempts,
 polynomial wait), local discard/rescue with opaque/symbol handlers, a conditional
 mail call, duplicate archive action declarations, unloaded mailer/exception,
@@ -299,9 +299,9 @@ Authored but **UNRUN**:
   dynamic selection. Run outside checkout with isolated installed gems and an
   explicit Root lease. The manual script fails if shared wiring is missing.
 * The installed script now includes the actual `/job-mail/overview` Rack route
-  (`LOS148_MAP_PATH` can supply the admitted mount's path). This is not a
+  (`THISTLE_JOB_MAIL_MAP_PATH` can supply the admitted mount's path). This is not a
   served-browser substitute. Supply the real served URL to
-  `test/fixtures/los148_job_mail/served_journey.mjs` for screenshots, narrow screen,
+  `test/fixtures/job_mail/served_journey.mjs` for screenshots, narrow screen,
   keyboard and no-JavaScript assertions under Root's separate finite admission.
 
 No screenshot, installed receipt, runtime safety proof or customer completion is

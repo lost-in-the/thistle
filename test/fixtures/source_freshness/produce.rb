@@ -20,7 +20,7 @@ source_b = "class CurrentFreshness\nend\n"
 def data(source)
   files = { 'sub/source.rb' => source, 'stable.rb' => "stable\n", 'empty.rb' => '',
     'missing.rb' => "missing\n", 'link.rb' => "link\n" }
-  { 'root_id' => Digest::SHA256.hexdigest('public-los143-root'), 'producer' => { 'name' => 'public-los143-no-parser' },
+  { 'root_id' => Digest::SHA256.hexdigest('public-source-freshness-root'), 'producer' => { 'name' => 'public-source-freshness-no-parser' },
     'files' => files.map { |path, content| { 'path' => path, 'sha256' => Digest::SHA256.hexdigest(content),
       'bytes' => content.bytesize, 'encoding' => 'UTF-8', 'content' => content } },
     'facts' => [{ 'id' => 'b' * 64, 'kind' => 'class', 'name' => 'SavedFreshness', 'path' => 'sub/source.rb',

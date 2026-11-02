@@ -140,7 +140,7 @@ after CURRENT B, unchanged Source/Check and a corrupt-blob independence case.
 No production request flag activates a hook. The direct Ruby adapter double
 uses no native extension, Rails or Active Record. The temporary installed
 producer/consumer cards and served protocol are in
-`test/fixtures/los143_source_freshness/`; native, installed and served execution
+`test/fixtures/source_freshness/`; native, installed and served execution
 requires Root's later finite admission. Authoring those files is not execution.
 
 This Core subresult does not complete LOS143's later visible Map freshness

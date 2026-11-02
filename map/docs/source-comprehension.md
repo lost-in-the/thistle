@@ -98,7 +98,7 @@ No source-only worker may execute the following protocol.
    `source_comprehension_installed_journey.rb produce` mode boots genuine Rails,
    loads the model/concerns and captures A through the installed gem. It then
    replaces only that disposable source with B and advances CURRENT. Keep A.
-   This producer supplies `{models: [Los147::Order], stop_before: ActiveRecord::Base}`
+   This producer supplies `{models: [SourceComprehensionFixture::Order], stop_before: ActiveRecord::Base}`
    explicitly; normal captures do not discover classes for this optional family.
 2. Start a separate consumer process with the installed Core/Map gems, outside
    their checkout/load paths and without Rails/ActiveRecord loaded. Its consume
@@ -131,9 +131,9 @@ remain separate from that producer/consumer check.
 
 | Investigator question | Independently checked fixture answer; execution still UNRUN |
 | --- | --- |
-| Where should a direct label change be written? | `order.rb`, `Los147::Order#direct_label`; it calls `tag_text` in included Tagged. |
-| Which loaded owner supplies display_name? | Prepended `Los147::Decorated`; Order and Parent retain distinct saved alternatives. Coherence/execution unknown. |
-| Where is inherited_label written? | `parent.rb`, `Los147::Parent`; the model's superclass contribution. |
+| Where should a direct label change be written? | `order.rb`, `SourceComprehensionFixture::Order#direct_label`; it calls `tag_text` in included Tagged. |
+| Which loaded owner supplies display_name? | Prepended `SourceComprehensionFixture::Decorated`; Order and Parent retain distinct saved alternatives. Coherence/execution unknown. |
+| Where is inherited_label written? | `parent.rb`, `SourceComprehensionFixture::Parent`; the model's superclass contribution. |
 | Does an anonymous contribution hide the remaining owners? | No. The anonymous module before Tagged/Parent has no source-label candidate; both families must still reach Tagged and Parent. |
 | Can you choose one duplicate_label definition as the effective saved body? | No. Both physical definitions in order.rb remain ambiguous saved candidates, even if a loaded descriptor points at one. |
 | Did Optional register? Did normalize_tag run? | Optional is conditionally declared but not in the fixture's observed ancestry. normalize_tag is registered with a condition; nothing executed it. Static syntax does not prove registration/execution. |

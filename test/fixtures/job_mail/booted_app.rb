@@ -10,7 +10,7 @@ module JobMailFixture
   class Application < Rails::Application
     config.root = __dir__
     config.eager_load = false
-    config.secret_key_base = 'public-los148-fixture-key-not-a-credential'
+    config.secret_key_base = 'public-job-mail-fixture-key-not-a-credential'
     config.logger = Logger.new(File::NULL)
     config.action_mailer.perform_deliveries = false
   end

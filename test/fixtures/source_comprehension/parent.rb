@@ -1,5 +1,5 @@
 # frozen_string_literal: true
-module Los147
+module SourceComprehensionFixture
   class Parent < ActiveRecord::Base
     self.abstract_class = true
 

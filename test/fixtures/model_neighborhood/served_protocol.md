@@ -1,4 +1,4 @@
-# LOS149 visible served protocol — correction AUTHORED UNRUN
+# Model-neighborhood visible served protocol — correction AUTHORED UNRUN
 
 Root owns the finite host/browser claim and exact installed artifacts; Leah owns
 applicable acceptance. Record source/head, packages/native/cohort, A/partial/B,

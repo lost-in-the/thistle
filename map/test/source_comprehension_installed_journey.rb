@@ -2,7 +2,7 @@
 
 # UNRUN. Opt-in installed-only producer/consumer contract, not a source-phase
 # helper or served/browser acceptance. Root supplies the finite execution lease.
-raise 'Explicit installed LOS-147 execution admission required' unless ENV['THISTLE_LOS147_INSTALLED'] == '1'
+raise 'Explicit installed source-comprehension execution admission required' unless ENV['THISTLE_SOURCE_COMPREHENSION_INSTALLED'] == '1'
 require 'json'
 require 'digest'
 require 'fileutils'
@@ -20,9 +20,9 @@ when 'produce'
   FileUtils.mkdir_p(root, mode: 0o700)
   %w[parent concerns order caller].each { |name| FileUtils.cp(File.join(fixture, "#{name}.rb"), root) }
   require File.join(fixture, 'boot.rb')
-  app = Los147.boot(root)
+  app = SourceComprehensionFixture.boot(root)
   saved = Thistle.capture(root: root, output: store, rails: app,
-    source_comprehension: { models: [Los147::Order], stop_before: ActiveRecord::Base })
+    source_comprehension: { models: [SourceComprehensionFixture::Order], stop_before: ActiveRecord::Base })
   expected = %w[parent concerns order caller].to_h do |name|
     ["#{name}.rb", Digest::SHA256.file(File.join(root, "#{name}.rb")).hexdigest]
   end
@@ -45,7 +45,7 @@ when 'consume'
   end
   reader = Thistle::Reader.new(store, generation: generation_a)
   begin
-    model = reader.find('Los147::Order').find { |fact| fact['kind'] == 'rails_model' && fact['name'] == 'Los147::Order' }
+    model = reader.find('SourceComprehensionFixture::Order').find { |fact| fact['kind'] == 'rails_model' && fact['name'] == 'SourceComprehensionFixture::Order' }
     verify(model, 'Missing saved loaded model')
     verify(reader.respond_to?(:source_comprehension), 'Root Reader integration is absent')
     contributions, missing, pages, outlines = [], [], 0, {}
@@ -73,19 +73,19 @@ when 'consume'
     %w[contributions methods].each do |family|
       rows = outlines.fetch(family)
       verify(rows.any? { |row| row['status'] == 'anonymous_owner_no_label_candidate' && row['returned'] == 0 }, "Anonymous owner was hidden in #{family}")
-      verify(rows.any? { |row| row['owner'] == 'Los147::Parent' }, "Named suffix became unreachable in #{family}")
+      verify(rows.any? { |row| row['owner'] == 'SourceComprehensionFixture::Parent' }, "Named suffix became unreachable in #{family}")
     end
     by_name = contributions.group_by { |row| row.fetch('fact').fetch('name') }
-    verify(by_name.key?('Los147::Tagged#tag_text'), 'Missing included concern source')
-    verify(by_name.key?('Los147::Parent#inherited_label'), 'Missing superclass source')
-    prepend = by_name.fetch('Los147::Decorated#display_name')
+    verify(by_name.key?('SourceComprehensionFixture::Tagged#tag_text'), 'Missing included concern source')
+    verify(by_name.key?('SourceComprehensionFixture::Parent#inherited_label'), 'Missing superclass source')
+    prepend = by_name.fetch('SourceComprehensionFixture::Decorated#display_name')
     verify(prepend.any? { |row| row['status'] == 'observed_loaded_owner_source_binding_unknown' }, 'Prepend owner observation missing')
-    duplicates = by_name.fetch('Los147::Order#duplicate_label')
+    duplicates = by_name.fetch('SourceComprehensionFixture::Order#duplicate_label')
     verify(duplicates.map { |row| row['fact']['id'] }.uniq.length == 2, 'Duplicate candidates collapsed')
     verify(duplicates.all? { |row| row['status'].start_with?('ambiguous_', 'unknown_') }, 'Saved duplicate was promoted to effective body')
     verify(missing.any? { |row| row['name'] == 'native_hash' }, 'Missing source descriptor was hidden')
-    verify(!by_name.key?('Los147::Optional'), 'Conditional syntax became registered contribution')
-    direct = by_name.fetch('Los147::Order#direct_label').first.fetch('fact')
+    verify(!by_name.key?('SourceComprehensionFixture::Optional'), 'Conditional syntax became registered contribution')
+    direct = by_name.fetch('SourceComprehensionFixture::Order#direct_label').first.fetch('fact')
     source = reader.source(direct.fetch('id'))
     verify(source.fetch('generation') == generation_a, 'Source lost A')
     verify(source.fetch('content').include?('def direct_label'), 'A source was replaced by B')
