@@ -136,7 +136,7 @@ begin
   # manifests/digest status appear comparable. Preserve the original store.
   demand(receipt.fetch('protected_files').length <= 256, 'Public fixture unexpectedly grew')
   demand(receipt.fetch('protected_files').keys.sum { |name| File.size(File.join(store, name)) } <= 4 * 1024 * 1024, 'Public corruption fixture exceeds copy budget')
-  Dir.mktmpdir('thistle-los151-corrupt-') do |work|
+  Dir.mktmpdir('generation-comparison-corrupt-') do |work|
     copy = File.join(work, 'store')
     FileUtils.cp_r(store, copy)
     identity = results.first.fetch('answer').dig('matching', 'left', 'identities').first

@@ -264,7 +264,7 @@ Root has registered the module, paired registry lifetime handling and public
 facade in source, with this contract in Core's installed document selectors.
 Independent review and affected native/installed boundary gates remain required.
 Shared guidance/decisions follow their existing writer ownership. Repository-only
-fixtures at `test/fixtures/los151_generation_comparison/`
+fixtures at `test/fixtures/generation_comparison/`
 (README and served protocol) retain the later Reader-to-Map/MCP/client/user
 evidence obligations. They are not installed package inputs.
 
@@ -402,7 +402,7 @@ Root owns changed-scope R2, signed delivery and actual native/installed gates.
 
 | Finding | Correction and authored evidence |
 | --- | --- |
-| R131-01 | Existing exact-range directory matching; one 90,390-fact publication and Reader pair reused cold/warm, with construction versus per-query costs exposed. Closed registry-name validation negative controls cover schemas 1/2/3; role filtering crosses a 64-position page and counts all duplicates. |
+| R131-01 | Existing exact-range directory matching; one synthetic 10,001-fact publication and two direct Readers (20,002 combined facts) reused cold/warm, with construction versus per-query costs exposed. Positive publication/stored-reader controls and closed registry-name validation negatives cover schemas 1/2/3; role filtering crosses a 64-position page and counts all duplicates. |
 | R131-02 | Maintained one-root constant normalization, with original labels retained; native receiver/occurrence/association cases and a real public fixture `::Order.find` card, excluding qualified/double-root false matches. |
 | R131-03 | Explicit unsupported incoming method/file refusal, while entity and outgoing contracts remain useful. |
 | R131-04 | Selected-link outgoing traversal and canonical pair-scoped physical positions; absent-side, untrusted offset and exact next-link cases. |
@@ -416,3 +416,21 @@ earlier 1fb CI failure and f17 replacement-test identities remain unchanged;
 neither qualifies changed bytes. Pure syntax/JSON/static checks have separate
 scope. Actual Map/MCP/client/person explanation and the wider Git/history/impact
 outcomes remain open; all 17 launch capabilities remain unqualified.
+
+## Native pair admission boundary
+
+Directory matching fixes the former combined 20,000 query-visit limit; it does
+not remove Reader admission. The shared native budget remains 128 MiB and the
+comparison reserves 32 MiB scratch. Two recorded real-app fact payloads of
+66,852,777 bytes each already total 167,259,986 bytes with that scratch, before
+other retained Reader costs. That pair cannot be admitted. The small synthetic
+directory regression opens two Readers directly and bypasses the native
+registry; it proves exact-range reuse, not real-app scale, memory or latency.
+
+[LOS-162](https://linear.app/lost-in-the/issue/LOS-162/compare-real-sized-saved-generations-within-bounded-native-pair)
+owns bounded real-pair admission, refusal/cleanup and useful measured acceptance.
+No admission cap is raised here. R131-10's avoidable left-source read before a
+right-side allowance refusal is deferred to the technical integration owner's
+shared source/paired-read work; the current wasted read is bounded by the
+existing 1 MiB local source allowance. All new native positive controls and
+reduced synthetic fixtures remain authored, not locally executed, in this edit.

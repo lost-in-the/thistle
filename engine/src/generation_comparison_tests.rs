@@ -12,9 +12,9 @@ fn fact(seed:&str,name:&str,path:&str,content:&str)->Value {
         "evidence":"static","attributes":{"name_resolution":"lexical","declaration_name":name,"lexical_scope":[]},"links":[]})
 }
 fn capture(seed:&str,content:&str)->Value {
-    json!({"root_id":schema::digest(seed.as_bytes()),"producer":{"name":"public-los151-known-answer","private_canary":"MUST_NOT_LEAK"},
+    json!({"root_id":schema::digest(seed.as_bytes()),"producer":{"name":"public-generation-comparison-known-answer","private_canary":"MUST_NOT_LEAK"},
         "files":[file("app/models/order.rb",content)],"facts":[fact(seed,"Order","app/models/order.rb",content)],
-        "coverage":[{"family":"source_inventory","status":"complete","scope":"public los151 regular source files","reason":null},
+        "coverage":[{"family":"source_inventory","status":"complete","scope":"public generation-comparison regular source files","reason":null},
             {"family":"ruby_declarations","status":"complete","scope":"explicit Ruby declarations in public source","reason":null}],"diagnostics":[]})
 }
 fn readers(a:&Value,b:&Value)->(tempfile::TempDir,Reader,Reader){
@@ -396,11 +396,12 @@ fn changed_field_byte_cut_keeps_missingness_and_prefix_and_refuses_first_row_ove
 }
 
 #[test]
-fn realistic_directory_pair_has_explicit_cold_cost_and_reuses_it_without_full_query_scans(){
-    // One fixture/publication and one pair, reused cold/warm. No timing target,
-    // no capture/parser/framework, and no repeated large fixture copies.
+fn directory_pair_reuses_exact_ranges_without_full_query_scans(){
+    // Two 10,001-fact domains cross the old combined 20,000-visit ceiling.
+    // One synthetic publication/pair tests directory reuse only. Direct Reader::open
+    // bypasses native registry admission: this is no real-pair size or timing proof.
     let dir=tempfile::tempdir().unwrap();let mut data=capture("large","class Order; end");
-    for i in 1..90_390usize {
+    for i in 1..10_001usize {
         data["facts"].as_array_mut().unwrap().push(json!({"id":schema::digest(format!("unrelated-{i}").as_bytes()),
             "kind":"class","name":format!("Unrelated{i}"),"path":null,"location":null,"evidence":"static",
             "attributes":{"name_resolution":"lexical"},"links":[]}));
@@ -412,8 +413,8 @@ fn realistic_directory_pair_has_explicit_cold_cost_and_reuses_it_without_full_qu
         assert_eq!(out["cost"]["root_fact_visits"],2);
         for side in ["left","right"] {
             let stats=&out["cost"]["directory"][side];
-            assert_eq!(stats["built_this_request"],cold);assert_eq!(stats["facts_visited"],90_390);
-            assert!(stats["retained_bytes"].as_u64().unwrap()>90_390*std::mem::size_of::<usize>() as u64);
+            assert_eq!(stats["built_this_request"],cold);assert_eq!(stats["facts_visited"],10_001);
+            assert!(stats["retained_bytes"].as_u64().unwrap()>10_001*std::mem::size_of::<usize>() as u64);
             assert!(stats["sort_comparisons"].as_u64().unwrap()>0);
         }
     }
@@ -438,6 +439,14 @@ fn registry_keys_are_closed_validation_in_all_schemas_and_job_roles_count_comple
     let model=crate::model::batch(&registry_context(),&models).unwrap()["facts"][0].clone();
     let cb=callback_facts()[0].clone();let job=job_facts(&["job"])[0].clone();
     for version in [1,2,3] {for original in [&model,&cb,&job] {
+        // Establish valid publication and stored-reader controls before rejecting
+        // the corresponding name mutation; failures must not pass vacuously.
+        schema::stored_facts(std::iter::once(original),&[],version).unwrap();
+        let mut valid=capture("valid-registry","class Order; end");
+        valid["schema_version"]=json!(version);valid["facts"]=json!([original]);
+        let dir=tempfile::tempdir().unwrap();
+        let generation=crate::store::publish(dir.path(),&valid).unwrap()["generation"].as_str().unwrap().to_owned();
+        let _reader=Reader::open(dir.path(),Some(&generation)).unwrap();
         let mut bad=original.clone();bad["name"]=json!("WrongDirectoryLabel");
         assert!(schema::stored_facts(std::iter::once(&bad),&[],version).is_err());
         let mut data=capture("bad","class Order; end");data["schema_version"]=json!(version);data["facts"]=json!([bad]);

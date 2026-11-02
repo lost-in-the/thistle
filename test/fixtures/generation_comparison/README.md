@@ -1,4 +1,4 @@
-# LOS-151 independent saved comparison cards
+# Independent saved-generation comparison cards
 
 The comparison module, native tests and public Reader forwarding are wired in
 source. Historical 1fb CI compiled (229 PASS / 2 FAIL); f17's replacement fixtures
