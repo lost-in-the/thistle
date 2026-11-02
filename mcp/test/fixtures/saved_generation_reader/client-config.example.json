@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "thistle-saved-evidence": {
+      "command": "thistle-mcp",
+      "args": [
+        "--store", "./saved-evidence/store",
+        "--generation", "REPLACE_WITH_EXPLICIT_SAVED_GENERATION_SHA256"
+      ]
+    }
+  }
+}

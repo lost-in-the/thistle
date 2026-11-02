@@ -34,6 +34,12 @@ MAP_INPUTS = (
     "lib/thistle/map/version.rb", "lib/thistle/map.rb", "assets/style.css",
     "examples/config.ru", "README.md", "CHANGELOG.md", "LICENSE.txt", "LICENSE.woods-map.txt",
 )
+MCP_DOCS = ("docs/local-reader.md",)
+MCP_INPUTS = (
+    "lib/thistle/mcp.rb", "lib/thistle/mcp/version.rb", "lib/thistle/mcp/limits.rb",
+    "lib/thistle/mcp/session.rb", "lib/thistle/mcp/tools.rb", "lib/thistle/mcp/server.rb",
+    "lib/thistle/mcp/stdio.rb", "exe/thistle-mcp", "README.md", "LICENSE", "THIRD_PARTY.md",
+)
 EXCLUDED = (
     "docs/admin.md", "docs/admin.json", "docs/development/admin.md", "docs/handoff/source.rs",
     "engine/target/output.rs", "ext/thistle_native/target/output.rs",
@@ -54,6 +60,8 @@ class PackageManifestTests(unittest.TestCase):
             ("", "thistle.gemspec", "lib/thistle/version.rb", CORE_INPUTS + CORE_DOCS + EXCLUDED),
             ("map", "thistle-map.gemspec", "lib/thistle/map/version.rb",
              MAP_INPUTS + MAP_DOCS + ("docs/VALIDATION.md", "docs/browser.json")),
+            ("mcp", "thistle-mcp.gemspec", "lib/thistle/mcp/version.rb",
+             MCP_INPUTS + MCP_DOCS + ("test/private.rb", "store/CURRENT", "client.json")),
         ):
             directory = self.root / package
             for name in paths:
@@ -62,7 +70,8 @@ class PackageManifestTests(unittest.TestCase):
                 path.write_text("# disposable fixture\n")
             for name in (spec, version):
                 shutil.copyfile(ROOT / package / name, directory / name)
-        self.expected = {"core": sorted(CORE_INPUTS + CORE_DOCS), "map": sorted(MAP_INPUTS + MAP_DOCS)}
+        self.expected = {"core": sorted(CORE_INPUTS + CORE_DOCS), "map": sorted(MAP_INPUTS + MAP_DOCS),
+                         "mcp": sorted(MCP_INPUTS + MCP_DOCS)}
 
     def ruby(self, script, *args):
         result = subprocess.run(
@@ -79,7 +88,8 @@ class PackageManifestTests(unittest.TestCase):
 require "json"
 core = Gem::Specification.load("thistle.gemspec") or abort "Core spec refused"
 map = Gem::Specification.load("map/thistle-map.gemspec") or abort "Map spec refused"
-puts JSON.generate(core: core.files, map: map.files)
+mcp = Gem::Specification.load("mcp/thistle-mcp.gemspec") or abort "MCP spec refused"
+puts JSON.generate(core: core.files, map: map.files, mcp: mcp.files)
 '''))
         self.assertEqual(selected, self.expected)
         # Probe only the disposable fixture, restoring every input before continuing.
@@ -94,8 +104,30 @@ ARGV.each_slice(2) do |spec, path|
   end
 end
 ''', *[item for spec, paths in (("thistle.gemspec", CORE_DOCS),
-                               ("map/thistle-map.gemspec", tuple("map/" + p for p in MAP_DOCS)))
+                               ("map/thistle-map.gemspec", tuple("map/" + p for p in MAP_DOCS)),
+                               ("mcp/thistle-mcp.gemspec", tuple("mcp/" + p for p in MCP_INPUTS + MCP_DOCS)))
       for path in paths for item in (spec, path)])
+
+    def test_mcp_archive_and_dependencies_are_optional_and_exact(self):
+        result = json.loads(self.ruby(r'''
+require "json"
+require "rubygems/package"
+spec = Gem::Specification.load("mcp/thistle-mcp.gemspec") or abort
+raise "Core/SDK activated by gemspec" if $LOADED_FEATURES.any? { |f| f.match?(%r{/(?:mcp/server|thistle/reader|thistle_native)\.(?:rb|so|bundle)\z}) }
+archive = Dir.chdir("mcp") { Gem::Package.build(spec) }
+package = Gem::Package.new(File.join("mcp", archive))
+warn "Disposable MCP archive built"
+puts JSON.generate(files: package.contents.sort, ruby: spec.required_ruby_version.to_s,
+  dependencies: spec.runtime_dependencies.to_h { |d| [d.name, d.requirement.to_s] },
+  executables: spec.executables, bindir: spec.bindir, require_paths: spec.require_paths,
+  publication: spec.metadata.fetch("allowed_push_host"))
+''').splitlines()[-1])
+        self.assertEqual(result, {
+            "files": self.expected["mcp"], "ruby": ">= 3.4",
+            "dependencies": {"thistle": "= 0.1.0.pre.3", "mcp": "= 1.8.2"},
+            "executables": ["thistle-mcp"], "bindir": "exe", "require_paths": ["lib"],
+            "publication": "https://unreleased.invalid",
+        })
 
     def test_already_built_manifest_assertion_accepts_pair_and_stops_staging_on_mismatch(self):
         helper = (ROOT / "tools/check_install.rb").read_text()
@@ -145,7 +177,8 @@ end
 
 class InstalledDocumentLinkTests(unittest.TestCase):
     def test_links_resolve_inside_their_package_or_use_explicit_urls(self):
-        for package, paths, inputs in (("", CORE_DOCS, CORE_INPUTS), ("map", MAP_DOCS, MAP_INPUTS)):
+        for package, paths, inputs in (("", CORE_DOCS, CORE_INPUTS), ("map", MAP_DOCS, MAP_INPUTS),
+                                      ("mcp", MCP_DOCS, MCP_INPUTS)):
             members = set(paths + inputs)
             for name in ("README.md", *paths):
                 text = (ROOT / package / name).read_text()
