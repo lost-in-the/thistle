@@ -10,6 +10,10 @@ for explicit Rails introspection. This is an early implementation
 milestone of the [reviewed product plan](https://chatgpt.com/space/page_83d1d4a1a4ec81918d7310c21061c4e4).
 It is not yet a launch replacement for Woods and makes no comparative speed claim.
 
+The [replacement contract](docs/development/replacement-contract.md) defines the
+complete human and agent investigations the product must support; it separates
+that goal from the bounded features and evidence currently available.
+
 The repository [mission](https://github.com/lost-in-the/thistle/blob/main/docs/MISSION.md) defines the governing product goals. Find the full launch scope, acceptance sources and live plan through the
 [project scope index](https://github.com/lost-in-the/thistle/blob/main/docs/PROJECT_SCOPE.md). Contributors
 and agents should use the [workflow](https://github.com/lost-in-the/thistle/blob/main/docs/development/agent-workflow.md) and
@@ -298,13 +302,20 @@ uncertainty remain explicit. Source opens captured bytes at the pinned
 generation even after CURRENT changes. This requires the matching Core with
 the bounded [fact identity operation](docs/development/fact-identity.md).
 
-Code-first model reading uses `/comprehension/contributions` and
-`/comprehension/methods`, with generation/search/investigation retained by shared
-navigation. Selected files reserve at most 64 KiB before reads; 2000 aggregate
-display lines are checked on bounded responses before highlighting. Unknown
-ownership and files not admitted for display remain explicit. See the
-[reading contract](docs/development/source-comprehension.md) for limits and the
-pending installed/served/person acceptance boundary.
+Model-context Source opens full admitted physical source beside a named
+contribution/method outline. Columns, Associations and explicitly selected
+registered callbacks lead back to the canonical model reading with generation,
+search, ordered selection and admitted physical position retained. Search stays
+visible; secondary filters and diagnostics use disclosures. Duplicate definitions
+remain qualified alternatives rather than a guessed runtime winner.
+
+The first canonical page makes two bounded comprehension queries, then at most
+eight unique source reads admitted under 64 KiB/2000 aggregate lines. Continued
+families query only their selected projection. Reader opening, directory building,
+highlighting and repeated GETs still cost work; complete-task performance remains
+unmeasured. See the [Core comprehension contract](docs/development/source-comprehension.md)
+and [Map model-reading guide](https://github.com/lost-in-the/thistle/blob/c2670bab6d0b591668b1b019d31d60256eedcf2b/map/docs/model-reading.md).
+This new presentation's installed, served and person gates remain pending.
 
 Saved job/mail investigation uses `/job-mail/overview` and its explicit policy,
 registration/declaration, handoff and template-reference family routes. Source

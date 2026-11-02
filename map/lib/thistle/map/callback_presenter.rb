@@ -5,6 +5,7 @@ require 'json'
 require 'uri'
 require 'digest'
 require_relative 'navigation_context'
+require_relative 'constant_occurrence'
 
 module Thistle
   module Map
@@ -28,7 +29,63 @@ module Thistle
         render_registry(fact) + explanation
       end
 
+      # Core projection only. registered adds the existing filter/condition display;
+      # no source expansion or query is performed by this entry point.
+      def render_projection(result, registered: false)
+        body = +'<section aria-label="Potential save callback effects"><h2>Potential save callback effects</h2>'
+        body << notice(result.fetch('semantics'))
+        body << "<p>Saved model: #{h(result['model'] || 'Anonymous')} · Registry: #{h(result.fetch('registry_status'))} · Observed execution: unknown</p>"
+        result.fetch('callbacks').each do |row|
+          analysis = row.fetch('explanation')
+          body << "<article><h3>Registered position #{h(row.fetch('position'))} · #{h(row['kind'] || 'Unknown')}</h3>"
+          if registered
+            body << "<p>#{reference(row.fetch('filter'), source_hints_only: true)}</p>"
+            body << "<p>Conditions (not evaluated): #{conditions(row, source_hints_only: true)}</p>"
+            body << "<p>Inherited registered entry: #{h(row['inherited'].nil? ? 'Unknown' : row['inherited'])}; registration site unknown.</p>"
+          end
+          body << "<p>#{h(analysis.fetch('status'))}: #{h(analysis.fetch('reason'))}</p>"
+          if analysis['binding'] == 'descriptor_matched_captured_declaration'
+            method, source = analysis.fetch('method'), analysis.fetch('source')
+            body << "<p>Descriptor-matched captured declaration: #{h(method.fetch('name'))} · #{h(source.fetch('path'))}:#{h(method.fetch('span').fetch('start_line'))} · runtime/source coherence unknown</p>"
+            body << source_link(source, method.fetch('span').fetch('start_line'), method.fetch('name')) if registered
+            analysis.fetch('effects').each do |effect|
+              location = effect.fetch('call_span')
+              body << "<p>Potential enqueue-style request: <code>#{h(effect.fetch('operation'))}</code></p>"
+              body << "<pre><code>#{h(effect.fetch('source_excerpt'))}</code></pre>"
+              body << notice('Supporting excerpt shortened; exact call span remains recorded.') if effect['excerpt_truncated']
+              body << "<p>Captured SHA-256 #{h(source.fetch('sha256'))} · call bytes [#{h(location.fetch('start_byte'))}, #{h(location.fetch('end_byte'))})</p>"
+              # Core verified the saved bytes/spans. The established File Source
+              # destination has a separate 10,000-line display ceiling.
+              if source.fetch('lines') <= MAX_SOURCE_LINES && location.fetch('start_line') <= MAX_SOURCE_LINES
+                body << source_link(source, location.fetch('start_line'), 'Supporting captured source (coherence unknown)')
+              end
+            end
+            body << notice("Known potential effects omitted: #{analysis.fetch('known_effects_omitted')}") if analysis.fetch('known_effects_omitted').positive?
+          end
+          body << notice('Potential effects are non-exhaustive; other effects may exist.') if analysis['effects_non_exhaustive']
+          body << '</article>'
+        end
+        body << '<p>No callback rows returned; this does not establish an empty registered chain.</p>' if result.fetch('callbacks').empty?
+        body << coverage_notices(result.fetch('coverage'))
+        body + '</section>'
+      end
+
       private
+
+      def coverage_notices(coverage)
+        body = +''
+        if coverage['truncated'] || !coverage['declaration_scan_complete']
+          body << notice("Explanation incomplete: #{coverage.fetch('rows_not_searched')} rows not searched; #{coverage.fetch('rows_metadata_omitted')} metadata rows and #{coverage.fetch('rows_output_omitted')} output rows omitted. Possible effects remain unknown.")
+        end
+        if coverage.dig('method_directory', 'status') == 'complete' && coverage['declaration_scan_complete']
+          body << notice('Captured method candidate lookup completed for selected callbacks; original capture coverage is separate.')
+        end
+        if coverage.fetch('source_rows_not_searched', 0).positive?
+          body << notice("Source evidence not searched for #{coverage.fetch('source_rows_not_searched')} returned callbacks; possible effects remain unknown.")
+        end
+        body << notice('Capture is partial or unknown; searched source cannot establish all possible effects.') if coverage['capture_partial_or_unknown']
+        body
+      end
 
       def render_registry(fact)
         data = fact.dig('attributes', 'callbacks')
@@ -64,8 +121,6 @@ module Thistle
         notice('Registered callbacks unavailable: invalid evidence shape.')
       end
 
-      private
-
       def explanation_for(fact)
         heading = '<section aria-label="Potential save callback effects"><h2>Potential save callback effects</h2>'
         unless @reader && @reader.respond_to?(:callback_effects)
@@ -83,47 +138,25 @@ module Thistle
           return heading + notice('Source-supported explanation unavailable: native callback_effects API unavailable. Possible effects remain unknown.') + '</section>'
         end
         raise Thistle::InvalidSnapshot, 'Callback explanation generation or registry mismatch' unless result['generation'] == @generation && result['registry_id'] == fact.fetch('id')
-        body = heading + notice(result.fetch('semantics'))
-        body << "<p>Saved model: #{h(result['model'] || 'Anonymous')} · Registry: #{h(result.fetch('registry_status'))} · Observed execution: unknown</p>"
-        result.fetch('callbacks').each do |row|
-          analysis = row.fetch('explanation')
-          body << "<article><h3>Registered position #{h(row.fetch('position'))} · #{h(row['kind'] || 'Unknown')}</h3>"
-          body << "<p>#{h(analysis.fetch('status'))}: #{h(analysis.fetch('reason'))}</p>"
-          if analysis['binding'] == 'descriptor_matched_captured_declaration'
-            method, source = analysis.fetch('method'), analysis.fetch('source')
-            body << "<p>Descriptor-matched captured declaration: #{h(method.fetch('name'))} · #{h(source.fetch('path'))}:#{h(method.fetch('span').fetch('start_line'))} · runtime/source coherence unknown</p>"
-            analysis.fetch('effects').each do |effect|
-              location = effect.fetch('call_span')
-              body << "<p>Potential enqueue-style request: <code>#{h(effect.fetch('operation'))}</code></p>"
-              body << "<pre><code>#{h(effect.fetch('source_excerpt'))}</code></pre>"
-              body << notice('Supporting excerpt shortened; exact call span remains recorded.') if effect['excerpt_truncated']
-              body << "<p>Captured SHA-256 #{h(source.fetch('sha256'))} · call bytes [#{h(location.fetch('start_byte'))}, #{h(location.fetch('end_byte'))})</p>"
-              # Core verified the saved bytes/spans. The established File Source
-              # destination has a separate 10,000-line display ceiling.
-              if source.fetch('lines') <= MAX_SOURCE_LINES && location.fetch('start_line') <= MAX_SOURCE_LINES
-                target = @navigation.url('/source', 'id' => nil, 'file' => Digest::SHA256.hexdigest(source.fetch('path')))
-                body << "<p><a href=\"#{h(target)}#L#{location.fetch('start_line')}\">Supporting captured source (coherence unknown)</a></p>"
-              end
-            end
-            body << notice("Known potential effects omitted: #{analysis.fetch('known_effects_omitted')}") if analysis.fetch('known_effects_omitted').positive?
-          end
-          body << '</article>'
-        end
-        coverage = result.fetch('coverage')
-        if coverage['truncated'] || !coverage['declaration_scan_complete']
-          body << notice("Explanation incomplete: #{coverage.fetch('rows_not_searched')} rows not searched; #{coverage.fetch('rows_metadata_omitted')} metadata rows and #{coverage.fetch('rows_output_omitted')} output rows omitted. Possible effects remain unknown.")
-        end
-        if coverage.dig('method_directory', 'status') == 'complete' && coverage['declaration_scan_complete']
-          body << notice('Captured method candidate lookup completed for selected callbacks; original capture coverage is separate.')
-        end
-        if coverage.fetch('source_rows_not_searched', 0).positive?
-          body << notice("Source evidence not searched for #{coverage.fetch('source_rows_not_searched')} returned callbacks; possible effects remain unknown.")
-        end
-        body << notice('Capture is partial or unknown; searched source cannot establish all possible effects.') if coverage['capture_partial_or_unknown']
-        body + '</section>'
+        render_projection(result)
       end
 
-      def conditions(entry)
+      def source_link(source, line, label)
+        unless line.is_a?(Integer) && line.positive?
+          raise Thistle::InvalidSnapshot, 'Invalid callback physical source line'
+        end
+        return notice('Supporting Source exceeds this web view byte/line budget; use the Reader Source interface.') if
+          line > MAX_SOURCE_LINES || source.fetch('lines') > MAX_SOURCE_LINES || source.fetch('bytes', 0) > ConstantOccurrence::WEB_SOURCE_BYTES
+        file = Digest::SHA256.hexdigest(source.fetch('path'))
+        target = if @navigation.model_id
+                   @navigation.url('/source', { 'id' => nil, 'file' => file }, source_position: [file, line])
+                 else
+                   @navigation.url('/source', 'id' => nil, 'file' => file)
+                 end
+        "<p><a href=\"#{h(target)}#L#{line}\">#{h(label)} · #{h(source.fetch('path'))}:#{line}</a></p>"
+      end
+
+      def conditions(entry, source_hints_only: false)
         %w[if unless].map do |polarity|
           values = entry[polarity]
           if values.nil?
@@ -131,12 +164,12 @@ module Thistle
           elsif values.empty?
             "#{polarity}: None registered"
           else
-            "#{polarity}: " + values.map { |value| reference(value) }.join('; ')
+            "#{polarity}: " + values.map { |value| reference(value, source_hints_only: source_hints_only) }.join('; ')
           end
         end.join('<br>')
       end
 
-      def reference(value)
+      def reference(value, source_hints_only: false)
         text = case value.fetch('kind')
         when 'method' then "Method :#{value.fetch('name')} · effective owner: #{value['owner'] || 'Unknown'}"
         when 'proc' then 'Proc; body opaque and not evaluated'
@@ -149,6 +182,7 @@ module Thistle
         hint = value['source']
         return result + ' · Source unavailable' unless hint
         result << " · location hint #{h(hint.fetch('path'))}:#{h(hint.fetch('line'))}"
+        return result + ' · Source hint only; captured file not expanded in this view' if source_hints_only
         if captured_line?(hint)
           target = @navigation.url('/source', 'id' => nil, 'file' => Digest::SHA256.hexdigest(hint.fetch('path')))
           result << " · <a href=\"#{h(target)}#L#{hint.fetch('line')}\">Captured source (coherence unknown)</a>"

@@ -18,6 +18,11 @@ implementation meets every goal. The [README](../README.md) describes the curren
 slice; the [capability ledger](capability-ledger.md) owns launch outcomes and
 their evidence requirements.
 
+The [replacement contract](development/replacement-contract.md) makes the complete
+human and agent investigations concrete. It incorporates the reading and context
+improvements required of the original designs; merged components are not a
+substitute for completing those investigations.
+
 ## Complete useful work at the best achievable cost
 
 Pursue the best achievable complete-workflow latency, startup, capture and

@@ -1,5 +1,40 @@
 # Development tooling and cohort decisions
 
+## Source-first model investigation (PR 128 / LOS-153)
+
+Reuse the existing public Core comprehension, neighborhood, callback and reference
+projections. Rust supplies the selected evidence and uncertainty; Map composes a
+readable investigation without another analyzer, index or runtime resolver.
+Physical source precedes the contribution/method outline, search remains visible,
+and schema/association/callback evidence returns to one validated model context.
+See the [model-reading contract](https://github.com/lost-in-the/thistle/blob/c2670bab6d0b591668b1b019d31d60256eedcf2b/map/docs/model-reading.md)
+and [complete replacement goal](replacement-contract.md).
+
+The opening canonical view uses two bounded comprehension queries and at most
+eight unique admitted source reads under 64 KiB/2000 aggregate lines. A selected
+family performs its own bounded query; the callback component's internal work is
+not reduced to a call-count claim. Reader opening and lazy directory construction
+repeat on subsequent GETs. There is no speculative cache or assumed Rust speedup;
+DTO strings, highlighting and HTML still allocate. Complete-work cost remains
+unmeasured.
+
+A full model-brief/fact fanout on opening would add work before the developer has
+chosen an evidence question. Fetching each method's source separately would copy
+and highlight shared files repeatedly. Guessing a model owner from a physical
+Source path would mislabel evidence. Instead retain qualified candidates, read
+each admitted physical path once, and carry validated model/family/cursor and
+physical-position context separately from query state. A return outside the
+admitted reading page uses a visible notice and exact Source recovery.
+
+Keep helpers under the existing Map library glob, and install the model-reading
+guide through the same three explicit document selectors. The public replacement
+contract is installed in Core and linked from the mission; it contains product
+outcomes, not host/provider or private operational records. Revisit the projection
+split when an actual customer question needs a missing authoritative Core witness,
+or measured complete-job cost justifies batching or a cache with explicit
+invalidation. Unknowns are current evidence boundaries, not permanent semantic
+substitutes. Installed, served and person acceptance remains separate.
+
 ## Explicit saved-file freshness (PR 127 / LOS-143 Core)
 
 Reuse the immutable Reader's existing selected-file metadata, descriptor-relative

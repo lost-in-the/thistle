@@ -45,6 +45,20 @@ module Thistle
         end
 
         path = env.fetch('PATH_INFO', '/')
+        model_id = nil
+        source_position = nil
+        reading_family, reading_cursor = 'contributions', nil
+        if path.start_with?('/models/')
+          match = NavigationContext::MODEL_ROUTE.match(path)
+          return finish(env, 404, 'This model reading page does not exist.') unless match && NavigationContext.model_page?(match['page'])
+          model_id, file_position, line_position, path = match.values_at('model', 'file', 'line', 'page')
+          reading_family = match['family'] || 'contributions'
+          reading_cursor = [match['return_cursor']].pack('H*') if match['return_cursor'] && match['return_cursor'] != 'first'
+          if file_position
+            return finish(env, 400, 'Invalid model reading source position.') if line_position.to_i > 10_000
+            source_position = [file_position, line_position.to_i]
+          end
+        end
         if @assets.key?(path)
           content, type = @assets.fetch(path)
           return finish(env, 200, content, type: type)
@@ -54,10 +68,15 @@ module Thistle
         continuation_path ||= path == '/route-actions'
         continuation_path ||= %w[/passage/sequence /passage/export].include?(path)
         continuation_path ||= NavigationContext::NEIGHBORHOOD_ROUTE.match?(path)
+        continuation_path ||= %w[/model-callbacks /model-callbacks/full].include?(path)
         return finish(env, 404, 'This page does not exist.') unless continuation_path || %w[/ /source /links /check /investigation].include?(path)
 
         mount = mount_path(env)
         params = parameters(env.fetch('QUERY_STRING', ''))
+        if model_id && !params['generation']
+          raise BadRequest, 'Model reading requires an explicit saved generation.'
+        end
+        NavigationContext.validate_cursor!(reading_cursor, generation: params['generation'], scope: ['source_comprehension', model_id, reading_family]) if reading_cursor
         if path == '/investigation' && (params.keys - (%w[generation selection] + NavigationContext::SEARCH_FIELDS)).any?
           raise BadRequest, 'Investigation accepts only saved selection and bounded search context.'
         end
@@ -92,9 +111,12 @@ module Thistle
           params.delete('file')
         end
         selection ||= Investigation.new(generation: reader.generation)
-        view = View.new(reader: reader, mount: mount, params: params, selection: selection, path: path)
+        view = View.new(reader: reader, mount: mount, params: params, selection: selection, path: path, model_id: model_id,
+          source_position: source_position, reading_family: reading_family, reading_cursor: reading_cursor)
         content = if continuation
-                    if continuation[:neighborhood]
+                    if continuation[:model_callbacks]
+                      view.model_callbacks_page(limit: continuation[:model_callbacks])
+                    elsif continuation[:neighborhood]
                       view.model_neighborhood_page(**continuation[:neighborhood])
                     elsif continuation[:passage]
                       view.passage_page(continuation[:passage])
