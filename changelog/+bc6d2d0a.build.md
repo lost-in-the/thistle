@@ -1,0 +1,1 @@
+Protect the retained compatibility fixture from routine dependency updates and keep one dependency bot responsible for each enabled ecosystem. Security fixes remain reviewed proposals; fixture fixes require an explicit baseline revision.
