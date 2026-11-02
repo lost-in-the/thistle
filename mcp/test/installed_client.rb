@@ -9,7 +9,7 @@ require 'timeout'
 require 'thistle'
 require 'thistle/mcp'
 
-module LOS146InstalledProbe
+module SavedGenerationReaderInstalledProbe
   def self.run(argv)
     options = {}
     parser = OptionParser.new do |p|
@@ -56,7 +56,7 @@ module LOS146InstalledProbe
         raise 'protocol error or mismatched request identity' unless response['id'] == next_id && !response.key?('error')
         response.fetch('result')
       end
-      request.call('initialize', { protocolVersion: '2025-11-25', capabilities: {}, clientInfo: { name: 'los146-installed-probe', version: '1' } })
+      request.call('initialize', { protocolVersion: '2025-11-25', capabilities: {}, clientInfo: { name: 'saved-generation-installed-probe', version: '1' } })
       stdin.puts(JSON.generate({ jsonrpc: '2.0', method: 'notifications/initialized' }))
       stdin.flush
       names = request.call('tools/list', {}).fetch('tools').map { |tool| tool.fetch('name') }.sort
@@ -144,9 +144,9 @@ end
 
 if $PROGRAM_NAME == __FILE__
   begin
-    exit LOS146InstalledProbe.run(ARGV)
+    exit SavedGenerationReaderInstalledProbe.run(ARGV)
   rescue StandardError
-    warn 'LOS146 installed probe failed or incomplete; retain private diagnostics and candidate identity.'
+    warn 'Saved-generation installed probe failed or incomplete; retain private diagnostics and candidate identity.'
     exit 1
   end
 end

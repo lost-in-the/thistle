@@ -30,18 +30,18 @@ module MCP
 end
 
 class StdioTest < Minitest::Test
-  def teardown = LOS146Pure.assert_isolation!
+  def teardown = SavedGenerationReaderPure.assert_isolation!
 
   def test_cleanup_on_eof_interrupt_sdk_exit_and_connection_end
     [nil, Interrupt.new, SystemExit.new(130), Thistle::MCP::ConnectionEnd.new].each do |failure|
-      reader = LOS146Pure::Reader.new
+      reader = SavedGenerationReaderPure::Reader.new
       klass = Class.new
       klass.define_singleton_method(:new) { |*args, **kwargs| reader }
       transport = Object.new
       transport.define_singleton_method(:open) { raise failure if failure }
       closed = false
       transport.define_singleton_method(:close) { closed = true }
-      run = -> { Thistle::MCP::Stdio.run(['--store', 'fixture-store', '--generation', LOS146Pure::GENERATION],
+      run = -> { Thistle::MCP::Stdio.run(['--store', 'fixture-store', '--generation', SavedGenerationReaderPure::GENERATION],
         reader_class: klass, server_builder: ->(*args, **kwargs) { Object.new },
         transport_factory: ->(_) { transport }, diagnostics: StringIO.new) }
       if failure.is_a?(SystemExit)
@@ -62,14 +62,14 @@ class StdioTest < Minitest::Test
   end
 
   def test_failed_transport_cleanup_still_closes_reader_and_reports_controlled_failure
-    reader = LOS146Pure::Reader.new
+    reader = SavedGenerationReaderPure::Reader.new
     klass = Class.new
     klass.define_singleton_method(:new) { |*args, **kwargs| reader }
     transport = Object.new
     transport.define_singleton_method(:open) { nil }
     transport.define_singleton_method(:close) { raise 'private exception detail' }
     diagnostics = StringIO.new
-    result = Thistle::MCP::Stdio.run(['--store', 'fixture-store', '--generation', LOS146Pure::GENERATION],
+    result = Thistle::MCP::Stdio.run(['--store', 'fixture-store', '--generation', SavedGenerationReaderPure::GENERATION],
       reader_class: klass, server_builder: ->(*args, **kwargs) { Object.new },
       transport_factory: ->(_) { transport }, diagnostics: diagnostics)
     assert_equal 1, result

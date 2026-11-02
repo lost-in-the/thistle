@@ -4,7 +4,7 @@ require 'minitest/autorun'
 require_relative '../lib/thistle/mcp'
 require_relative '../../lib/thistle/errors'
 
-module LOS146Pure
+module SavedGenerationReaderPure
   GENERATION = 'a' * 64
   ID = 'b' * 64
   OTHER = 'c' * 64
@@ -74,8 +74,8 @@ module LOS146Pure
   end
 end
 
-module LOS146SessionHelpers
-  include LOS146Pure
+module SavedGenerationReaderSessionHelpers
+  include SavedGenerationReaderPure
 
   def setup
     @reader = Reader.new
@@ -84,7 +84,7 @@ module LOS146SessionHelpers
 
   def teardown
     @session.close
-    LOS146Pure.assert_isolation!
+    SavedGenerationReaderPure.assert_isolation!
   end
 
   def call(tool, **args)
@@ -93,7 +93,7 @@ module LOS146SessionHelpers
 end
 
 class SessionTest < Minitest::Test
-  include LOS146SessionHelpers
+  include SavedGenerationReaderSessionHelpers
 
   def test_startup_refuses_current_and_closes_acquired_reader_on_generation_mismatch
     klass = Class.new do

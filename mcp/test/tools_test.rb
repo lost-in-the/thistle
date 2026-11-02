@@ -3,7 +3,7 @@
 require_relative 'session_test'
 
 class ToolsTest < Minitest::Test
-  include LOS146SessionHelpers
+  include SavedGenerationReaderSessionHelpers
 
   def test_late_duplicate_candidates_and_continuation_are_not_dropped
     cursor = '["recorded-v1","opaque-first-page"]'

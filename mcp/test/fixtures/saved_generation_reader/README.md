@@ -1,4 +1,4 @@
-# LOS146 saved-generation investigation cards
+# Saved-generation investigation cards
 
 Status: **AUTHORED UNRUN** against installed Core, SDK transport and a real
 Codex/Claude client. Pure doubles do not produce this evidence. All 17 launch
