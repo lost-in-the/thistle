@@ -1011,3 +1011,71 @@ provider's effective policy. Prompt-only read-only/no-delegation instructions an
 deadlines remain conduct requirements, not enforced controls. No adapter, provider
 setting or credential change is introduced; reconsider a thin native adapter only
 with separately scoped authority and actual launch/control evidence.
+
+
+## Dependency automation ownership and retained fixtures
+
+LOS-164 repairs the two unresolved configuration findings from PR #126. Keep
+Dependabot's existing weekly ownership of GitHub Actions and pip requirements;
+Renovate's explicit manager allowlist covers Bundler, Cargo, Dockerfile and the
+Rust toolchain. New ecosystems require an ownership decision before enabling
+another manager. No hosted app, alert, permission or credential setting changes.
+
+The retained Rails 7.1 compatibility profile under `testbed/` is an evidence
+input, not the routine development cohort. Renovate's single negative
+`includePaths` glob excludes that whole tree **before extraction**, including
+future package/lock files and security proposals. The recommended preset's
+vendor/module/test exclusions remain inherited. Do not add a positive include
+pattern alongside it: Renovate ORs include patterns. This protection is by path,
+not by today's package names or versions.
+
+Security maintenance remains deliberate: Renovate vulnerability proposals stay
+enabled for its included managers, with automerge explicitly false both globally
+and for vulnerability fixes. Dependabot remains the proposal owner for Actions
+and pip. Bot proposals require ordinary review, exact-head checks and Leah's
+specific merge approval. Actions still need the source/runtime and
+`action-pins.json` review; pip updates still need matching wheel hashes. The
+configuration does not establish that GitHub dependency graph/alerts or app
+alert-read permissions are enabled; alert-driven proposals depend on those
+existing hosted prerequisites.
+
+An advisory affecting the excluded fixture must be triaged by its maintainer
+from the advisory/upstream source. If a fix is needed, open a separately reviewed
+fixture-baseline revision recording the advisory, changed pins/resolution,
+fixture identity, fresh installed/compatibility evidence and acceptance owner.
+Preserve earlier locks/artifacts/results under their old identities. An unsafe
+profile must be withheld from execution pending that decision; exclusion is not
+an assertion that old dependencies are safe. Passing dependency CI alone never
+accepts a changed baseline. Existing fixture-only PRs #132/#133 should be closed
+as superseded routine proposals after this protection is integrated, or replaced
+by that explicit revision if an advisory warrants it; this repair does not close
+them or adjudicate their dependency safety.
+
+Alternatives considered: replacing Dependabot would add an unnecessary migration;
+disabling every security update would lose useful proposals; per-package version
+rules would drift as fixture dependencies change; overriding nonmergeable
+`ignorePaths` would copy the preset's hygiene list or accidentally rediscover the
+vendored dependency tree. The native path filter and manager allowlist avoid a
+custom update engine. Operating cost is a small configuration-contract regression
+in the existing Python automation lane, plus the official Renovate validator and
+path/manager behavior check when this policy changes. Reconsider ownership on a
+new ecosystem or bot migration, and path protection on a fixture relocation or
+upstream path-filter semantics change.
+
+Run the fast regression with `python3 -m unittest discover -s tests/automation -v`.
+For a policy change, install Renovate 44.199.2 outside the checkout and use its
+supported Node 24 runtime to run
+`node tests/automation/dependency-policy.mjs /path/to/installed/renovate` from the
+repository root. The probe invokes the official validator in strict repository
+mode, resolves the actual recommended preset, exercises the vendor path/manager
+APIs and rejects eleven unsafe mutations. Its version assertion requires an
+explicit review when adopting another Renovate API/version. This avoids adding
+Renovate's large dependency tree to every notes-only CI run; the three fast
+invariants always run in that existing lane. This probe tests configuration
+semantics, not a hosted update campaign or advisory completeness.
+
+Sources: [Renovate manager allowlist](https://docs.renovatebot.com/configuration-options/#enabledmanagers),
+[path-filter implementation](https://github.com/renovatebot/renovate/blob/44.199.2/lib/workers/repository/extract/file-match.ts),
+[nonmergeable ignorePaths](https://docs.renovatebot.com/configuration-options/#ignorepaths),
+[vulnerability prerequisites and overrides](https://docs.renovatebot.com/configuration-options/#vulnerabilityalerts),
+and [official strict validator](https://docs.renovatebot.com/config-validation/).
