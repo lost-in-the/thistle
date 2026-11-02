@@ -85,6 +85,14 @@ module Thistle
         "workspace_root" => workspace_root, "max_bytes" => max_bytes)
     end
 
+    # Rust compares two already pinned Readers; neither store is reopened here.
+    def generation_comparison(other, selection:, family: "entity", direction: "incoming", limit: 8, max_bytes: 32768, cursor: nil)
+      raise Error, "Other comparison version must be a Reader" unless other.is_a?(Reader)
+      request("generation_comparison", "other_handle" => other.send(:comparison_handle),
+        "selection" => selection, "family" => family, "direction" => direction,
+        "limit" => limit, "max_bytes" => max_bytes, "cursor" => cursor)
+    end
+
     def source(id)
       request("source", "id" => id)
     end
@@ -137,6 +145,11 @@ module Thistle
     end
 
     private
+
+    def comparison_handle
+      raise Error, "Reader has been closed" if @closed
+      @handle
+    end
 
     def request(operation, arguments = {})
       raise Error, "Reader has been closed" if @closed

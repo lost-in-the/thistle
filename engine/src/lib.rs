@@ -10,6 +10,7 @@ mod passage;
 mod controller_filters;
 mod source_comprehension;
 mod source_freshness;
+mod generation_comparison;
 mod job_mail;
 mod job_mail_source;
 mod erb_template;
@@ -46,6 +47,16 @@ fn reader(request: &Value) -> Result<Arc<store::Reader>> {
     registry.readers.get(&handle).cloned().ok_or_else(|| CoreError::new("closed_reader", "Reader is closed or unknown"))
 }
 
+// Clone both handles under one lock, released before analysis or Source I/O.
+fn reader_pair(request: &Value) -> Result<(Arc<store::Reader>, Arc<store::Reader>)> {
+    let left = request["handle"].as_u64().ok_or_else(|| CoreError::input("Reader handle is required"))?;
+    let right = request["other_handle"].as_u64().ok_or_else(|| CoreError::input("Other Reader handle is required"))?;
+    let registry = registry().lock().map_err(|_| CoreError::new("internal_error", "Reader registry is unavailable"))?;
+    let left = registry.readers.get(&left).cloned().ok_or_else(|| CoreError::new("closed_reader", "Left Reader is closed or unknown"))?;
+    let right = registry.readers.get(&right).cloned().ok_or_else(|| CoreError::new("closed_reader", "Right Reader is closed or unknown"))?;
+    Ok((left, right))
+}
+
 pub fn dispatch(request: &Value) -> Result<Value> {
     ensure_process()?;
     let _scratch = request_scratch(request)?;
@@ -66,6 +77,7 @@ fn request_scratch(request: &Value) -> Result<Option<query::Reservation>> {
         Some("find_evidence") => query::Query::parse(request)?.scratch()?,
         Some("source_file") => reader(request)?.source_file_scratch(schema::string(request, "file_path")?)?,
         Some("source_freshness") => { source_freshness::Query::parse(request)?; source_freshness::SCRATCH },
+        Some("generation_comparison") => generation_comparison::Query::parse(request)?.scratch(),
         _ => return Ok(None),
     };
     Ok(Some(query::budget().reserve(bytes)?))
@@ -136,6 +148,11 @@ fn dispatch_inner(request: &Value) -> Result<Value> {
         "find_evidence" => query::search(&*reader(request)?, &query::Query::parse(request)?),
         "source_file" => reader(request)?.source_file(schema::string(request, "file_path")?),
         "source_freshness" => source_freshness::select(&*reader(request)?, &source_freshness::Query::parse(request)?),
+        "generation_comparison" => {
+            let query = generation_comparison::Query::parse(request)?;
+            let (left, right) = reader_pair(request)?;
+            generation_comparison::select(&left, &right, &query)
+        },
         "source" => reader(request)?.source(schema::string(request, "id")?),
         "links" => reader(request)?.links(schema::string(request, "id")?),
         "model_brief" => model_brief::select(&*reader(request)?, &model_brief::Query::parse(request)?),
@@ -218,5 +235,43 @@ mod tests {
             thistle_response_free(response);
             thistle_response_free(std::ptr::null_mut());
         }
+    }
+
+    #[test]
+    fn comparison_pair_refuses_invalid_handles_and_holds_response_reservation() {
+        let request = json!({"op":"generation_comparison", "handle":u64::MAX,
+            "other_handle":u64::MAX-1, "selection":{"kind":"class","name":"Order"}});
+        let mut reservation = None;
+        let response = envelope_reserved(&serde_json::to_vec(&request).unwrap(), &mut reservation);
+        assert_eq!(response["error"]["code"], "closed_reader");
+        assert!(reservation.is_some()); // Held through caller serialization.
+        drop(reservation);
+        let mut bad = request;
+        bad["selection"]["kind"] = json!("unsupported");
+        let mut reservation = None;
+        assert_eq!(envelope_reserved(&serde_json::to_vec(&bad).unwrap(), &mut reservation)["error"]["code"], "invalid_input");
+        assert!(reservation.is_none());
+    }
+
+    #[test]
+    fn comparison_pair_arcs_survive_closing_both_registry_entries() {
+        let dir = tempfile::tempdir().unwrap();
+        let capture = json!({"root_id":schema::digest(b"pair-boundary"),
+            "producer":{"name":"public-pair-boundary"},"files":[],"facts":[],
+            "coverage":[{"family":"source_inventory","status":"complete","scope":"empty public pair fixture","reason":null},
+                {"family":"ruby_declarations","status":"complete","scope":"empty public pair fixture","reason":null}],"diagnostics":[]});
+        let generation = store::publish(dir.path(), &capture).unwrap()["generation"].as_str().unwrap().to_owned();
+        let open = json!({"op":"open","path":dir.path(),"generation":generation});
+        let left = dispatch(&open).unwrap()["handle"].as_u64().unwrap();
+        let right = dispatch(&open).unwrap()["handle"].as_u64().unwrap();
+        let request = json!({"op":"generation_comparison","handle":left,"other_handle":right,
+            "selection":{"kind":"class","name":"Order"}});
+        let pair = reader_pair(&request).unwrap();
+        for handle in [left, right] { dispatch(&json!({"op":"close","handle":handle})).unwrap(); }
+        let query = generation_comparison::Query::parse(&request).unwrap();
+        let answer = generation_comparison::select(&pair.0, &pair.1, &query).unwrap();
+        assert_eq!(answer["pair"]["left"]["generation"], generation);
+        assert_eq!(answer["pair"]["right"]["generation"], generation);
+        assert!(reader_pair(&request).is_err());
     }
 }
