@@ -72,7 +72,7 @@ raw_columns = Order.columns.map do |column|
 end
 partial = Marshal.load(Marshal.dump(capture))
 partial.fetch('coverage').each { |row| row['status'] = 'partial' if row['family'] == 'ruby_declarations' }
-partial.fetch('coverage').first.merge!('status' => 'partial', 'reason' => 'Intentionally partial public LOS149 fixture derivative')
+partial.fetch('coverage').first.merge!('status' => 'partial', 'reason' => 'Intentionally partial public model-neighborhood fixture derivative')
 saved_partial = Thistle::Store.new(store).publish(partial).fetch('generation')
 path = File.join(root, 'app/services/report_builder.rb')
 File.write(path, File.read(path).sub('saved_a', 'saved_b'))

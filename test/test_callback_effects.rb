@@ -173,7 +173,7 @@ class ThistleCallbackEffectsTest < Minitest::Test
       assert_equal true, first.dig('coverage', 'capture_partial_or_unknown')
       assert_equal capture.fetch('facts').size, first.dig('coverage', 'method_directory', 'facts_visited')
       assert_operator first.dig('coverage', 'facts_visited'), :<, 20_000
-      warn 'LOS64_PUBLIC_WHOLE ' + JSON.generate(ordinal: saved.fetch('ordinal'), reader_opens: 2, queries: 3,
+      warn 'CALLBACK_EFFECTS_PUBLIC_WHOLE ' + JSON.generate(ordinal: saved.fetch('ordinal'), reader_opens: 2, queries: 3,
         first: first.fetch('coverage'), reuse: again.fetch('coverage'), reopen: fresh.fetch('coverage'))
       duplicate = Marshal.load(Marshal.dump(target))
       duplicate['id'] = 'f' * 64

@@ -1,4 +1,4 @@
-# Public LOS149 fixture — correction AUTHORED UNRUN
+# Public model-neighborhood fixture — correction AUTHORED UNRUN
 
 Root must admit separate installed producer and fresh Rails-free consumer
 processes. These files grant no build/native/framework/store/DB/server/browser

@@ -2,7 +2,7 @@
 
 require 'minitest/autorun'
 require_relative '../../lib/thistle/errors'
-require_relative '../../test/fixtures/los144_route_actions/source_answers'
+require_relative '../../test/fixtures/route_actions/source_answers'
 require_relative '../lib/thistle/map/route_actions_presenter'
 
 class RouteActionsEvidenceTest < Minitest::Test

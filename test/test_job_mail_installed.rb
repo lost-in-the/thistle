@@ -41,7 +41,7 @@ if $PROGRAM_NAME == __FILE__
     installed!
     require File.join(fixture, 'booted_app.rb')
     app = JobMailFixture.boot
-    demand(Rails.version == '8.1.4', 'LOS148 first installed fixture requires Rails 8.1.4')
+    demand(Rails.version == '8.1.4', 'Job mail first installed fixture requires Rails 8.1.4')
     require 'thistle/job_mail_observer'
     observed = Thistle::JobMailObserver.new(app: app, root: fixture,
       jobs: [ReceiptJob, RegistryOverrideJob], mailers: [ReceiptMailer], framework_version: Rails.version,
@@ -110,16 +110,16 @@ if $PROGRAM_NAME == __FILE__
   else
     # Each subprocess is a fresh Ruby interpreter, without checkout -I flags.
     # Driver inherits the Root-owned process/output/deadline controls.
-    fixture_source = File.expand_path('fixtures/los148_job_mail', __dir__)
+    fixture_source = File.expand_path('fixtures/job_mail', __dir__)
     script = File.expand_path(__FILE__)
-    Dir.mktmpdir('los148-installed-') do |directory|
+    Dir.mktmpdir('job-mail-installed-') do |directory|
       copied = File.join(directory, 'fixture')
       FileUtils.cp_r(fixture_source, copied)
       saved_store = File.join(directory, 'store')
       out, err, result = Open3.capture3(RbConfig.ruby, script, 'capture', copied, saved_store)
       demand(result.success?, "Capture subprocess failed: #{err}")
       tuple = JSON.parse(out.lines.last)
-      projection_path = ENV.fetch('LOS148_MAP_PATH', '/job-mail/overview')
+      projection_path = ENV.fetch('THISTLE_JOB_MAIL_MAP_PATH', '/job-mail/overview')
       %w[read served].each do |step|
         out, err, result = Open3.capture3(RbConfig.ruby, script, step, copied, saved_store, tuple.fetch('a'), projection_path)
         demand(result.success?, "#{step} subprocess failed: #{err}")

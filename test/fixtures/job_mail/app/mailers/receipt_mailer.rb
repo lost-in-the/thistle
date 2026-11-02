@@ -17,5 +17,5 @@ class ReceiptMailer < ActionMailer::Base
     mail(template_path: 'receipt_mailer', template_name: @template_name)
   end
 
-  def self.method_missing(*) = raise('LOS148 mailer action/delivery dispatched')
+  def self.method_missing(*) = raise('Job mail mailer action/delivery dispatched')
 end

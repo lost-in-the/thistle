@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 if $PROGRAM_NAME == __FILE__
-  require_relative '../../test/fixtures/los144_route_actions/source_answers'
+  require_relative '../../test/fixtures/route_actions/source_answers'
   require_relative '../lib/thistle/map/navigation_context'
   a = RouteActionsAnswers
   klass = Thistle::Map::NavigationContext

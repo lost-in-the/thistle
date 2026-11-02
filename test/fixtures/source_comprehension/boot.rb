@@ -6,12 +6,12 @@ require 'active_support/concern'
 require 'logger'
 require 'stringio'
 
-module Los147
+module SourceComprehensionFixture
   def self.boot(root)
     app = Class.new(Rails::Application).new
     app.config.root = root
     app.config.eager_load = false
-    app.config.secret_key_base = 'los147-public-fixture-only' * 8
+    app.config.secret_key_base = 'source-comprehension-public-fixture-only' * 8
     app.config.logger = Logger.new(StringIO.new)
     app.initialize!
     %w[parent concerns order caller].each { |name| load File.join(root, "#{name}.rb") }

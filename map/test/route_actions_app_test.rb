@@ -6,7 +6,7 @@ if $PROGRAM_NAME == __FILE__
   require 'cgi'
   require 'erb'
   require_relative '../../lib/thistle/errors'
-  require_relative '../../test/fixtures/los144_route_actions/source_answers'
+  require_relative '../../test/fixtures/route_actions/source_answers'
   $LOADED_FEATURES << File.expand_path('../lib/thistle/map/highlighter.rb', __dir__)
   module Thistle
     module Map

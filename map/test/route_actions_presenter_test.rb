@@ -3,7 +3,7 @@
 if $PROGRAM_NAME == __FILE__
   require 'cgi'
   require_relative '../../lib/thistle/errors'
-  require_relative '../../test/fixtures/los144_route_actions/source_answers'
+  require_relative '../../test/fixtures/route_actions/source_answers'
   require_relative '../lib/thistle/map/route_actions_presenter'
   a = RouteActionsAnswers
   presenter = Thistle::Map::RouteActionsPresenter

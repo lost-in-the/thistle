@@ -101,6 +101,14 @@ assertions that merely mirror implementation details. Reuse the same test comman
 and artifacts across tiers so thorough release verification does not create a
 second, diverging suite.
 
+Name first-party active tests, fixture paths, namespaces, helpers and operational
+fixture labels for stable behavior or capability (for example, `source_freshness`),
+not the introducing ticket or PR. Update current references when renaming; preserve
+historical attribution, frozen evidence, commit-pinned URLs, upstream vendor names
+and PR-numbered changelog fragments. Framework cohorts such as `rails71` remain
+semantic names. The automation naming guard checks active paths and declarations,
+not ticket mentions in prose.
+
 ## CI execution model
 
 The workflows and scripts under `.github/` implement candidate-owned feedback.
