@@ -32,7 +32,7 @@ shell tool or provider credentials are supplied. Protect the local store and the
 client that receives its source with the same care as the application source.
 
 Read the [tool and lifecycle contract](docs/local-reader.md) and the
-[authored acceptance cards](https://github.com/lost-in-the/thistle/blob/d2fea61b4087844920eb3058ae38364c9ffbc01c/mcp/test/fixtures/los146_reader/README.md). The secret-free
+[authored acceptance cards](https://github.com/lost-in-the/thistle/blob/2e8fefa89282409edbc5dca1f73f1bee19800af4/mcp/test/fixtures/saved_generation_reader/README.md). The secret-free
 client example changes no global configuration.
 
 Pure source checks, using already available Ruby/Minitest and no SDK/native:

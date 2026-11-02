@@ -198,7 +198,7 @@ are excluded. The private development publication block remains. Neither Core
 nor Map activates the adapter or SDK. Dependency resolution/install is separate;
 retain the resolved lock and exact Core/native/adapter hashes with actual evidence.
 
-The [acceptance protocol](https://github.com/lost-in-the/thistle/blob/d2fea61b4087844920eb3058ae38364c9ffbc01c/mcp/test/fixtures/los146_reader/investigation_protocol.md)
+The [acceptance protocol](https://github.com/lost-in-the/thistle/blob/2e8fefa89282409edbc5dca1f73f1bee19800af4/mcp/test/fixtures/saved_generation_reader/investigation_protocol.md)
 and cards remain authored/unrun: installed exact pair/native/parser/reader
 regressions, SDK protocol/lifecycle, fresh Rails/AR-free consumer, actual authorized
 Codex or Claude investigation, A pinned after CURRENT B, late duplicates, partial
